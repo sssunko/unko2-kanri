@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <!--
+  ================================================================
+  運行管理システム index.html
+  ================================================================
+
+  ■ 番号体系
+
+  ── 共通・補助 ──────────────────────────────
+    A-1  : ベーススタイル（背景・フォント・カード・見出し）
+    A-2  : ボタンエフェクト（共通・ホーム・紐づけ）
+    A-3  : フォーム（入力欄・情報行）
+
+  ── スプレッドシート側（なし）───────────────────
+
+  ── 端末アプリ：画面レイアウト（HTML）───────────────
+    B-1  : 画面タイトル（各画面の上部に表示）
+    B-2  : ホーム画面（ドライバー情報・連絡事項・運行開始・一覧・紐づけ）
+    B-3  : 行程入力画面（積地・降地を入力して積完へ進む）
+    B-4  : 積完画面（行程ごとに積完ボタン・戻るで1操作巻き戻し）
+    B-5  : 休憩開始画面（戻るで積完に戻る）
+    B-6  : 休憩終了画面（戻るで休憩開始に戻る）
+    B-7  : 降完画面（行程ごとに降完ボタン・全完了で即ホーム）
+    B-8  : 運行一覧画面（カレンダー・絞り込み・集計・テーブル・CSV/Excel）
+    B-9  : カレンダーポップアップ（日/月/年選択）
+    B-10 : 編集モーダル（運行データの閲覧・編集・削除）
+    B-11 : 連絡詳細画面（連絡事項・データの中身を表示）
+
+  ── 端末アプリ：スタイル（CSS）─────────────────────
+    A-4  : 運行操作画面用（行程入力・積完・休憩・降完）
+    A-5  : 運行一覧用（テーブル・集計・絞り込み・ナビ）
+    A-6  : カレンダーポップアップ
+    A-7  : 編集モーダル
+    A-8  : 新規行程の黄色点滅アニメーション
+    A-9  : テーブルヘッダー固定（スクロール時も表示）
+    A-10 : 連絡詳細カード
+
+  ── 端末アプリ：JavaScript（JS）────────────────────
+    C-1  : 初期データ取得（起動時・紐づけを絶対に消さない）
+    C-2  : ドライバー情報表示（displayData）
+    C-3  : ドライバー情報クリア（clearDisplay）
+    C-4  : 紐づけ処理（handleLink）
+    C-5  : 解除処理（handleUnlink・解除ボタン押下時のみ紐づけを消す）
+    C-6  : 変数定義（picks/drops/runRows/phase/listRows など）
+    C-7  : 画面切り替え（hideAll / showScreen / goHome）
+    C-8  : 状態保存（saveState・サーバに運行進捗を保存）
+    C-9  : 戻るボタン（goBack・1操作ずつ巻き戻し）
+    C-10 : 運行開始ボタン（startRun・途中状態があれば復帰）
+    C-11 : 行程入力（initRouteInput / reloadRouteInput / addRoute / deleteRoute）
+    C-12 : 行程入力→積完へ（startRunFromInput）
+    C-13 : 積完画面（showPickScreen / selectPick）
+    C-14 : 休憩開始（restStart）
+    C-15 : 休憩終了（restEnd）
+    C-16 : 降完画面（showDropScreen）
+    C-16a: 降完ボタン押下（selectDrop）
+    C-16b: 全完了リセット（clearRunStateAndHome）
+    C-17 : 運行一覧表示・月移動・データ読み込み（showList / prevMonth / nextMonth / loadList）
+    C-18 : 絞り込み・カラムフィルター・ソート・テーブル描画
+        C-18a: 絞り込みパネル開閉・フィルター適用・解除（toggleFilter / applyFilter / clearFilter）
+        C-18b: ソート切り替え（sortList）
+        C-18c: カラムフィルタードロップダウン表示（openColFilter）
+        C-18d: チェックリスト生成（renderColFilterList）
+        C-18e: チェックリスト内検索（colFilterSearch）
+        C-18f: 全選択/全解除（toggleCfAll）
+        C-18g: 個別チェック切り替え（toggleCfVal）
+        C-18h: カラムフィルター確定（applyColFilter）
+        C-18i: カラムフィルタークリア（clearColFilter）
+        C-18j: ドロップダウンからソート適用（applyColSort）
+        C-18k: ソートクリア（clearColSort）
+        C-18l: ドロップダウンを閉じる（closeColFilter）
+        C-18m: テーブル描画（renderTable）・利益列なし
+    C-19 : 連絡送信（openNoticeModal）
+    C-20 : データアップロード（openUploadModal）
+    C-21 : カレンダー（openCalendar / closeCalendar / renderCalendar など）
+    C-22 : 編集モーダル（openEditModal / closeEditModal / saveEditModal / deleteEditModal）
+    C-23 : 一覧から運行開始・再開（startRunFromList）
+    C-24 : ホームの連絡事項・連絡詳細（loadNotices / openHomeNoticeDetail / openNoticeDetail / closeNoticeDetail）
+    C-25 : CSV・Excelダウンロード（getFilteredRows / downloadCSV / downloadExcel）
+
+  ================================================================
+  -->
+  <style>
+    /* ============================================================
+       A-1: ベーススタイル（背景・フォント・カード・見出し）
+       ============================================================ */
+    body { font-family: "Helvetica Neue", Arial, sans-serif; background-color: #121212; color: #e0e0e0; padding: 15px; margin: 0; }
+    .header { text-align: center; margin-bottom: 25px; position: relative; }
+    .header h2 { margin: 0; color: #ffffff; font-size: 26px; text-shadow: 0 0 10px rgba(255,255,255,0.3); letter-spacing: 3px; }
+    .card { background: #1e1e1e; border-radius: 15px; padding: 18px; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    h3 { margin-top: 0; font-size: 17px; color: #bb86fc; margin-bottom: 12px; }
+
+    /* ============================================================
+       A-2: ボタンエフェクト（共通・ホーム・紐づけ）
+       ============================================================ */
+    button { transition: all 0.3s ease; cursor: pointer; outline: none; border: none; }
+    button:active { transform: translateY(3px) scale(0.97); }
+    .action-btn { width: 100%; padding: 28px; border-radius: 15px; color: white; font-size: 22px; font-weight: bold; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
+    .btn-start { background-color: #1565c0; }
+    .btn-start:hover { background-color: #1e88e5; box-shadow: 0 0 20px rgba(30, 136, 229, 0.6); }
+    .btn-list { background-color: #1b5e20; }
+    .btn-list:hover { background-color: #2e7d32; box-shadow: 0 0 20px rgba(46, 125, 50, 0.6); }
+    .btn-group { display: flex; gap: 10px; }
+    .mini-btn { flex: 1; padding: 12px; border-radius: 25px; color: white; font-weight: bold; }
+    .btn-link { background-color: #0d47a1; }
+    .btn-unlink { background-color: #880e4f; }
+
+    /* ============================================================
+       A-3: フォーム（入力欄・情報行）
+       ============================================================ */
+    input[type="text"] { width: 100%; padding: 12px; background-color: #2c2c2c; color: white; border: 1px solid #444; border-radius: 8px; margin-bottom: 12px; box-sizing: border-box; }
+    .info-line { margin-bottom: 8px; font-size: 15px; }
+    .info-label { color: #aaa; margin-right: 10px; min-width: 80px; display: inline-block; }
+
+    /* ============================================================
+       A-4: 運行操作画面用（行程入力・積完・休憩・降完）
+       ============================================================ */
+    .screen { display: none; }
+    .section-title { font-size: 20px; font-weight: 900; margin: 10px 0; color: #fff; }
+    .big-btn { width: 100%; padding: 24px; border-radius: 15px; color: white; font-size: 20px; font-weight: bold; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    .big-btn.blue { background-color: #1565c0; }
+    .big-btn.red { background-color: #d32f2f; }
+    .big-btn.orange { background-color: #f57c00; }
+    .big-btn.green { background-color: #2e7d32; }
+    .big-btn.dark { background-color: #37474f; }
+    .big-btn.purple { background-color: #6a1b9a; }
+    .chip-btn { padding: 8px 14px; border-radius: 25px; color: white; font-weight: bold; font-size: 14px; background-color: #d32f2f; margin-left: 8px; }
+    .route-row { margin-bottom: 10px; }
+    .reset-small { padding: 8px 14px; font-size: 14px; border-radius: 10px; background-color: #880e4f; color: white; float: right; margin-bottom: 10px; }
+
+    /* ============================================================
+       A-5: 運行一覧用（テーブル・集計・絞り込み・ナビ）
+       ============================================================ */
+    .list-card { background: #1e1e1e; border-radius: 15px; padding: 16px; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+    .list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .ym-display { font-size: 20px; font-weight: 900; color: #fff; cursor: pointer; text-align: center; flex: 1; }
+    .nav-btn { padding: 10px 18px; border-radius: 25px; font-size: 14px; font-weight: 900; color: white; background: #37474f; }
+    .filter-chip { padding: 8px 16px; border-radius: 25px; font-size: 13px; font-weight: 900; color: white; display: inline-block; margin: 3px; }
+    .fc-blue { background: #1565c0; } .fc-pink { background: #880e4f; }
+    .fc-green { background: #2e7d32; } .fc-purple { background: #6a1b9a; }
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .summary-item { background: #2a2a2a; border-radius: 12px; padding: 14px; text-align: center; }
+    .summary-label { font-size: 12px; color: #aaa; margin-bottom: 4px; }
+    .summary-value { font-size: 20px; font-weight: 900; color: #bb86fc; }
+    .run-act-btn { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; color: white; }
+    .rab-blue { background: #1565c0; } .rab-green { background: #2e7d32; }
+    .rab-purple { background: #6a1b9a; } .rab-teal { background: #00897b; }
+    select { width: 100%; padding: 12px; background: #2c2c2c; color: white; border: 1px solid #444; border-radius: 8px; margin-bottom: 10px; font-size: 15px; }
+
+    /* ============================================================
+       A-6: カレンダーポップアップ
+       ============================================================ */
+    .cal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; justify-content:center; align-items:center; }
+    .cal-overlay.show { display:flex; }
+    .cal-box { background:#1e1e1e; border-radius:18px; padding:20px; width:320px; max-height:90vh; overflow-y:auto; }
+    .cal-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .cal-nav-btn { padding:8px 14px; border-radius:20px; background:#37474f; color:white; font-weight:900; font-size:14px; }
+    .cal-title { font-size:18px; font-weight:900; color:#fff; cursor:pointer; }
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center; }
+    .cal-dow { font-size:12px; color:#888; padding:6px 0; }
+    .cal-day { padding:10px 0; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; color:#e0e0e0; }
+    .cal-day:hover { background:#333; }
+    .cal-day.today { border:2px solid #bb86fc; }
+    .cal-day.selected { background:#bb86fc; color:#121212; }
+    .cal-day.empty { cursor:default; }
+    .cal-month-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .cal-month-btn { padding:14px; border-radius:12px; background:#2a2a2a; color:#e0e0e0; font-size:15px; font-weight:700; text-align:center; cursor:pointer; }
+    .cal-month-btn:hover { background:#333; }
+    .cal-month-btn.selected { background:#bb86fc; color:#121212; }
+    .cal-year-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .cal-year-btn { padding:14px; border-radius:12px; background:#2a2a2a; color:#e0e0e0; font-size:15px; font-weight:700; text-align:center; cursor:pointer; }
+    .cal-year-btn:hover { background:#333; }
+    .cal-year-btn.selected { background:#bb86fc; color:#121212; }
+
+    /* ============================================================
+       A-7: 編集モーダル
+       ============================================================ */
+    .edit-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:300; overflow-y:auto; padding:16px; }
+    .edit-overlay.show { display:block; }
+    .edit-box { background:#1e1e1e; border-radius:18px; padding:20px; max-width:500px; margin:0 auto; }
+    .edit-row { display:flex; gap:10px; margin-bottom:10px; align-items:center; }
+    .edit-label { font-size:13px; color:#aaa; min-width:90px; flex-shrink:0; }
+    .edit-val { font-size:14px; color:#e0e0e0; flex:1; word-break:break-all; }
+    .edit-input { flex:1; padding:8px; background:#2c2c2c; color:white; border:1px solid #444; border-radius:8px; font-size:14px; box-sizing:border-box; }
+    .edit-btns { display:flex; gap:10px; margin-top:16px; }
+    .edit-btn { flex:1; padding:14px; border-radius:12px; font-size:16px; font-weight:900; color:white; text-align:center; }
+    .eb-close { background:#37474f; } .eb-save { background:#1565c0; } .eb-delete { background:#d32f2f; }
+
+    /* ============================================================
+       A-8: 新規行程の黄色点滅アニメーション
+       ============================================================ */
+    @keyframes glow {
+      0% { box-shadow: 0 0 4px #ffd600; }
+      50% { box-shadow: 0 0 16px #ffd600, 0 0 30px #ffd600; }
+      100% { box-shadow: 0 0 4px #ffd600; }
+    }
+
+    /* ============================================================
+       A-9: テーブルヘッダー固定（スクロール時も表示）
+       ============================================================ */
+    .list-table-wrap { max-height: 60vh; overflow-y: auto; overflow-x: auto; }
+    .list-table-wrap table thead th { position: sticky; top: 0; background: #2a2a2a; z-index: 10; }
+
+    /* ============================================================
+       A-10: 連絡詳細カード
+       ============================================================ */
+    .notice-detail { background:#1e1e1e; border-radius:15px; padding:20px; margin-bottom:15px; box-shadow:0 4px 15px rgba(0,0,0,0.5); }
+    .notice-detail-title { font-size:16px; font-weight:900; color:#bb86fc; margin-bottom:12px; }
+    .notice-detail-row { margin-bottom:10px; }
+    .notice-detail-label { font-size:12px; color:#aaa; margin-bottom:2px; }
+    .notice-detail-val { font-size:15px; color:#e0e0e0; word-break:break-all; }
+    .notice-detail-link { color:#4caf50; text-decoration:none; }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       B-1: 画面タイトル（各画面の上部に表示）
+       ============================================================ -->
+  <div id="screenName" style="display:none; text-align:center; font-size:22px; font-weight:900; color:#bb86fc; margin-bottom:10px;"></div>
+
+  <!-- ============================================================
+       B-2: ホーム画面（ドライバー情報・連絡事項・運行開始・一覧・紐づけ）
+       ============================================================ -->
+  <div id="home">
+    <div class="header"><h2>ホーム</h2></div>
+    <div class="card" style="padding:12px 18px;">
+      <h3>ドライバー情報（紐づけで確定）</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:4px 20px;">
+        <div class="info-line"><span class="info-label">会社名：</span><span id="companyName"></span></div>
+        <div class="info-line"><span class="info-label">車両：</span><span id="carSpecs"></span></div>
+        <div class="info-line"><span class="info-label">車番：</span><span id="carNumber"></span></div>
+        <div class="info-line"><span class="info-label">名前：</span><span id="driverName"></span></div>
+        <div class="info-line"><span class="info-label">携帯番号：</span><span id="driverTel"></span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>連絡事項</h3>
+      <div id="noticeArea"><div style="color:#888;">連絡事項はありません。</div></div>
+    </div>
+    <button class="action-btn btn-start" onclick="startRun()">運行開始</button>
+    <button class="action-btn btn-list" onclick="showList()">運行一覧</button>
+    <div class="card">
+      <h3>アドレス紐づけ</h3>
+      <input type="text" id="email" placeholder="メールアドレスを入力">
+      <div class="btn-group">
+        <button class="mini-btn btn-link" onclick="handleLink()">紐づけ</button>
+        <button class="mini-btn btn-unlink" onclick="handleUnlink()">解除</button>
+      </div>
+      <div id="statusText" style="color:#4caf50; font-size:13px; margin-top:10px; font-weight:bold;">状態：待機中</div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       B-3: 行程入力画面（積地・降地を入力して積完へ進む）
+       ============================================================ -->
+  <div id="step1" class="screen">
+    <div class="section-title">行程入力</div>
+    <div id="routeArea"></div>
+    <button class="big-btn purple" onclick="addRoute()">＋ 行程を追加</button>
+    <button class="big-btn blue" onclick="startRunFromInput()">積完へ進む</button>
+    <button class="big-btn dark" onclick="goHome()">ホーム</button>
+  </div>
+
+  <!-- ============================================================
+       B-4: 積完画面（行程ごとに積完ボタン・戻るで1操作巻き戻し）
+       ============================================================ -->
+  <div id="step2" class="screen">
+    <button class="reset-small" onclick="goBack()">戻る</button>
+    <div class="section-title">積完（選択式）</div>
+    <div id="pickButtons"></div>
+    <button class="big-btn dark" onclick="goHome()">ホーム</button>
+  </div>
+
+  <!-- ============================================================
+       B-5: 休憩開始画面（戻るで積完に戻る）
+       ============================================================ -->
+  <div id="step3" class="screen">
+    <button class="reset-small" onclick="goBack()">戻る</button>
+    <div class="section-title">休憩開始</div>
+    <button class="big-btn orange" onclick="restStart()">休憩開始</button>
+    <button class="big-btn dark" onclick="goHome()">ホーム</button>
+  </div>
+
+  <!-- ============================================================
+       B-6: 休憩終了画面（戻るで休憩開始に戻る）
+       ============================================================ -->
+  <div id="step4" class="screen">
+    <button class="reset-small" onclick="goBack()">戻る</button>
+    <div class="section-title">休憩終了</div>
+    <button class="big-btn green" onclick="restEnd()">休憩終了</button>
+    <button class="big-btn dark" onclick="goHome()">ホーム</button>
+  </div>
+
+  <!-- ============================================================
+       B-7: 降完画面（行程ごとに降完ボタン・全完了で即ホーム）
+       ============================================================ -->
+  <div id="step5" class="screen">
+    <button class="reset-small" onclick="goBack()">戻る</button>
+    <div class="section-title">降完（選択式）</div>
+    <div id="dropButtons"></div>
+    <button class="big-btn dark" onclick="goHome()">ホーム</button>
+  </div>
+
+  <!-- ============================================================
+       B-8: 運行一覧画面（カレンダー・絞り込み・集計・テーブル・CSV/Excel）
+       ============================================================ -->
+  <div id="listScreen" class="screen">
+    <div class="list-card">
+      <div class="list-header">
+        <button class="nav-btn" onclick="prevMonth()">◀ 前月</button>
+        <div class="ym-display" id="listYM" onclick="openCalendar()">―</div>
+        <button class="nav-btn" onclick="nextMonth()">次月 ▶</button>
+      </div>
+    </div>
+    <div class="list-card">
+      <h3 style="cursor:pointer;" onclick="toggleFilter()">絞り込み ▼</h3>
+      <div id="filterArea" style="display:none;">
+        <div style="font-size:13px;color:#aaa;margin-bottom:4px;">車番</div>
+        <select id="filterCarSelect"><option value="">すべて</option></select>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
+          <div style="flex:1;min-width:120px;">
+            <div style="font-size:13px;color:#aaa;margin-bottom:4px;">開始日</div>
+            <input type="date" id="filterDateFrom" style="width:100%;padding:10px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;">
+          </div>
+          <div style="font-size:16px;color:#888;padding-top:16px;">〜</div>
+          <div style="flex:1;min-width:120px;">
+            <div style="font-size:13px;color:#aaa;margin-bottom:4px;">終了日</div>
+            <input type="date" id="filterDateTo" style="width:100%;padding:10px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;">
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+          <button class="filter-chip fc-blue" onclick="applyFilter()">絞り込み</button>
+          <button class="filter-chip fc-pink" onclick="clearFilter()">解除</button>
+          <button class="filter-chip fc-green" onclick="downloadCSV()">CSV</button>
+          <button class="filter-chip fc-purple" onclick="downloadExcel()">Excel</button>
+        </div>
+      </div>
+    </div>
+    <div class="list-card" id="summaryCard"></div>
+    <div id="listBody"></div>
+    <button class="big-btn dark" onclick="goHome()" style="margin-top:16px;">ホーム</button>
+  </div>
+
+  <!-- ============================================================
+       B-9: カレンダーポップアップ（日/月/年選択）
+       ============================================================ -->
+  <div class="cal-overlay" id="calOverlay" onclick="closeCalendar(event)">
+    <div class="cal-box" id="calBox"></div>
+  </div>
+
+  <!-- ============================================================
+       B-10: 編集モーダル（運行データの閲覧・編集・削除）
+       ============================================================ -->
+  <div class="edit-overlay" id="editOverlay">
+    <div class="edit-box" id="editBox"></div>
+  </div>
+
+  <!-- ============================================================
+       B-11: 連絡詳細画面（連絡事項・データの中身を表示）
+       ============================================================ -->
+  <div id="noticeDetail" class="screen">
+    <div class="section-title">連絡詳細</div>
+    <div id="noticeDetailBody"></div>
+    <button class="big-btn dark" id="noticeBackBtn" onclick="closeNoticeDetail()">閉じる</button>
+  </div>
+
+  <script>
+// ============================================================
+//  C-1: 初期データ取得（起動時）
+//  ★解除ボタン以外では紐づけを絶対に消さない
+// ============================================================
+window.onload = function() {
+  google.script.run
+    .withSuccessHandler(function(init) {
+      if (init && init.email) {
+        document.getElementById('email').value = init.email;
+        if (init.profile) {
+          document.getElementById('companyName').innerText = init.profile.company || '';
+          document.getElementById('carSpecs').innerText   = (init.profile.tons || '') + ' ' + (init.profile.type || '');
+          document.getElementById('carNumber').innerText  = init.profile.carNo || '';
+          document.getElementById('driverName').innerText = init.profile.name || '';
+          document.getElementById('driverTel').innerText  = init.profile.tel || '';
+          document.getElementById('statusText').innerText = '状態：紐づけOK';
+        } else {
+          document.getElementById('statusText').innerText = '状態：マスタ未登録';
+        }
+      } else {
+        document.getElementById('statusText').innerText = '状態：未紐づけ';
+      }
+      loadNotices();
+    })
+    .withFailureHandler(function() {
+      console.warn('getInitialData 通信エラー');
+    })
+    .getInitialData();
+};
+
+// ============================================================
+//  C-2: ドライバー情報表示（displayData）
+// ============================================================
+function displayData(data) {
+  if (!data) return;
+  document.getElementById('statusText').innerText = '状態：' + (data.status || '');
+  if (data.email) document.getElementById('email').value = data.email;
+  document.getElementById('companyName').innerText = data.company || '';
+  document.getElementById('carSpecs').innerText = (data.tons || '') + ' ' + (data.type || '');
+  document.getElementById('carNumber').innerText = data.carNo || '';
+  document.getElementById('driverName').innerText = data.name || '';
+  document.getElementById('driverTel').innerText = data.tel || '';
+}
+
+// ============================================================
+//  C-3: ドライバー情報クリア（clearDisplay）
+// ============================================================
+function clearDisplay() {
+  ['companyName','carSpecs','carNumber','driverName','driverTel']
+    .forEach(function(id){ document.getElementById(id).innerText = ''; });
+}
+
+// ============================================================
+//  C-4: 紐づけ処理（handleLink）
+// ============================================================
+function handleLink() {
+  var email = document.getElementById('email').value.trim();
+  if (!email) return alert('アドレスを入力してください');
+  document.getElementById('statusText').innerText = '状態：照会中...';
+  google.script.run
+    .withSuccessHandler(function(data) {
+      if (typeof data === 'string') {
+        alert(data);
+        document.getElementById('statusText').innerText = '状態：' + data;
+      } else if (data && data.status === '紐づけOK') {
+        document.getElementById('email').value           = data.email || email;
+        document.getElementById('companyName').innerText = data.company || '';
+        document.getElementById('carSpecs').innerText    = (data.tons || '') + ' ' + (data.type || '');
+        document.getElementById('carNumber').innerText   = data.carNo || '';
+        document.getElementById('driverName').innerText  = data.name || '';
+        document.getElementById('driverTel').innerText   = data.tel || '';
+        document.getElementById('statusText').innerText  = '状態：紐づけOK';
+      } else {
+        document.getElementById('statusText').innerText = '状態：不明なエラー';
+      }
+    })
+    .withFailureHandler(function(err) {
+      alert('通信エラー：' + err);
+      document.getElementById('statusText').innerText = '状態：通信エラー';
+    })
+    .linkAddress(email);
+}
+
+// ============================================================
+//  C-5: 解除処理（handleUnlink）
+//  ★解除ボタンを押した時だけ紐づけを消す
+// ============================================================
+function handleUnlink() {
+  if (!confirm('紐づけを解除しますか？')) return;
+  google.script.run
+    .withSuccessHandler(function(msg) {
+      document.getElementById('statusText').innerText = '状態：' + msg;
+      document.getElementById('email').value = '';
+      document.getElementById('companyName').innerText = '';
+      document.getElementById('carSpecs').innerText    = '';
+      document.getElementById('carNumber').innerText   = '';
+      document.getElementById('driverName').innerText  = '';
+      document.getElementById('driverTel').innerText   = '';
+    })
+    .withFailureHandler(function() {
+      document.getElementById('statusText').innerText = '状態：解除エラー';
+    })
+    .unlinkAddress();
+}
+
+// ============================================================
+//  C-6: 変数定義
+//  picks/drops/runRows   : 行程・行番号
+//  pickDone/dropDone     : 完了フラグ
+//  phase                 : 運行フェーズ（pick/restStart/restEnd/drop）
+//  lastPickRow           : 最後に積完した行番号
+//  pickHistory/dropHistory: 操作履歴（戻るボタン用）
+//  listYear/listMonth    : 一覧表示中の年月
+//  filterCar/filterDateFrom/filterDateTo: 絞り込み条件
+//  sortCol/sortAsc       : ソート列・昇降順
+//  listRows              : 一覧データキャッシュ
+//  readIds               : 既読IDリスト
+//  noticeReturnTo        : 連絡詳細の戻り先
+//  colFilters            : カラムフィルター状態
+//  _cfPopupCol           : 現在開いているフィルターの列番号
+// ============================================================
+var picks=[], drops=[], runRows=[];
+var pickDone=[], dropDone=[];
+var phase='', lastPickRow=null;
+var pickHistory=[], dropHistory=[];
+var listYear, listMonth, filterCar='';
+var filterDateFrom='', filterDateTo='';
+var sortCol=-1, sortAsc=true;
+var listRows=[];
+var readIds=[];
+var noticeReturnTo='';
+var colFilters={};
+var _cfPopupCol=-1;
+
+// ============================================================
+//  C-7: 画面切り替え（hideAll / showScreen / goHome）
+// ============================================================
+function hideAll() {
+  ['home','step1','step2','step3','step4','step5','listScreen','noticeDetail']
+    .forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+}
+function showScreen(id, title) {
+  hideAll();
+  var el = document.getElementById(id);
+  if (el) el.style.display = 'block';
+  var sn = document.getElementById('screenName');
+  if (title) { sn.style.display = 'block'; sn.innerText = title; }
+  else { sn.style.display = 'none'; }
+}
+function goHome() {
+  showScreen('home', '');
+  document.getElementById('screenName').style.display = 'none';
+}
+
+// ============================================================
+//  C-8: 状態保存（saveState）
+//  サーバに運行進捗を保存する
+// ============================================================
+function saveState() {
+  google.script.run.saveRunState({
+    picks:picks, drops:drops, rows:runRows,
+    pickDone:pickDone, dropDone:dropDone,
+    phase:phase, lastPickRow:lastPickRow,
+    pickHistory:pickHistory, dropHistory:dropHistory
+  });
+}
+
+// ============================================================
+//  C-9: 戻るボタン（goBack）
+//  積完画面: 1個ずつ積完を巻き戻す→全部戻ったら行程入力へ
+//  休憩開始: 最後の積完を巻き戻して積完画面へ
+//  休憩終了: 休憩開始時刻をクリアして休憩開始画面へ
+//  降完画面: 1個ずつ降完を巻き戻す→全部戻ったら休憩終了画面へ
+// ============================================================
+function goBack() {
+  if (phase === 'pick') {
+    if (pickHistory.length > 0) {
+      var li = pickHistory.pop(); pickDone[li] = false;
+      google.script.run.clearTimeCell(runRows[li], 13);
+      lastPickRow = pickHistory.length > 0 ? runRows[pickHistory[pickHistory.length-1]] : null;
+      saveState(); showPickScreen(); return;
+    }
+    var oldRows = runRows.slice();
+    phase=''; lastPickRow=null; pickDone=[]; dropDone=[]; pickHistory=[]; dropHistory=[];
+    google.script.run.withSuccessHandler(function() {
+      runRows=[]; saveState(); showScreen('step1','行程入力'); reloadRouteInput();
+    }).deleteRunRows(oldRows);
+    return;
+  }
+  if (phase === 'restStart') {
+    var li = pickHistory.pop(); pickDone[li] = false;
+    google.script.run.clearTimeCell(runRows[li], 13);
+    lastPickRow = pickHistory.length > 0 ? runRows[pickHistory[pickHistory.length-1]] : null;
+    phase='pick'; saveState(); showPickScreen(); return;
+  }
+  if (phase === 'restEnd') {
+    google.script.run.clearTimeCell(lastPickRow, 14);
+    phase='restStart'; saveState(); showScreen('step3','休憩開始'); return;
+  }
+  if (phase === 'drop') {
+    if (dropHistory.length > 0) {
+      var li = dropHistory.pop(); dropDone[li] = false;
+      google.script.run.clearTimeCell(runRows[li], 16);
+      saveState(); showDropScreen(); return;
+    }
+    google.script.run.clearTimeCell(lastPickRow, 15);
+    phase='restEnd'; saveState(); showScreen('step4','休憩終了'); return;
+  }
+  goHome();
+}
+
+// ============================================================
+//  C-10: 運行開始ボタン（startRun）
+//  途中状態があればその画面に復帰
+//  途中状態がなければ新規行程入力画面へ
+// ============================================================
+function startRun() {
+  var status = document.getElementById('statusText').innerText;
+  if (status.indexOf('紐づけOK') === -1) { alert('先にアドレスを紐づけしてください'); return; }
+  if (phase && phase !== '') {
+    if (phase === 'pick') showPickScreen();
+    else if (phase === 'restStart') showScreen('step3','休憩開始');
+    else if (phase === 'restEnd') showScreen('step4','休憩終了');
+    else if (phase === 'drop') showDropScreen();
+    return;
+  }
+  showScreen('step1','行程入力');
+  initRouteInput();
+}
+
+// ============================================================
+//  C-11: 行程入力（initRouteInput / reloadRouteInput / addRoute / deleteRoute）
+// ============================================================
+function initRouteInput() { document.getElementById('routeArea').innerHTML=''; addRoute(); }
+function reloadRouteInput() {
+  var area = document.getElementById('routeArea'); area.innerHTML='';
+  if (picks.length===0) { addRoute(); return; }
+  for (var i=0; i<picks.length; i++) {
+    var div=document.createElement('div'); div.className='route-row';
+    div.innerHTML='<div style="border-bottom:1px solid #444;margin:8px 0;"></div>'+
+      '<div style="font-weight:900;color:#e0e0e0;margin-bottom:6px;">行程 <span class="routeNo">'+(i+1)+'</span>'+
+      ' <button class="chip-btn" onclick="deleteRoute(this)">削除</button></div>'+
+      '<input type="text" class="pickInput" placeholder="積地を入力" value="'+(picks[i]||'')+'">'+
+      '<input type="text" class="dropInput" placeholder="降地を入力" value="'+(drops[i]||'')+'">';
+    area.appendChild(div);
+  }
+}
+function addRoute() {
+  var area=document.getElementById('routeArea'); var idx=area.children.length+1;
+  var div=document.createElement('div'); div.className='route-row';
+  div.innerHTML='<div style="border-bottom:1px solid #444;margin:8px 0;"></div>'+
+    '<div style="font-weight:900;color:#e0e0e0;margin-bottom:6px;">行程 <span class="routeNo">'+idx+'</span>'+
+    ' <button class="chip-btn" onclick="deleteRoute(this)">削除</button></div>'+
+    '<input type="text" class="pickInput" placeholder="積地を入力">'+
+    '<input type="text" class="dropInput" placeholder="降地を入力">';
+  area.appendChild(div);
+}
+function deleteRoute(btn) {
+  var area=document.getElementById('routeArea');
+  if (area.children.length<=1) { alert('最低1行は必要です'); return; }
+  btn.parentNode.parentNode.remove();
+  var nos=area.getElementsByClassName('routeNo');
+  for (var i=0;i<nos.length;i++) nos[i].innerText=i+1;
+}
+
+// ============================================================
+//  C-12: 行程入力→積完へ（startRunFromInput）
+//  既存行があれば削除してから新規作成
+// ============================================================
+function startRunFromInput() {
+  var pI=document.getElementsByClassName('pickInput'), dI=document.getElementsByClassName('dropInput');
+  var np=[], nd=[];
+  for (var i=0;i<pI.length;i++) {
+    var p=pI[i].value.trim(), d=dI[i].value.trim();
+    if (!p||!d) { alert('全ての行程に積地・降地を入力してください'); return; }
+    np.push(p); nd.push(d);
+  }
+  function createNew() {
+    google.script.run
+      .withSuccessHandler(function(r) {
+        picks=np; drops=nd; runRows=r;
+        pickDone=new Array(picks.length).fill(false);
+        dropDone=new Array(drops.length).fill(false);
+        phase='pick'; lastPickRow=null; pickHistory=[]; dropHistory=[];
+        saveState(); showPickScreen();
+      })
+      .withFailureHandler(function(e){ alert('エラー：'+e.message); })
+      .createParentRows(np, nd);
+  }
+  if (runRows.length>0) {
+    google.script.run.withSuccessHandler(function(){ runRows=[]; createNew(); }).deleteRunRows(runRows);
+  } else {
+    createNew();
+  }
+}
+
+// ============================================================
+//  C-13: 積完画面（showPickScreen / selectPick）
+//  行程ごとにボタン生成・全完了で休憩開始へ
+// ============================================================
+function showPickScreen() {
+  hideAll();
+  document.getElementById('screenName').style.display='block';
+  document.getElementById('screenName').innerText='積完（選択）';
+  var area=document.getElementById('pickButtons'); area.innerHTML=''; var rem=0;
+  picks.forEach(function(p,i) {
+    if (!pickDone[i]) {
+      rem++;
+      var btn=document.createElement('button'); btn.className='big-btn blue';
+      btn.innerText='行程'+(i+1)+'：'+p+' を積完';
+      btn.onclick=(function(idx){return function(){selectPick(idx);};})(i);
+      area.appendChild(btn);
+    }
+  });
+  if (rem===0) { phase='restStart'; saveState(); showScreen('step3','休憩開始'); }
+  else { document.getElementById('step2').style.display='block'; }
+}
+function selectPick(i) {
+  lastPickRow=runRows[i]; pickDone[i]=true; pickHistory.push(i);
+  saveState(); google.script.run.setPickComplete(runRows[i]); showPickScreen();
+}
+
+// ============================================================
+//  C-14: 休憩開始（restStart）
+//  休憩開始ボタン押下→休憩終了画面へ
+// ============================================================
+function restStart() {
+  var targetRow = Number(lastPickRow) || Number(runRows[runRows.length-1]) || 0;
+  if (!targetRow) { alert('行程がありません'); return; }
+  google.script.run.setRest(targetRow, 'start');
+  phase='restEnd'; saveState(); showScreen('step4','休憩終了');
+}
+
+// ============================================================
+//  C-15: 休憩終了（restEnd）
+// ============================================================
+function restEnd() {
+  var targetRow = Number(lastPickRow) || Number(runRows[runRows.length-1]) || 0;
+  if (targetRow) google.script.run.setRest(targetRow, 'end');
+  phase='drop'; saveState(); showDropScreen();
+}
+
+// ============================================================
+//  C-16: 降完画面（showDropScreen）
+//  行程ごとにボタン生成・全完了で即ホーム
+// ============================================================
+function showDropScreen() {
+  hideAll();
+  document.getElementById('screenName').style.display = 'block';
+  document.getElementById('screenName').innerText = '降完（選択）';
+  var area = document.getElementById('dropButtons');
+  area.innerHTML = '';
+  var remaining = 0;
+  drops.forEach(function(d, i) {
+    if (!dropDone[i]) {
+      remaining++;
+      var btn = document.createElement('button');
+      btn.className = 'big-btn';
+      btn.style.backgroundColor = '#e64a19';
+      btn.style.color = 'white';
+      btn.innerText = '行程' + (i + 1) + '：' + d + ' を降完';
+      btn.onclick = (function(idx) { return function() { selectDrop(idx); }; })(i);
+      area.appendChild(btn);
+    }
+  });
+  if (remaining === 0) {
+    clearRunStateAndHome();
+  } else {
+    document.getElementById('step5').style.display = 'block';
+  }
+}
+
+// ============================================================
+//  C-16a: 降完ボタン押下（selectDrop）
+//  GASの完了を待たずにすぐ画面を更新する
+// ============================================================
+function selectDrop(i) {
+  dropDone[i] = true;
+  dropHistory.push(i);
+  saveState();
+  google.script.run.setDropComplete(runRows[i]);
+  showDropScreen();
+}
+
+// ============================================================
+//  C-16b: 全完了リセット（clearRunStateAndHome）
+// ============================================================
+function clearRunStateAndHome() {
+  google.script.run.withSuccessHandler(function() {
+    phase = ''; picks = []; drops = []; runRows = [];
+    pickDone = []; dropDone = []; pickHistory = []; dropHistory = [];
+    saveState();
+    goHome();
+  }).clearRunState();
+}
+
+// ============================================================
+//  C-17: 運行一覧表示・月移動・データ読み込み
+//  showList  : 一覧画面を開く（readIds取得→loadList）
+//  prevMonth : 前月へ移動してloadList
+//  nextMonth : 次月へ移動してloadList
+//  loadList  : GASからデータ取得→集計表示→renderTable
+// ============================================================
+function showList() {
+  var status = document.getElementById('statusText').innerText;
+  if (status.indexOf('紐づけOK') === -1) { alert('先にアドレスを紐づけしてください'); return; }
+  var now = new Date();
+  listYear = now.getFullYear();
+  listMonth = now.getMonth() + 1;
+  filterCar = ''; filterDateFrom = ''; filterDateTo = '';
+  sortCol = -1; sortAsc = true;
+  showScreen('listScreen', '運行一覧');
+  google.script.run
+    .withSuccessHandler(function(r) { readIds = r || []; loadList(); })
+    .withFailureHandler(function() { readIds = []; loadList(); })
+    .getReadNotices();
+}
+
+function prevMonth() { listMonth--; if (listMonth===0) { listMonth=12; listYear--; } filterDateFrom=''; filterDateTo=''; loadList(); }
+function nextMonth() { listMonth++; if (listMonth===13) { listMonth=1; listYear++; } filterDateFrom=''; filterDateTo=''; loadList(); }
+
+function loadList() {
+  document.getElementById('listYM').innerText = listYear + '年 ' + listMonth + '月';
+  document.getElementById('listBody').innerHTML = '<div style="padding:20px;text-align:center;color:#aaa;">読み込み中...</div>';
+  google.script.run
+    .withSuccessHandler(function(data) {
+      listRows = data.rows || [];
+      var cars = {};
+      listRows.forEach(function(r) { if (r.car) cars[r.car] = true; });
+      var sel = document.getElementById('filterCarSelect');
+      sel.innerHTML = '<option value="">すべて</option>';
+      Object.keys(cars).forEach(function(c) {
+        sel.innerHTML += '<option value="'+c+'"'+(filterCar===c?' selected':'')+'>'+c+'</option>';
+      });
+      var t = data.total;
+      document.getElementById('summaryCard').innerHTML =
+        '<h3>集計</h3><div class="summary-grid">'+
+        '<div class="summary-item"><div class="summary-label">日数</div><div class="summary-value">'+t.days+'日</div></div>'+
+        '<div class="summary-item"><div class="summary-label">売上合計</div><div class="summary-value">¥'+(t.sales||0).toLocaleString()+'</div></div>'+
+        '<div class="summary-item"><div class="summary-label">高速代合計</div><div class="summary-value">¥'+(t.toll||0).toLocaleString()+'</div></div>'+
+        '<div class="summary-item"><div class="summary-label">支払い合計</div><div class="summary-value">¥'+(t.pay||0).toLocaleString()+'</div></div>'+
+        '</div>';
+      renderTable();
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('listBody').innerHTML = '<div style="padding:20px;color:#ff5252;">データ取得エラー: '+err+'</div>';
+    })
+    .getListData(listYear, listMonth);
+}
+
+// ============================================================
+//  C-18 : 絞り込み・カラムフィルター・ソート・テーブル描画
+//  C-18a: 絞り込みパネル開閉・フィルター適用・解除（toggleFilter / applyFilter / clearFilter）
+//  C-18b: ソート切り替え（sortList）
+//  C-18c: カラムフィルタードロップダウン表示（openColFilter）
+//  C-18d: チェックリスト生成（renderColFilterList）
+//  C-18e: チェックリスト内検索（colFilterSearch）
+//  C-18f: 全選択/全解除（toggleCfAll）
+//  C-18g: 個別チェック切り替え（toggleCfVal）
+//  C-18h: カラムフィルター確定（applyColFilter）
+//  C-18i: カラムフィルタークリア（clearColFilter）
+//  C-18j: ドロップダウンからソート適用（applyColSort）
+//  C-18k: ソートクリア（clearColSort）
+//  C-18l: ドロップダウンを閉じる（closeColFilter）
+//  C-18m: テーブル描画（renderTable）
+//          ・利益列なし
+//          ・フィルター・ソート・カラムフィルター適用後に描画
+// ============================================================
+
+// ============================================================
+//  C-18a: 絞り込みパネル開閉・フィルター適用・解除
+// ============================================================
+function toggleFilter() {
+  var el = document.getElementById('filterArea');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function applyFilter() {
+  filterCar = document.getElementById('filterCarSelect').value;
+  filterDateFrom = document.getElementById('filterDateFrom').value;
+  filterDateTo = document.getElementById('filterDateTo').value;
+  loadList();
+}
+
+function clearFilter() {
+  filterCar = ''; filterDateFrom = ''; filterDateTo = '';
+  document.getElementById('filterCarSelect').value = '';
+  document.getElementById('filterDateFrom').value = '';
+  document.getElementById('filterDateTo').value = '';
+  loadList();
+}
+
+// ============================================================
+//  C-18b: ソート切り替え（sortList）
+// ============================================================
+function sortList(col) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = true; }
+  renderTable();
+}
+
+// ============================================================
+//  C-18c: カラムフィルタードロップダウン表示（openColFilter）
+// ============================================================
+function openColFilter(colIdx, thEl, event) {
+  event.stopPropagation();
+  var existing = document.getElementById('colFilterPopup');
+  if (existing && _cfPopupCol === colIdx) { closeColFilter(); return; }
+  closeColFilter();
+  _cfPopupCol = colIdx;
+
+  var cols = ['dateDisp','car','pick','drop','pickTime','restStart','restEnd','dropTime','sales','tollReq','tollReal','tollTotal'];
+  var colKey = cols[colIdx];
+
+  var allVals = {};
+  listRows.forEach(function(r) {
+    var v = String(r[colKey]||'');
+    allVals[v] = true;
+  });
+  var valList = Object.keys(allVals).sort();
+
+  window._cfTempSelected = colFilters[colIdx] ? new Set(colFilters[colIdx]) : null;
+  window._cfCurrentVals = valList;
+
+  var pop = document.createElement('div');
+  pop.id = 'colFilterPopup';
+  pop.style.cssText = 'position:fixed;background:#1e1e1e;border:1px solid #555;border-radius:12px;padding:12px;z-index:401;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,0.7);';
+
+  pop.innerHTML =
+    '<div onclick="applyColSort('+colIdx+',true)" style="padding:8px 10px;cursor:pointer;border-radius:8px;font-size:14px;color:#e0e0e0;">昇順で並べ替え</div>'+
+    '<div onclick="applyColSort('+colIdx+',false)" style="padding:8px 10px;cursor:pointer;border-radius:8px;font-size:14px;color:#e0e0e0;">降順で並べ替え</div>'+
+    '<div onclick="clearColSort()" style="padding:8px 10px;cursor:pointer;border-radius:8px;font-size:14px;color:#e0e0e0;">ソートをクリア</div>'+
+    '<div style="border-top:1px solid #444;margin:8px 0;"></div>'+
+    '<div onclick="clearColFilter('+colIdx+')" style="padding:8px 10px;cursor:pointer;border-radius:8px;font-size:14px;color:#e0e0e0;">フィルターをクリア</div>'+
+    '<div style="border-top:1px solid #444;margin:8px 0;"></div>'+
+    '<input id="cfSearch_'+colIdx+'" placeholder="検索..." oninput="colFilterSearch(this,'+colIdx+')" style="width:100%;padding:7px 8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:7px;font-size:13px;box-sizing:border-box;margin-bottom:8px;">'+
+    '<div id="cfList_'+colIdx+'" style="max-height:160px;overflow-y:auto;margin-bottom:8px;"></div>'+
+    '<div style="display:flex;gap:8px;">'+
+    '<button onclick="applyColFilter('+colIdx+')" style="flex:1;padding:8px;border-radius:8px;font-size:13px;font-weight:900;color:white;background:#1565c0;cursor:pointer;border:none;">OK</button>'+
+    '<button onclick="closeColFilter()" style="flex:1;padding:8px;border-radius:8px;font-size:13px;font-weight:900;color:white;background:#37474f;cursor:pointer;border:none;">キャンセル</button>'+
+    '</div>';
+
+  document.body.appendChild(pop);
+  renderColFilterList(colIdx, valList, '');
+
+  var rect = thEl.getBoundingClientRect();
+  var popHeight = 360;
+  var top = rect.bottom + 4;
+  if (top + popHeight > window.innerHeight) top = rect.top - popHeight - 4;
+  if (top < 0) top = 4;
+  var left = Math.min(rect.left, window.innerWidth - 200);
+  if (left < 0) left = 4;
+  pop.style.top = top + 'px';
+  pop.style.left = left + 'px';
+
+  var ov = document.createElement('div');
+  ov.id = 'colFilterOv';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:400;';
+  ov.onclick = closeColFilter;
+  document.body.insertBefore(ov, pop);
+}
+
+// ============================================================
+//  C-18d: チェックリスト生成（renderColFilterList）
+// ============================================================
+function renderColFilterList(colIdx, valList, searchText) {
+  var listEl = document.getElementById('cfList_' + colIdx);
+  if (!listEl) return;
+  var lower = searchText.toLowerCase();
+  var allChecked = (window._cfTempSelected === null);
+  var html = '<div onclick="toggleCfAll('+colIdx+')" style="display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:6px;">'+
+    '<input type="checkbox"'+(allChecked?' checked':'')+' style="width:15px;height:15px;accent-color:#bb86fc;">'+
+    '<span style="font-size:13px;color:#e0e0e0;">（すべて選択）</span></div>';
+  valList.forEach(function(v) {
+    if (lower && v.toLowerCase().indexOf(lower) === -1) return;
+    var checked = allChecked || (window._cfTempSelected && window._cfTempSelected.has(v));
+    html += '<div onclick="toggleCfVal(\''+v.replace(/'/g,"\\'")+'\')" style="display:flex;align-items:center;gap:7px;padding:5px 4px;cursor:pointer;border-radius:6px;">'+
+      '<input type="checkbox"'+(checked?' checked':'')+' style="width:15px;height:15px;accent-color:#bb86fc;">'+
+      '<span style="font-size:13px;color:#e0e0e0;">'+v+'</span></div>';
+  });
+  listEl.innerHTML = html;
+}
+
+// ============================================================
+//  C-18e: チェックリスト内検索（colFilterSearch）
+// ============================================================
+function colFilterSearch(inp, colIdx) {
+  renderColFilterList(colIdx, window._cfCurrentVals, inp.value);
+}
+
+// ============================================================
+//  C-18f: 全選択/全解除（toggleCfAll）
+// ============================================================
+function toggleCfAll(colIdx) {
+  window._cfTempSelected = window._cfTempSelected === null ? new Set() : null;
+  renderColFilterList(colIdx, window._cfCurrentVals,
+    document.getElementById('cfSearch_'+colIdx) ? document.getElementById('cfSearch_'+colIdx).value : '');
+}
+
+// ============================================================
+//  C-18g: 個別チェック切り替え（toggleCfVal）
+// ============================================================
+function toggleCfVal(val) {
+  if (window._cfTempSelected === null) {
+    window._cfTempSelected = new Set(window._cfCurrentVals);
+    window._cfTempSelected.delete(val);
+  } else {
+    if (window._cfTempSelected.has(val)) {
+      window._cfTempSelected.delete(val);
+    } else {
+      window._cfTempSelected.add(val);
+      if (window._cfTempSelected.size === window._cfCurrentVals.length) {
+        window._cfTempSelected = null;
+      }
+    }
+  }
+  renderColFilterList(_cfPopupCol, window._cfCurrentVals,
+    document.getElementById('cfSearch_'+_cfPopupCol) ? document.getElementById('cfSearch_'+_cfPopupCol).value : '');
+}
+
+// ============================================================
+//  C-18h: カラムフィルター確定（applyColFilter）
+// ============================================================
+function applyColFilter(colIdx) {
+  colFilters[colIdx] = window._cfTempSelected === null ? null : new Set(window._cfTempSelected);
+  closeColFilter();
+  renderTable();
+}
+
+// ============================================================
+//  C-18i: カラムフィルタークリア（clearColFilter）
+// ============================================================
+function clearColFilter(colIdx) {
+  delete colFilters[colIdx];
+  closeColFilter();
+  renderTable();
+}
+
+// ============================================================
+//  C-18j: ドロップダウンからソート適用（applyColSort）
+// ============================================================
+function applyColSort(colIdx, asc) {
+  sortCol = colIdx; sortAsc = asc;
+  closeColFilter();
+  renderTable();
+}
+
+// ============================================================
+//  C-18k: ソートクリア（clearColSort）
+// ============================================================
+function clearColSort() {
+  sortCol = -1; sortAsc = true;
+  closeColFilter();
+  renderTable();
+}
+
+// ============================================================
+//  C-18l: ドロップダウンを閉じる（closeColFilter）
+// ============================================================
+function closeColFilter() {
+  var pop = document.getElementById('colFilterPopup');
+  if (pop) pop.remove();
+  var ov = document.getElementById('colFilterOv');
+  if (ov) ov.remove();
+  _cfPopupCol = -1;
+}
+
+// ============================================================
+//  C-18m: テーブル描画（renderTable）
+//  ・利益列なし・支払い列あり
+//  ・フィルター・ソート・カラムフィルター適用後に描画
+// ============================================================
+function renderTable() {
+  var rows = listRows.slice();
+  if (filterCar) rows = rows.filter(function(r) { return r.car === filterCar; });
+  if (filterDateFrom) rows = rows.filter(function(r) { return r.date >= filterDateFrom.replace(/-/g,'/'); });
+  if (filterDateTo) rows = rows.filter(function(r) { return r.date <= filterDateTo.replace(/-/g,'/'); });
+
+  var cols = ['dateDisp','car','pick','drop','pickTime','restStart','restEnd','dropTime','sales','tollReq','tollReal','tollTotal','pay'];
+  Object.keys(colFilters).forEach(function(ci) {
+    var cf = colFilters[ci];
+    if (cf === null) return;
+    var key = cols[ci];
+    rows = rows.filter(function(r) { return cf.has(String(r[key]||'')); });
+  });
+
+  if (sortCol >= 0 && sortCol < cols.length) {
+    var key = cols[sortCol];
+    rows.sort(function(a,b) {
+      if (key === 'dateDisp') return sortAsc ? a.dateSort-b.dateSort : b.dateSort-a.dateSort;
+      var va = a[key]||'', vb = b[key]||'';
+      if (typeof va==='number'&&typeof vb==='number') return sortAsc?va-vb:vb-va;
+      return sortAsc?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va));
+    });
+  }
+
+  function toMin(t) { if(!t) return -1; var p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]); }
+  function moneyStyle(v) { return v<0?'color:#ff5252;font-weight:900;':''; }
+
+  var headers = ['日付','車番','積地','降地','積完','休開','休終','降完','売上','請求高速','実費高速','高速計','支払'];
+  var html = '<div class="list-table-wrap"><table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">';
+  html += '<thead><tr>';
+  html += '<th style="padding:10px 6px;border-bottom:2px solid #444;background:#2a2a2a;"></th>';
+  headers.forEach(function(h, idx) {
+    var hasFilter = colFilters[idx] !== undefined && colFilters[idx] !== null;
+    var isSorted  = sortCol === idx;
+    var arrow     = isSorted ? (sortAsc?' ▲':' ▼') : '';
+    var dot       = hasFilter ? '<span style="font-size:10px;color:#bb86fc;"> ●</span>' : '';
+    html += '<th id="th_col_'+idx+'" style="padding:10px 6px;color:#bb86fc;font-weight:900;text-align:left;border-bottom:2px solid #444;background:#2a2a2a;cursor:pointer;white-space:nowrap;" onclick="openColFilter('+idx+',this,event)">'+h+arrow+'<span style="font-size:11px;color:#555;"> ▼</span>'+dot+'</th>';
+  });
+  html += '<th style="padding:10px 6px;color:#bb86fc;font-weight:900;text-align:left;border-bottom:2px solid #444;background:#2a2a2a;">操作</th>';
+  html += '</tr></thead><tbody>';
+
+  if (rows.length === 0) {
+    html += '<tr><td colspan="15" style="padding:20px;text-align:center;color:#888;">データがありません</td></tr>';
+  }
+
+  rows.forEach(function(r) {
+    var sales    = Math.trunc(r.sales    || 0);
+    var tollReq  = Math.trunc(r.tollReq  || 0);
+    var tollReal = Math.trunc(r.tollReal || 0);
+    var tollTotal= Math.trunc(r.tollTotal|| 0);
+    var pay      = Math.trunc(r.pay      || 0);
+
+    var hasNegative = sales<0||tollReq<0||tollReal<0||tollTotal<0||pay<0;
+    var rowBg = hasNegative ? 'background:rgba(211,47,47,0.15);' : '';
+
+    var pickMin=toMin(r.pickTime), restSMin=toMin(r.restStart);
+    var restEMin=toMin(r.restEnd), dropMin=toMin(r.dropTime);
+    var pickCellBg='', restSCellBg='', restECellBg='', dropCellBg='';
+    if (pickMin>=0&&restSMin>=0&&(restSMin-pickMin)>240) { pickCellBg='background:#ffd600;color:#000;'; restSCellBg='background:#ffd600;color:#000;'; }
+    if (restSMin>=0&&restEMin>=0&&(restEMin-restSMin)<30) { restSCellBg='background:#4fc3f7;color:#000;'; restECellBg='background:#4fc3f7;color:#000;'; }
+    if (restEMin>=0&&dropMin>=0&&(dropMin-restEMin)>240) { restECellBg='background:#ffd600;color:#000;'; dropCellBg='background:#ffd600;color:#000;'; }
+
+    var isRead = readIds.indexOf(r.id) !== -1;
+    var noticeIcon = '';
+    if (r.hasNotice) {
+      noticeIcon = isRead
+        ? '<span style="cursor:pointer;font-size:16px;" onclick="openNoticeDetail(\''+r.id+'\',true)">📭</span>'
+        : '<span style="cursor:pointer;font-size:16px;" onclick="openNoticeDetail(\''+r.id+'\',false)">📩</span>';
+    }
+
+    html += '<tr style="border-bottom:1px solid #333;'+rowBg+'">';
+    html += '<td style="padding:8px;">'+noticeIcon+'</td>';
+    html += '<td style="padding:8px;">'+r.dateDisp+'</td>';
+    html += '<td style="padding:8px;">'+r.car+'</td>';
+    html += '<td style="padding:8px;">'+r.pick+'</td>';
+    html += '<td style="padding:8px;">'+r.drop+'</td>';
+    html += '<td style="padding:8px;'+pickCellBg+'">'+r.pickTime+'</td>';
+    html += '<td style="padding:8px;'+restSCellBg+'">'+r.restStart+'</td>';
+    html += '<td style="padding:8px;'+restECellBg+'">'+r.restEnd+'</td>';
+    html += '<td style="padding:8px;'+dropCellBg+'">'+r.dropTime+'</td>';
+    html += '<td style="padding:8px;'+moneyStyle(sales)+'">¥'+sales.toLocaleString()+'</td>';
+    html += '<td style="padding:8px;'+moneyStyle(tollReq)+'">¥'+tollReq.toLocaleString()+'</td>';
+    html += '<td style="padding:8px;'+moneyStyle(tollReal)+'">¥'+tollReal.toLocaleString()+'</td>';
+    html += '<td style="padding:8px;'+moneyStyle(tollTotal)+'">¥'+tollTotal.toLocaleString()+'</td>';
+    html += '<td style="padding:8px;'+moneyStyle(pay)+'">¥'+pay.toLocaleString()+'</td>';
+    html += '<td style="padding:8px;"><div style="display:flex;gap:4px;">';
+
+    if (r.isComplete) {
+      html += '<button class="run-act-btn" style="background:#616161;color:#999;cursor:default;" disabled>完了</button>';
+    } else if (r.isNew) {
+      html += '<button class="run-act-btn" style="background:#ffd600;color:#000;animation:glow 1.5s infinite;" onclick="startRunFromList(\''+r.id+'\')">運行開始</button>';
+    } else {
+      html += '<button class="run-act-btn" style="background:#2e7d32;" onclick="startRunFromList(\''+r.id+'\')">運行再開</button>';
+    }
+    html += '<button class="run-act-btn rab-blue" onclick="openNoticeModal(\''+r.id+'\')">連絡</button>';
+    html += '<button class="run-act-btn rab-teal" onclick="openUploadModal(\''+r.id+'\')">データ</button>';
+    html += '<button class="run-act-btn rab-purple" onclick="openEditModal(\''+r.id+'\')">編集</button>';
+    html += '</div></td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  document.getElementById('listBody').innerHTML = html;
+}
+
+// ============================================================
+//  C-19: 連絡送信（openNoticeModal）
+// ============================================================
+function openNoticeModal(id) {
+  var text=prompt('連絡事項を入力してください');
+  if (text===null) return;
+  google.script.run.withSuccessHandler(function(){ loadList(); }).saveTerminalNotice(id, text);
+}
+
+// ============================================================
+//  C-20: データアップロード（openUploadModal）
+//  ファイル選択→Base64→GAS→ドライブ→URL
+// ============================================================
+function openUploadModal(id) {
+  var input=document.createElement('input');
+  input.type='file'; input.accept='image/*,.pdf,.doc,.docx,.xls,.xlsx';
+  input.onchange=function(e) {
+    var file=e.target.files[0];
+    if (!file) return;
+    if (file.size > 10*1024*1024) { alert('ファイルは10MB以下にしてください'); return; }
+    var reader=new FileReader();
+    reader.onload=function() {
+      var base64=reader.result.split(',')[1];
+      google.script.run
+        .withSuccessHandler(function(res) { if(res.ok){alert('アップロード完了：'+res.fileName); loadList();} })
+        .withFailureHandler(function(e){ alert('エラー：'+e.message); })
+        .uploadTerminalFile(id, file.name, base64, file.type);
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+// ============================================================
+//  C-21: カレンダー（日/月/年選択）
+//  openCalendar      : カレンダーを開く
+//  closeCalendar     : カレンダーを閉じる
+//  renderCalendar    : 日表示を描画
+//  renderMonthPicker : 月選択を描画
+//  renderYearPicker  : 年選択を描画
+//  calPrevMonth/calNextMonth : カレンダー内の月移動
+//  selectCalDay      : 日付を選択してその日だけ表示
+//  selectCalAllMonth : 月全体を表示
+//  selectCalMonth    : 月を選択
+//  selectCalYear     : 年を選択
+// ============================================================
+var calMode='day';
+function openCalendar() { calMode='day'; document.getElementById('calOverlay').classList.add('show'); renderCalendar(); }
+function closeCalendar(e) { if(e.target.id==='calOverlay') document.getElementById('calOverlay').classList.remove('show'); }
+function renderCalendar() {
+  var box=document.getElementById('calBox');
+  if(calMode==='year'){renderYearPicker(box);return;}
+  if(calMode==='month'){renderMonthPicker(box);return;}
+  var firstDay=new Date(listYear,listMonth-1,1).getDay();
+  var daysInMonth=new Date(listYear,listMonth,0).getDate();
+  var today=new Date();
+  var h='<div class="cal-nav"><button class="cal-nav-btn" onclick="calPrevMonth()">◀</button>'+
+    '<div class="cal-title" onclick="calMode=\'month\';renderCalendar();">'+listYear+'年 '+listMonth+'月</div>'+
+    '<button class="cal-nav-btn" onclick="calNextMonth()">▶</button></div>';
+  h+='<div style="text-align:center;margin-bottom:8px;"><button class="cal-nav-btn" onclick="selectCalAllMonth()" style="font-size:12px;">月全体を表示</button></div>';
+  h+='<div class="cal-grid">';
+  ['日','月','火','水','木','金','土'].forEach(function(d){h+='<div class="cal-dow">'+d+'</div>';});
+  for(var i=0;i<firstDay;i++) h+='<div class="cal-day empty"></div>';
+  for(var d=1;d<=daysInMonth;d++){
+    var isToday=(d===today.getDate()&&listMonth===today.getMonth()+1&&listYear===today.getFullYear());
+    h+='<div class="cal-day'+(isToday?' today':'')+'" onclick="selectCalDay('+d+')">'+d+'</div>';
+  }
+  h+='</div>'; box.innerHTML=h;
+}
+function renderMonthPicker(box){
+  var h='<div class="cal-nav"><button class="cal-nav-btn" onclick="calMode=\'year\';renderCalendar();">'+listYear+'年</button></div>';
+  h+='<div class="cal-month-grid">';
+  for(var m=1;m<=12;m++) h+='<div class="cal-month-btn'+(m===listMonth?' selected':'')+'" onclick="selectCalMonth('+m+')">'+m+'月</div>';
+  h+='</div>'; box.innerHTML=h;
+}
+function renderYearPicker(box){
+  var startY=listYear-4;
+  var h='<div class="cal-nav"><div class="cal-title">年を選択</div></div><div class="cal-year-grid">';
+  for(var y=startY;y<=startY+8;y++) h+='<div class="cal-year-btn'+(y===listYear?' selected':'')+'" onclick="selectCalYear('+y+')">'+y+'</div>';
+  h+='</div>'; box.innerHTML=h;
+}
+function calPrevMonth(){listMonth--;if(listMonth===0){listMonth=12;listYear--;}renderCalendar();}
+function calNextMonth(){listMonth++;if(listMonth===13){listMonth=1;listYear++;}renderCalendar();}
+function selectCalDay(d){
+  var ds=listYear+'-'+String(listMonth).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  filterDateFrom=ds; filterDateTo=ds;
+  document.getElementById('filterDateFrom').value=ds;
+  document.getElementById('filterDateTo').value=ds;
+  document.getElementById('calOverlay').classList.remove('show');
+  renderTable();
+}
+function selectCalAllMonth(){
+  filterDateFrom=''; filterDateTo='';
+  document.getElementById('filterDateFrom').value='';
+  document.getElementById('filterDateTo').value='';
+  document.getElementById('calOverlay').classList.remove('show');
+  renderTable();
+}
+function selectCalMonth(m){listMonth=m;calMode='day';filterDateFrom='';filterDateTo='';renderCalendar();loadList();}
+function selectCalYear(y){listYear=y;calMode='month';renderCalendar();}
+
+// ============================================================
+//  C-22: 編集モーダル（openEditModal / closeEditModal / saveEditModal / deleteEditModal）
+//  ・ID/区分/会社名/トン数/車種/車番/乗務員名/携帯番号/高速計/連絡事項/データは閲覧のみ
+//  ・日付/積完時刻/休憩開始/休憩終了/降完時刻/売上/請求高速/実費高速/支払/端末連絡は編集可
+//  ・荷主/積地/降地は閲覧のみ（複数行対応のため）
+//  ・利益は表示しない・支払いは表示する
+//  ・数値は小数点以下を切り捨てて表示
+// ============================================================
+var editId='';
+function openEditModal(id) {
+  editId=id;
+  google.script.run.withSuccessHandler(function(d) {
+    if (!d) { alert('データが見つかりません'); return; }
+    d.sales    = (d.sales    !== '' && d.sales    !== null && d.sales    !== undefined) ? Math.trunc(Number(d.sales))    : '';
+    d.tollReq  = (d.tollReq  !== '' && d.tollReq  !== null && d.tollReq  !== undefined) ? Math.trunc(Number(d.tollReq))  : '';
+    d.tollReal = (d.tollReal !== '' && d.tollReal !== null && d.tollReal !== undefined) ? Math.trunc(Number(d.tollReal)) : '';
+    d.tollTotal= (d.tollTotal!== '' && d.tollTotal!== null && d.tollTotal!== undefined) ? Math.trunc(Number(d.tollTotal)): '';
+    d.pay      = (d.pay      !== '' && d.pay      !== null && d.pay      !== undefined) ? Math.trunc(Number(d.pay))      : '';
+
+    var h='<h3 style="color:#bb86fc;margin-bottom:16px;">運行編集</h3>';
+    function ro(label,val){return '<div class="edit-row"><div class="edit-label">'+label+'</div><div class="edit-val">'+(val||'')+'</div></div>';}
+    function ed(label,name,val,type){
+      type=type||'text';
+      var v=(val===null||val===undefined)?'':val;
+      return '<div class="edit-row"><div class="edit-label">'+label+'</div><input class="edit-input" id="ed_'+name+'" type="'+type+'" value="'+v+'"></div>';
+    }
+    h+=ro('ID',d.id)+ro('区分',d.kubun)+ro('会社名',d.company)+ro('トン数',d.tons)+ro('車種',d.type)+ro('車番',d.car)+ro('乗務員名',d.name)+ro('携帯番号',d.tel);
+    h+=ed('日付','date',d.date,'date')+ro('荷主名',d.client)+ro('積地',d.pick)+ro('降地',d.drop);
+    h+=ed('積完時刻','pickTime',d.pickTime,'time')+ed('休憩開始','restStart',d.restStart,'time')+ed('休憩終了','restEnd',d.restEnd,'time')+ed('降完時刻','dropTime',d.dropTime,'time');
+    h+=ed('売上','sales',d.sales,'number')+ed('請求高速','tollReq',d.tollReq,'number')+ed('実費高速','tollReal',d.tollReal,'number');
+    h+=ro('高速計',d.tollTotal)+ed('支払','pay',d.pay,'number');
+    h+=ro('連絡事項',d.notice||'なし');
+    if(d.dataUrl) h+=ro('データ','<a href="'+d.dataUrl+'" target="_blank" style="color:#bb86fc;">見る</a>');
+    else h+=ro('データ','なし');
+    h+=ed('連絡(端末)','termNotice',d.termNotice);
+    if(d.termData) h+=ro('データ(端末)','<a href="'+d.termData+'" target="_blank" style="color:#bb86fc;">見る</a>');
+    else h+=ro('データ(端末)','なし');
+    h+='<div class="edit-btns">'+
+      '<button class="edit-btn eb-close" onclick="closeEditModal()">閉じる</button>'+
+      '<button class="edit-btn eb-save" onclick="saveEditModal()">保存</button>'+
+      '<button class="edit-btn eb-delete" onclick="deleteEditModal()">削除</button>'+
+      '</div>';
+    document.getElementById('editBox').innerHTML=h;
+    document.getElementById('editOverlay').classList.add('show');
+  }).getEditData(id);
+}
+function closeEditModal(){ document.getElementById('editOverlay').classList.remove('show'); }
+function saveEditModal(){
+  var obj={
+    id:editId,
+    date:document.getElementById('ed_date').value,
+    client:'',
+    pick:'',
+    drop:'',
+    pickTime:document.getElementById('ed_pickTime').value,
+    restStart:document.getElementById('ed_restStart').value,
+    restEnd:document.getElementById('ed_restEnd').value,
+    dropTime:document.getElementById('ed_dropTime').value,
+    sales:document.getElementById('ed_sales').value,
+    pay:document.getElementById('ed_pay').value,
+    tollReq:document.getElementById('ed_tollReq').value,
+    tollReal:document.getElementById('ed_tollReal').value,
+    termNotice:document.getElementById('ed_termNotice').value
+  };
+  google.script.run.withSuccessHandler(function(){closeEditModal();loadList();}).saveEditData(obj);
+}
+function deleteEditModal(){
+  if(!confirm('この運行データを削除しますか？')) return;
+  google.script.run.withSuccessHandler(function(){closeEditModal();loadList();}).deleteRunById(editId);
+}
+
+// ============================================================
+//  C-23: 一覧から運行開始・再開（startRunFromList）
+//  ID指定でGASから進捗を取得し対応する画面に遷移する
+// ============================================================
+function startRunFromList(id) {
+  google.script.run.withSuccessHandler(function(data) {
+    if (!data||!data.routes||data.routes.length===0){alert('行程がありません');return;}
+    if (data.progress==='complete') return;
+    picks=data.routes.map(function(r){return r.pick;});
+    drops=data.routes.map(function(r){return r.drop;});
+    runRows=data.routes.map(function(r){return r.row;});
+    pickDone=data.routes.map(function(r){return !!r.pickDone;});
+    dropDone=data.routes.map(function(r){return !!r.dropDone;});
+    pickHistory=[]; dropHistory=[]; lastPickRow=null;
+    for(var i=0;i<pickDone.length;i++){if(pickDone[i]){pickHistory.push(i);lastPickRow=runRows[i];}}
+    for(var i=0;i<dropDone.length;i++){if(dropDone[i]) dropHistory.push(i);}
+    phase=data.progress; saveState();
+    if(phase==='pick') showPickScreen();
+    else if(phase==='restStart') showScreen('step3','休憩開始');
+    else if(phase==='restEnd') showScreen('step4','休憩終了');
+    else if(phase==='drop') showDropScreen();
+  }).withFailureHandler(function(){alert('通信エラー');}).getRoutesById(id);
+}
+
+// ============================================================
+//  C-24: ホームの連絡事項・連絡詳細
+//  loadNotices         : ホームに未読連絡事項を表示
+//  openHomeNoticeDetail: ホームの連絡詳細画面へ遷移
+//  openNoticeDetail    : 一覧の連絡詳細画面へ遷移
+//  closeNoticeDetail   : 連絡詳細を閉じて戻り先へ
+// ============================================================
+function loadNotices() {
+  google.script.run.withSuccessHandler(function(list) {
+    var el=document.getElementById('noticeArea');
+    if (!list||list.length===0){ el.innerHTML='<div style="color:#888;">未読の連絡事項はありません。</div>'; return; }
+    var html='';
+    list.forEach(function(n,idx){
+      html+='<div id="homeNotice_'+n.id+'" style="border-bottom:1px solid #333;padding:10px 0;cursor:pointer;" onclick="openHomeNoticeDetail('+idx+')">';
+      html+='<div style="display:flex;justify-content:space-between;align-items:center;">';
+      html+='<span style="font-size:14px;color:#bb86fc;font-weight:700;">📩 '+n.date+'</span>';
+      html+='<span style="font-size:12px;color:#f57c00;font-weight:700;">未開封有</span></div></div>';
+    });
+    el.innerHTML=html; window._homeNotices=list;
+  }).getMyNotices();
+}
+function openHomeNoticeDetail(idx) {
+  var n=window._homeNotices[idx]; if(!n) return;
+  var h='<div class="notice-detail"><div class="notice-detail-title">'+n.date+'</div>'+
+    '<div class="notice-detail-row"><div class="notice-detail-label">連絡事項</div><div class="notice-detail-val">'+(n.notice||'なし')+'</div></div>'+
+    '<div class="notice-detail-row"><div class="notice-detail-label">データ</div>';
+  if(n.dataUrl) h+='<div class="notice-detail-val"><a href="'+n.dataUrl+'" target="_blank" class="notice-detail-link">添付データを開く</a></div>';
+  else h+='<div class="notice-detail-val">なし</div>';
+  h+='</div></div>';
+  document.getElementById('noticeDetailBody').innerHTML=h;
+  noticeReturnTo='home'; showScreen('noticeDetail','連絡詳細');
+  google.script.run.markAsRead(n.id);
+  var el=document.getElementById('homeNotice_'+n.id);
+  if(el) el.remove();
+  var area=document.getElementById('noticeArea');
+  if(!area.children.length) area.innerHTML='<div style="color:#888;">未読の連絡事項はありません。</div>';
+}
+function openNoticeDetail(id, alreadyRead) {
+  var row=null;
+  for(var i=0;i<listRows.length;i++){if(listRows[i].id===id){row=listRows[i];break;}}
+  if(!row) return;
+  var h='<div class="notice-detail"><div class="notice-detail-title">'+row.date+'　'+row.car+'</div>'+
+    '<div class="notice-detail-row"><div class="notice-detail-label">連絡事項</div><div class="notice-detail-val">'+(row.notice||'なし')+'</div></div>'+
+    '<div class="notice-detail-row"><div class="notice-detail-label">データ</div>';
+  if(row.dataUrl) h+='<div class="notice-detail-val"><a href="'+row.dataUrl+'" target="_blank" class="notice-detail-link">添付データを開く</a></div>';
+  else h+='<div class="notice-detail-val">なし</div>';
+  h+='</div></div>';
+  document.getElementById('noticeDetailBody').innerHTML=h;
+  noticeReturnTo='list'; showScreen('noticeDetail','連絡詳細');
+  if(!alreadyRead){ if(readIds.indexOf(id)===-1) readIds.push(id); google.script.run.markAsRead(id); }
+}
+function closeNoticeDetail() {
+  if(noticeReturnTo==='home'){ goHome(); loadNotices(); }
+  else{ showScreen('listScreen','運行一覧'); renderTable(); }
+}
+
+// ============================================================
+//  C-25: CSV・Excelダウンロード
+//  getFilteredRows : フィルター適用後のデータを取得
+//  downloadCSV     : CSVファイルをダウンロード・荷主/利益なし
+//  downloadExcel   : Excelファイルをダウンロード・荷主/利益なし
+// ============================================================
+function getFilteredRows() {
+  var rows=listRows.slice();
+  if(filterCar) rows=rows.filter(function(r){return r.car===filterCar;});
+  if(filterDateFrom) rows=rows.filter(function(r){return r.date>=filterDateFrom.replace(/-/g,'/');});
+  if(filterDateTo) rows=rows.filter(function(r){return r.date<=filterDateTo.replace(/-/g,'/');});
+  return rows;
+}
+function downloadCSV() {
+  var rows=getFilteredRows();
+  var csv='\uFEFF日付,車番,売上,請求高速,実費高速,高速計,支払\n';
+  rows.forEach(function(r){
+    csv+=[
+      r.date,
+      r.car,
+      Math.trunc(r.sales    ||0),
+      Math.trunc(r.tollReq  ||0),
+      Math.trunc(r.tollReal ||0),
+      Math.trunc(r.tollTotal||0),
+      Math.trunc(r.pay      ||0)
+    ].join(',')+'\n';
+  });
+  var blob=new Blob([csv],{type:'text/csv'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=listYear+'年'+listMonth+'月_運行一覧.csv'; a.click();
+}
+function downloadExcel() {
+  var rows=getFilteredRows();
+  var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table border="1">';
+  html+='<tr><th>日付</th><th>車番</th><th>売上</th><th>請求高速</th><th>実費高速</th><th>高速計</th><th>支払</th></tr>';
+  rows.forEach(function(r){
+    html+='<tr>'+
+      '<td>'+r.date+'</td>'+
+      '<td>'+r.car+'</td>'+
+      '<td>'+Math.trunc(r.sales    ||0)+'</td>'+
+      '<td>'+Math.trunc(r.tollReq  ||0)+'</td>'+
+      '<td>'+Math.trunc(r.tollReal ||0)+'</td>'+
+      '<td>'+Math.trunc(r.tollTotal||0)+'</td>'+
+      '<td>'+Math.trunc(r.pay      ||0)+'</td>'+
+      '</tr>';
+  });
+  html+='</table></body></html>';
+  var blob=new Blob([html],{type:'application/vnd.ms-excel'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=listYear+'年'+listMonth+'月_運行一覧.xls'; a.click();
+}
+  </script>
+</body>
+</html>
