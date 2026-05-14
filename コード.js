@@ -112,6 +112,21 @@
 //            自車専属運行シートを自車専属マスタの「運行」中の車両のみで再生成する内部処理
 //   4-6  : addStatusColumnToMaster()
 //            自車専属マスタのB列に「運行状態」列が存在しない場合に追加するメンテナンス関数
+//   4-7  : generateNextMonth()
+//            次月の1日〜末日 × 運行中車両 のプレースホルダーIDを運行シートに一括生成する
+//            ・積地が空の行には配車漏れ警告色（#fff9c4）を付ける
+//            ・生成後に3ヶ月以上のデータがあれば最古月を自動アーカイブ（4-8a呼び出し）
+//   4-8  : archiveOldMonth()
+//            前月分を別スプレッドシートに値のみで保存して運行シートから削除する（手動実行用）
+//   4-8a : archiveOldestMonthIfNeeded_()
+//            運行シートに3ヶ月以上のデータがある場合のみ最古月を自動アーカイブする
+//   4-8b : archiveMonthData_(ss, year, month, companyName)
+//            指定月のデータをアーカイブ用スプレッドシートにコピーし元行を削除する
+//            ・「運行管理_アーカイブ/会社名/」フォルダへ移動・メールアドレスで共有設定
+//   4-8c : getMonthRows_(sheet, year, month, numCols)
+//            指定シートのJ列(10)で絞り込んだ指定年月の行データを返す内部補助関数
+//   4-8d : getCompanyName_(ss)
+//            自車専属マスタのC列(会社名)からこのスプレッドシートの会社名を返す内部補助関数
 //
 // ── グループ5：端末アプリ 起動・紐づけ ──────────────
 //   5-1  : getInitialData()
@@ -224,6 +239,23 @@
 //   10-4 : getReadNotices()
 //            既読済みIDの一覧をPropertiesServiceから読み込んで返す
 //
+// ── グループ11：会社セットアップ・配布メール（管理者用）────────────────
+//   11-1 : onEditCompanyRegister_(sheet, range)
+//            会社登録シートのA+B列 → フォルダ作成・通知メール
+//            F+G列（SS URL＋App URL）が揃ったら → 配布メール自動送信
+//   11-2 : setupOneCompany_(companyName, adminEmail)
+//            1社分のアーカイブフォルダを作成し管理Gmailに編集権限を付与して通知メールを送る
+//   11-3 : setupCompanies()
+//            会社登録シートを全行処理するか新規作成する（スクリプトエディタ or メニューから実行）
+//   11-4 : createUsageSheet()
+//            スプレッドシート内「使い方」シートを自動作成（管理者・ドライバー向け2部構成）
+//   11-5 : sendDistributionMail_(companyName, adminEmail, ssUrl, appUrl, row, sheet)
+//            管理者向け（SS URL＋App URL）＋乗務員向け（App URL＋紐づけ手順）メールを送信
+//            乗務員メールは自車専属マスタのJ列から全員分個別送信する
+//   11-6 : triggerDistributionMail()
+//            会社登録シートのF+G列が揃いH列が未送信の全行に配布メールを一括送信する
+//            メニュー「📧 配布メール送信」から手動実行
+//
 // ================================================================
 //
 // ================================================================
@@ -260,6 +292,8 @@
 //   中8  端末 一覧・編集・ファイル  8-1〜8-7   getListData, saveEditData など
 //   中9  端末 連絡・ファイル        9-1〜9-4   saveNotice, uploadFileToRow など
 //   中10 端末 既読管理              10-1〜10-4 getMyNotices, markAsRead など
+//   中11 会社セットアップ・配布     11-1〜11-6 onEditCompanyRegister_, setupOneCompany_, setupCompanies,
+//                                             createUsageSheet, sendDistributionMail_, triggerDistributionMail
 //
 // ──────────────────────────────────────────────────────────────────
 //
@@ -415,31 +449,50 @@ function applyDateTimeFormat_(sheet, startRow, numRows) {
 
 
 // ================================================================
-//  1-7: 積地（K列=11）休み・有休の背景色設定（applyHolidayRowColors_）  【大B / 中1 / 小1-7】
-//  積地セルに「休み」または「有休」が含まれる行のK列を灰色（#9e9e9e）に着色する
-//  onOpen・generateSummary・onEdit から呼び出す
+//  1-7: 積地（L列=12）背景色設定（applyHolidayRowColors_）  【大B / 中1 / 小1-7】
+//  運行シート・集計表のL列(12=積地)に以下3パターンで背景色を付ける
+//  ・「休み」「有休」含む → グレー (#9e9e9e)
+//  ・空 かつ 日付(J列)が今日以降 → 黄色 (#fff9c4)  ← 配車漏れ警告
+//  ・その他 → なし (null)
+//  onOpen・generateSummary・generateNextMonth・onEdit から呼び出す
 // ================================================================
 function applyHolidayRowColors_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  // 運行シートのL列(12=積地)：休み/有休はグレー
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+
+  // 運行シートのL列(12=積地)
   var sheet = ss.getSheetByName('運行');
   if (sheet && sheet.getLastRow() >= 2) {
-    var lr = sheet.getLastRow();
-    var vals = sheet.getRange(2, 12, lr - 1, 1).getValues();
-    var bgs = vals.map(function(r) {
-      var v = String(r[0] || '');
-      return [(v.indexOf('休み') !== -1 || v.indexOf('有休') !== -1) ? '#9e9e9e' : null];
+    var lr   = sheet.getLastRow();
+    // J列(10)=日付 と L列(12)=積地 を一括読み込み（col10〜12 の3列）
+    var vals = sheet.getRange(2, 10, lr - 1, 3).getValues();
+    var bgs  = vals.map(function(r) {
+      var dateV = r[0];           // col10: 日付
+      var pickV = String(r[2] || ''); // col12: 積地
+      if (pickV.indexOf('休み') !== -1 || pickV.indexOf('有休') !== -1) return ['#9e9e9e'];
+      if (pickV === '' && dateV instanceof Date) {
+        var d = new Date(dateV); d.setHours(0, 0, 0, 0);
+        if (d >= today) return ['#fff9c4'];
+      }
+      return [null];
     });
     sheet.getRange(2, 12, lr - 1, 1).setBackgrounds(bgs);
   }
-  // 集計表のL列(12=積地)も同様にグレー着色
+
+  // 集計表のL列(12=積地)も同様
   var sumSheet = ss.getSheetByName('集計表');
   if (sumSheet && sumSheet.getLastRow() >= 2) {
-    var slr = sumSheet.getLastRow();
-    var svals = sumSheet.getRange(2, 12, slr - 1, 1).getValues();
-    var sbgs = svals.map(function(r) {
-      var v = String(r[0] || '');
-      return [(v.indexOf('休み') !== -1 || v.indexOf('有休') !== -1) ? '#9e9e9e' : null];
+    var slr   = sumSheet.getLastRow();
+    var svals = sumSheet.getRange(2, 10, slr - 1, 3).getValues();
+    var sbgs  = svals.map(function(r) {
+      var dateV = r[0];
+      var pickV = String(r[2] || '');
+      if (pickV.indexOf('休み') !== -1 || pickV.indexOf('有休') !== -1) return ['#9e9e9e'];
+      if (pickV === '' && dateV instanceof Date) {
+        var d = new Date(dateV); d.setHours(0, 0, 0, 0);
+        if (d >= today) return ['#fff9c4'];
+      }
+      return [null];
     });
     sumSheet.getRange(2, 12, slr - 1, 1).setBackgrounds(sbgs);
   }
@@ -447,19 +500,97 @@ function applyHolidayRowColors_() {
 
 
 // ================================================================
+//  1-8: 運行シートを日付順に並び替え（sortUnkouByDate_）  【大B / 中1 / 小1-8】
+//  運行シートのデータ行を J列(日付)昇順 → G列(乗務員名)昇順 でソートする
+//  ソート後に V列(22)の数式を行番号に合わせて再セットする
+//  generateNextMonth / 手動メニューから呼び出す
+// ================================================================
+function sortUnkouByDate_() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet || sheet.getLastRow() < 3) return; // データが1行以下はスキップ
+
+  var lastRow = sheet.getLastRow();
+  var numRows = lastRow - 1; // ヘッダー除く行数
+
+  // 全データを値として一括取得（数式は値に変換される）
+  var data = sheet.getRange(2, 1, numRows, 26).getValues();
+
+  // J列(index[9]=日付)昇順 → G列(index[6]=乗務員名)昇順 でソート
+  data.sort(function(a, b) {
+    var da = (a[9] instanceof Date) ? a[9].getTime() : 0;
+    var db = (b[9] instanceof Date) ? b[9].getTime() : 0;
+    if (da !== db) return da - db;
+    return String(a[6] || '').localeCompare(String(b[6] || ''));
+  });
+
+  // V列(22, 0-indexed:21)を空にして値を書き戻す
+  var writeData = data.map(function(r) {
+    var row = r.slice();
+    row[21] = ''; // 合計高速は数式で再セットするため空に
+    return row;
+  });
+  sheet.getRange(2, 1, numRows, 26).setValues(writeData);
+
+  // V列(22)の数式を正しい行番号で再セット
+  var formulas = [];
+  for (var i = 0; i < numRows; i++) {
+    var rn = i + 2;
+    formulas.push(['=IF(AND(U' + rn + '="",T' + rn + '=""),"",U' + rn + '-T' + rn + ')']);
+  }
+  sheet.getRange(2, 22, numRows, 1).setFormulas(formulas);
+
+  // 書式を再適用
+  sheet.getRange(2, 10, numRows, 1).setNumberFormat('yyyy/MM/dd');
+  sheet.getRange(2, 12, numRows, 2).setNumberFormat('@');
+  applyMoneyFormat_(sheet, 2, numRows, 'unkou');
+  applyDateTimeFormat_(sheet, 2, numRows);
+}
+
+
+// ================================================================
 //  2-1: メニュー設定（onOpen）  【大C / 中2 / 小2-1】
-//  スプレッドシート上部に「メニュー」を表示する
-//  項目：ホーム画面を表示 / 集計表再生成 / シート再生成
+//  スプレッドシート上部に「メニュー」を表示する（客先配布用）
+//  項目：ホーム画面を表示 / 集計表再生成 / シート再生成 /
+//        月生成 / 前月分アーカイブ / 写真・ファイル取込
 // ================================================================
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu('メニュー')
+  // '__COMPANY_SS__' シートがあれば客先配布SSとして客用メニューを表示
+  // マスターSSにはこのシートがないため常に管理者メニューを表示
+  var isAdmin = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('__COMPANY_SS__') === null;
+
+  var menu = SpreadsheetApp.getUi().createMenu('メニュー')
     .addItem('ホーム画面を表示', 'showSidebar')
     .addItem('集計表再生成', 'generateSummary')
     .addItem('シート再生成', 'expandAndRefreshSheets')
-    .addItem('看板名列を挿入（初回のみ）', 'insertKanbanColumn')
-    .addItem('シート保護設定', 'setupSheetProtection')
+    .addItem('🔃 日付順並び替え', 'sortUnkouByDate_')
+    .addSeparator()
+    .addItem('📅 月生成', 'generateNextMonth')
+    .addItem('📦 前月分アーカイブ', 'archiveOldMonth')
+    .addSeparator()
     .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
-    .addToUi();
+    .addSeparator()
+    .addItem('📖 使い方シート作成', 'createUsageSheet');
+
+  if (isAdmin) {
+    menu
+      .addItem('🏢 会社セットアップ実行', 'setupCompanies')
+      .addItem('📧 配布メール送信', 'triggerDistributionMail')
+      .addSeparator()
+      .addItem('📤 会社SS作成＆メール送信', 'sendCompanySetupEmails')
+      .addItem('📝 申し込みフォーム作成', 'createSignupForm')
+      .addSeparator()
+      .addItem('🔧 初期設定（最初に1回だけ押す）', 'installTriggers');
+  }
+
+  menu.addToUi();
+
+  // マスターSSのIDを保存（時間トリガーからopenByIdで開くために使う）
+  try {
+    PropertiesService.getScriptProperties().setProperty(
+      'masterSsId', SpreadsheetApp.getActiveSpreadsheet().getId()
+    );
+  } catch(ex) {}
   convertLegacyAdminDataUrls_();
   applyHolidayRowColors_();
 }
@@ -467,12 +598,51 @@ function onOpen() {
 
 // ================================================================
 //  2-2: Webアプリ起動（doGet）  【大C / 中2 / 小2-2】
-//  URLアクセス時にWebアプリとして表示する
+//  URLアクセス時にWebアプリとして表示する。
+//  ?ssId=XXXX パラメータを受け取り、HTMLテンプレートに渡す。
+//  初回アクセス時に自分自身のWebアプリURLを自動取得してScript Propertiesに保存する。
+//  これにより会社SS作成時のアプリURLが自動で設定される（手動入力不要）。
 // ================================================================
-function doGet() {
-  return HtmlService.createTemplateFromFile('index').evaluate()
+function doGet(e) {
+  var ssId = (e && e.parameter && e.parameter.ssId) ? e.parameter.ssId : '';
+
+  // WebアプリURLを常に最新に更新（deployするたびに正しいURLで上書き）
+  try {
+    var svcUrl = ScriptApp.getService().getUrl();
+    if (svcUrl && svcUrl.indexOf('script.google.com/macros') !== -1) {
+      PropertiesService.getScriptProperties().setProperty('webAppUrl', svcUrl);
+    }
+  } catch(ex) {}
+
+  var tmpl = HtmlService.createTemplateFromFile('index');
+  tmpl.companySsId = ssId;
+  return tmpl.evaluate()
     .setTitle('運行管理システム')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+
+// ================================================================
+//  2-2b: ssIdをUserPropertiesに保存（storeCompanySsId）  【大A / 中2 / 小2-2b】
+//  index.htmlのwindow.onload時にssIdがあれば呼ばれる。
+//  以降 getTargetSS_() でそのSSを開けるようにする。
+// ================================================================
+function storeCompanySsId(ssId) {
+  if (ssId) PropertiesService.getUserProperties().setProperty('linkedSsId', ssId);
+}
+
+
+// ================================================================
+//  2-2c: 対象スプレッドシート取得（getTargetSS_）  【大B / 中2 / 小2-2c】
+//  乗務員アプリからの呼び出し時は linkedSsId で会社SSを openById で開く。
+//  スプレッドシートメニューからの呼び出し時は getActiveSpreadsheet を返す。
+// ================================================================
+function getTargetSS_(ssId) {
+  var id = ssId || PropertiesService.getUserProperties().getProperty('linkedSsId');
+  if (id) {
+    try { return SpreadsheetApp.openById(id); } catch(e) {}
+  }
+  return SpreadsheetApp.getActiveSpreadsheet();
 }
 
 
@@ -615,7 +785,10 @@ function onEdit(e) {
 
     // ── 3-1-4: シート別振り分け ──────────────────────────────────────
     if (sheetName === '自車専属マスタ') { onEditMasterVehicle_(sheet, range); return; }
-    if (sheetName === 'マスタ') { onEditMasterCustomer_(sheet, range); return; }
+    if (sheetName === 'マスタ')         { onEditMasterCustomer_(sheet, range); return; }
+    // 会社登録シートの処理はインストール型トリガー（installedOnEdit_）が担当する
+    // シンプルトリガーはドライブ/メール/トリガー作成などの認証付き操作が不可のため
+    if (sheetName === '会社登録') return;
     if (sheetName !== '運行') return;
     onEditUnkou_(sheet, range);
   } catch (err) {}
@@ -717,11 +890,20 @@ function onEditUnkou_(sheet, range) {
         timeCell.setNumberFormat('M/d HH:mm');
       }
     }
-    // 積地(L=col12) に「休み」「有休」が含まれる場合はセルをグレーに着色
-    var pvK = String(sheet.getRange(row, 12).getValue() || '');
-    sheet.getRange(row, 12).setBackground(
-      (pvK.indexOf('休み') !== -1 || pvK.indexOf('有休') !== -1) ? '#9e9e9e' : null
-    );
+    // 積地(L=col12)の背景色: 休み/有休→グレー、空+未来日→黄色(配車漏れ警告)、それ以外→なし
+    var pvK   = String(sheet.getRange(row, 12).getValue() || '');
+    var dateV = sheet.getRange(row, 10).getValue();
+    var pickBg;
+    if (pvK.indexOf('休み') !== -1 || pvK.indexOf('有休') !== -1) {
+      pickBg = '#9e9e9e';
+    } else if (pvK === '' && dateV instanceof Date) {
+      var todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
+      var dateMid  = new Date(dateV); dateMid.setHours(0, 0, 0, 0);
+      pickBg = (dateMid >= todayMid) ? '#fff9c4' : null;
+    } else {
+      pickBg = null;
+    }
+    sheet.getRange(row, 12).setBackground(pickBg);
     var tollCell = sheet.getRange(row, 22);
     if (!tollCell.getFormula()) {
       tollCell.setFormula('=IF(AND(U' + row + '="",T' + row + '=""),"",U' + row + '-T' + row + ')');
@@ -1419,14 +1601,331 @@ function addStatusColumnToMaster() {
 
 
 // ================================================================
+//  4-7: 月生成（generateNextMonth）  【大C / 中4 / 小4-7】
+//  次月の1日〜末日 × 運行中車両 のプレースホルダーIDを運行シートに一括生成する
+//  ・積地が空の行には配車漏れ警告色（#fff9c4）を付ける（1-7呼び出し）
+//  ・生成後に運行シートに3ヶ月以上のデータがあれば最古月を自動アーカイブ（4-8a呼び出し）
+//  ・重複防止: 次月データが既存なら処理中止
+//  ・LockServiceで同時実行によるID重複を防止
+// ================================================================
+function generateNextMonth() {
+  var ui = SpreadsheetApp.getUi();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet) { ui.alert('運行シートが見つかりません'); return; }
+
+  // 次月の年・月(0-indexed)を計算
+  var today    = new Date();
+  var nextYear = (today.getMonth() === 11) ? today.getFullYear() + 1 : today.getFullYear();
+  var nextMon  = (today.getMonth() + 1) % 12; // 0-indexed
+
+  // 既に次月データがある場合はスキップ
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var dateVals = sheet.getRange(2, 10, lastRow - 1, 1).getValues();
+    for (var i = 0; i < dateVals.length; i++) {
+      var dv = dateVals[i][0];
+      if (dv instanceof Date && dv.getFullYear() === nextYear && dv.getMonth() === nextMon) {
+        ui.alert('📅 月生成\n\n' + nextYear + '年' + (nextMon + 1) + '月分のデータは既に存在します。\n重複生成はできません。');
+        return;
+      }
+    }
+  }
+
+  // 運行中の車両一覧を取得（自車専属マスタ B列=運行状態が「運行」の行のみ）
+  var master = ss.getSheetByName('自車専属マスタ');
+  if (!master || master.getLastRow() < 2) {
+    ui.alert('自車専属マスタに車両データがありません');
+    return;
+  }
+  var mData = master.getRange(2, 1, master.getLastRow() - 1, 15).getValues();
+  var activeVehicles = [];
+  for (var v = 0; v < mData.length; v++) {
+    if (String(mData[v][1] || '').trim() === '運行') activeVehicles.push(mData[v]);
+  }
+  if (activeVehicles.length === 0) {
+    ui.alert('運行中の車両がありません。\n自車専属マスタのB列（運行状態）を確認してください。');
+    return;
+  }
+
+  var daysInMonth = new Date(nextYear, nextMon + 1, 0).getDate();
+
+  // LockServiceでID採番の競合を防止
+  var lock = LockService.getDocumentLock();
+  try { lock.waitLock(30000); } catch(e) { ui.alert('ロック取得失敗: ' + e.message); return; }
+
+  try {
+    var insertRow = sheet.getLastRow() + 1;
+    var nextNum   = getNextIdNum_(sheet, 'V-');
+    var rowsData  = [];
+    var formulas  = [];
+
+    // 日付ループ（1日〜末日）× 車両ループ
+    for (var day = 1; day <= daysInMonth; day++) {
+      var dateObj = new Date(nextYear, nextMon, day);
+      for (var v2 = 0; v2 < activeVehicles.length; v2++) {
+        var veh = activeVehicles[v2];
+        var rowId = 'V-' + String(nextNum).padStart(4, '0');
+        nextNum++;
+        var rn = insertRow + rowsData.length;
+        rowsData.push([
+          rowId,   veh[2], veh[3], veh[4], veh[5], veh[6], veh[7], veh[8],
+          veh[3],  dateObj, '', '', '',
+          '', '', '', '', '',  // 誘導〜降完（14-18列）
+          '', '', '',          // 売上・請求高速・実費高速（19-21列）
+          '',                  // 合計高速（22列: 後で数式セット）
+          '', '', '', ''       // 連絡・データURL（23-26列）
+        ]);
+        formulas.push(['=IF(AND(U' + rn + '="",T' + rn + '=""),"",U' + rn + '-T' + rn + ')']);
+      }
+    }
+
+    // 一括書き込み
+    sheet.getRange(insertRow, 1, rowsData.length, 26).setValues(rowsData);
+    sheet.getRange(insertRow, 22, formulas.length, 1).setFormulas(formulas);
+    sheet.getRange(insertRow, 10, rowsData.length, 1).setNumberFormat('yyyy/MM/dd');
+    // 積地・降地列をテキスト書式（数値化防止）
+    sheet.getRange(insertRow, 12, rowsData.length, 2).setNumberFormat('@');
+
+  } finally {
+    lock.releaseLock();
+  }
+
+  // 日付順にソート（新規行が末尾に追加されているため）
+  sortUnkouByDate_();
+
+  // 積地空 + 未来日 = 黄色警告を全体に適用
+  applyHolidayRowColors_();
+
+  // 3ヶ月以上データがあれば最古月を自動アーカイブ
+  archiveOldestMonthIfNeeded_();
+
+  ui.alert(
+    '📅 月生成完了\n\n' +
+    nextYear + '年' + (nextMon + 1) + '月分\n' +
+    activeVehicles.length + '台 × ' + daysInMonth + '日 = ' +
+    (activeVehicles.length * daysInMonth) + '行を生成しました。'
+  );
+}
+
+
+// ================================================================
+//  4-8: 前月分アーカイブ（archiveOldMonth）  【大C / 中4 / 小4-8】
+//  前月（今月-1）の運行シート・集計表を別スプレッドシートに値のみで保存して元行を削除する
+//  保存先: Googleドライブ「運行管理_アーカイブ/会社名/YYYY年MM月_会社名」
+//  自車専属マスタのJ列（メールアドレス）に登録された全員に編集権限を付与
+// ================================================================
+function archiveOldMonth() {
+  var ui = SpreadsheetApp.getUi();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet || sheet.getLastRow() < 2) {
+    ui.alert('運行シートにデータがありません');
+    return;
+  }
+
+  // 前月の年・月(0-indexed)を計算
+  var today    = new Date();
+  var prevYear = (today.getMonth() === 0) ? today.getFullYear() - 1 : today.getFullYear();
+  var prevMon  = (today.getMonth() === 0) ? 11 : today.getMonth() - 1;
+
+  // 前月データの存在確認
+  var prevRows = getMonthRows_(sheet, prevYear, prevMon, 26);
+  if (prevRows.length === 0) {
+    ui.alert(
+      '📦 前月分アーカイブ\n\n' +
+      prevYear + '年' + (prevMon + 1) + '月のデータが見つかりません。\n既にアーカイブ済みか、データがない可能性があります。'
+    );
+    return;
+  }
+
+  var companyName = getCompanyName_(ss);
+  var result = archiveMonthData_(ss, prevYear, prevMon, companyName);
+
+  ui.alert(
+    '📦 アーカイブ完了\n\n' +
+    prevYear + '年' + (prevMon + 1) + '月分\n' +
+    result.archived + '行をアーカイブしました。\n\nファイル名: ' + result.fileName +
+    '\n保存先: 運行管理_アーカイブ/' + companyName + '/'
+  );
+}
+
+
+// ================================================================
+//  4-8a: 最古月自動アーカイブ（archiveOldestMonthIfNeeded_）  【大B / 中4 / 小4-8a】
+//  運行シートに3ヶ月以上の月データが存在する場合のみ最古月をアーカイブする
+//  generateNextMonth から呼び出す（月生成後の自動整理）
+// ================================================================
+function archiveOldestMonthIfNeeded_() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet || sheet.getLastRow() < 2) return;
+
+  // 運行シートに存在する月を収集（キー: YYYYMM形式の数値）
+  var dateVals = sheet.getRange(2, 10, sheet.getLastRow() - 1, 1).getValues();
+  var monthMap = {};
+  for (var i = 0; i < dateVals.length; i++) {
+    var dv = dateVals[i][0];
+    if (dv instanceof Date) {
+      var key = dv.getFullYear() * 100 + dv.getMonth(); // e.g. 202504
+      monthMap[key] = { year: dv.getFullYear(), month: dv.getMonth() };
+    }
+  }
+
+  var keys = Object.keys(monthMap).map(Number).sort();
+  if (keys.length < 3) return; // 2ヶ月以内はアーカイブ不要
+
+  // 最古月をアーカイブ
+  var oldest = monthMap[keys[0]];
+  var companyName = getCompanyName_(ss);
+  archiveMonthData_(ss, oldest.year, oldest.month, companyName);
+}
+
+
+// ================================================================
+//  4-8b: 月別アーカイブ実行（archiveMonthData_）  【大B / 中4 / 小4-8b】
+//  指定年月の運行・集計表データをアーカイブ用スプレッドシートへコピーし元行を削除する
+//  処理順序:
+//   1. 対象月の行を収集
+//   2. 新規スプレッドシート作成・2シート(運行/集計表)に値のみ書き込み
+//   3. 「運行管理_アーカイブ/会社名/」フォルダへ移動
+//   4. 自車専属マスタJ列(メールアドレス)全員に編集権限を付与
+//   5. 運行シート・集計表から対象行を削除
+// ================================================================
+function archiveMonthData_(ss, year, month, companyName) {
+  var monthLabel = year + '年' + (month + 1) + '月';
+  var fileName   = monthLabel + '_' + companyName;
+
+  // 運行シートから対象月の行を取得
+  var unkouSheet = ss.getSheetByName('運行');
+  var unkouRows  = getMonthRows_(unkouSheet, year, month, 26);
+  if (unkouRows.length === 0) return { fileName: fileName, archived: 0 };
+
+  // 対象IDを収集（集計表の絞り込みに使用）
+  var archiveIds = {};
+  for (var i = 0; i < unkouRows.length; i++) {
+    var id = String(unkouRows[i].data[0] || '').trim();
+    if (id) archiveIds[id] = true;
+  }
+
+  // 集計表から対象IDの行を取得
+  var sumSheet = ss.getSheetByName('集計表');
+  var sumRows  = [];
+  if (sumSheet && sumSheet.getLastRow() >= 2) {
+    var sumVals = sumSheet.getRange(2, 1, sumSheet.getLastRow() - 1, 34).getValues();
+    for (var j = 0; j < sumVals.length; j++) {
+      var sid = String(sumVals[j][0] || '').trim();
+      if (archiveIds[sid]) sumRows.push({ rowNum: j + 2, data: sumVals[j] });
+    }
+  }
+
+  // 新規スプレッドシート作成
+  var newSs   = SpreadsheetApp.create(fileName);
+  var newFile = DriveApp.getFileById(newSs.getId());
+
+  // 運行シートを書き込み（値のみ）
+  var newUnkou   = newSs.getActiveSheet();
+  newUnkou.setName('運行');
+  var unkouHeader = unkouSheet.getRange(1, 1, 1, 26).getValues()[0];
+  var unkouData   = [unkouHeader].concat(unkouRows.map(function(r) { return r.data; }));
+  newUnkou.getRange(1, 1, unkouData.length, 26).setValues(unkouData);
+  newUnkou.setFrozenRows(1);
+  newUnkou.getRange(1, 1, 1, 26).setBackground('#efefef');
+
+  // 集計表シートを書き込み（値のみ）
+  if (sumRows.length > 0) {
+    var newSum    = newSs.insertSheet('集計表');
+    var sumHeader = sumSheet.getRange(1, 1, 1, 34).getValues()[0];
+    var sumData   = [sumHeader].concat(sumRows.map(function(r) { return r.data; }));
+    newSum.getRange(1, 1, sumData.length, 34).setValues(sumData);
+    newSum.setFrozenRows(1);
+    newSum.getRange(1, 1, 1, 34).setBackground('#efefef');
+  }
+
+  // アーカイブフォルダへ移動（ルートから削除）
+  var archiveRoot   = getOrCreateFolder_('運行管理_アーカイブ');
+  var subIter       = archiveRoot.getFoldersByName(companyName);
+  var companyFolder = subIter.hasNext() ? subIter.next() : archiveRoot.createFolder(companyName);
+  companyFolder.addFile(newFile);
+  DriveApp.getRootFolder().removeFile(newFile);
+
+  // 自車専属マスタのJ列(index[9]=メールアドレス)に登録された全員に編集権限を付与
+  var master = ss.getSheetByName('自車専属マスタ');
+  if (master && master.getLastRow() >= 2) {
+    var mData = master.getRange(2, 1, master.getLastRow() - 1, 10).getValues();
+    var sharedEmails = {};
+    for (var m = 0; m < mData.length; m++) {
+      var email = String(mData[m][9] || '').trim();
+      if (email && email.indexOf('@') !== -1 && !sharedEmails[email]) {
+        sharedEmails[email] = true;
+        try { newFile.addEditor(email); } catch(e) {}
+        // 会社フォルダも共有（ファイルだけでなくフォルダを見えるように）
+        try { companyFolder.addEditor(email); } catch(e) {}
+      }
+    }
+  }
+
+  // 元データから対象行を削除（行番号を降順にして下から削除）
+  var unkouNums = unkouRows.map(function(r) { return r.rowNum; }).sort(function(a, b) { return b - a; });
+  for (var d = 0; d < unkouNums.length; d++) { unkouSheet.deleteRow(unkouNums[d]); }
+
+  if (sumRows.length > 0) {
+    var sumNums = sumRows.map(function(r) { return r.rowNum; }).sort(function(a, b) { return b - a; });
+    for (var e = 0; e < sumNums.length; e++) { sumSheet.deleteRow(sumNums[e]); }
+  }
+
+  return { fileName: fileName, archived: unkouRows.length };
+}
+
+
+// ================================================================
+//  4-8c: 月別行データ抽出（getMonthRows_）  【大B / 中4 / 小4-8c】
+//  指定シートのJ列(col10=日付)で絞り込み、指定年月(0-indexed)の行を返す
+//  戻り値: [{rowNum: 行番号(1-indexed), data: 行データ配列}] の配列
+// ================================================================
+function getMonthRows_(sheet, year, month, numCols) {
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var lastRow = sheet.getLastRow();
+  var vals    = sheet.getRange(2, 1, lastRow - 1, numCols).getValues();
+  var result  = [];
+  for (var i = 0; i < vals.length; i++) {
+    var dv = vals[i][9]; // col10(J列=日付) → 0-indexed: [9]
+    if (dv instanceof Date && dv.getFullYear() === year && dv.getMonth() === month) {
+      result.push({ rowNum: i + 2, data: vals[i] });
+    }
+  }
+  return result;
+}
+
+
+// ================================================================
+//  4-8d: 会社名取得（getCompanyName_）  【大B / 中4 / 小4-8d】
+//  自車専属マスタのD列(col4=会社名)から最初の値を取得する
+//  取得できない場合はスプレッドシート名から「運行管理」を除いた文字列を返す
+// ================================================================
+function getCompanyName_(ss) {
+  var master = ss.getSheetByName('自車専属マスタ');
+  if (master && master.getLastRow() >= 2) {
+    var mData = master.getRange(2, 1, master.getLastRow() - 1, 4).getValues();
+    for (var i = 0; i < mData.length; i++) {
+      var name = String(mData[i][3] || '').trim(); // col4(D列=会社名) → 0-indexed: [3]
+      if (name) return name;
+    }
+  }
+  // フォールバック: スプレッドシート名から取得
+  return ss.getName().replace(/\s*運行管理\s*$/, '').trim() || '会社名不明';
+}
+
+
+// ================================================================
 //  5-1: 起動時の初期データ一括取得（getInitialData）  【大A / 中5 / 小5-1】
 //  端末保存のアドレスを元にマスタから該当行を一括検索して返す
 // ================================================================
-function getInitialData() {
-  var savedEmail = PropertiesService.getUserProperties().getProperty('linkedEmail');
+function getInitialData(hintEmail, companySsId) {
+  var savedEmail = hintEmail || PropertiesService.getUserProperties().getProperty('linkedEmail');
   var result = { email: savedEmail || "", profile: null };
   if (!savedEmail) return result;
-  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var ss     = getTargetSS_(companySsId); // 会社専用SSがあればそちらを参照
   var master = ss.getSheetByName('自車専属マスタ');
   if (!master) return result;
   var data       = master.getDataRange().getValues();
@@ -1449,14 +1948,18 @@ function getInitialData() {
 //  入力アドレスを自車専属マスタのJ列と照合し
 //  一致したら端末のPropertiesServiceに保存する（シートには書かない）
 // ================================================================
-function linkAddress(email) {
-  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+function linkAddress(email, companySsId) {
+  var ss     = getTargetSS_(companySsId); // 会社専用SSがあればそちらを参照
   var master = ss.getSheetByName('自車専属マスタ');
   if (!master) return "エラー：マスタシートなし";
   var rows = master.getDataRange().getValues();
   for (var i = 1; i < rows.length; i++) {
     if (String(rows[i][9]).trim() === String(email).trim()) {
-      PropertiesService.getUserProperties().setProperty('linkedEmail', email);
+      var props = PropertiesService.getUserProperties();
+      props.setProperty('linkedEmail', email);
+      // 紐づけ時に会社SSのIDも保存（次回以降URLなしでも正しいSSを開ける）
+      var linkedSsId = props.getProperty('linkedSsId');
+      if (!linkedSsId) props.setProperty('linkedSsId', ss.getId());
       return {
         status: "紐づけOK", email: email,
         company: rows[i][3], tons: rows[i][4], type: rows[i][5],
@@ -1472,7 +1975,7 @@ function linkAddress(email) {
 //  5-3: 紐づけ解除（unlinkAddress）  【大A / 中5 / 小5-3】
 //  端末のPropertiesServiceからアドレス情報を消去する
 // ================================================================
-function unlinkAddress() {
+function unlinkAddress(companySsId) {
   PropertiesService.getUserProperties().deleteProperty('linkedEmail');
   return "解除しました";
 }
@@ -1582,6 +2085,9 @@ function getTodayRoutes() {
 //  ・同じ運行の行程は全て同じIDを付与
 //  ・日付をDate型（時刻付き）で書き込む
 //  ・LockServiceで同時書き込みによるID重複を防止
+//  ★STEP4追加: 今日の未割当プレースホルダー（積地空）があれば新規IDを生成せずそれを使用
+//    → スプレッドシートで積地が先入力済みなら別ID生成（既存動作にフォールバック）
+//    → 複数行程の場合は先頭行をプレースホルダー更新、追加行程は末尾に新規追加（同ID）
 // ================================================================
 function createParentRows(picks, drops, dateStr, overrideInfo) {
   // 端末のメールアドレスを確認（未連携なら運行開始不可）
@@ -1624,43 +2130,98 @@ function createParentRows(picks, drops, dateStr, overrideInfo) {
     var sheet = ss.getSheetByName('運行');
     if (!sheet) throw new Error('運行シートがありません');
 
-    // picks/drops 配列の各要素が1行程（積地と降地がセットになっている）
-    // 全行程に同一IDを付与して連番採番
-    var lastRow  = sheet.getLastRow();
-    var nextNum  = getNextIdNum_(sheet, 'V-');
     // 日付: 端末から渡された場合はその日付を使用（省略時は現在時刻）
-    var now = dateStr ? new Date(dateStr) : new Date();
-    var num      = picks.length;
-    var startRow = lastRow + 1;
-    var sameId   = 'V-' + String(nextNum).padStart(4, '0');
+    var now  = dateStr ? new Date(dateStr) : new Date();
+    var nowY = now.getFullYear(), nowM = now.getMonth(), nowD = now.getDate();
 
-    var rowsData = [];
-    for (var i = 0; i < num; i++) {
-      rowsData.push([
-        sameId, info.kubun, info.company, info.tons, info.type, info.car,
-        info.name, info.tel, info.kanban || info.company, now, '', picks[i], drops[i],
-        '', '', '', '', '', '', '', '', '', '', '', '', ''
-      ]);
+    // 今日の未割当プレースホルダーを探す（同ドライバー・同日・積地空）
+    // LockService取得済みのため読み取り後の書き込みが排他保証される
+    var allRows  = sheet.getDataRange().getValues();
+    var phRowNum = -1; // プレースホルダーの1-indexed行番号
+    var sameId   = null;
+    for (var k = 1; k < allRows.length; k++) {
+      var rv  = allRows[k];
+      var rid = String(rv[0] || '').trim();
+      if (!rid) continue;
+      var rDate = rv[9]; // col10(J列=日付) 0-indexed
+      if (!(rDate instanceof Date)) continue;
+      if (rDate.getFullYear() !== nowY || rDate.getMonth() !== nowM || rDate.getDate() !== nowD) continue;
+      if (String(rv[6] || '').trim() !== info.name) continue; // 乗務員名で絞り込み
+      if (String(rv[11] || '').trim() === '') {               // 積地空 = 未割当プレースホルダー
+        phRowNum = k + 1; // 1-indexed
+        sameId   = rid;
+        break;
+      }
     }
-    sheet.getRange(startRow, 12, num, 2).setNumberFormat('@'); // 積地・降地をテキスト書式に固定（数値化防止）
-    sheet.getRange(startRow, 1, num, 26).setValues(rowsData);
 
-    // V列(22)の高速計算式を各行に設定（合計高速 = 実費U - 請求T）
-    var formulas = [];
-    for (var i = 0; i < num; i++) {
-      var r = startRow + i;
-      formulas.push(['=IF(AND(U'+r+'="",T'+r+'=""),"",U'+r+'-T'+r+')']);
+    var lastRow    = sheet.getLastRow();
+    var resultRows = [];
+
+    if (phRowNum !== -1) {
+      // ── プレースホルダー使用パス ──
+      // picks[0]/drops[0] で既存行を上書き（積地・降地・荷主のみ。IDや日付はそのまま）
+      sheet.getRange(phRowNum, 11, 1, 3).setNumberFormat('@');
+      sheet.getRange(phRowNum, 11).setValue(info.company || ''); // 荷主(K列)
+      sheet.getRange(phRowNum, 12).setValue(picks[0] || '');     // 積地(L列)
+      sheet.getRange(phRowNum, 13).setValue(drops[0] || '');     // 降地(M列)
+      sheet.getRange(phRowNum, 12).setBackground(null);          // 配車漏れ黄色警告を解除
+      resultRows.push(phRowNum);
+
+      // picks[1..] の追加行程があれば末尾に新規追加（同一ID）
+      if (picks.length > 1) {
+        var addStart = lastRow + 1;
+        var addData  = [];
+        for (var ai = 1; ai < picks.length; ai++) {
+          addData.push([
+            sameId, info.kubun, info.company, info.tons, info.type, info.car,
+            info.name, info.tel, info.kanban || info.company, now, '', picks[ai], drops[ai],
+            '', '', '', '', '', '', '', '', '', '', '', '', ''
+          ]);
+        }
+        sheet.getRange(addStart, 12, addData.length, 2).setNumberFormat('@');
+        sheet.getRange(addStart, 1, addData.length, 26).setValues(addData);
+        var addFmls = [];
+        for (var af = 0; af < addData.length; af++) {
+          var afr = addStart + af;
+          addFmls.push(['=IF(AND(U'+afr+'="",T'+afr+'=""),"",U'+afr+'-T'+afr+')']);
+        }
+        sheet.getRange(addStart, 22, addFmls.length, 1).setFormulas(addFmls);
+        sheet.getRange(addStart, 10, addData.length, 1).setNumberFormat('yyyy/MM/dd');
+        applyDateTimeFormat_(sheet, addStart, addData.length);
+        for (var ai2 = 0; ai2 < addData.length; ai2++) resultRows.push(addStart + ai2);
+      }
+
+    } else {
+      // ── 新規ID生成パス（プレースホルダーなし、または積地が既に埋まっている）──
+      var nextNum  = getNextIdNum_(sheet, 'V-');
+      sameId       = 'V-' + String(nextNum).padStart(4, '0');
+      var startRow = lastRow + 1;
+      var num      = picks.length;
+      var rowsData = [];
+      for (var i = 0; i < num; i++) {
+        rowsData.push([
+          sameId, info.kubun, info.company, info.tons, info.type, info.car,
+          info.name, info.tel, info.kanban || info.company, now, '', picks[i], drops[i],
+          '', '', '', '', '', '', '', '', '', '', '', '', ''
+        ]);
+      }
+      sheet.getRange(startRow, 12, num, 2).setNumberFormat('@'); // 積地・降地をテキスト書式に固定
+      sheet.getRange(startRow, 1, num, 26).setValues(rowsData);
+      var formulas = [];
+      for (var fi = 0; fi < num; fi++) {
+        var fr = startRow + fi;
+        formulas.push(['=IF(AND(U'+fr+'="",T'+fr+'=""),"",U'+fr+'-T'+fr+')']);
+      }
+      sheet.getRange(startRow, 22, num, 1).setFormulas(formulas);
+      sheet.getRange(startRow, 10, num, 1).setNumberFormat('yyyy/MM/dd');
+      applyDateTimeFormat_(sheet, startRow, num);
+      for (var ri = 0; ri < num; ri++) resultRows.push(startRow + ri);
     }
-    sheet.getRange(startRow, 22, num, 1).setFormulas(formulas);
-    sheet.getRange(startRow, 10, num, 1).setNumberFormat('yyyy/MM/dd');
-    applyDateTimeFormat_(sheet, startRow, num);
 
     // 集計表を非同期で同期（遅延実行）
     delaySyncSummary_(sameId);
 
-    var rows = [];
-    for (var i = 0; i < num; i++) rows.push(startRow + i);
-    return rows;
+    return resultRows;
 
   } finally {
     lock.releaseLock();
@@ -2791,4 +3352,947 @@ function markAsRead(id) {
 // ================================================================
 function getReadNotices() {
   return JSON.parse(PropertiesService.getUserProperties().getProperty('readNotices') || '[]');
+}
+
+
+// ================================================================
+//  11-1: 会社登録シートのonEditハンドラ（onEditCompanyRegister_）  【大B / 中11 / 小11-1】
+//  ・A列(会社名)+B列(管理Gmail) が揃いC列が空 → フォルダ作成・通知メール送信
+//  ・F列(スプレッドシートURL)+G列(WebアプリURL) が両方揃いH列が空 → 配布メール自動送信
+//  C列: セットアップ状態（済/エラー）  D列: 実行日時  E列: フォルダURL
+//  F列: スプレッドシートURL  G列: WebアプリURL  H列: 配布メール送信状態
+//  onEdit(e) から呼び出す（シート名='会社登録' の場合）
+// ================================================================
+function onEditCompanyRegister_(sheet, range) {
+  var row = range.getRow();
+  if (row <= 1) return; // ヘッダー行スキップ
+
+  var col = range.getColumn();
+
+  // ── A列 or B列が編集された → installedOnEdit_ がフルセットアップを実行する ──
+  // （シンプルトリガーには認証付き処理が不可のため、ここでは何もしない）
+  if (col === 1 || col === 2) return;
+
+  // ── F列 or G列が編集された → 両方揃ったら配布メール自動送信 ──
+  if (col === 6 || col === 7) {
+    var ssUrl      = String(sheet.getRange(row, 6).getValue() || '').trim();
+    var appUrl     = String(sheet.getRange(row, 7).getValue() || '').trim();
+    var mailStatus = String(sheet.getRange(row, 8).getValue() || '').trim();
+    if (!ssUrl || !appUrl) return; // 両方揃うまで待つ
+    if (mailStatus && mailStatus.indexOf('送信済') !== -1) return; // 送信済はスキップ
+    var cName = String(sheet.getRange(row, 1).getValue() || '').trim();
+    var aEmail = String(sheet.getRange(row, 2).getValue() || '').trim();
+    if (!cName || !aEmail || aEmail.indexOf('@') === -1) return;
+    try {
+      sendDistributionMail_(cName, aEmail, ssUrl, appUrl, row, sheet);
+    } catch(e) {
+      sheet.getRange(row, 8).setValue('エラー: ' + e.message).setBackground('#ffcdd2');
+    }
+  }
+}
+
+
+// ================================================================
+//  11-2: 1社分のセットアップ実行（setupOneCompany_）  【大B / 中11 / 小11-2】
+//  「運行管理_アーカイブ/会社名/」フォルダを作成し管理Gmailに編集権限を付与する。
+//  suppressEmail=true のとき通知メールを送らない（processNewCompany_ から呼ぶ場合）。
+//  戻り値: { folderUrl, folderId }
+// ================================================================
+function setupOneCompany_(companyName, adminEmail, suppressEmail) {
+  // 運行管理_アーカイブ/ を作成or取得
+  var rootFolder    = getOrCreateFolder_('運行管理_アーカイブ');
+  // 会社名サブフォルダを作成or取得
+  var subIter       = rootFolder.getFoldersByName(companyName);
+  var companyFolder = subIter.hasNext() ? subIter.next() : rootFolder.createFolder(companyName);
+
+  // 管理Gmailに編集権限を付与（フォルダ）
+  try { companyFolder.addEditor(adminEmail); } catch(e) {}
+
+  var folderUrl = companyFolder.getUrl();
+  var folderId  = companyFolder.getId();
+
+  // processNewCompany_ から呼ばれた場合は個別メールを送らない
+  // （sendDistributionMail_ で1通にまとめて送信するため）
+  if (!suppressEmail) {
+    var subject = '[運行管理] ' + companyName + ' のご利用準備が整いました';
+    var body =
+      companyName + ' 担当者様\n\n' +
+      '運行管理システムのフォルダを作成しました。\n\n' +
+      '■ 共有フォルダ（運行データ・アーカイブの保管場所）\n' +
+      folderUrl + '\n\n' +
+      'スプレッドシートとアプリのURLは別途お知らせします。';
+    try { GmailApp.sendEmail(adminEmail, subject, body); } catch(e) {}
+  }
+
+  return { folderUrl: folderUrl, folderId: folderId };
+}
+
+
+// ================================================================
+//  11-3: 全会社セットアップ実行（setupCompanies）  【大C / 中11 / 小11-3】
+//  会社登録シートを読み込んで未処理の全社を一括セットアップする
+//  会社登録シートがなければ新規作成して案内を表示する
+//  スクリプトエディタまたは管理者メニューから手動実行
+// ================================================================
+function setupCompanies() {
+  var ui    = SpreadsheetApp.getUi();
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('会社登録');
+
+  // 会社登録シートがなければ新規作成
+  if (!sheet) {
+    sheet = ss.insertSheet('会社登録');
+    var header = ['会社名', '管理用Gmail', 'セットアップ状態', '実行日時', 'フォルダURL',
+                  'スプレッドシートURL', 'WebアプリURL', '配布メール送信状態'];
+    sheet.getRange(1, 1, 1, 8).setValues([header]);
+    sheet.getRange(1, 1, 1, 8).setBackground('#1565c0').setFontColor('#ffffff').setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 150);
+    sheet.setColumnWidth(2, 220);
+    sheet.setColumnWidth(3, 160);
+    sheet.setColumnWidth(4, 160);
+    sheet.setColumnWidth(5, 350);
+    sheet.setColumnWidth(6, 350);
+    sheet.setColumnWidth(7, 350);
+    sheet.setColumnWidth(8, 200);
+    // サンプル行（社名A・社名B）
+    sheet.getRange(2, 1, 2, 2).setValues([
+      ['社名A', '（管理用Gmailを入力）'],
+      ['社名B', '（管理用Gmailを入力）']
+    ]);
+    ui.alert(
+      '「会社登録」シートを作成しました。\n\n' +
+      '① B列（管理用Gmail）に各社担当者のGmailを入力 → フォルダ自動作成\n' +
+      '② F列（スプレッドシートURL）+ G列（WebアプリURL）を入力\n' +
+      '   → 管理者・乗務員に配布メールを自動送信します。'
+    );
+    return;
+  }
+
+  // 既存シートにF〜H列ヘッダーが未追加なら追加
+  var existingHeader = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (existingHeader.length < 6 || !existingHeader[5]) {
+    sheet.getRange(1, 6).setValue('スプレッドシートURL').setBackground('#1565c0').setFontColor('#ffffff').setFontWeight('bold');
+    sheet.getRange(1, 7).setValue('WebアプリURL').setBackground('#1565c0').setFontColor('#ffffff').setFontWeight('bold');
+    sheet.getRange(1, 8).setValue('配布メール送信状態').setBackground('#1565c0').setFontColor('#ffffff').setFontWeight('bold');
+    sheet.setColumnWidth(6, 350);
+    sheet.setColumnWidth(7, 350);
+    sheet.setColumnWidth(8, 200);
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) { ui.alert('会社登録シートにデータがありません'); return; }
+
+  var data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  var done = 0, skip = 0, errCount = 0;
+
+  for (var i = 0; i < data.length; i++) {
+    var row         = i + 2;
+    var companyName = String(data[i][0] || '').trim();
+    var adminEmail  = String(data[i][1] || '').trim();
+    var status      = String(data[i][2] || '').trim();
+
+    if (!companyName || !adminEmail || adminEmail.indexOf('@') === -1) { skip++; continue; }
+    if (status === '済') { skip++; continue; }
+
+    try {
+      var result = setupOneCompany_(companyName, adminEmail);
+      sheet.getRange(row, 3).setValue('済').setBackground('#c8e6c9');
+      sheet.getRange(row, 4).setValue(new Date());
+      sheet.getRange(row, 5).setValue(result.folderUrl);
+      done++;
+    } catch(e) {
+      sheet.getRange(row, 3).setValue('エラー: ' + e.message).setBackground('#ffcdd2');
+      errCount++;
+    }
+  }
+
+  ui.alert(
+    'セットアップ完了\n\n' +
+    '処理済: ' + done + '社\n' +
+    'スキップ（済 or 未入力）: ' + skip + '社\n' +
+    'エラー: ' + errCount + '社'
+  );
+}
+
+
+// ================================================================
+//  11-4: スプレッドシート内「使い方」シート自動作成（createUsageSheet）  【大C / 中11 / 小11-4】
+//  スプレッドシートを開いたまま確認できる操作手順書シートを作成する
+//  管理者向け（スプレッドシート操作）とドライバー向け（アプリ操作）の2部構成
+//  スクリプトエディタまたは管理者メニューから手動実行
+// ================================================================
+function createUsageSheet() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var ui    = SpreadsheetApp.getUi();
+  var sheet = ss.getSheetByName('使い方');
+  if (sheet) { ss.deleteSheet(sheet); }
+  sheet = ss.insertSheet('使い方');
+  ss.moveActiveSheet(1); // 先頭に移動
+
+  // ── レイアウト設定 ──────────────────────────
+  sheet.setColumnWidth(1, 30);   // A: 余白
+  sheet.setColumnWidth(2, 220);  // B: 項目
+  sheet.setColumnWidth(3, 400);  // C: 内容
+  sheet.setColumnWidth(4, 30);   // D: 余白
+
+  var row = 1;
+
+  function title(text, bgColor) {
+    sheet.getRange(row, 1, 1, 4).merge().setValue(text)
+      .setBackground(bgColor || '#1565c0').setFontColor('#ffffff')
+      .setFontSize(16).setFontWeight('bold').setVerticalAlignment('middle');
+    sheet.setRowHeight(row, 50);
+    row++;
+  }
+  function section(text, bgColor) {
+    sheet.getRange(row, 2, 1, 2).merge().setValue('▶ ' + text)
+      .setBackground(bgColor || '#1976d2').setFontColor('#ffffff')
+      .setFontSize(13).setFontWeight('bold');
+    sheet.setRowHeight(row, 36);
+    row++;
+  }
+  function item(label, value, labelBg) {
+    sheet.getRange(row, 2).setValue(label)
+      .setBackground(labelBg || '#e3f2fd').setFontSize(12).setFontWeight('bold')
+      .setVerticalAlignment('top').setWrap(true);
+    sheet.getRange(row, 3).setValue(value)
+      .setFontSize(12).setVerticalAlignment('top').setWrap(true);
+    sheet.setRowHeight(row, 60);
+    row++;
+  }
+  function note(text) {
+    sheet.getRange(row, 2, 1, 2).merge().setValue('  ' + text)
+      .setBackground('#fff9c4').setFontSize(11).setFontColor('#5d4037').setWrap(true);
+    sheet.setRowHeight(row, 40);
+    row++;
+  }
+  function spacer() {
+    sheet.setRowHeight(row, 14);
+    row++;
+  }
+
+  // ══════════════════════════════════════
+  // タイトル
+  // ══════════════════════════════════════
+  title('　運行管理システム　使い方ガイド', '#1a237e');
+  spacer();
+
+  // ══════════════════════════════════════
+  // PART 1: 管理者向け（スプレッドシート操作）
+  // ══════════════════════════════════════
+  title('　【管理者向け】 スプレッドシート操作', '#1b5e20');
+  spacer();
+
+  section('メニューの使い方（上の「メニュー」をクリック）', '#2e7d32');
+  item('ホーム画面を表示', 'スプレッドシート右側にアプリ画面を表示します。\nドライバーの連絡・データ確認に使います。', '#c8e6c9');
+  item('集計表再生成', '集計表の内容がおかしい時に押します。\n運行シートのデータから自動で再計算します。', '#c8e6c9');
+  item('シート再生成', '自車専属マスタ・自車専属運行シートを最新状態に整備します。\n新しい車両を追加した後などに使います。', '#c8e6c9');
+  item('📅 月生成', '翌月分の運行予定（プレースホルダー）を一括作成します。\n毎月25日〜月末頃に押してください。\n積地が空の行は黄色で表示されます（配車漏れ警告）。', '#c8e6c9');
+  item('📦 前月分アーカイブ', '前月のデータを別ファイルに保存して運行シートをスッキリさせます。\n月生成時に自動実行されますが、手動でも使えます。', '#c8e6c9');
+  item('📷 写真・ファイル取込', '選択した行にPC上の写真・ファイルを直接添付します。', '#c8e6c9');
+  spacer();
+
+  section('月次の運用フロー', '#2e7d32');
+  item('① 月末（25日頃）', '「📅 月生成」を押して翌月分の行を一括作成', '#c8e6c9');
+  item('② 配車確定後', '生成された行（黄色=未配車）に積地・降地を入力\n→ 黄色が消えて配車完了', '#c8e6c9');
+  item('③ 翌月になったら', '「📦 前月分アーカイブ」（または月生成時に自動実行）', '#c8e6c9');
+  note('⚠ 月生成は翌月分が存在しない場合のみ実行できます（重複防止）');
+  spacer();
+
+  section('自車専属マスタの管理', '#2e7d32');
+  item('運行状態の変更', 'B列の値を変更\n「運行」= 月生成の対象  /  「待機」「故障」= 対象外', '#c8e6c9');
+  item('新しい車両追加', 'マスタに1行追加 → ID（S-XXXX）が自動生成されます', '#c8e6c9');
+  item('給料・歩合の設定', 'M列=仮日数、N列=給料、O列=% を入力すると集計表に自動反映', '#c8e6c9');
+  spacer();
+
+  section('会社の追加セットアップ', '#2e7d32');
+  item('新しい会社を追加', '「会社登録」シートにA列=会社名、B列=管理Gmail を入力\n→ 自動でアーカイブフォルダが作成され通知メールが届きます', '#c8e6c9');
+  item('手動でまとめて実行', 'スクリプトエディタから「setupCompanies」を実行', '#c8e6c9');
+  spacer();
+
+  // ══════════════════════════════════════
+  // PART 2: ドライバー向け（アプリ操作）
+  // ══════════════════════════════════════
+  title('　【ドライバー向け】 アプリ操作', '#4a148c');
+  spacer();
+
+  section('最初に1回だけやること', '#6a1b9a');
+  item('① URLを開く', '担当者から受け取ったURLをスマホのブラウザで開く\n（ホーム画面に追加しておくと便利）', '#e1bee7');
+  item('② アドレス紐づけ', '画面下の「アドレス紐づけ」欄に自分のGmailアドレスを入力して「紐づけ」を押す\n→「紐づけOK」と表示されれば完了', '#e1bee7');
+  note('✅ 紐づけは一度やれば次回から自動でログインされます');
+  spacer();
+
+  section('毎日の使い方', '#6a1b9a');
+  item('① 運行開始', '「運行開始」ボタンを押す\n積地・降地を入力して「スタート」', '#e1bee7');
+  item('② 誘導', '現場に向けて出発するとき「誘導」ボタンを押す', '#e1bee7');
+  item('③ 積完', '荷物の積み込みが終わったとき「積完」ボタンを押す', '#e1bee7');
+  item('④ 休憩（あれば）', '休憩に入るとき「休憩開始」、終わったら「休憩終了」を押す', '#e1bee7');
+  item('⑤ 降完', '荷降ろしが終わったとき「降完」ボタンを押す\n→ 1日の記録が完了', '#e1bee7');
+  spacer();
+
+  section('困った時の対処', '#6a1b9a');
+  item('アプリを閉じてしまった', 'URLを開き直せば途中から再開できます', '#e1bee7');
+  item('積地・降地を間違えた', '「運行一覧」→ 該当行の「編集」ボタンで修正できます', '#e1bee7');
+  item('ボタンを押し間違えた', '「戻る」ボタンで1つ前の操作に戻れます', '#e1bee7');
+  item('画面が固まった', 'ブラウザを更新（リロード）してください\n途中の状態は保存されています', '#e1bee7');
+  item('黄色の「未配車」が表示されている', '積地がまだ決まっていない日です\n担当者に確認してください', '#e1bee7');
+  spacer();
+
+  section('一覧画面のボタンの意味', '#6a1b9a');
+  item('黄色「運行開始」', 'まだ始めていない仕事。押すと運行を開始できます', '#e1bee7');
+  item('オレンジ「運行再開」', '途中で止まっている仕事。続きから再開できます', '#e1bee7');
+  item('グレー「完了」', 'その日の仕事が終わっています', '#e1bee7');
+  item('グレー青「運行無」', '休み・有休の日です', '#e1bee7');
+  item('「連絡」ボタン', '担当者からのメッセージを確認できます', '#e1bee7');
+  item('「編集」ボタン', '積地・降地・売上などを後から修正できます', '#e1bee7');
+  spacer();
+
+  // フッター
+  sheet.getRange(row, 1, 1, 4).merge()
+    .setValue('このシートは「createUsageSheet」を実行すると再作成できます')
+    .setBackground('#263238').setFontColor('#546e7a').setFontSize(10)
+    .setHorizontalAlignment('center');
+  sheet.setRowHeight(row, 30);
+
+  sheet.setFrozenRows(0);
+  sheet.setTabColor('#ffd600');
+
+  ui.alert('「使い方」シートを作成しました。\n先頭タブに移動しています。');
+}
+
+
+// ================================================================
+//  11-5: 配布メール自動送信（sendDistributionMail_）  【大B / 中11 / 小11-5】
+//  管理者向け（スプレッドシートURL＋アプリURL）と乗務員向け（アプリURL＋紐づけ手順）の
+//  2種類のメールを送信する。乗務員メールは自車専属マスタのJ列から全員分個別送信。
+//  onEditCompanyRegister_（F/G列入力時）または triggerDistributionMail から呼び出す。
+// ================================================================
+function sendDistributionMail_(companyName, adminEmail, ssUrl, appUrl, row, sheet) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var adminSent = 0, driverSent = 0;
+
+  // ── 管理者向けメール ──────────────────────────────────
+  var adminSubject = '[運行管理] ' + companyName + ' 運行管理システムのご案内';
+  var adminBody =
+    companyName + ' ご担当者様\n\n' +
+    'このたびは運行管理システムをご利用いただきありがとうございます。\n\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+    '■ 運行管理スプレッドシート（PC・タブレット推奨）\n' +
+    ssUrl + '\n' +
+    '　→ 配車・運行データの入力・月生成・集計表の確認はこちら\n\n' +
+    '■ 運行管理アプリ（乗務員用 スマートフォン推奨）\n' +
+    appUrl + '\n' +
+    '　→ 乗務員がスマートフォンから運行状況を入力するアプリです\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+    '【スプレッドシートの使い方】\n' +
+    '・このスプレッドシートに乗務員のメールアドレスを入力してください\n' +
+    '・「自車専属マスタ」タブのJ列（メールアドレス）に1名ずつ入力します\n\n' +
+    '【乗務員への配布方法】\n' +
+    '・各乗務員に上記アプリURLを共有してください\n' +
+    '・初回は「紐づけ設定」でメールアドレスを登録するだけで使えます\n\n' +
+    'ご不明な点はお気軽にお問い合わせください。\n' +
+    'よろしくお願いいたします。';
+  try {
+    GmailApp.sendEmail(adminEmail, adminSubject, adminBody);
+    adminSent++;
+  } catch(e) {}
+
+  // ── 乗務員向けメール（自車専属マスタ J列の全アドレスに個別送信）──
+  var master = ss.getSheetByName('自車専属マスタ');
+  if (master && master.getLastRow() >= 2) {
+    var masterData = master.getRange(2, 1, master.getLastRow() - 1, 10).getValues();
+    for (var i = 0; i < masterData.length; i++) {
+      var driverEmail = String(masterData[i][9] || '').trim(); // J列(index9)=メールアドレス
+      var driverName  = String(masterData[i][7] || '').trim(); // H列(index7)=乗務員名
+      if (!driverEmail || driverEmail.indexOf('@') === -1) continue;
+
+      var driverSubject = '[運行管理] 運行管理アプリのご案内';
+      var driverBody =
+        (driverName ? driverName + ' さん\n\n' : '') +
+        'お疲れさまです。\n\n' +
+        '運行管理アプリをご案内します。\n\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+        '■ 運行管理アプリ（以下のURLをブックマーク登録してください）\n' +
+        appUrl + '\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+        '【最初にやること（初回のみ・1分で完了）】\n' +
+        '① 上のURLをスマートフォンで開く\n' +
+        '② 画面下の「紐づけ設定」をタップ\n' +
+        '③ このメールアドレス（' + driverEmail + '）を入力して「登録」\n' +
+        '④ 「登録しました」と表示されたら設定完了！\n\n' +
+        '次回からは同じURLを開くだけで、自動的にあなたの運行データが表示されます。\n\n' +
+        '何かご不明な点があれば担当者にご連絡ください。';
+      try {
+        GmailApp.sendEmail(driverEmail, driverSubject, driverBody);
+        driverSent++;
+      } catch(e) {}
+    }
+  }
+
+  // H列にステータスを記録
+  if (row && sheet) {
+    var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm');
+    sheet.getRange(row, 8).setValue('送信済(' + now + ')').setBackground('#c8e6c9');
+  }
+
+  return { adminSent: adminSent, driverSent: driverSent };
+}
+
+
+// ================================================================
+//  11-6: メニューから配布メール一括送信（triggerDistributionMail）  【大C / 中11 / 小11-6】
+//  会社登録シートの F列(SS URL)＋G列(AppURL) が揃いH列が未送信の全行にメール送信する
+//  メニュー「📧 配布メール送信」から手動実行
+// ================================================================
+function triggerDistributionMail() {
+  var ui    = SpreadsheetApp.getUi();
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('会社登録');
+
+  if (!sheet) {
+    ui.alert('「会社登録」シートがありません。\n先に「🏢 会社セットアップ実行」を実行してください。');
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) { ui.alert('会社登録シートにデータがありません。'); return; }
+
+  var data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  var totalAdmin = 0, totalDriver = 0, skip = 0, errCount = 0;
+
+  for (var i = 0; i < data.length; i++) {
+    var row         = i + 2;
+    var companyName = String(data[i][0] || '').trim();
+    var adminEmail  = String(data[i][1] || '').trim();
+    var ssUrl       = String(data[i][5] || '').trim(); // F列
+    var appUrl      = String(data[i][6] || '').trim(); // G列
+    var mailStatus  = String(data[i][7] || '').trim(); // H列
+
+    if (!companyName || !adminEmail || adminEmail.indexOf('@') === -1) { skip++; continue; }
+    if (!ssUrl || !appUrl) { skip++; continue; }
+    if (mailStatus.indexOf('送信済') !== -1) { skip++; continue; }
+
+    try {
+      var result = sendDistributionMail_(companyName, adminEmail, ssUrl, appUrl, row, sheet);
+      totalAdmin  += result.adminSent;
+      totalDriver += result.driverSent;
+    } catch(e) {
+      sheet.getRange(row, 8).setValue('エラー: ' + e.message).setBackground('#ffcdd2');
+      errCount++;
+    }
+  }
+
+  ui.alert(
+    '配布メール送信完了\n\n' +
+    '管理者向け: ' + totalAdmin + '通\n' +
+    '乗務員向け: ' + totalDriver + '通\n' +
+    'スキップ（URL未入力 or 送信済）: ' + skip + '社\n' +
+    'エラー: ' + errCount + '社'
+  );
+}
+
+
+// ================================================================
+//  12-1: WebアプリのベースURL取得（getWebAppBaseUrl_）  【大B / 中12 / 小12-1】
+//  ① Script Propertiesに保存済みのURLを返す（doGetアクセス時に自動保存される）。
+//  ② 未保存の場合は ScriptApp.getService().getUrl() で自動取得して保存する。
+//  ③ それでも取得できない場合のみ空文字を返す（メニューからの手動設定は不要）。
+// ================================================================
+function getWebAppBaseUrl_() {
+  var props = PropertiesService.getScriptProperties();
+  var stored = props.getProperty('webAppUrl') || '';
+  // script.google.com/macros で始まるURLのみ有効（Driveファイルや不正なURLを除外）
+  if (stored && stored.indexOf('script.google.com/macros') !== -1) return stored;
+  try {
+    var svcUrl = ScriptApp.getService().getUrl();
+    if (svcUrl && svcUrl.indexOf('script.google.com/macros') !== -1) {
+      props.setProperty('webAppUrl', svcUrl);
+      return svcUrl;
+    }
+  } catch(e) {}
+  return '';
+}
+
+
+// ================================================================
+//  12-2: WebアプリURLをScript Propertiesに保存（setWebAppUrl）  【大C / 中12 / 小12-2】
+//  メニュー「⚙ WebアプリURLを設定」から手動実行。デプロイURLを1回入力するだけでOK。
+// ================================================================
+function setWebAppUrl() {
+  var ui  = SpreadsheetApp.getUi();
+  var cur = getWebAppBaseUrl_();
+  var res = ui.prompt(
+    '⚙ WebアプリURL設定',
+    'Google Apps ScriptのデプロイURL（exec で終わるURL）を入力してください。\n\n' +
+    '現在の設定: ' + (cur || '（未設定）') + '\n\n' +
+    '例: https://script.google.com/macros/s/XXXXXXXXXX/exec',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (res.getSelectedButton() !== ui.Button.OK) return;
+  var url = res.getResponseText().trim();
+  if (!url || url.indexOf('https://') !== 0) {
+    ui.alert('URLが正しくありません。https:// で始まるURLを入力してください。');
+    return;
+  }
+  // /exec の後ろに余分な文字があれば /exec までトリム
+  var execIdx = url.indexOf('/exec');
+  if (execIdx !== -1) url = url.substring(0, execIdx + 5);
+  PropertiesService.getScriptProperties().setProperty('webAppUrl', url);
+  ui.alert('保存しました！\n\n' + url + '\n\nこれ以降、会社SS作成時にこのURLが自動で使われます。');
+}
+
+
+// ================================================================
+//  12-3a: 会社配布用テンプレートSSを取得または作成（getOrCreateCompanyTemplate_）
+//  マスターSSをコピーして全シートのデータ行を削除した「テンプレート」を1回だけ作成する。
+//  以降は このテンプレートを makeCopy() して各会社SSを作成する。
+//  テンプレートにはメニュー・全機能がそのまま引き継がれる。
+// ================================================================
+function getOrCreateCompanyTemplate_() {
+  var props = PropertiesService.getScriptProperties();
+  var templateId = props.getProperty('companyTemplateId');
+  if (templateId) {
+    try {
+      var existingFile = DriveApp.getFileById(templateId);
+      // マーカーシートがなければ古いテンプレートなので作り直す
+      var existingSs = SpreadsheetApp.openById(templateId);
+      if (existingSs.getSheetByName('__COMPANY_SS__') !== null) return existingFile;
+      // 古いテンプレートを削除して再作成
+      existingFile.setTrashed(true);
+    } catch(e) {}
+    props.deleteProperty('companyTemplateId');
+  }
+
+  // マスターSS取得
+  var masterSs;
+  try { masterSs = SpreadsheetApp.getActiveSpreadsheet(); } catch(ex) {}
+  if (!masterSs) {
+    var mid = props.getProperty('masterSsId');
+    if (mid) masterSs = SpreadsheetApp.openById(mid);
+  }
+  if (!masterSs) throw new Error('マスターSSが見つかりません');
+
+  // マスターをコピーしてテンプレート作成
+  var masterFile   = DriveApp.getFileById(masterSs.getId());
+  var templateFile = masterFile.makeCopy('【テンプレート】運行管理_配布用');
+  var templateSs   = SpreadsheetApp.openById(templateFile.getId());
+
+  // 各シートのデータ行のみ削除（ヘッダー行は残す）
+  // 会社登録・使い方シートは不要なので削除
+  var removeNames = ['会社登録', '使い方'];
+  templateSs.getSheets().forEach(function(sheet) {
+    var name = sheet.getName();
+    if (removeNames.indexOf(name) !== -1) {
+      if (templateSs.getSheets().length > 1) {
+        try { templateSs.deleteSheet(sheet); } catch(e) {}
+      }
+    } else if (sheet.getLastRow() > 1) {
+      sheet.deleteRows(2, sheet.getLastRow() - 1);
+    }
+  });
+
+  // 客先SSであることを示す隠しマーカーシートを追加
+  // このシートがあると onOpen() が客用メニューを表示する（マスターSSにはない）
+  var marker = templateSs.insertSheet('__COMPANY_SS__');
+  marker.hideSheet();
+
+  props.setProperty('companyTemplateId', templateFile.getId());
+  return templateFile;
+}
+
+
+// ================================================================
+//  12-3: 会社専用スプレッドシートを作成（createCompanySpreadsheet_）  【大B / 中12 / 小12-3】
+//  テンプレートSS（マスターのデータなしコピー）を makeCopy() して会社SSを作成する。
+//  テンプレートにはメニュー・月生成・集計等の全機能が含まれる。
+//  targetFolderId が指定されたそのフォルダに移動する（未指定なら「運行管理_会社別」）。
+//  戻り値: { ssId, ssUrl }
+// ================================================================
+function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
+  // テンプレートSSを取得（なければ自動作成）
+  var templateFile = getOrCreateCompanyTemplate_();
+
+  // テンプレートをコピーして会社SS作成
+  var newFile = templateFile.makeCopy(companyName + ' 運行管理');
+
+  // 管理Gmailに編集権限を付与
+  try { newFile.addEditor(adminEmail); } catch(e) {}
+
+  // 指定フォルダ（または「運行管理_会社別」）に移動
+  var destFolder = targetFolderId
+    ? DriveApp.getFolderById(targetFolderId)
+    : getOrCreateFolder_('運行管理_会社別');
+  destFolder.addFile(newFile);
+  try { DriveApp.getRootFolder().removeFile(newFile); } catch(e) {}
+
+  var newSs = SpreadsheetApp.openById(newFile.getId());
+  return { ssId: newSs.getId(), ssUrl: newSs.getUrl() };
+}
+
+
+// ================================================================
+//  12-4: 新規会社フルセットアップ（processNewCompany_）  【大B / 中12 / 小12-4】
+//  ① 共有フォルダ（運行管理_アーカイブ/会社名/）を作成して管理Gmailに共有
+//  ② そのフォルダの中にコードなしSSを作成（開けばスプレッドシートが見える）
+//  ③ アプリURL（WebアプリURL?ssId=会社SS_ID）を生成
+//  ④ 会社登録シートに各URLを記録
+//  ⑤ 管理者に配布メール1通だけ送信（フォルダ通知メールは送らない）
+//  メニュー「📤 会社SS作成＆メール送信」または時間トリガー（processPendingCompanies_）から呼ぶ。
+// ================================================================
+function processNewCompany_(companyName, adminEmail) {
+  // マスターSS取得（メニュー実行 or 時間トリガーの両方に対応）
+  var ss;
+  try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch(ex) {}
+  if (!ss) {
+    var mid = PropertiesService.getScriptProperties().getProperty('masterSsId');
+    if (mid) ss = SpreadsheetApp.openById(mid);
+  }
+  if (!ss) throw new Error('マスターSSが見つかりません');
+
+  var regSheet = ss.getSheetByName('会社登録');
+
+  // ① 共有フォルダを作成（メール送信なし）
+  //    フォルダパス: 運行管理_アーカイブ/会社名/
+  var folderResult = setupOneCompany_(companyName, adminEmail, true); // suppressEmail=true
+  var folderUrl = folderResult.folderUrl;
+  var folderId  = folderResult.folderId;
+
+  // ② コードなしSSをその共有フォルダ内に作成
+  //    → 相手が共有フォルダを開くとスプレッドシートが見える
+  var ssResult = createCompanySpreadsheet_(companyName, adminEmail, folderId);
+  var ssUrl    = ssResult.ssUrl;
+  var ssId     = ssResult.ssId;
+
+  // ③ アプリURL = ベースURL?ssId=会社のSS_ID
+  var webAppUrl = getWebAppBaseUrl_();
+  var appUrl    = webAppUrl ? (webAppUrl + '?ssId=' + ssId) : '[WebアプリURL未設定]';
+
+  // ④ 会社登録シートにSSURL・AppURL・フォルダURLを記録
+  var targetRow = -1;
+  if (regSheet && regSheet.getLastRow() >= 2) {
+    var rows = regSheet.getRange(2, 1, regSheet.getLastRow() - 1, 1).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]).trim() === companyName) { targetRow = i + 2; break; }
+    }
+  }
+  if (targetRow > 0) {
+    regSheet.getRange(targetRow, 3).setValue('済').setBackground('#c8e6c9').clearNote();
+    regSheet.getRange(targetRow, 4).setValue(new Date());
+    regSheet.getRange(targetRow, 5).setValue(folderUrl);
+    regSheet.getRange(targetRow, 6).setValue(ssUrl);
+    regSheet.getRange(targetRow, 7).setValue(appUrl);
+  }
+
+  // ⑤ 配布メール1通だけ送信（管理者向け + 乗務員向け）
+  sendDistributionMail_(
+    companyName, adminEmail, ssUrl, appUrl,
+    targetRow > 0 ? targetRow : null,
+    targetRow > 0 ? regSheet : null
+  );
+
+  return { ssId: ssId, ssUrl: ssUrl, appUrl: appUrl, folderUrl: folderUrl };
+}
+
+
+// ================================================================
+//  12-5: 全未処理会社のSS作成＆メール送信（sendCompanySetupEmails）  【大C / 中12 / 小12-5】
+//  会社登録シートのF列(SS URL)が空の行を対象に processNewCompany_ を実行する。
+//  メニュー「📤 会社SS作成＆メール送信」から手動実行。
+// ================================================================
+function sendCompanySetupEmails() {
+  var ui    = SpreadsheetApp.getUi();
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('会社登録');
+
+  if (!sheet) {
+    ui.alert('「会社登録」シートがありません。\n先に「🏢 会社セットアップ実行」を実行してください。');
+    return;
+  }
+
+  // WebアプリURL未設定の場合は確認
+  if (!getWebAppBaseUrl_()) {
+    var ans = ui.alert(
+      'WebアプリURL未設定',
+      '先にメニュー「⚙ WebアプリURLを設定」でURLを登録してください。\n\n' +
+      'このまま続けるとメール内のアプリURLが「[WebアプリURL未設定]」になります。続けますか？',
+      ui.ButtonSet.YES_NO
+    );
+    if (ans !== ui.Button.YES) return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) { ui.alert('会社登録シートにデータがありません。'); return; }
+
+  var data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+  var done = 0, skip = 0, errCount = 0;
+
+  for (var i = 0; i < data.length; i++) {
+    var companyName = String(data[i][0] || '').trim();
+    var adminEmail  = String(data[i][1] || '').trim();
+    var ssUrlExist  = String(data[i][5] || '').trim(); // F列: SS URL
+
+    if (!companyName || !adminEmail || adminEmail.indexOf('@') === -1) { skip++; continue; }
+    if (ssUrlExist) { skip++; continue; } // 既にSS作成済みならスキップ
+
+    try {
+      processNewCompany_(companyName, adminEmail);
+      done++;
+    } catch(e) {
+      sheet.getRange(i + 2, 3).setValue('エラー: ' + e.message).setBackground('#ffcdd2');
+      errCount++;
+    }
+  }
+
+  ui.alert(
+    'SS作成＆メール送信 完了\n\n' +
+    '処理: ' + done + '社\n' +
+    'スキップ（SS作成済み or 未入力）: ' + skip + '社\n' +
+    'エラー: ' + errCount + '社'
+  );
+}
+
+
+// ================================================================
+//  12-6: 申し込みフォーム作成（createSignupForm）  【大C / 中12 / 小12-6】
+//  Google フォームを作成して申し込み受付を自動化する。
+//  フォーム送信時に onFormSubmit_ が自動実行されるようトリガーも設定する。
+//  メニュー「📝 申し込みフォーム作成」から1回だけ実行する。
+// ================================================================
+function createSignupForm() {
+  var ui = SpreadsheetApp.getUi();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  var form = FormApp.create('運行管理システム 申し込みフォーム');
+  form.setDescription(
+    '運行管理システムへのお申し込みはこちらからどうぞ。\n' +
+    '送信後、スプレッドシートとアプリのURLをメールでお送りします。'
+  );
+  form.setConfirmationMessage(
+    'お申し込みありがとうございます！\n' +
+    '担当者より数日以内にメールにてご連絡いたします。'
+  );
+
+  form.addTextItem().setTitle('会社名').setRequired(true);
+  form.addTextItem()
+    .setTitle('担当者メールアドレス（Gmail）')
+    .setHelpText('Gmailアドレスをご入力ください。スプレッドシートをこのアドレスに共有します。')
+    .setRequired(true);
+  form.addTextItem().setTitle('担当者名').setRequired(true);
+  form.addTextItem().setTitle('電話番号');
+  form.addParagraphTextItem().setTitle('ご質問・メモ（任意）');
+
+  // このスプレッドシートを回答先に設定
+  form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+
+  // 既存トリガーを削除してから再登録
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'onFormSubmit_') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('onFormSubmit_').forSpreadsheet(ss).onFormSubmit().create();
+
+  var formUrl = form.getPublishedUrl();
+  var editUrl = form.getEditUrl();
+
+  ui.alert(
+    '申し込みフォームを作成しました！\n\n' +
+    '■ 客先に渡すURL（申し込みリンク）:\n' + formUrl + '\n\n' +
+    '■ フォーム編集URL（管理用）:\n' + editUrl + '\n\n' +
+    '▶ このURLを送るだけで、申し込み→SS作成→メール送信が全自動になります。'
+  );
+  return formUrl;
+}
+
+
+// ================================================================
+//  12-7: フォーム送信時の自動処理（onFormSubmit_）  【大B / 中12 / 小12-7】
+//  申し込みフォームが送信されたら会社登録シートに追記し、SS作成＋メール送信を自動実行する。
+//  createSignupForm() が設定したトリガーから自動実行される。
+// ================================================================
+function onFormSubmit_(e) {
+  try {
+    var responses   = e.namedValues;
+    var companyName = String((responses['会社名'] || [''])[0]).trim();
+    var adminEmail  = String((responses['担当者メールアドレス（Gmail）'] || [''])[0]).trim().toLowerCase();
+
+    if (!companyName || !adminEmail || adminEmail.indexOf('@') === -1) return;
+
+    var ss       = SpreadsheetApp.getActiveSpreadsheet();
+    var regSheet = ss.getSheetByName('会社登録');
+    if (!regSheet) return;
+
+    // 重複チェック（同じ会社名が既にあればスキップ）
+    var existing = regSheet.getDataRange().getValues();
+    for (var i = 1; i < existing.length; i++) {
+      if (String(existing[i][0]).trim() === companyName) return;
+    }
+
+    // 会社登録シートに新規行を追加
+    var newRow = regSheet.getLastRow() + 1;
+    regSheet.getRange(newRow, 1).setValue(companyName);
+    regSheet.getRange(newRow, 2).setValue(adminEmail);
+
+    // フルセットアップ実行（SS作成 → フォルダ → メール）
+    processNewCompany_(companyName, adminEmail);
+
+  } catch(err) {
+    // フォームトリガーのエラーはサイレント
+  }
+}
+
+
+// ================================================================
+//  12-8: キュー処理（processPendingCompanies_）  【大B / 中12 / 小12-8】
+//  onEditCompanyRegister_ がキューに積んだ会社セットアップをまとめて処理する。
+//  時間トリガー（60秒後）から自動実行される。getActiveSpreadsheet が使えないため
+//  masterSsId を Script Properties から取得して openById で開く。
+// ================================================================
+function processPendingCompanies_() {
+  var props = PropertiesService.getScriptProperties();
+  var queue = JSON.parse(props.getProperty('companySetupQueue') || '[]');
+
+  // キューを即座にクリア（二重処理防止）
+  props.deleteProperty('companySetupQueue');
+
+  if (queue.length === 0) {
+    // トリガー削除だけして終了
+    ScriptApp.getProjectTriggers().forEach(function(t) {
+      if (t.getHandlerFunction() === 'processPendingCompanies_') ScriptApp.deleteTrigger(t);
+    });
+    return;
+  }
+
+  var masterSsId = props.getProperty('masterSsId');
+  var ss = masterSsId ? SpreadsheetApp.openById(masterSsId) : null;
+  var regSheet   = ss ? ss.getSheetByName('会社登録') : null;
+
+  queue.forEach(function(item) {
+    try {
+      processNewCompany_(item.companyName, item.adminEmail);
+    } catch(e) {
+      // 失敗した場合はシートにエラーを記録
+      if (regSheet) {
+        var rows = regSheet.getDataRange().getValues();
+        for (var i = 1; i < rows.length; i++) {
+          if (String(rows[i][0]).trim() === item.companyName) {
+            regSheet.getRange(i + 1, 3).setValue('エラー: ' + e.message).setBackground('#ffcdd2').clearNote();
+            break;
+          }
+        }
+      }
+    }
+  });
+
+  // 使い終わったトリガーを削除
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'processPendingCompanies_') ScriptApp.deleteTrigger(t);
+  });
+}
+
+
+// ================================================================
+//  13-1: インストール型トリガーのセットアップ（installTriggers）  【大C / 中13 / 小13-1】
+//  最初に1回だけ実行する。これ以降は会社登録シートのA+B列入力で完全自動化される。
+//  メニュー「🔧 初期設定（最初に1回だけ押す）」から実行。
+//  ※ シンプルトリガー(onEdit)は認証付きサービス（Drive/Gmail等）が使えないため
+//    インストール型トリガー(installedOnEdit_)を別途登録する必要がある。
+// ================================================================
+function installTriggers() {
+  var ui = SpreadsheetApp.getUi();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // マスターSS IDを保存（時間トリガーから openById で使う）
+  PropertiesService.getScriptProperties().setProperty('masterSsId', ss.getId());
+
+  // WebアプリURLを手入力で保存（自動取得は信頼性が低いため常にプロンプト表示）
+  var props = PropertiesService.getScriptProperties();
+  var currentUrl = props.getProperty('webAppUrl') || '';
+  var resp = ui.prompt(
+    'WebアプリURLを確認・入力してください',
+    'deploy.bat 実行後に表示されるURLを貼り付けてください。\n' +
+    '形式: https://script.google.com/macros/s/XXXXX/exec\n\n' +
+    '現在の設定値: ' + (currentUrl || '（未設定）'),
+    ui.ButtonSet.OK_CANCEL
+  );
+  var savedUrl = '';
+  if (resp.getSelectedButton() === ui.Button.OK) {
+    var inputUrl = resp.getResponseText().trim();
+    if (inputUrl && inputUrl.indexOf('script.google.com/macros') !== -1) savedUrl = inputUrl;
+  }
+  if (!savedUrl) savedUrl = currentUrl; // キャンセル時は現在値を維持
+
+  if (savedUrl) props.setProperty('webAppUrl', savedUrl);
+  else props.deleteProperty('webAppUrl');
+
+  // 既存の installedOnEdit_ トリガーを全て削除してから再登録
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'installedOnEdit_') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('installedOnEdit_')
+    .forSpreadsheet(ss)
+    .onEdit()
+    .create();
+
+  var finalUrl = props.getProperty('webAppUrl') || '（未設定 — URLを貼り付けてから再実行してください）';
+  ui.alert(
+    '初期設定が完了しました！\n\n' +
+    'WebアプリURL:\n' + finalUrl + '\n\n' +
+    '「会社登録」シートのA列（会社名）とB列（Gmail）を入力するだけで\n' +
+    'スプレッドシート作成・フォルダ作成・メール送信が自動で行われます。'
+  );
+}
+
+
+// ================================================================
+//  13-2: インストール型onEditトリガー（installedOnEdit_）  【大B / 中13 / 小13-2】
+//  会社登録シートのA+B列入力 → processNewCompany_() を自動実行する。
+//  インストール型トリガーはDrive/Gmail/ScriptApp等の認証付きサービスが使用可能。
+//  実行時間制限もシンプルトリガーの30秒ではなく6分まで利用できる。
+//  installTriggers() で登録済みの場合のみ発火する。
+// ================================================================
+function installedOnEdit_(e) {
+  try {
+    var range     = e.range;
+    var sheet     = range.getSheet();
+    var sheetName = sheet.getName();
+    var row       = range.getRow();
+    var col       = range.getColumn();
+
+    if (sheetName !== '会社登録' || row <= 1) return;
+
+    // ── A列 or B列: 会社名+Gmail が揃ったらフルセットアップ ──────────
+    if (col === 1 || col === 2) {
+      var companyName = String(sheet.getRange(row, 1).getValue() || '').trim();
+      var adminEmail  = String(sheet.getRange(row, 2).getValue() || '').trim();
+      var status      = String(sheet.getRange(row, 3).getValue() || '').trim();
+
+      if (!companyName || !adminEmail || adminEmail.indexOf('@') === -1) return;
+      if (status === '済' || status.indexOf('エラー') === 0) return;
+
+      sheet.getRange(row, 3).setValue('処理中...').setBackground('#fff9c4');
+      try {
+        processNewCompany_(companyName, adminEmail);
+      } catch(err) {
+        sheet.getRange(row, 3).setValue('エラー: ' + err.message).setBackground('#ffcdd2');
+      }
+      return;
+    }
+
+    // ── F列 or G列: SS URL + App URL が揃ったら配布メール送信 ──────────
+    if (col === 6 || col === 7) {
+      var ssUrl      = String(sheet.getRange(row, 6).getValue() || '').trim();
+      var appUrl     = String(sheet.getRange(row, 7).getValue() || '').trim();
+      var mailStatus = String(sheet.getRange(row, 8).getValue() || '').trim();
+      if (!ssUrl || !appUrl) return;
+      if (mailStatus.indexOf('送信済') !== -1) return;
+      var cName  = String(sheet.getRange(row, 1).getValue() || '').trim();
+      var aEmail = String(sheet.getRange(row, 2).getValue() || '').trim();
+      if (!cName || !aEmail || aEmail.indexOf('@') === -1) return;
+      try {
+        sendDistributionMail_(cName, aEmail, ssUrl, appUrl, row, sheet);
+      } catch(err) {
+        sheet.getRange(row, 8).setValue('エラー: ' + err.message).setBackground('#ffcdd2');
+      }
+    }
+  } catch(ex) {}
 }
