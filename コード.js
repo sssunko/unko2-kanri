@@ -225,6 +225,56 @@
 //            既読済みIDの一覧をPropertiesServiceから読み込んで返す
 //
 // ================================================================
+//
+// ================================================================
+// ■ 大中小 分類体系（アクセス経路・機能カテゴリ一覧）
+// ================================================================
+//
+//  ▼ 大分類 ── 呼び出し元・アクセス経路で3種に大別
+//
+//   大A  GAS ↔ HTML 接続ポイント
+//        index.html の google.script.run から直接呼ばれる公開関数
+//        → グループ5〜10（端末アプリ系・管理アプリ系の全API）
+//
+//   大B  GAS 内部処理
+//        トリガー・内部ヘルパー・他GAS関数からのみ呼ばれる非公開処理
+//        → グループ1（共通補助関数）・グループ3（onEdit系）・グループ4（集計表系）
+//           + 末尾アンダースコア付きの内部ヘルパー関数
+//
+//   大C  スプレッドシート 起動・メニュー
+//        スプレッドシートを開いたとき・メニュー項目として実行される関数
+//        → グループ2（onOpen / doGet / showSidebar 等）
+//           + メンテナンス用メニュー項目（setupSheetProtection / insertKanbanColumn）
+//
+// ──────────────────────────────────────────────────────────────────
+//
+//  ▼ 中分類 ── 機能グループ（グループ番号と1:1対応）
+//
+//   中1  補助関数群                 1-1〜1-7   getNextIdNum_, applyMoneyFormat_ など
+//   中2  起動・メニュー             2-1〜2-4   onOpen, doGet, showSidebar など
+//   中3  スプレッドシート自動処理   3-1〜3-4   onEdit, onEditUnkou_ など
+//   中4  集計表・シート操作         4-1〜4-6   generateSummary, syncSummaryForId_ など
+//   中5  アプリ初期化・紐づけ       5-1〜5-3   getInitialData, linkAddress など
+//   中6  端末 運行進捗管理          6-1〜6-3   saveRunState, loadRunState など
+//   中7  端末 運行操作              7-1〜7-6   getTodayRoutes, createParentRows など
+//   中8  端末 一覧・編集・ファイル  8-1〜8-7   getListData, saveEditData など
+//   中9  端末 連絡・ファイル        9-1〜9-4   saveNotice, uploadFileToRow など
+//   中10 端末 既読管理              10-1〜10-4 getMyNotices, markAsRead など
+//
+// ──────────────────────────────────────────────────────────────────
+//
+//  ▼ 小分類 ── 関数個別番号（既存グループ番号と同一、変更なし）
+//    例：小1-1 = getNextIdNum_,  小8-4 = getListData
+//
+//  ▼ 各関数コメントブロックの読み方（例）
+//    // ================================================================
+//    //  8-4: 運行一覧データ取得（getListData）  【大A / 中8 / 小8-4】
+//    // ================================================================
+//    → 「HTMLから呼ばれる（大A） ＞ グループ8（中8） ＞ 番号8-4（小8-4）」
+//
+// ================================================================
+//
+// ================================================================
 // ■ スプレッドシート シート構成
 // ================================================================
 //
@@ -271,7 +321,7 @@
 
 
 // ================================================================
-//  1-1: ID番号取得補助関数
+//  1-1: ID番号取得補助関数  【大B / 中1 / 小1-1】
 //  指定シートのA列から既存IDの最大番号を取得し+1した値を返す
 // ================================================================
 function getNextIdNum_(sheet, prefix) {
@@ -292,7 +342,7 @@ function getNextIdNum_(sheet, prefix) {
 
 
 // ================================================================
-//  1-2: Googleドライブのフォルダ取得or作成（補助）
+//  1-2: Googleドライブのフォルダ取得or作成（補助）  【大B / 中1 / 小1-2】
 //  指定名のフォルダが存在すれば返し、なければ作成して返す
 // ================================================================
 function getOrCreateFolder_(name) {
@@ -303,14 +353,14 @@ function getOrCreateFolder_(name) {
 
 
 // ================================================================
-//  1-3: 集計表遅延同期ラッパー
+//  1-3: 集計表遅延同期ラッパー  【大B / 中1 / 小1-3】
 //  syncSummaryForId_をtry-catchで安全に呼び出す
 // ================================================================
 function delaySyncSummary_(id) { try { syncSummaryForId_(id); } catch(e) {} }
 
 
 // ================================================================
-//  1-4: 集計表の孤立ID削除
+//  1-4: 集計表の孤立ID削除  【大B / 中1 / 小1-4】
 //  運行シートに存在しないIDが集計表にある場合、その行を削除する
 // ================================================================
 function cleanAllOrphanSummary_() {
@@ -335,15 +385,15 @@ function cleanAllOrphanSummary_() {
 
 
 // ================================================================
-//  1-5: 金額列へのコンマ書式適用（applyMoneyFormat_）
+//  1-5: 金額列へのコンマ書式適用（applyMoneyFormat_）  【大B / 中1 / 小1-5】
 //  指定シート・行範囲の金額列に #,##0 フォーマットをセットする
 // ================================================================
 function applyMoneyFormat_(sheet, startRow, numRows, sheetType) {
   if (numRows <= 0) return;
   var fmt = '#,##0;[RED]#,##0';
   var cols = (sheetType === 'unkou')
-    ? [18, 19, 20, 21]
-    : [18, 19, 20, 21, 24, 25, 26, 27, 32, 33];
+    ? [19, 20, 21, 22]
+    : [19, 20, 21, 22, 25, 26, 27, 28, 33, 34];
   for (var i = 0; i < cols.length; i++) {
     sheet.getRange(startRow, cols[i], numRows, 1).setNumberFormat(fmt);
   }
@@ -351,13 +401,13 @@ function applyMoneyFormat_(sheet, startRow, numRows, sheetType) {
 
 
 // ================================================================
-//  1-6: 時刻列へのM/d HH:mm書式適用（applyDateTimeFormat_）
+//  1-6: 時刻列へのM/d HH:mm書式適用（applyDateTimeFormat_）  【大B / 中1 / 小1-6】
 //  誘導・積完・休憩開始・休憩終了・降完（M〜Q列=13〜17）に書式をセットする
 // ================================================================
 function applyDateTimeFormat_(sheet, startRow, numRows) {
   if (numRows <= 0) return;
   var fmt = 'M/d HH:mm';
-  var cols = [13, 14, 15, 16, 17];
+  var cols = [14, 15, 16, 17, 18];
   for (var i = 0; i < cols.length; i++) {
     sheet.getRange(startRow, cols[i], numRows, 1).setNumberFormat(fmt);
   }
@@ -365,39 +415,39 @@ function applyDateTimeFormat_(sheet, startRow, numRows) {
 
 
 // ================================================================
-//  1-7: 積地（K列=11）休み・有休の背景色設定（applyHolidayRowColors_）
+//  1-7: 積地（K列=11）休み・有休の背景色設定（applyHolidayRowColors_）  【大B / 中1 / 小1-7】
 //  積地セルに「休み」または「有休」が含まれる行のK列を灰色（#9e9e9e）に着色する
 //  onOpen・generateSummary・onEdit から呼び出す
 // ================================================================
 function applyHolidayRowColors_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  // 運行シートのK列(11=積地)：休み/有休はグレー
+  // 運行シートのL列(12=積地)：休み/有休はグレー
   var sheet = ss.getSheetByName('運行');
   if (sheet && sheet.getLastRow() >= 2) {
     var lr = sheet.getLastRow();
-    var vals = sheet.getRange(2, 11, lr - 1, 1).getValues();
+    var vals = sheet.getRange(2, 12, lr - 1, 1).getValues();
     var bgs = vals.map(function(r) {
       var v = String(r[0] || '');
       return [(v.indexOf('休み') !== -1 || v.indexOf('有休') !== -1) ? '#9e9e9e' : null];
     });
-    sheet.getRange(2, 11, lr - 1, 1).setBackgrounds(bgs);
+    sheet.getRange(2, 12, lr - 1, 1).setBackgrounds(bgs);
   }
-  // 集計表のK列(11=積地)も同様にグレー着色
+  // 集計表のL列(12=積地)も同様にグレー着色
   var sumSheet = ss.getSheetByName('集計表');
   if (sumSheet && sumSheet.getLastRow() >= 2) {
     var slr = sumSheet.getLastRow();
-    var svals = sumSheet.getRange(2, 11, slr - 1, 1).getValues();
+    var svals = sumSheet.getRange(2, 12, slr - 1, 1).getValues();
     var sbgs = svals.map(function(r) {
       var v = String(r[0] || '');
       return [(v.indexOf('休み') !== -1 || v.indexOf('有休') !== -1) ? '#9e9e9e' : null];
     });
-    sumSheet.getRange(2, 11, slr - 1, 1).setBackgrounds(sbgs);
+    sumSheet.getRange(2, 12, slr - 1, 1).setBackgrounds(sbgs);
   }
 }
 
 
 // ================================================================
-//  2-1: メニュー設定（onOpen）
+//  2-1: メニュー設定（onOpen）  【大C / 中2 / 小2-1】
 //  スプレッドシート上部に「メニュー」を表示する
 //  項目：ホーム画面を表示 / 集計表再生成 / シート再生成
 // ================================================================
@@ -406,6 +456,7 @@ function onOpen() {
     .addItem('ホーム画面を表示', 'showSidebar')
     .addItem('集計表再生成', 'generateSummary')
     .addItem('シート再生成', 'expandAndRefreshSheets')
+    .addItem('看板名列を挿入（初回のみ）', 'insertKanbanColumn')
     .addItem('シート保護設定', 'setupSheetProtection')
     .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
     .addToUi();
@@ -415,7 +466,7 @@ function onOpen() {
 
 
 // ================================================================
-//  2-2: Webアプリ起動（doGet）
+//  2-2: Webアプリ起動（doGet）  【大C / 中2 / 小2-2】
 //  URLアクセス時にWebアプリとして表示する
 // ================================================================
 function doGet() {
@@ -426,7 +477,7 @@ function doGet() {
 
 
 // ================================================================
-//  2-3: サイドバー表示（showSidebar）
+//  2-3: サイドバー表示（showSidebar）  【大C / 中2 / 小2-3】
 //  スプレッドシートのサイドバーとして表示する
 // ================================================================
 function showSidebar() {
@@ -437,7 +488,7 @@ function showSidebar() {
 
 
 // ================================================================
-//  2-4: 写真・ファイル取込サイドバー（showUploadSidebar）
+//  2-4: 写真・ファイル取込サイドバー（showUploadSidebar）  【大C / 中2 / 小2-4】
 //  運行シートの行を選択してメニューから起動 → W列に直接アップロード
 // ================================================================
 function showUploadSidebar() {
@@ -492,7 +543,7 @@ function showUploadSidebar() {
 
 
 // ================================================================
-//  3-1: onEdit本体
+//  3-1: onEdit本体  【大B / 中3 / 小3-1】
 //  セル編集時にGASが自動実行するシンプルトリガー（イベントオブジェクト e を受け取る）
 //  編集されたシート名を判定し、対応する処理関数へ振り分ける
 //  ※ シンプルトリガーはユーザーの明示的な編集のみ発火し、GASからの書き込みでは発火しない
@@ -511,7 +562,7 @@ function onEdit(e) {
     // 禁止列が触れられた場合: IDがあれば集計表を再同期して正しい値に戻す
     //                         IDがなく単一セルなら旧値に戻す
     if (sheetName === '集計表' && row > 1) {
-      var allowed = [22, 24, 26, 28, 33]; // V=距離, X=ガソリン代, Z=支払い, AB=備考, AG=その他手当
+      var allowed = [23, 25, 27, 29, 34]; // W=距離, Y=ガソリン代, AA=支払い, AC=備考, AH=その他手当
       var numC = range.getNumColumns(), numR = range.getNumRows();
       var blocked = false;
       for (var c = 0; c < numC; c++) {
@@ -526,21 +577,21 @@ function onEdit(e) {
       return;
     }
 
-    // ── 3-1-2: 運行シート U列(21) 合計高速 保護 ──────────────────────
+    // ── 3-1-2: 運行シート V列(22) 合計高速 保護 ──────────────────────
     // 合計高速は「実費高速 - 請求高速」の自動計算列なので直接編集を禁止する
     // 編集されたら即座に数式を復元する
-    if (sheetName === '運行' && row > 1 && col === 21) {
-      range.setFormula('=IF(AND(T'+row+'="",S'+row+'=""),"",T'+row+'-S'+row+')');
+    if (sheetName === '運行' && row > 1 && col === 22) {
+      range.setFormula('=IF(AND(U'+row+'="",T'+row+'=""),"",U'+row+'-T'+row+')');
       ss.toast('合計高速は自動計算列です', '⛔ 保護', 3);
       return;
     }
 
-    // ── 3-1-3: 運行シート W列(23) URL自動変換 ───────────────────────
-    // W列にURLをペーストすると自動的にリッチテキストリンク（「ファイル1」等）に変換する
+    // ── 3-1-3: 運行シート X列(24) URL自動変換 ───────────────────────
+    // X列にURLをペーストすると自動的にリッチテキストリンク（「ファイル1」等）に変換する
     // 改行・全角/半角カンマ・スペース区切りで複数URLに対応
     // DriveやDocs以外のURL（Googleフォト等）はDriveに取り込んで公開URLに変換を試みる
     // 既存のURLはノートに保存されており、新しいURLと結合して上書きすることで追加になる
-    if (sheetName === '運行' && row > 1 && col === 23) {
+    if (sheetName === '運行' && row > 1 && col === 24) {
       var val = String(e.value !== undefined ? e.value : range.getValue() || '').trim();
       if (!val) { range.clearNote(); return; }
       var rawUrls = val.split(/[\n,，\s]+/).map(function(u){return u.trim();})
@@ -572,7 +623,7 @@ function onEdit(e) {
 
 
 // ================================================================
-//  3-2: 運行シート編集時の処理（onEditUnkou_）
+//  3-2: 運行シート編集時の処理（onEditUnkou_）  【大B / 中3 / 小3-2】
 //  ・A列が空で他列にデータがあればV-XXXXのIDを自動生成
 //  ・I列（日付）が00:00:00なら現在時刻を自動付加
 //  ・F列（車番）編集時に自車専属マスタから区分〜携帯番号を自動補完
@@ -599,8 +650,8 @@ function onEditUnkou_(sheet, range) {
         idCell.setValue('V-' + String(nextNum).padStart(4, '0'));
       }
     }
-    // I列(9)の日付：時刻部分が 0:00:00 なら現在時刻を付与（日付のみ入力に対応）
-    var dateCell = sheet.getRange(row, 9);
+    // J列(10)の日付：時刻部分が 0:00:00 なら現在時刻を付与（日付のみ入力に対応）
+    var dateCell = sheet.getRange(row, 10);
     var dateVal = dateCell.getValue();
     if (dateVal instanceof Date) {
       var h = dateVal.getHours();
@@ -636,11 +687,11 @@ function onEditUnkou_(sheet, range) {
         }
       }
     }
-    // M/N/O/P/Q列（誘導・積完・休憩・降完時刻）：全角文字・日付なし時刻を正規化して合成
-    if ([13, 14, 15, 16, 17].indexOf(editedCol) !== -1) {
+    // N/O/P/Q/R列（誘導・積完・休憩・降完時刻）：全角文字・日付なし時刻を正規化して合成
+    if ([14, 15, 16, 17, 18].indexOf(editedCol) !== -1) {
       var timeCell = sheet.getRange(row, editedCol);
       var tv = timeCell.getValue();
-      var baseDateObj = (sheet.getRange(row, 9).getValue() instanceof Date) ? sheet.getRange(row, 9).getValue() : null;
+      var baseDateObj = (sheet.getRange(row, 10).getValue() instanceof Date) ? sheet.getRange(row, 10).getValue() : null;
       var merged = null;
       if (typeof tv === 'string' && tv.trim() !== '') {
         var s = tv.trim().replace(/[：]/g, ':').replace(/[　]/g, ' ');
@@ -666,14 +717,14 @@ function onEditUnkou_(sheet, range) {
         timeCell.setNumberFormat('M/d HH:mm');
       }
     }
-    // 積地(K=col11) に「休み」「有休」が含まれる場合はセルをグレーに着色
-    var pvK = String(sheet.getRange(row, 11).getValue() || '');
-    sheet.getRange(row, 11).setBackground(
+    // 積地(L=col12) に「休み」「有休」が含まれる場合はセルをグレーに着色
+    var pvK = String(sheet.getRange(row, 12).getValue() || '');
+    sheet.getRange(row, 12).setBackground(
       (pvK.indexOf('休み') !== -1 || pvK.indexOf('有休') !== -1) ? '#9e9e9e' : null
     );
-    var tollCell = sheet.getRange(row, 21);
+    var tollCell = sheet.getRange(row, 22);
     if (!tollCell.getFormula()) {
-      tollCell.setFormula('=IF(AND(T' + row + '="",S' + row + '=""),"",T' + row + '-S' + row + ')');
+      tollCell.setFormula('=IF(AND(U' + row + '="",T' + row + '=""),"",U' + row + '-T' + row + ')');
     }
     var newId = sheet.getRange(row, 1).getValue();
     if (newId) syncSummaryForId_(newId);
@@ -685,7 +736,7 @@ function onEditUnkou_(sheet, range) {
 
 
 // ================================================================
-//  3-3: 自車専属マスタ編集時の処理（onEditMasterVehicle_）
+//  3-3: 自車専属マスタ編集時の処理（onEditMasterVehicle_）  【大B / 中3 / 小3-3】
 //  ・A列が空で他列にデータがあればS-XXXXのIDを自動生成
 //  ・B列（運行状態）の値に応じて行の背景色を変更
 //    運行→薄赤, 待機→薄黄, 故障→薄緑, その他→なし
@@ -743,15 +794,15 @@ function onEditMasterVehicle_(sheet, range) {
     if (mCar || mName) {
       var sumSheet = ss.getSheetByName('集計表');
       if (sumSheet && sumSheet.getLastRow() >= 2) {
-        var sumData = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 31).getValues();
+        var sumData = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 34).getValues();
         for (var s = 0; s < sumData.length; s++) {
           var sCar  = String(sumData[s][6] || '').trim();
           var sName = String(sumData[s][7] || '').trim();
           if (sCar === mCar && sName === mName) {
             var sRow = s + 2;
-            if (mKari   !== '') sumSheet.getRange(sRow, 29).setValue(mKari);
-            if (mKyuryo !== '') sumSheet.getRange(sRow, 30).setValue(mKyuryo);
-            if (mPct    !== '') sumSheet.getRange(sRow, 31).setValue(mPct);
+            if (mKari   !== '') sumSheet.getRange(sRow, 30).setValue(mKari);
+            if (mKyuryo !== '') sumSheet.getRange(sRow, 31).setValue(mKyuryo);
+            if (mPct    !== '') sumSheet.getRange(sRow, 32).setValue(mPct);
           }
         }
         calculatePaymentAmount();
@@ -770,7 +821,7 @@ function onEditMasterVehicle_(sheet, range) {
 
 
 // ================================================================
-//  3-4: マスタ（取引先）編集時の処理（onEditMasterCustomer_）
+//  3-4: マスタ（取引先）編集時の処理（onEditMasterCustomer_）  【大B / 中3 / 小3-4】
 //  ・A列が空で他列にデータがあればM-XXXXのIDを自動生成
 // ================================================================
 function onEditMasterCustomer_(sheet, range) {
@@ -792,7 +843,7 @@ function onEditMasterCustomer_(sheet, range) {
 
 
 // ================================================================
-//  4-1: 集計表再生成（generateSummary）
+//  4-1: 集計表再生成（generateSummary）  【大B / 中4 / 小4-1】
 //  運行シート全件から集計表を一から作り直す（全件対象の重い処理）
 //  メニューの「集計表再生成」または自動実行（generateSummary→ボタン）で実行される
 //
@@ -850,19 +901,19 @@ function generateSummary() {
   var oldData = {};
   if (sumSheet && sumSheet.getLastRow() >= 2) {
     var colCount = sumSheet.getLastColumn();
-    var oldRows = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, Math.max(colCount, 33)).getValues();
+    var oldRows = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, Math.max(colCount, 34)).getValues();
     for (var o = 0; o < oldRows.length; o++) {
       var oldId = String(oldRows[o][0] || '').trim();
       if (oldId) {
         oldData[oldId] = {
-          distance: oldRows[o][21],
-          gas:      oldRows[o][23],
-          pay:      oldRows[o][25],
-          memo:     oldRows[o][27],
-          kari:     oldRows[o][28] || '',
-          kyuryo:   oldRows[o][29] || '',
-          pct:      oldRows[o][30] || '',
-          other:    oldRows[o][32] || ''  // AG=その他手当（手入力保持）
+          distance: oldRows[o][22],
+          gas:      oldRows[o][24],
+          pay:      oldRows[o][26],
+          memo:     oldRows[o][28],
+          kari:     oldRows[o][29] || '',
+          kyuryo:   oldRows[o][30] || '',
+          pct:      oldRows[o][31] || '',
+          other:    oldRows[o][33] || ''  // AH=その他手当（手入力保持）
         };
       }
     }
@@ -870,7 +921,7 @@ function generateSummary() {
   if (!sumSheet) sumSheet = ss.insertSheet('集計表');
 
   var header = [
-    'ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号',
+    'ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名',
     '日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻',
     '売上','請求(高速代)','実費(高速代)','合計(高速代)',
     '距離','燃費','ガソリン代','燃料代','支払い','利益','備考',
@@ -888,7 +939,7 @@ function generateSummary() {
     if (!idMap[id]) {
       idMap[id] = {
         id:id, kubun:r[1], company:r[2], tons:r[3], type:r[4], car:r[5],
-        name:r[6], tel:r[7], date:r[8], clients:[],
+        name:r[6], tel:r[7], kanban:r[8], date:r[9], clients:[],
         picks:[], drops:[],
         guideTime:'',
         pickTime:'', restStart:'', restEnd:'', dropTime:'',
@@ -898,20 +949,20 @@ function generateSummary() {
       idOrder.push(id);
     }
     var g = idMap[id];
-    if (r[10]) g.picks.push(r[10]);
-    if (r[11]) g.drops.push(r[11]);
+    if (r[11]) g.picks.push(r[11]);
+    if (r[12]) g.drops.push(r[12]);
     // 荷主は重複なしで全部収集（行程ごとに荷主が異なる場合も全て・区切りで表示）
-    if (r[9]) { var rc = String(r[9]); if (g.clients.indexOf(rc) === -1) g.clients.push(rc); }
+    if (r[10]) { var rc = String(r[10]); if (g.clients.indexOf(rc) === -1) g.clients.push(rc); }
     // 時刻は先勝ち（最初に見つかった値を使用）
-    if (r[12] && !g.guideTime) { g.guideTime = r[12]; }
-    if (r[13] && !g.pickTime)  { g.pickTime  = r[13]; g.rawPickTime  = new Date(r[13]); }
-    if (r[14] && !g.restStart) { g.restStart = r[14]; g.rawRestStart = new Date(r[14]); }
-    if (r[15] && !g.restEnd)   { g.restEnd   = r[15]; g.rawRestEnd   = new Date(r[15]); }
-    if (r[16] && !g.dropTime)  { g.dropTime  = r[16]; g.rawDropTime  = new Date(r[16]); }
+    if (r[13] && !g.guideTime) { g.guideTime = r[13]; }
+    if (r[14] && !g.pickTime)  { g.pickTime  = r[14]; g.rawPickTime  = new Date(r[14]); }
+    if (r[15] && !g.restStart) { g.restStart = r[15]; g.rawRestStart = new Date(r[15]); }
+    if (r[16] && !g.restEnd)   { g.restEnd   = r[16]; g.rawRestEnd   = new Date(r[16]); }
+    if (r[17] && !g.dropTime)  { g.dropTime  = r[17]; g.rawDropTime  = new Date(r[17]); }
     // 売上・高速は複数行程分を合算
-    g.sales   += Number(r[17]) || 0;
-    g.tollReq += Number(r[18]) || 0;
-    g.tollReal+= Number(r[19]) || 0;
+    g.sales   += Number(r[18]) || 0;
+    g.tollReq += Number(r[19]) || 0;
+    g.tollReal+= Number(r[20]) || 0;
   }
 
   // 集計表に書き出す行データを組み立て
@@ -932,7 +983,7 @@ function generateSummary() {
     var gpick = g.picks.join('・'), gdrop = g.drops.join('・');
     var gIsYukyu = gpick.indexOf('有休') !== -1 || gdrop.indexOf('有休') !== -1;
     outRows.push([
-      g.id, g.kubun, g.company, g.tons, g.type, g.car, g.name, g.tel,
+      g.id, g.kubun, g.company, g.tons, g.type, g.car, g.name, g.tel, g.kanban||g.company,
       g.date, g.clients.join('・'), gpick, gdrop,
       g.guideTime||'', g.pickTime, g.restStart, g.restEnd, g.dropTime,
       g.sales||'', g.tollReq||'', g.tollReal||'', '',
@@ -940,14 +991,14 @@ function generateSummary() {
       old.pay||'', '', old.memo||'',
       kari, kyuryo, pct,
       gIsYukyu ? yukyuRate : '',
-      old.other || ''   // AG=その他手当（手入力保持）
+      old.other || ''   // AH=その他手当（手入力保持）
     ]);
   }
 
   // 集計表を全クリアして再書き込み
   sumSheet.clear();
   if (outRows.length > 0) {
-    sumSheet.getRange(1, 1, outRows.length, 33).setValues(outRows);
+    sumSheet.getRange(1, 1, outRows.length, 34).setValues(outRows);
     sumSheet.setFrozenRows(1);
 
     // 4時間超で黄色（労働時間過超）、30分未満で水色（休憩不足）の判定閾値
@@ -955,28 +1006,28 @@ function generateSummary() {
     var T = 30*60*1000;
 
     for (var row = 2; row <= outRows.length; row++) {
-      // U列(21)：合計高速代 = 実費(T) - 請求(S)（差額がマイナスなら持ち出し）
-      sumSheet.getRange(row, 21).setFormula('=IF(AND(T'+row+'="",S'+row+'=""),"",T'+row+'-S'+row+')');
-      // Y列(25)：燃料代 = 距離(V) / 燃費(W) * ガソリン代(X)
-      sumSheet.getRange(row, 25).setFormula('=IF(OR(V'+row+'="",W'+row+'=""),"",V'+row+'/W'+row+'*X'+row+')');
-      // AA列(27)：利益 = 売上(R) - (合計高速代(U) + 燃料代(Y) + 支払い(Z))
-      sumSheet.getRange(row, 27).setFormula('=IF(AND(R'+row+'="",U'+row+'="",Y'+row+'="",Z'+row+'=""),"",R'+row+'-(U'+row+'+Y'+row+'+Z'+row+'))');
+      // V列(22)：合計高速代 = 実費(U) - 請求(T)（差額がマイナスなら持ち出し）
+      sumSheet.getRange(row, 22).setFormula('=IF(AND(U'+row+'="",T'+row+'=""),"",U'+row+'-T'+row+')');
+      // Z列(26)：燃料代 = 距離(W) / 燃費(X) * ガソリン代(Y)
+      sumSheet.getRange(row, 26).setFormula('=IF(OR(W'+row+'="",X'+row+'=""),"",W'+row+'/X'+row+'*Y'+row+')');
+      // AB列(28)：利益 = 売上(S) - (合計高速代(V) + 燃料代(Z) + 支払い(AA))
+      sumSheet.getRange(row, 28).setFormula('=IF(AND(S'+row+'="",V'+row+'="",Z'+row+'="",AA'+row+'=""),"",S'+row+'-(V'+row+'+Z'+row+'+AA'+row+'))');
 
       var g2       = idMap[idOrder[row-2]];
-      var keepPay  = outRows[row-1][25] || '';
-      var keepDist = outRows[row-1][21] || '';
-      var keepGas  = outRows[row-1][23] || '';
+      var keepPay  = outRows[row-1][26] || '';
+      var keepDist = outRows[row-1][22] || '';
+      var keepGas  = outRows[row-1][24] || '';
       var calcToll = (Number(g2.tollReal)||0)-(Number(g2.tollReq)||0);
       var calcFuel = (Number(keepDist)&&Number(fuel)&&Number(keepGas)) ? (Number(keepDist)/Number(fuel)*Number(keepGas)) : 0;
       var calcProfit = (Number(g2.sales)||0)-(calcToll+calcFuel+(Number(keepPay)||0));
 
       // 利益がマイナスの行は薄赤で警告表示
-      sumSheet.getRange(row, 1, 1, 31).setBackground(calcProfit < 0 ? '#ffebee' : null);
+      sumSheet.getRange(row, 1, 1, 32).setBackground(calcProfit < 0 ? '#ffebee' : null);
       // 積完〜降完間の労働時間・休憩時間を判定して背景色で警告
-      sumSheet.getRange(row, 14, 1, 4).setBackground(null);
-      if (g2.rawPickTime  && g2.rawRestStart && (g2.rawRestStart-g2.rawPickTime)  > F) { sumSheet.getRange(row,14,1,2).setBackground('#ffd600'); }
-      if (g2.rawRestStart && g2.rawRestEnd   && (g2.rawRestEnd  -g2.rawRestStart) < T) { sumSheet.getRange(row,15,1,2).setBackground('#4fc3f7'); }
-      if (g2.rawRestEnd   && g2.rawDropTime  && (g2.rawDropTime -g2.rawRestEnd)   > F) { sumSheet.getRange(row,16,1,2).setBackground('#ffd600'); }
+      sumSheet.getRange(row, 15, 1, 4).setBackground(null);
+      if (g2.rawPickTime  && g2.rawRestStart && (g2.rawRestStart-g2.rawPickTime)  > F) { sumSheet.getRange(row,15,1,2).setBackground('#ffd600'); }
+      if (g2.rawRestStart && g2.rawRestEnd   && (g2.rawRestEnd  -g2.rawRestStart) < T) { sumSheet.getRange(row,16,1,2).setBackground('#4fc3f7'); }
+      if (g2.rawRestEnd   && g2.rawDropTime  && (g2.rawDropTime -g2.rawRestEnd)   > F) { sumSheet.getRange(row,17,1,2).setBackground('#ffd600'); }
     }
     applyMoneyFormat_(sumSheet, 2, outRows.length - 1, 'summary');
     applyDateTimeFormat_(sumSheet, 2, outRows.length - 1);
@@ -989,7 +1040,7 @@ function generateSummary() {
 
 
 // ================================================================
-//  4-1b: 管理側データURLをリッチテキストに一括変換（convertLegacyAdminDataUrls_）
+//  4-1b: 管理側データURLをリッチテキストに一括変換（convertLegacyAdminDataUrls_）  【大B / 中4 / 小4-1b】
 //  運行シートのW列(23)にプレーンURLが残っている行をリッチテキストに変換
 // ================================================================
 function convertLegacyAdminDataUrls_() {
@@ -998,12 +1049,12 @@ function convertLegacyAdminDataUrls_() {
   var lastRow = sheet.getLastRow();
   var all = sheet.getDataRange().getValues();
   for (var i = 1; i < all.length; i++) {
-    var val = String(all[i][22] || '').trim();
+    var val = String(all[i][23] || '').trim();
     if (val.match(/^https?:\/\//)) {
       setAdminDataRichText_(sheet, i + 1, val);
     } else if (val && !val.match(/^https?:\/\//)) {
       // Already rich text ("ファイル1" etc.) — ensure note is populated
-      var cell = sheet.getRange(i + 1, 23);
+      var cell = sheet.getRange(i + 1, 24);
       if (!cell.getNote()) {
         var rtv = cell.getRichTextValue();
         if (rtv) {
@@ -1021,7 +1072,7 @@ function convertLegacyAdminDataUrls_() {
 
 
 // ================================================================
-//  4-2: 集計表をID単位で同期（syncSummaryForId_）
+//  4-2: 集計表をID単位で同期（syncSummaryForId_）  【大B / 中4 / 小4-2】
 //  運行シートから対象IDのデータを集計し集計表の該当行を更新する
 //  ・AB〜AD列（仮日数・給料・%）を保持＆マスタから引き当て
 //  ・時刻色付け・利益マイナス赤を再適用
@@ -1069,24 +1120,24 @@ function syncSummaryForId_(targetId) {
     var r = unkouData[i];
     if (String(r[0]||'').trim() !== String(targetId).trim()) continue;
     matchingRows.push(i + 1);
-    if (!g) { g = { id:String(r[0]).trim(), kubun:r[1], company:r[2], tons:r[3], type:r[4], car:r[5], name:r[6], tel:r[7], date:r[8], clients:[], picks:[], drops:[], guideTime:'', pickTime:'', restStart:'', restEnd:'', dropTime:'', sales:0, tollReq:0, tollReal:0 }; }
-    if (r[10]) g.picks.push(r[10]);
-    if (r[11]) g.drops.push(r[11]);
+    if (!g) { g = { id:String(r[0]).trim(), kubun:r[1], company:r[2], tons:r[3], type:r[4], car:r[5], name:r[6], tel:r[7], kanban:r[8], date:r[9], clients:[], picks:[], drops:[], guideTime:'', pickTime:'', restStart:'', restEnd:'', dropTime:'', sales:0, tollReq:0, tollReal:0 }; }
+    if (r[11]) g.picks.push(r[11]);
+    if (r[12]) g.drops.push(r[12]);
     // 荷主は重複なしで全部収集
-    if (r[9]) { var rc = String(r[9]); if (g.clients.indexOf(rc) === -1) g.clients.push(rc); }
-    if (r[12] && !g.guideTime) { g.guideTime = r[12]; }
-    if (r[13] && !g.pickTime)  { g.pickTime  = r[13]; rawPickTime  = new Date(r[13]); }
-    if (r[14] && !g.restStart) { g.restStart = r[14]; rawRestStart = new Date(r[14]); }
-    if (r[15] && !g.restEnd)   { g.restEnd   = r[15]; rawRestEnd   = new Date(r[15]); }
-    if (r[16] && !g.dropTime)  { g.dropTime  = r[16]; rawDropTime  = new Date(r[16]); }
-    g.sales   += Number(r[17]) || 0;
-    g.tollReq += Number(r[18]) || 0;
-    g.tollReal+= Number(r[19]) || 0;
+    if (r[10]) { var rc = String(r[10]); if (g.clients.indexOf(rc) === -1) g.clients.push(rc); }
+    if (r[13] && !g.guideTime) { g.guideTime = r[13]; }
+    if (r[14] && !g.pickTime)  { g.pickTime  = r[14]; rawPickTime  = new Date(r[14]); }
+    if (r[15] && !g.restStart) { g.restStart = r[15]; rawRestStart = new Date(r[15]); }
+    if (r[16] && !g.restEnd)   { g.restEnd   = r[16]; rawRestEnd   = new Date(r[16]); }
+    if (r[17] && !g.dropTime)  { g.dropTime  = r[17]; rawDropTime  = new Date(r[17]); }
+    g.sales   += Number(r[18]) || 0;
+    g.tollReq += Number(r[19]) || 0;
+    g.tollReal+= Number(r[20]) || 0;
   }
   // 運行シートの該当行に書式を確実に適用
   if (matchingRows.length > 0) {
     var minR = matchingRows[0], maxR = matchingRows[matchingRows.length - 1];
-    unkouSheet.getRange(minR, 9, maxR - minR + 1, 1).setNumberFormat('yyyy/MM/dd');
+    unkouSheet.getRange(minR, 10, maxR - minR + 1, 1).setNumberFormat('yyyy/MM/dd');
     applyDateTimeFormat_(unkouSheet, minR, maxR - minR + 1);
   }
 
@@ -1096,18 +1147,18 @@ function syncSummaryForId_(targetId) {
   var keepKari='', keepKyuryo='', keepPct='', keepOther='';
   if (sumLast >= 2) {
     var colCount = sumSheet.getLastColumn();
-    var sumIds   = sumSheet.getRange(2, 1, sumLast-1, Math.max(colCount, 33)).getValues();
+    var sumIds   = sumSheet.getRange(2, 1, sumLast-1, Math.max(colCount, 34)).getValues();
     for (var k = 0; k < sumIds.length; k++) {
       if (String(sumIds[k][0]).trim() === String(targetId).trim()) {
         sumRow      = k + 2;
-        keepDistance= sumIds[k][21];
-        keepGas     = sumIds[k][23];
-        keepPay     = sumIds[k][25];
-        keepMemo    = sumIds[k][27];
-        keepKari    = sumIds[k][28] || '';
-        keepKyuryo  = sumIds[k][29] || '';
-        keepPct     = sumIds[k][30] || '';
-        keepOther   = sumIds[k][32] || '';  // AG=その他手当
+        keepDistance= sumIds[k][22];
+        keepGas     = sumIds[k][24];
+        keepPay     = sumIds[k][26];
+        keepMemo    = sumIds[k][28];
+        keepKari    = sumIds[k][29] || '';
+        keepKyuryo  = sumIds[k][30] || '';
+        keepPct     = sumIds[k][31] || '';
+        keepOther   = sumIds[k][33] || '';  // AH=その他手当
         break;
       }
     }
@@ -1127,53 +1178,53 @@ function syncSummaryForId_(targetId) {
   var sIsYukyu = spick.indexOf('有休') !== -1 || sdrop.indexOf('有休') !== -1;
   var sIsYasumi = !sIsYukyu && (spick.indexOf('休み') !== -1 || sdrop.indexOf('休み') !== -1);
   var rowData = [
-    g.id, g.kubun, g.company, g.tons, g.type, g.car, g.name, g.tel,
+    g.id, g.kubun, g.company, g.tons, g.type, g.car, g.name, g.tel, g.kanban||g.company,
     g.date, g.clients.join('・'), spick, sdrop,
     g.guideTime||'', g.pickTime, g.restStart, g.restEnd, g.dropTime,
     g.sales||'', g.tollReq||'', g.tollReal||'', '',
     keepDistance, fuel, keepGas, '', keepPay, '', keepMemo,
     kari, kyuryo, pct,
     sIsYukyu ? yukyuRate : '',
-    keepOther   // AG=その他手当（手入力保持）
+    keepOther   // AH=その他手当（手入力保持）
   ];
 
   if (sumRow > 0) {
-    sumSheet.getRange(sumRow, 1, 1, 33).setValues([rowData]);
+    sumSheet.getRange(sumRow, 1, 1, 34).setValues([rowData]);
   } else {
     sumRow = sumSheet.getLastRow()+1;
     if (sumRow === 1) {
-      var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','利益','備考','仮日数','給料','％','有休手当','その他手当'];
-      sumSheet.getRange(1, 1, 1, 33).setValues([hdr]);
+      var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','利益','備考','仮日数','給料','％','有休手当','その他手当'];
+      sumSheet.getRange(1, 1, 1, 34).setValues([hdr]);
       sumSheet.setFrozenRows(1);
       sumRow = 2;
     }
-    sumSheet.getRange(sumRow, 1, 1, 33).setValues([rowData]);
+    sumSheet.getRange(sumRow, 1, 1, 34).setValues([rowData]);
   }
 
-  sumSheet.getRange(sumRow, 21).setFormula('=IF(AND(T'+sumRow+'="",S'+sumRow+'=""),"",T'+sumRow+'-S'+sumRow+')');
-  sumSheet.getRange(sumRow, 25).setFormula('=IF(OR(V'+sumRow+'="",W'+sumRow+'=""),"",V'+sumRow+'/W'+sumRow+'*X'+sumRow+')');
-  sumSheet.getRange(sumRow, 27).setFormula('=IF(AND(R'+sumRow+'="",U'+sumRow+'="",Y'+sumRow+'="",Z'+sumRow+'=""),"",R'+sumRow+'-(U'+sumRow+'+Y'+sumRow+'+Z'+sumRow+'))');
+  sumSheet.getRange(sumRow, 22).setFormula('=IF(AND(U'+sumRow+'="",T'+sumRow+'=""),"",U'+sumRow+'-T'+sumRow+')');
+  sumSheet.getRange(sumRow, 26).setFormula('=IF(OR(W'+sumRow+'="",X'+sumRow+'=""),"",W'+sumRow+'/X'+sumRow+'*Y'+sumRow+')');
+  sumSheet.getRange(sumRow, 28).setFormula('=IF(AND(S'+sumRow+'="",V'+sumRow+'="",Z'+sumRow+'="",AA'+sumRow+'=""),"",S'+sumRow+'-(V'+sumRow+'+Z'+sumRow+'+AA'+sumRow+'))');
 
   var calcToll  = (Number(g.tollReal)||0)-(Number(g.tollReq)||0);
   var calcFuel  = (Number(keepDistance)&&Number(fuel)&&Number(keepGas)) ? (Number(keepDistance)/Number(fuel)*Number(keepGas)) : 0;
   var calcProfit= (Number(g.sales)||0)-(calcToll+calcFuel+(Number(keepPay)||0));
-  sumSheet.getRange(sumRow, 1, 1, 30).setBackground(calcProfit < 0 ? '#ffebee' : null);
+  sumSheet.getRange(sumRow, 1, 1, 31).setBackground(calcProfit < 0 ? '#ffebee' : null);
 
   var F = 4*60*60*1000;
   var T = 30*60*1000;
-  sumSheet.getRange(sumRow, 14, 1, 4).setBackground(null);
-  if (rawPickTime  && rawRestStart && (rawRestStart-rawPickTime)  > F) { sumSheet.getRange(sumRow,14,1,2).setBackground('#ffd600'); }
-  if (rawRestStart && rawRestEnd   && (rawRestEnd  -rawRestStart) < T) { sumSheet.getRange(sumRow,15,1,2).setBackground('#4fc3f7'); }
-  if (rawRestEnd   && rawDropTime  && (rawDropTime -rawRestEnd)   > F) { sumSheet.getRange(sumRow,16,1,2).setBackground('#ffd600'); }
+  sumSheet.getRange(sumRow, 15, 1, 4).setBackground(null);
+  if (rawPickTime  && rawRestStart && (rawRestStart-rawPickTime)  > F) { sumSheet.getRange(sumRow,15,1,2).setBackground('#ffd600'); }
+  if (rawRestStart && rawRestEnd   && (rawRestEnd  -rawRestStart) < T) { sumSheet.getRange(sumRow,16,1,2).setBackground('#4fc3f7'); }
+  if (rawRestEnd   && rawDropTime  && (rawDropTime -rawRestEnd)   > F) { sumSheet.getRange(sumRow,17,1,2).setBackground('#ffd600'); }
   applyMoneyFormat_(sumSheet, sumRow, 1, 'summary');
   applyDateTimeFormat_(sumSheet, sumRow, 1);
-  // この行だけの支払い(Z=col26)をインライン計算（全行ループの calculatePaymentAmount を避けて高速化）
+  // この行だけの支払い(AA=col27)をインライン計算（全行ループの calculatePaymentAmount を避けて高速化）
   var pctNum    = Number(pct)    || 0;
   var kyuryoNum = Number(kyuryo) || 0;
   var kariNum   = Number(kari)   || 0;
   var thisToll  = (Number(g.tollReal) || 0) - (Number(g.tollReq) || 0);
-  var payCell   = sumSheet.getRange(sumRow, 26);
-  sumSheet.getRange(sumRow, 29, 1, 3).setBackground(null);
+  var payCell   = sumSheet.getRange(sumRow, 27);
+  sumSheet.getRange(sumRow, 30, 1, 3).setBackground(null);
   payCell.setBackground(null);
   var yukyuVal = '';
   if (pctNum > 0) {
@@ -1185,22 +1236,22 @@ function syncSummaryForId_(targetId) {
     var dailyPay = Math.round(kyuryoNum / kariNum);
     payCell.setValue(sIsYasumi ? -dailyPay : dailyPay);
   } else if (kyuryoNum > 0 || kariNum > 0) {
-    if (!kyuryoNum) sumSheet.getRange(sumRow, 30).setBackground('#f4cccc');
-    if (!kariNum)   sumSheet.getRange(sumRow, 29).setBackground('#f4cccc');
+    if (!kyuryoNum) sumSheet.getRange(sumRow, 31).setBackground('#f4cccc');
+    if (!kariNum)   sumSheet.getRange(sumRow, 30).setBackground('#f4cccc');
   } else {
     if (!keepPay) payCell.setBackground('#f4cccc');
   }
-  // 有休手当(AF=col32): 歩合制+有休のみ
-  sumSheet.getRange(sumRow, 32).setValue(yukyuVal);
-  // 集計表のK列(積地)に休み/有休が含まれる場合はグレー着色
-  sumSheet.getRange(sumRow, 11).setBackground(
+  // 有休手当(AG=col33): 歩合制+有休のみ
+  sumSheet.getRange(sumRow, 33).setValue(yukyuVal);
+  // 集計表のL列(12=積地)に休み/有休が含まれる場合はグレー着色
+  sumSheet.getRange(sumRow, 12).setBackground(
     (spick.indexOf('休み') !== -1 || spick.indexOf('有休') !== -1) ? '#9e9e9e' : null
   );
 }
 
 
 // ================================================================
-//  4-3: シート再生成（expandAndRefreshSheets）
+//  4-3: シート再生成（expandAndRefreshSheets）  【大B / 中4 / 小4-3】
 //  メニューの「シート再生成」から呼び出す
 //  ・自車専属マスタに仮日数/給料/%列がなければ追加
 //  ・自車専属運行シートをマスタから再生成（15列対応）
@@ -1234,7 +1285,7 @@ function expandAndRefreshSheets() {
   if (unkouForFmt && unkouForFmt.getLastRow() >= 2) {
     applyMoneyFormat_(unkouForFmt, 2, unkouForFmt.getLastRow() - 1, 'unkou');
     applyDateTimeFormat_(unkouForFmt, 2, unkouForFmt.getLastRow() - 1);
-    unkouForFmt.getRange(2, 9, unkouForFmt.getLastRow() - 1, 1).setNumberFormat('yyyy/MM/dd');
+    unkouForFmt.getRange(2, 10, unkouForFmt.getLastRow() - 1, 1).setNumberFormat('yyyy/MM/dd');
   }
   var sumForFmt = ss.getSheetByName('集計表');
   if (sumForFmt && sumForFmt.getLastRow() >= 2) {
@@ -1247,7 +1298,7 @@ function expandAndRefreshSheets() {
 
 
 // ================================================================
-//  4-4: 支払い再計算（calculatePaymentAmount）
+//  4-4: 支払い再計算（calculatePaymentAmount）  【大B / 中4 / 小4-4】
 //  集計表のAB列(仮日数)・AC列(給料)・AD列(%)からY列(支払い)を計算する
 //  ・パターンA: %あり → (売上-合計高速代)×%/100
 //  ・パターンB: %なし・給料と仮日数あり → 給料÷仮日数
@@ -1271,24 +1322,24 @@ function calculatePaymentAmount() {
     }
   }
 
-  var data = sheet.getRange(2, 1, lastRow-1, 32).getValues();
+  var data = sheet.getRange(2, 1, lastRow-1, 34).getValues();
   var yukyuVals = [];
 
   for (var i = 0; i < data.length; i++) {
     var rowNum    = i + 2;
-    var sales     = Number(data[i][17]) || 0;
-    var totalToll = Number(data[i][20]) || 0;
-    var kari      = Number(data[i][28]) || 0;
-    var kyuryo    = Number(data[i][29]) || 0;
-    var pct       = Number(data[i][30]) || 0;
-    var pick      = String(data[i][10] || '');
-    var drop      = String(data[i][11] || '');
+    var sales     = Number(data[i][18]) || 0;
+    var totalToll = Number(data[i][21]) || 0;
+    var kari      = Number(data[i][29]) || 0;
+    var kyuryo    = Number(data[i][30]) || 0;
+    var pct       = Number(data[i][31]) || 0;
+    var pick      = String(data[i][11] || '');
+    var drop      = String(data[i][12] || '');
     var isYukyu   = pick.indexOf('有休') !== -1 || drop.indexOf('有休') !== -1;
     var isYasumi  = !isYukyu && (pick.indexOf('休み') !== -1 || drop.indexOf('休み') !== -1);
-    var yCell     = sheet.getRange(rowNum, 26);
+    var yCell     = sheet.getRange(rowNum, 27);
 
     yCell.setBackground(null);
-    sheet.getRange(rowNum, 29, 1, 3).setBackground(null);
+    sheet.getRange(rowNum, 30, 1, 3).setBackground(null);
 
     var yukyuVal = '';
     if (pct > 0) {
@@ -1301,8 +1352,8 @@ function calculatePaymentAmount() {
         var dailyPay = Math.round(kyuryo / kari);
         yCell.setValue(isYasumi ? -dailyPay : dailyPay);
       } else {
-        if (!kyuryo) sheet.getRange(rowNum, 30).setBackground('#f4cccc');
-        if (!kari)   sheet.getRange(rowNum, 29).setBackground('#f4cccc');
+        if (!kyuryo) sheet.getRange(rowNum, 31).setBackground('#f4cccc');
+        if (!kari)   sheet.getRange(rowNum, 30).setBackground('#f4cccc');
       }
     } else {
       if (yCell.getValue() === '') yCell.setBackground('#f4cccc');
@@ -1310,15 +1361,15 @@ function calculatePaymentAmount() {
     yukyuVals.push([yukyuVal]);
   }
 
-  // 有休手当(AF=col32)を一括書込
+  // 有休手当(AG=col33)を一括書込
   if (yukyuVals.length > 0) {
-    sheet.getRange(2, 32, yukyuVals.length, 1).setValues(yukyuVals);
+    sheet.getRange(2, 33, yukyuVals.length, 1).setValues(yukyuVals);
   }
 }
 
 
 // ================================================================
-//  4-5: 自車専属運行シート更新内部処理（refreshActiveVehiclesAuto_）
+//  4-5: 自車専属運行シート更新内部処理（refreshActiveVehiclesAuto_）  【大B / 中4 / 小4-5】
 //  自車専属マスタの運行状態=「運行」の行のみを抽出し
 //  自車専属運行シートに15列（A〜O列、仮日数/給料/%含む）で書き出す
 // ================================================================
@@ -1352,7 +1403,7 @@ function refreshActiveVehiclesAuto_() {
 
 
 // ================================================================
-//  4-6: 自車専属マスタに「運行」列追加（addStatusColumnToMaster）
+//  4-6: 自車専属マスタに「運行」列追加（addStatusColumnToMaster）  【大B / 中4 / 小4-6】
 //  B列が「運行」でなければB列を挿入し全行に「運行」をセットする
 // ================================================================
 function addStatusColumnToMaster() {
@@ -1368,7 +1419,7 @@ function addStatusColumnToMaster() {
 
 
 // ================================================================
-//  5-1: 起動時の初期データ一括取得（getInitialData）
+//  5-1: 起動時の初期データ一括取得（getInitialData）  【大A / 中5 / 小5-1】
 //  端末保存のアドレスを元にマスタから該当行を一括検索して返す
 // ================================================================
 function getInitialData() {
@@ -1394,7 +1445,7 @@ function getInitialData() {
 
 
 // ================================================================
-//  5-2: 紐づけ実行（linkAddress）
+//  5-2: 紐づけ実行（linkAddress）  【大A / 中5 / 小5-2】
 //  入力アドレスを自車専属マスタのJ列と照合し
 //  一致したら端末のPropertiesServiceに保存する（シートには書かない）
 // ================================================================
@@ -1418,7 +1469,7 @@ function linkAddress(email) {
 
 
 // ================================================================
-//  5-3: 紐づけ解除（unlinkAddress）
+//  5-3: 紐づけ解除（unlinkAddress）  【大A / 中5 / 小5-3】
 //  端末のPropertiesServiceからアドレス情報を消去する
 // ================================================================
 function unlinkAddress() {
@@ -1428,7 +1479,7 @@ function unlinkAddress() {
 
 
 // ================================================================
-//  6-1: 端末の運行進捗を保存（saveRunState）
+//  6-1: 端末の運行進捗を保存（saveRunState）  【大A / 中6 / 小6-1】
 //  picks/drops/rows/pickDone/dropDone/phase/lastPickRow/
 //  pickHistory/dropHistoryの9項目をsetPropertiesで一括保存
 // ================================================================
@@ -1451,7 +1502,7 @@ function saveRunState(state) {
 
 
 // ================================================================
-//  6-2: 端末の運行進捗を読み込み（loadRunState）
+//  6-2: 端末の運行進捗を読み込み（loadRunState）  【大A / 中6 / 小6-2】
 //  getPropertiesで一括取得して返す
 // ================================================================
 function loadRunState() {
@@ -1473,7 +1524,7 @@ function loadRunState() {
 
 
 // ================================================================
-//  6-3: 端末の運行進捗をクリア（clearRunState）
+//  6-3: 端末の運行進捗をクリア（clearRunState）  【大A / 中6 / 小6-3】
 //  linkedEmail（紐づけ）とreadNotices（既読管理）は消さない
 //  運行進捗の9項目だけ削除する
 // ================================================================
@@ -1485,7 +1536,7 @@ function clearRunState() {
 
 
 // ================================================================
-//  7-1: 今日の行程取得（getTodayRoutes）
+//  7-1: 今日の行程取得（getTodayRoutes）  【大A / 中7 / 小7-1】
 //  紐づけアドレスから乗務員名・車番を特定し
 //  運行シートから本日分の未完了行程を返す
 // ================================================================
@@ -1496,15 +1547,14 @@ function getTodayRoutes() {
   var master = ss.getSheetByName('自車専属マスタ');
   if (!master) return [];
   var mAll = master.getDataRange().getValues();
-  var name = '', car = '';
+  var name = '';
   for (var j = 1; j < mAll.length; j++) {
     if (String(mAll[j][9]).trim() === savedEmail) {
       name = String(mAll[j][7]).trim();
-      car  = String(mAll[j][6]).trim();
       break;
     }
   }
-  if (!name || !car) return [];
+  if (!name) return [];
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return [];
   var all   = sheet.getDataRange().getValues();
@@ -1513,27 +1563,27 @@ function getTodayRoutes() {
   var out = [];
   for (var i = 1; i < all.length; i++) {
     var r = all[i];
-    if (!r[8]) continue;
-    var dv = new Date(r[8]);
+    if (!r[9]) continue;
+    var dv = new Date(r[9]);
     if (dv.getFullYear()!==y || dv.getMonth()!==m || dv.getDate()!==d) continue;
-    if (String(r[5]).trim()!==car || String(r[6]).trim()!==name) continue;
-    if (r[16]) continue;
-    var pickV = (r[10] instanceof Date) ? '' : String(r[10] || '');
-    var dropV = (r[11] instanceof Date) ? '' : String(r[11] || '');
-    out.push({ row: i+1, pick: pickV, drop: dropV, guideDone: !!r[12], pickDone: !!r[13], dropDone: !!r[16] });
+    if (String(r[6]).trim()!==name) continue;
+    if (r[17]) continue;
+    var pickV = (r[11] instanceof Date) ? '' : String(r[11] || '');
+    var dropV = (r[12] instanceof Date) ? '' : String(r[12] || '');
+    out.push({ row: i+1, pick: pickV, drop: dropV, guideDone: !!r[13], pickDone: !!r[14], dropDone: !!r[17] });
   }
   return out;
 }
 
 
 // ================================================================
-//  7-2: 運行シートへの行作成（createParentRows）
+//  7-2: 運行シートへの行作成（createParentRows）  【大A / 中7 / 小7-2】
 //  紐づけアドレスからマスタ情報を取得し運行シートに行程を書き込む
 //  ・同じ運行の行程は全て同じIDを付与
 //  ・日付をDate型（時刻付き）で書き込む
 //  ・LockServiceで同時書き込みによるID重複を防止
 // ================================================================
-function createParentRows(picks, drops) {
+function createParentRows(picks, drops, dateStr, overrideInfo) {
   // 端末のメールアドレスを確認（未連携なら運行開始不可）
   var savedEmail = PropertiesService.getUserProperties().getProperty('linkedEmail');
   if (!savedEmail) throw new Error('紐づけされていません');
@@ -1553,12 +1603,23 @@ function createParentRows(picks, drops) {
       if (String(mAll[j][9]).trim() === savedEmail) {
         info = {
           kubun:mAll[j][2], company:mAll[j][3], tons:mAll[j][4],
-          type:mAll[j][5], car:mAll[j][6], name:mAll[j][7], tel:mAll[j][8]
+          type:mAll[j][5], car:mAll[j][6], name:mAll[j][7], tel:mAll[j][8],
+          kanban:mAll[j][3]  // 看板名デフォルトは会社名
         };
         break;
       }
     }
     if (!info) throw new Error('アドレス未登録');
+
+    // 端末で上書き入力された車両情報を反映（マスタより優先）
+    if (overrideInfo) {
+      if (overrideInfo.tons   !== undefined && overrideInfo.tons   !== '') info.tons   = overrideInfo.tons;
+      if (overrideInfo.type   !== undefined && overrideInfo.type   !== '') info.type   = overrideInfo.type;
+      if (overrideInfo.car    !== undefined && overrideInfo.car    !== '') info.car    = overrideInfo.car;
+      if (overrideInfo.name   !== undefined && overrideInfo.name   !== '') info.name   = overrideInfo.name;
+      if (overrideInfo.tel    !== undefined) info.tel    = overrideInfo.tel;
+      if (overrideInfo.kanban !== undefined) info.kanban = overrideInfo.kanban;
+    }
 
     var sheet = ss.getSheetByName('運行');
     if (!sheet) throw new Error('運行シートがありません');
@@ -1567,7 +1628,8 @@ function createParentRows(picks, drops) {
     // 全行程に同一IDを付与して連番採番
     var lastRow  = sheet.getLastRow();
     var nextNum  = getNextIdNum_(sheet, 'V-');
-    var now      = new Date();
+    // 日付: 端末から渡された場合はその日付を使用（省略時は現在時刻）
+    var now = dateStr ? new Date(dateStr) : new Date();
     var num      = picks.length;
     var startRow = lastRow + 1;
     var sameId   = 'V-' + String(nextNum).padStart(4, '0');
@@ -1576,21 +1638,21 @@ function createParentRows(picks, drops) {
     for (var i = 0; i < num; i++) {
       rowsData.push([
         sameId, info.kubun, info.company, info.tons, info.type, info.car,
-        info.name, info.tel, now, '', picks[i], drops[i],
+        info.name, info.tel, info.kanban || info.company, now, '', picks[i], drops[i],
         '', '', '', '', '', '', '', '', '', '', '', '', ''
       ]);
     }
-    sheet.getRange(startRow, 11, num, 2).setNumberFormat('@'); // 積地・降地をテキスト書式に固定（数値化防止）
-    sheet.getRange(startRow, 1, num, 25).setValues(rowsData);
+    sheet.getRange(startRow, 12, num, 2).setNumberFormat('@'); // 積地・降地をテキスト書式に固定（数値化防止）
+    sheet.getRange(startRow, 1, num, 26).setValues(rowsData);
 
-    // U列(21)の高速計算式を各行に設定（合計高速 = 実費T - 請求S）
+    // V列(22)の高速計算式を各行に設定（合計高速 = 実費U - 請求T）
     var formulas = [];
     for (var i = 0; i < num; i++) {
       var r = startRow + i;
-      formulas.push(['=IF(AND(T'+r+'="",S'+r+'=""),"",T'+r+'-S'+r+')']);
+      formulas.push(['=IF(AND(U'+r+'="",T'+r+'=""),"",U'+r+'-T'+r+')']);
     }
-    sheet.getRange(startRow, 21, num, 1).setFormulas(formulas);
-    sheet.getRange(startRow, 9, num, 1).setNumberFormat('yyyy/MM/dd');
+    sheet.getRange(startRow, 22, num, 1).setFormulas(formulas);
+    sheet.getRange(startRow, 10, num, 1).setNumberFormat('yyyy/MM/dd');
     applyDateTimeFormat_(sheet, startRow, num);
 
     // 集計表を非同期で同期（遅延実行）
@@ -1607,24 +1669,10 @@ function createParentRows(picks, drops) {
 
 
 // ================================================================
-//  7-3: 誘導時刻記録（setGuideComplete）
+//  7-3: 誘導時刻記録（setGuideComplete）  【大A / 中7 / 小7-3】
 //  指定行のM列（13列目）に現在時刻を書き込み集計表を同期する
 // ================================================================
 function setGuideComplete(row) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
-  var cell = sheet.getRange(row, 13);
-  cell.setValue(new Date());
-  cell.setNumberFormat('M/d HH:mm');
-  var id = sheet.getRange(row, 1).getValue();
-  if (id) delaySyncSummary_(id);
-}
-
-
-// ================================================================
-//  7-4: 積完時刻記録（setPickComplete）
-//  指定行のN列（14列目）に現在時刻を書き込み集計表を同期する
-// ================================================================
-function setPickComplete(row) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
   var cell = sheet.getRange(row, 14);
   cell.setValue(new Date());
@@ -1635,12 +1683,26 @@ function setPickComplete(row) {
 
 
 // ================================================================
-//  7-5: 休憩開始・終了時刻記録（setRest）
+//  7-4: 積完時刻記録（setPickComplete）  【大A / 中7 / 小7-4】
+//  指定行のN列（14列目）に現在時刻を書き込み集計表を同期する
+// ================================================================
+function setPickComplete(row) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+  var cell = sheet.getRange(row, 15);
+  cell.setValue(new Date());
+  cell.setNumberFormat('M/d HH:mm');
+  var id = sheet.getRange(row, 1).getValue();
+  if (id) delaySyncSummary_(id);
+}
+
+
+// ================================================================
+//  7-5: 休憩開始・終了時刻記録（setRest）  【大A / 中7 / 小7-5】
 //  type='start'→O列(15), type='end'→P列(16) に現在時刻を書き込む
 // ================================================================
 function setRest(row, type) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
-  var col = (type === 'start') ? 15 : (type === 'end') ? 16 : 0;
+  var col = (type === 'start') ? 16 : (type === 'end') ? 17 : 0;
   if (col) {
     var cell = sheet.getRange(row, col);
     cell.setValue(new Date());
@@ -1652,12 +1714,12 @@ function setRest(row, type) {
 
 
 // ================================================================
-//  7-6: 降完時刻記録（setDropComplete）
+//  7-6: 降完時刻記録（setDropComplete）  【大A / 中7 / 小7-6】
 //  指定行のQ列（17列目）に現在時刻を書き込み集計表を同期する
 // ================================================================
 function setDropComplete(row) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
-  var cell = sheet.getRange(row, 17);
+  var cell = sheet.getRange(row, 18);
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
   var id = sheet.getRange(row, 1).getValue();
@@ -1666,15 +1728,15 @@ function setDropComplete(row) {
 
 
 // ================================================================
-//  8-1: 行程データ更新（updateRouteData）
+//  8-1: 行程データ更新（updateRouteData）  【大A / 中8 / 小8-1】
 //  戻るボタン用：指定行のK列（積地）・L列（降地）を更新し集計表を同期する
 // ================================================================
 function updateRouteData(rows, picks, drops) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
   if (!sheet) return;
   for (var i = 0; i < rows.length; i++) {
-    sheet.getRange(rows[i], 11).setValue(picks[i] || '');
-    sheet.getRange(rows[i], 12).setValue(drops[i] || '');
+    sheet.getRange(rows[i], 12).setValue(picks[i] || '');
+    sheet.getRange(rows[i], 13).setValue(drops[i] || '');
   }
   var id = sheet.getRange(rows[0], 1).getValue();
   if (id) delaySyncSummary_(id);
@@ -1682,7 +1744,7 @@ function updateRouteData(rows, picks, drops) {
 
 
 // ================================================================
-//  8-2: 運行シート行削除（deleteRunRows）
+//  8-2: 運行シート行削除（deleteRunRows）  【大A / 中8 / 小8-2】
 //  戻るボタン用：指定行番号を降順に削除し集計表を同期する
 // ================================================================
 function deleteRunRows(rows) {
@@ -1696,7 +1758,7 @@ function deleteRunRows(rows) {
 
 
 // ================================================================
-//  8-3: 時刻セルクリア（clearTimeCell）
+//  8-3: 時刻セルクリア（clearTimeCell）  【大A / 中8 / 小8-3】
 //  戻るボタン用：指定行・列のセルをクリアし集計表を同期する
 // ================================================================
 function clearTimeCell(row, col) {
@@ -1708,7 +1770,7 @@ function clearTimeCell(row, col) {
 
 
 // ================================================================
-//  8-4: 運行一覧データ取得（getListData）
+//  8-4: 運行一覧データ取得（getListData）  【大A / 中8 / 小8-4】
 //  端末アプリの「一覧」画面に表示するデータを月単位で返す関数
 //
 //  8-4-1: 紐づけメールアドレス（PropertiesService）から乗務員名を取得
@@ -1748,23 +1810,23 @@ function getListData(year, month) {
   var lastRow  = sheet.getLastRow();
   // W列(23)はリッチテキスト（クリック可能URLラベル）で格納されることがある
   // note→リッチテキストリンク→プレーンテキストの順に3段階フォールバックしてURLを取得
-  var notes23  = lastRow >= 2 ? sheet.getRange(2, 23, lastRow-1, 1).getNotes() : [];
-  var rtvs23   = lastRow >= 2 ? sheet.getRange(2, 23, lastRow-1, 1).getRichTextValues() : [];
+  var notes23  = lastRow >= 2 ? sheet.getRange(2, 24, lastRow-1, 1).getNotes() : [];
+  var rtvs23   = lastRow >= 2 ? sheet.getRange(2, 24, lastRow-1, 1).getRichTextValues() : [];
   // 集計表からID単位の金額マップを作成（売上/高速/支払いは集計表の計算済み値を使う）
   var sumSheet = ss.getSheetByName('集計表');
   var payMap   = {};
   if (sumSheet && sumSheet.getLastRow() >= 2) {
-    var sumAll = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 32).getValues();
+    var sumAll = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 34).getValues();
     for (var s = 0; s < sumAll.length; s++) {
       var sid = String(sumAll[s][0]||'').trim();
       if (sid) payMap[sid] = {
-        sales:    Math.round(Number(sumAll[s][17])) || 0,
-        tollReq:  Math.round(Number(sumAll[s][18])) || 0,
-        tollReal: Math.round(Number(sumAll[s][19])) || 0,
-        tollTotal:Math.round(Number(sumAll[s][20])) || 0,
-        pay:      Math.round(Number(sumAll[s][25])) || 0,
-        yukyu:    Math.round(Number(sumAll[s][31])) || 0,
-        other:    Math.round(Number(sumAll[s][32])) || 0
+        sales:    Math.round(Number(sumAll[s][18])) || 0,
+        tollReq:  Math.round(Number(sumAll[s][19])) || 0,
+        tollReal: Math.round(Number(sumAll[s][20])) || 0,
+        tollTotal:Math.round(Number(sumAll[s][21])) || 0,
+        pay:      Math.round(Number(sumAll[s][26])) || 0,
+        yukyu:    Math.round(Number(sumAll[s][32])) || 0,
+        other:    Math.round(Number(sumAll[s][33])) || 0
       };
     }
   }
@@ -1773,8 +1835,8 @@ function getListData(year, month) {
   var idMap = {}, idOrder = [];
   for (var i = 1; i < all.length; i++) {
     var r  = all[i];
-    if (!r[8]) continue;
-    var dv = r[8] instanceof Date ? r[8] : new Date(r[8]);
+    if (!r[9]) continue;
+    var dv = r[9] instanceof Date ? r[9] : new Date(r[9]);
     if (isNaN(dv.getTime())) continue;
     var dvYear = dv.getFullYear(), dvMonth = dv.getMonth()+1, dvDate = dv.getDate();
     if (dvYear !== year || dvMonth !== month) continue;
@@ -1784,7 +1846,7 @@ function getListData(year, month) {
 
     if (!idMap[id]) {
       var ds = dvYear+'/'+String(dvMonth).padStart(2,'0')+'/'+String(dvDate).padStart(2,'0');
-      // ★dateSort はI列（初回行程登録時刻）を基準に固定・以後変えない
+      // ★dateSort はJ列（初回行程登録時刻）を基準に固定・以後変えない
       var baseDateSort = dv.getTime();
       var n23 = (notes23[i-1] && notes23[i-1][0]) || '';
       var du23 = n23 ? n23.split('\n').filter(function(u){return u.match(/^https?:\/\//);}) : [];
@@ -1792,49 +1854,49 @@ function getListData(year, month) {
         var rtv23 = rtvs23[i-1][0], rruns = rtv23.getRuns();
         for (var k = 0; k < rruns.length; k++) { var lk=rruns[k].getLinkUrl(); if(lk) du23.push(lk); }
       }
-      if (!du23.length) { var pu=String(r[22]||''); if(pu.match(/^https?:\/\//)) du23=[pu]; }
+      if (!du23.length) { var pu=String(r[23]||''); if(pu.match(/^https?:\/\//)) du23=[pu]; }
       idMap[id] = {
         id:id, car:String(r[5]||'').trim(), date:ds,
         dateSort: baseDateSort,
         dateDisp:'', picks:[], drops:[],
         guideTime:'', pickTime:'', restStart:'', restEnd:'', dropTime:'',
         sales:0, tollReq:0, tollReal:0, tollTotal:0, pay:0, yukyu:0, other:0,
-        notice:r[21]||'', dataUrls:du23, dataUrl:du23[0]||'',
-        hasNotice:!!(r[21]||du23.length),
+        notice:r[22]||'', dataUrls:du23, dataUrl:du23[0]||'',
+        hasNotice:!!(r[22]||du23.length),
         _rawDv: dv
       };
       idOrder.push(id);
     }
     var g = idMap[id];
-    if (r[10]) g.picks.push(r[10]);
-    if (r[11]) g.drops.push(r[11]);
-    if (r[12] && !g.guideTime) {
-      var gt = r[12] instanceof Date ? r[12] : new Date(r[12]);
+    if (r[11]) g.picks.push(r[11]);
+    if (r[12]) g.drops.push(r[12]);
+    if (r[13] && !g.guideTime) {
+      var gt = r[13] instanceof Date ? r[13] : new Date(r[13]);
       if (!isNaN(gt.getTime())) g.guideTime = String(gt.getHours()).padStart(2,'0')+':'+String(gt.getMinutes()).padStart(2,'0');
     }
-    if (r[13] && !g.pickTime) {
-      var pt = r[13] instanceof Date ? r[13] : new Date(r[13]);
+    if (r[14] && !g.pickTime) {
+      var pt = r[14] instanceof Date ? r[14] : new Date(r[14]);
       if (!isNaN(pt.getTime())) {
         g.pickTime = String(pt.getHours()).padStart(2,'0')+':'+String(pt.getMinutes()).padStart(2,'0');
         // ★積完時刻でdateSortを上書きしない
       }
     }
-    if (r[14] && !g.restStart) {
-      var rst = r[14] instanceof Date ? r[14] : new Date(r[14]);
+    if (r[15] && !g.restStart) {
+      var rst = r[15] instanceof Date ? r[15] : new Date(r[15]);
       if (!isNaN(rst.getTime())) g.restStart = String(rst.getHours()).padStart(2,'0')+':'+String(rst.getMinutes()).padStart(2,'0');
     }
-    if (r[15] && !g.restEnd) {
-      var re2 = r[15] instanceof Date ? r[15] : new Date(r[15]);
+    if (r[16] && !g.restEnd) {
+      var re2 = r[16] instanceof Date ? r[16] : new Date(r[16]);
       if (!isNaN(re2.getTime())) g.restEnd = String(re2.getHours()).padStart(2,'0')+':'+String(re2.getMinutes()).padStart(2,'0');
     }
-    if (r[16] && !g.dropTime) {
-      var dt2 = r[16] instanceof Date ? r[16] : new Date(r[16]);
+    if (r[17] && !g.dropTime) {
+      var dt2 = r[17] instanceof Date ? r[17] : new Date(r[17]);
       if (!isNaN(dt2.getTime())) g.dropTime = String(dt2.getHours()).padStart(2,'0')+':'+String(dt2.getMinutes()).padStart(2,'0');
     }
-    g.sales   += Number(r[17]) || 0;
-    g.tollReq += Number(r[18]) || 0;
-    g.tollReal+= Number(r[19]) || 0;
-    if (r[21] && !g.notice) g.notice = r[21];
+    g.sales   += Number(r[18]) || 0;
+    g.tollReq += Number(r[19]) || 0;
+    g.tollReal+= Number(r[20]) || 0;
+    if (r[22] && !g.notice) g.notice = r[22];
     g.hasNotice = !!(g.notice || g.dataUrls.length);
   }
 
@@ -1891,7 +1953,7 @@ function getListData(year, month) {
 
 
 // ================================================================
-//  8-5: 編集用データ取得（getEditData）
+//  8-5: 編集用データ取得（getEditData）  【大A / 中8 / 小8-5】
 //  編集モーダルに表示する1件分の詳細データを取得して返す
 //  ・同一IDの複数行（複数行程）は売上/高速を合算して返す
 //  ・時刻（誘導/積完/休憩/降完）は最初に見つかった値を使用（先勝ち）
@@ -1907,13 +1969,13 @@ function getEditData(id) {
   var sumSheet = ss.getSheetByName('集計表');
   var sumData  = { tollTotal:'', profit:'', yukyu:'', other:'' };
   if (sumSheet && sumSheet.getLastRow() >= 2) {
-    var sumAll = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 33).getValues();
+    var sumAll = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 34).getValues();
     for (var s = 0; s < sumAll.length; s++) {
       if (String(sumAll[s][0]||'').trim() === String(id).trim()) {
-        sumData.tollTotal = sumAll[s][20] !== '' ? sumAll[s][20] : '';
-        sumData.profit    = sumAll[s][26] !== '' ? sumAll[s][26] : '';
-        sumData.yukyu     = sumAll[s][31] !== '' ? Math.round(Number(sumAll[s][31])) : '';
-        sumData.other     = sumAll[s][32] !== '' ? Math.round(Number(sumAll[s][32])) : '';
+        sumData.tollTotal = sumAll[s][21] !== '' ? sumAll[s][21] : '';
+        sumData.profit    = sumAll[s][27] !== '' ? sumAll[s][27] : '';
+        sumData.yukyu     = sumAll[s][32] !== '' ? Math.round(Number(sumAll[s][32])) : '';
+        sumData.other     = sumAll[s][33] !== '' ? Math.round(Number(sumAll[s][33])) : '';
         break;
       }
     }
@@ -1937,16 +1999,16 @@ function getEditData(id) {
     }
 
     // 売上・高速は合算
-    totalSales   += Number(r[17]) || 0;
-    totalTollReq += Number(r[18]) || 0;
-    totalTollReal+= Number(r[19]) || 0;
+    totalSales   += Number(r[18]) || 0;
+    totalTollReq += Number(r[19]) || 0;
+    totalTollReal+= Number(r[20]) || 0;
 
     // 時刻は最初に見つかった値を使用
-    if (!guideTime && r[12]) guideTime = Utilities.formatDate(new Date(r[12]),'Asia/Tokyo','HH:mm');
-    if (!pickTime  && r[13]) pickTime  = Utilities.formatDate(new Date(r[13]),'Asia/Tokyo','HH:mm');
-    if (!restStart && r[14]) restStart = Utilities.formatDate(new Date(r[14]),'Asia/Tokyo','HH:mm');
-    if (!restEnd   && r[15]) restEnd   = Utilities.formatDate(new Date(r[15]),'Asia/Tokyo','HH:mm');
-    if (!dropTime  && r[16]) dropTime  = Utilities.formatDate(new Date(r[16]),'Asia/Tokyo','HH:mm');
+    if (!guideTime && r[13]) guideTime = Utilities.formatDate(new Date(r[13]),'Asia/Tokyo','HH:mm');
+    if (!pickTime  && r[14]) pickTime  = Utilities.formatDate(new Date(r[14]),'Asia/Tokyo','HH:mm');
+    if (!restStart && r[15]) restStart = Utilities.formatDate(new Date(r[15]),'Asia/Tokyo','HH:mm');
+    if (!restEnd   && r[16]) restEnd   = Utilities.formatDate(new Date(r[16]),'Asia/Tokyo','HH:mm');
+    if (!dropTime  && r[17]) dropTime  = Utilities.formatDate(new Date(r[17]),'Asia/Tokyo','HH:mm');
   }
 
   if (!baseData) return null;
@@ -1961,10 +2023,11 @@ function getEditData(id) {
     car:      baseData[5],
     name:     baseData[6],
     tel:      baseData[7],
-    date:     baseData[8] ? Utilities.formatDate(new Date(baseData[8]),'Asia/Tokyo','yyyy-MM-dd') : '',
-    client:   baseData[9]  || '',
-    pick:     baseData[10] || '',
-    drop:     baseData[11] || '',
+    kanban:   baseData[8] || baseData[2],
+    date:     baseData[9] ? Utilities.formatDate(new Date(baseData[9]),'Asia/Tokyo','yyyy-MM-dd') : '',
+    client:   baseData[10] || '',
+    pick:     baseData[11] || '',
+    drop:     baseData[12] || '',
     guideTime: guideTime,
     pickTime:  pickTime,
     restStart: restStart,
@@ -1974,9 +2037,9 @@ function getEditData(id) {
     tollReq:  totalTollReq  || '',
     tollReal: totalTollReal || '',
     tollTotal: sumData.tollTotal,
-    notice:   baseData[21] || '',
+    notice:   baseData[22] || '',
     dataUrl:  getAdminDataUrl_(sheet, firstRow),
-    termNotice:baseData[23]|| '',
+    termNotice:baseData[24]|| '',
     termData: getTerminalUrls_(sheet, firstRow).join(','),
     profit:   sumData.profit,
     yukyu:    sumData.yukyu,
@@ -1986,7 +2049,7 @@ function getEditData(id) {
 
 
 // ================================================================
-//  8-6: 編集データ保存（saveEditData）
+//  8-6: 編集データ保存（saveEditData）  【大A / 中8 / 小8-6】
 //  端末アプリの編集モーダルで変更された値を運行シートに書き込む
 //  ・日付はDate型で書き込む（文字列だとonEditUnkou_が誤発火するため）
 //  ・荷主名/積地/降地は undefined/null でなければ上書きする（空文字でも書き込み可）
@@ -2004,55 +2067,63 @@ function saveEditData(obj) {
     if (String(all[i][0]||'').trim() !== String(obj.id).trim()) continue;
     var r = i + 1;
 
+    // 車両情報（同一IDの全行に書き込む）
+    if (obj.tons   !== undefined) sheet.getRange(r, 4).setValue(obj.tons   || '');
+    if (obj.type   !== undefined) sheet.getRange(r, 5).setValue(obj.type   || '');
+    if (obj.car    !== undefined) sheet.getRange(r, 6).setValue(obj.car    || '');
+    if (obj.name   !== undefined) sheet.getRange(r, 7).setValue(obj.name   || '');
+    if (obj.tel    !== undefined) sheet.getRange(r, 8).setValue(obj.tel    || '');
+    if (obj.kanban !== undefined) sheet.getRange(r, 9).setValue(obj.kanban || '');
+
     // ★日付はDate型で書き込む（文字列だとonEditが誤発火する）
     if (obj.date) {
       var d = new Date(obj.date);
-      // 既存のI列の時刻部分を保持する
-      var existing = all[i][8];
+      // 既存のJ列の時刻部分を保持する
+      var existing = all[i][9];
       if (existing instanceof Date) {
         d = new Date(d.getFullYear(), d.getMonth(), d.getDate(),
                      existing.getHours(), existing.getMinutes(), existing.getSeconds());
       }
-      sheet.getRange(r, 9).setValue(d);
+      sheet.getRange(r, 10).setValue(d);
     }
 
     // client/pick/dropはnullでなければ書き込む（空でも上書き可）
-    if (obj.client !== undefined && obj.client !== null) sheet.getRange(r, 10).setValue(obj.client);
-    if (obj.pick   !== undefined && obj.pick   !== null) sheet.getRange(r, 11).setValue(obj.pick);
-    if (obj.drop   !== undefined && obj.drop   !== null) sheet.getRange(r, 12).setValue(obj.drop);
+    if (obj.client !== undefined && obj.client !== null) sheet.getRange(r, 11).setValue(obj.client);
+    if (obj.pick   !== undefined && obj.pick   !== null) sheet.getRange(r, 12).setValue(obj.pick);
+    if (obj.drop   !== undefined && obj.drop   !== null) sheet.getRange(r, 13).setValue(obj.drop);
 
     var timeFmt = 'M/d HH:mm';
-    if (obj.guideTime) { var c13=sheet.getRange(r,13); c13.setValue(new Date(obj.date+' '+obj.guideTime)); c13.setNumberFormat(timeFmt); }
-    else               sheet.getRange(r, 13).clearContent();
-    if (obj.pickTime)  { var c14=sheet.getRange(r,14); c14.setValue(new Date(obj.date+' '+obj.pickTime));  c14.setNumberFormat(timeFmt); }
+    if (obj.guideTime) { var c14=sheet.getRange(r,14); c14.setValue(new Date(obj.date+' '+obj.guideTime)); c14.setNumberFormat(timeFmt); }
     else               sheet.getRange(r, 14).clearContent();
-    if (obj.restStart) { var c15=sheet.getRange(r,15); c15.setValue(new Date(obj.date+' '+obj.restStart)); c15.setNumberFormat(timeFmt); }
+    if (obj.pickTime)  { var c15=sheet.getRange(r,15); c15.setValue(new Date(obj.date+' '+obj.pickTime));  c15.setNumberFormat(timeFmt); }
     else               sheet.getRange(r, 15).clearContent();
-    if (obj.restEnd)   { var c16=sheet.getRange(r,16); c16.setValue(new Date(obj.date+' '+obj.restEnd));   c16.setNumberFormat(timeFmt); }
+    if (obj.restStart) { var c16=sheet.getRange(r,16); c16.setValue(new Date(obj.date+' '+obj.restStart)); c16.setNumberFormat(timeFmt); }
     else               sheet.getRange(r, 16).clearContent();
-    if (obj.dropTime)  { var c17=sheet.getRange(r,17); c17.setValue(new Date(obj.date+' '+obj.dropTime));  c17.setNumberFormat(timeFmt); }
+    if (obj.restEnd)   { var c17=sheet.getRange(r,17); c17.setValue(new Date(obj.date+' '+obj.restEnd));   c17.setNumberFormat(timeFmt); }
     else               sheet.getRange(r, 17).clearContent();
+    if (obj.dropTime)  { var c18=sheet.getRange(r,18); c18.setValue(new Date(obj.date+' '+obj.dropTime));  c18.setNumberFormat(timeFmt); }
+    else               sheet.getRange(r, 18).clearContent();
 
     // 売上・高速は最初の行のみ書き込む（複数行IDの場合の重複防止）
     // sales未指定（閲覧のみ）の場合は上書きしない
     if (!written) {
-      if (obj.sales    !== undefined) sheet.getRange(r, 18).setValue(obj.sales    || '');
-      if (obj.tollReq  !== undefined) sheet.getRange(r, 19).setValue(obj.tollReq  || '');
-      if (obj.tollReal !== undefined) sheet.getRange(r, 20).setValue(obj.tollReal || '');
+      if (obj.sales    !== undefined) sheet.getRange(r, 19).setValue(obj.sales    || '');
+      if (obj.tollReq  !== undefined) sheet.getRange(r, 20).setValue(obj.tollReq  || '');
+      if (obj.tollReal !== undefined) sheet.getRange(r, 21).setValue(obj.tollReal || '');
       written = true;
     } else {
-      if (obj.tollReq  !== undefined) sheet.getRange(r, 19).setValue('');
-      if (obj.tollReal !== undefined) sheet.getRange(r, 20).setValue('');
+      if (obj.tollReq  !== undefined) sheet.getRange(r, 20).setValue('');
+      if (obj.tollReal !== undefined) sheet.getRange(r, 21).setValue('');
     }
 
-    sheet.getRange(r, 24).setValue(obj.termNotice || '');
+    sheet.getRange(r, 25).setValue(obj.termNotice || '');
   }
   delaySyncSummary_(obj.id);
 }
 
 
 // ================================================================
-//  8-6b: シート保護設定（setupSheetProtection）
+//  8-6b: シート保護設定（setupSheetProtection）  【大C / 中8 / 小8-6b】
 //  集計表: 距離(V=22)・ガソリン代(X=24)・備考(AB=28)以外ロック
 //  運行シート: 合計高速(U=21)列のみロック
 // ================================================================
@@ -2062,20 +2133,21 @@ function setupSheetProtection() {
 
   var sumSheet = ss.getSheetByName('集計表');
   if (sumSheet) {
+    sumSheet.setFrozenColumns(1);
     sumSheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p){p.remove();});
     sumSheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p){p.remove();});
     var sp = sumSheet.protect().setDescription('集計表保護');
-    var editableCols = [22, 24, 26, 28, 33]; // V=距離, X=ガソリン代, Z=支払い, AB=備考, AG=その他手当
+    var editableCols = [23, 25, 27, 29, 34]; // W=距離, Y=ガソリン代, AA=支払い, AC=備考, AH=その他手当
     sp.setUnprotectedRanges([
-      sumSheet.getRange('V2:V2000'),
-      sumSheet.getRange('X2:X2000'),
-      sumSheet.getRange('Z2:Z2000'),
-      sumSheet.getRange('AB2:AB2000'),
-      sumSheet.getRange('AG2:AG2000')
+      sumSheet.getRange('W2:W2000'),
+      sumSheet.getRange('Y2:Y2000'),
+      sumSheet.getRange('AA2:AA2000'),
+      sumSheet.getRange('AC2:AC2000'),
+      sumSheet.getRange('AH2:AH2000')
     ]);
 
     // ヘッダー行: 保護列=グレー, 編集可列=グリーン で視覚区別
-    var lastCol = Math.max(sumSheet.getLastColumn(), 33);
+    var lastCol = Math.max(sumSheet.getLastColumn(), 34);
     sumSheet.getRange(1, 1, 1, lastCol)
       .setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
     for (var ec = 0; ec < editableCols.length; ec++) {
@@ -2093,24 +2165,74 @@ function setupSheetProtection() {
 
   var unkouSheet = ss.getSheetByName('運行');
   if (unkouSheet) {
+    unkouSheet.setFrozenColumns(1);
     unkouSheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p){p.remove();});
     var unkouLastRow = Math.max(unkouSheet.getLastRow(), 2);
-    // 合計(高速代)=U列(21): ヘッダーをグレーで色付け
-    unkouSheet.getRange(1, 21).setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
-    // U列のデータ全体を薄いグレーで色付け
-    unkouSheet.getRange(2, 21, unkouLastRow - 1, 1).setBackground('#eceff1');
+    // 合計(高速代)=V列(22): ヘッダーをグレーで色付け
+    unkouSheet.getRange(1, 22).setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
+    // V列のデータ全体を薄いグレーで色付け
+    unkouSheet.getRange(2, 22, unkouLastRow - 1, 1).setBackground('#eceff1');
   }
 
-  ui.alert('保護設定完了\n■ 集計表\n  編集可: 距離(V)・ガソリン代(X)・支払い(Z)・備考(AB)・その他手当(AG)\n  緑枠＋緑ヘッダー = 編集可 / 灰色ヘッダー = 保護\n■ 運行シート: 合計(高速代)U列を薄いグレーで色付け');
+  ui.alert('保護設定完了\n■ 集計表\n  編集可: 距離(W)・ガソリン代(Y)・支払い(AA)・備考(AC)・その他手当(AH)\n  緑枠＋緑ヘッダー = 編集可 / 灰色ヘッダー = 保護\n■ 運行シート: 合計(高速代)V列を薄いグレーで色付け');
 }
 
 
 // ================================================================
-//  8-6b-1: 端末ファイルURL一覧取得（getTerminalUrls_）
+//  8-6b-0b: 看板名列を既存シートに挿入（insertKanbanColumn）  【大C / 中8 / 小8-6b-0b】
+//  メニューから1回だけ実行する。I列（col9）に看板名を追加し
+//  既存行は会社名(C列)をデフォルト値として埋める。
+// ================================================================
+function insertKanbanColumn() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui = SpreadsheetApp.getUi();
+
+  // 運行シートに挿入
+  var unkouSheet = ss.getSheetByName('運行');
+  if (unkouSheet) {
+    var unkouHeader = unkouSheet.getLastRow() >= 1 ? String(unkouSheet.getRange(1, 9).getValue()).trim() : '';
+    if (unkouHeader === '看板名') {
+      ui.alert('運行シートにはすでに看板名列があります。');
+    } else {
+      unkouSheet.insertColumnBefore(9);
+      unkouSheet.getRange(1, 9).setValue('看板名');
+      var ulr = unkouSheet.getLastRow();
+      if (ulr >= 2) {
+        var companyVals = unkouSheet.getRange(2, 3, ulr - 1, 1).getValues();
+        var kanbanVals = companyVals.map(function(r) { return [r[0] || '']; });
+        unkouSheet.getRange(2, 9, ulr - 1, 1).setValues(kanbanVals);
+      }
+    }
+  }
+
+  // 集計表に挿入
+  var sumSheet = ss.getSheetByName('集計表');
+  if (sumSheet) {
+    var sumHeader = sumSheet.getLastRow() >= 1 ? String(sumSheet.getRange(1, 9).getValue()).trim() : '';
+    if (sumHeader === '看板名') {
+      ui.alert('集計表にはすでに看板名列があります。');
+    } else {
+      sumSheet.insertColumnBefore(9);
+      sumSheet.getRange(1, 9).setValue('看板名');
+      var slr = sumSheet.getLastRow();
+      if (slr >= 2) {
+        var sCompanyVals = sumSheet.getRange(2, 3, slr - 1, 1).getValues();
+        var sKanbanVals = sCompanyVals.map(function(r) { return [r[0] || '']; });
+        sumSheet.getRange(2, 9, slr - 1, 1).setValues(sKanbanVals);
+      }
+    }
+  }
+
+  ui.alert('看板名列の挿入が完了しました。\n次に「シート保護設定」を実行してください。');
+}
+
+
+// ================================================================
+//  8-6b-1: 端末ファイルURL一覧取得（getTerminalUrls_）  【大B / 中8 / 小8-6b-1】
 //  col25のリッチテキストからリンクURLを配列で返す
 // ================================================================
 function getTerminalUrls_(sheet, rowNum) {
-  var rtv = sheet.getRange(rowNum, 25).getRichTextValue();
+  var rtv = sheet.getRange(rowNum, 26).getRichTextValue();
   if (!rtv) return [];
   var runs = rtv.getRuns();
   var urls = [];
@@ -2123,11 +2245,11 @@ function getTerminalUrls_(sheet, rowNum) {
 
 
 // ================================================================
-//  8-6b-2: 端末ファイルURL一覧書込（setTerminalUrls_）
+//  8-6b-2: 端末ファイルURL一覧書込（setTerminalUrls_）  【大B / 中8 / 小8-6b-2】
 //  URLをリッチテキスト（ファイル1, ファイル2…）として col25 に書込む
 // ================================================================
 function setTerminalUrls_(sheet, rowNum, urls) {
-  var cell = sheet.getRange(rowNum, 25);
+  var cell = sheet.getRange(rowNum, 26);
   if (!urls || urls.length === 0) { cell.setValue(''); return; }
   var text = '';
   var runs = [];
@@ -2147,7 +2269,7 @@ function setTerminalUrls_(sheet, rowNum, urls) {
 
 
 // ================================================================
-//  8-6b-0: 画像URLをDriveに取込（importImageToDrive_）
+//  8-6b-0: 画像URLをDriveに取込（importImageToDrive_）  【大B / 中8 / 小8-6b-0】
 //  公開画像URLをOAuthトークンで取得しDriveにコピーして返す
 //  Google フォトのプライベートURLは不可（サイドバーでアップロード推奨）
 // ================================================================
@@ -2172,7 +2294,7 @@ function importImageToDrive_(url) {
 
 
 // ================================================================
-//  8-6b-3: 管理側ファイルURLをリッチテキストで書込（setAdminDataRichText_）
+//  8-6b-3: 管理側ファイルURLをリッチテキストで書込（setAdminDataRichText_）  【大B / 中8 / 小8-6b-3】
 // ================================================================
 function setAdminDataRichText_(sheet, rowNum, url) {
   setAdminDataRichTextMulti_(sheet, rowNum, url ? [url] : []);
@@ -2180,10 +2302,10 @@ function setAdminDataRichText_(sheet, rowNum, url) {
 
 
 // ================================================================
-//  8-6b-3b: 管理側ファイル複数URLをリッチテキストで書込（setAdminDataRichTextMulti_）
+//  8-6b-3b: 管理側ファイル複数URLをリッチテキストで書込（setAdminDataRichTextMulti_）  【大B / 中8 / 小8-6b-3b】
 // ================================================================
 function setAdminDataRichTextMulti_(sheet, rowNum, urls) {
-  var cell = sheet.getRange(rowNum, 23);
+  var cell = sheet.getRange(rowNum, 24);
   if (!urls || urls.length === 0) { cell.setValue(''); cell.clearNote(); return; }
   // URLをノートに保存（次のペースト時に追記するため）
   cell.setNote(urls.join('\n'));
@@ -2202,10 +2324,10 @@ function setAdminDataRichTextMulti_(sheet, rowNum, urls) {
 
 
 // ================================================================
-//  8-6b-4: 管理側ファイルURLをリッチテキストから取得（getAdminDataUrl_）
+//  8-6b-4: 管理側ファイルURLをリッチテキストから取得（getAdminDataUrl_）  【大B / 中8 / 小8-6b-4】
 // ================================================================
 function getAdminDataUrl_(sheet, rowNum) {
-  var rtv = sheet.getRange(rowNum, 23).getRichTextValue();
+  var rtv = sheet.getRange(rowNum, 24).getRichTextValue();
   if (rtv) {
     var runs = rtv.getRuns(), urls = [];
     for (var i = 0; i < runs.length; i++) {
@@ -2214,12 +2336,12 @@ function getAdminDataUrl_(sheet, rowNum) {
     }
     if (urls.length > 0) return urls.join(',');
   }
-  return String(sheet.getRange(rowNum, 23).getValue() || '');
+  return String(sheet.getRange(rowNum, 24).getValue() || '');
 }
 
 
 // ================================================================
-//  8-6c: 端末ファイル追加（appendTerminalFile）
+//  8-6c: 端末ファイル追加（appendTerminalFile）  【大A / 中8 / 小8-6c】
 //  ファイルをDriveに保存しcol25のリッチテキストURLに追記する
 // ================================================================
 function appendTerminalFile(id, fileName, base64Data, mimeType) {
@@ -2245,7 +2367,7 @@ function appendTerminalFile(id, fileName, base64Data, mimeType) {
 
 
 // ================================================================
-//  8-6c-2: 管理側ファイル追加・削除・差替（ID指定）
+//  8-6c-2: 管理側ファイル追加・削除・差替（ID指定）  【大A / 中8 / 小8-6c-2】
 // ================================================================
 function appendAdminFileById(id, fileName, base64Data, mimeType) {
   var folder  = getOrCreateFolder_('運行データ');
@@ -2305,7 +2427,7 @@ function replaceAdminFileById(id, oldUrl, fileName, base64Data, mimeType) {
 
 
 // ================================================================
-//  8-6d: 端末ファイル削除（deleteTerminalFile）
+//  8-6d: 端末ファイル削除（deleteTerminalFile）  【大A / 中8 / 小8-6d】
 //  col25のリッチテキストURLから指定URLを除去する
 // ================================================================
 function deleteTerminalFile(id, urlToDelete) {
@@ -2323,7 +2445,7 @@ function deleteTerminalFile(id, urlToDelete) {
 
 
 // ================================================================
-//  8-6e: 端末ファイル差し替え（replaceTerminalFile）
+//  8-6e: 端末ファイル差し替え（replaceTerminalFile）  【大A / 中8 / 小8-6e】
 //  col25のリッチテキストURLの指定URLを新URLに置き換える
 // ================================================================
 function replaceTerminalFile(id, oldUrl, fileName, base64Data, mimeType) {
@@ -2348,7 +2470,7 @@ function replaceTerminalFile(id, oldUrl, fileName, base64Data, mimeType) {
 
 
 // ================================================================
-//  8-7: 運行データ削除（deleteRunById）
+//  8-7: 運行データ削除（deleteRunById）  【大A / 中8 / 小8-7】
 //  指定IDに一致する運行シートの全行を削除し集計表を同期する
 // ================================================================
 function deleteRunById(id) {
@@ -2367,7 +2489,7 @@ function deleteRunById(id) {
 
 
 // ================================================================
-//  9-1: 連絡事項保存（saveNotice）
+//  9-1: 連絡事項保存（saveNotice）  【大A / 中9 / 小9-1】
 //  指定IDの運行シートU列（21列目）にテキストを書き込む
 // ================================================================
 function saveNotice(id, text) {
@@ -2377,14 +2499,14 @@ function saveNotice(id, text) {
   var all = sheet.getDataRange().getValues();
   for (var i = 1; i < all.length; i++) {
     if (String(all[i][0]||'').trim() === String(id).trim()) {
-      sheet.getRange(i+1, 22).setValue(text); break;
+      sheet.getRange(i+1, 23).setValue(text); break;
     }
   }
 }
 
 
 // ================================================================
-//  9-2: ファイルアップロード・管理側（uploadFile）
+//  9-2: ファイルアップロード・管理側（uploadFile）  【大A / 中9 / 小9-2】
 //  ファイルをGoogleドライブの「運行データ」フォルダに保存し
 //  URLを運行シートのV列（22列目）に書き込む
 // ================================================================
@@ -2410,7 +2532,7 @@ function uploadFile(id, fileName, base64Data, mimeType) {
 
 
 // ================================================================
-//  9-2b: シートボタン用ファイルアップロードダイアログ（openFileUploadDialog）
+//  9-2b: シートボタン用ファイルアップロードダイアログ（openFileUploadDialog）  【大C / 中9 / 小9-2b】
 //  運行シートで行を選択した状態でボタンを押すとダイアログが開く
 // ================================================================
 function openFileUploadDialog() {
@@ -2461,7 +2583,7 @@ function openFileUploadDialog() {
 
 
 // ================================================================
-//  9-2c: シートボタン用ファイルアップロード処理（uploadFileToRow）
+//  9-2c: シートボタン用ファイルアップロード処理（uploadFileToRow）  【大A / 中9 / 小9-2c】
 // ================================================================
 function uploadFileToRow(rowNum, fileName, base64Data, mimeType) {
   var folder  = getOrCreateFolder_('運行データ');
@@ -2483,7 +2605,7 @@ function uploadFileToRow(rowNum, fileName, base64Data, mimeType) {
 
 
 // ================================================================
-//  9-3: 端末からの連絡保存（saveTerminalNotice）
+//  9-3: 端末からの連絡保存（saveTerminalNotice）  【大A / 中9 / 小9-3】
 //  指定IDの運行シートW列（23列目）にテキストを書き込む
 // ================================================================
 function saveTerminalNotice(id, text) {
@@ -2493,14 +2615,14 @@ function saveTerminalNotice(id, text) {
   var all = sheet.getDataRange().getValues();
   for (var i = 1; i < all.length; i++) {
     if (String(all[i][0]||'').trim() === String(id).trim()) {
-      sheet.getRange(i+1, 24).setValue(text); break;
+      sheet.getRange(i+1, 25).setValue(text); break;
     }
   }
 }
 
 
 // ================================================================
-//  9-4: 端末からのファイルアップロード（uploadTerminalFile）
+//  9-4: 端末からのファイルアップロード（uploadTerminalFile）  【大A / 中9 / 小9-4】
 //  ファイルをGoogleドライブの「端末データ」フォルダに保存し
 //  URLを運行シートのX列（24列目）に書き込む
 // ================================================================
@@ -2510,7 +2632,7 @@ function uploadTerminalFile(id, fileName, base64Data, mimeType) {
 
 
 // ================================================================
-//  10-1: ホーム用連絡事項取得（getMyNotices）
+//  10-1: ホーム用連絡事項取得（getMyNotices）  【大A / 中10 / 小10-1】
 //  端末アプリのホーム画面に表示する未読の連絡事項一覧を返す（最大20件）
 //
 //  対象行の条件：
@@ -2540,8 +2662,8 @@ function getMyNotices() {
   if (!sheet) return [];
   var all = sheet.getDataRange().getValues();
   var lr  = sheet.getLastRow();
-  var notes23 = lr >= 2 ? sheet.getRange(2, 23, lr-1, 1).getNotes() : [];
-  var rtvs23m = lr >= 2 ? sheet.getRange(2, 23, lr-1, 1).getRichTextValues() : [];
+  var notes23 = lr >= 2 ? sheet.getRange(2, 24, lr-1, 1).getNotes() : [];
+  var rtvs23m = lr >= 2 ? sheet.getRange(2, 24, lr-1, 1).getRichTextValues() : [];
   var out = [], seen = {};
   for (var i = 1; i < all.length; i++) {
     var r = all[i];
@@ -2549,24 +2671,24 @@ function getMyNotices() {
     var id = String(r[0]||'').trim();
     if (!id || seen[id]) continue;
     seen[id] = true;
-    var notice = String(r[21]||'');
+    var notice = String(r[22]||'');
     var n23 = (notes23[i-1] && notes23[i-1][0]) || '';
     var dataUrls = n23 ? n23.split('\n').filter(function(u){return u.match(/^https?:\/\//);}) : [];
     if (!dataUrls.length && rtvs23m[i-1] && rtvs23m[i-1][0]) {
       var rtv23m = rtvs23m[i-1][0], rrunsm = rtv23m.getRuns();
       for (var k = 0; k < rrunsm.length; k++) { var lkm=rrunsm[k].getLinkUrl(); if(lkm) dataUrls.push(lkm); }
     }
-    if (!dataUrls.length) { var pu=String(r[22]||''); if(pu.match(/^https?:\/\//)) dataUrls=[pu]; }
+    if (!dataUrls.length) { var pu=String(r[23]||''); if(pu.match(/^https?:\/\//)) dataUrls=[pu]; }
     if (!notice && !dataUrls.length) continue;
     if (readList.indexOf(id) !== -1) continue;
-    out.push({ id:id, date: r[8] ? Utilities.formatDate(new Date(r[8]),'Asia/Tokyo','yyyy/MM/dd HH:mm') : '', notice:notice, dataUrls:dataUrls, dataUrl:dataUrls[0]||'' });
+    out.push({ id:id, date: r[9] ? Utilities.formatDate(new Date(r[9]),'Asia/Tokyo','yyyy/MM/dd HH:mm') : '', notice:notice, dataUrls:dataUrls, dataUrl:dataUrls[0]||'' });
   }
   return out.reverse().slice(0, 20);
 }
 
 
 // ================================================================
-//  10-2: ID指定行程取得（getRoutesById）
+//  10-2: ID指定行程取得（getRoutesById）  【大A / 中10 / 小10-2】
 //  指定IDの全行程と進捗状態を返す
 //  progress: pick / restStart / restEnd / drop / complete
 // ================================================================
@@ -2582,16 +2704,16 @@ function getRoutesById(id) {
   var allDropDone=true, anyDropDone=false;
   for (var i = 1; i < all.length; i++) {
     if (String(all[i][0]||'').trim() !== String(id).trim()) continue;
-    var gDone = !!all[i][12], pDone = !!all[i][13], dDone = !!all[i][16];
-    var pickVal = (all[i][10] instanceof Date) ? '' : String(all[i][10] || '');
-    var dropVal = (all[i][11] instanceof Date) ? '' : String(all[i][11] || '');
+    var gDone = !!all[i][13], pDone = !!all[i][14], dDone = !!all[i][17];
+    var pickVal = (all[i][11] instanceof Date) ? '' : String(all[i][11] || '');
+    var dropVal = (all[i][12] instanceof Date) ? '' : String(all[i][12] || '');
     routes.push({ row:i+1, pick:pickVal, drop:dropVal, guideDone:gDone, pickDone:pDone, dropDone:dDone });
     if (!gDone) allGuideDone = false;
     if (gDone)  anyGuideDone = true;
     if (!pDone) allPickDone = false;
     if (pDone)  anyPickDone = true;
-    if (all[i][14]) hasRestS = true;
-    if (all[i][15]) hasRestE = true;
+    if (all[i][15]) hasRestS = true;
+    if (all[i][16]) hasRestE = true;
     if (!dDone) allDropDone = false;
     if (dDone)  anyDropDone = true;
   }
@@ -2609,7 +2731,7 @@ function getRoutesById(id) {
 
 
 // ================================================================
-//  10-2b: 行番号指定で連絡事項取得（getNoticeByRow）
+//  10-2b: 行番号指定で連絡事項取得（getNoticeByRow）  【大A / 中10 / 小10-2b】
 //  誘導画面に管理側の連絡事項・データURLを表示するために使う
 // ================================================================
 function getNoticeByRow(row) {
@@ -2649,7 +2771,7 @@ function getNoticeByRow(row) {
 
 
 // ================================================================
-//  10-3: 既読管理・既読にする（markAsRead）
+//  10-3: 既読管理・既読にする（markAsRead）  【大A / 中10 / 小10-3】
 //  既読にしたIDをPropertiesServiceに保存する（最大200件）
 // ================================================================
 function markAsRead(id) {
@@ -2664,7 +2786,7 @@ function markAsRead(id) {
 
 
 // ================================================================
-//  10-4: 既読管理・既読一覧取得（getReadNotices）
+//  10-4: 既読管理・既読一覧取得（getReadNotices）  【大A / 中10 / 小10-4】
 //  PropertiesServiceから既読IDリストを取得して返す
 // ================================================================
 function getReadNotices() {
