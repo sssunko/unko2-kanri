@@ -564,6 +564,8 @@ function onOpen() {
     .addItem('集計表再生成', 'generateSummary')
     .addItem('シート再生成', 'expandAndRefreshSheets')
     .addItem('🔃 日付順並び替え', 'sortUnkouByDate_')
+    .addItem('看板名列を挿入（初回のみ）', 'insertKanbanColumn')
+    .addItem('シート保護設定', 'setupSheetProtection')
     .addSeparator()
     .addItem('📅 月生成', 'generateNextMonth')
     .addItem('📦 前月分アーカイブ', 'archiveOldMonth')
@@ -846,15 +848,16 @@ function onEditUnkou_(sheet, range) {
       var inputCar = String(sheet.getRange(row, 6).getValue()).trim();
       if (inputCar && mData.length > 1) {
         for (var m2 = 1; m2 < mData.length; m2++) {
-          var masterCar = String(mData[m2][6] || '').trim();
+          var masterCar = String(mData[m2][7] || '').trim();
           if (masterCar === inputCar || masterCar.indexOf(inputCar) !== -1 || inputCar.indexOf(masterCar) !== -1) {
             sheet.getRange(row, 2).setValue(mData[m2][2]);
             sheet.getRange(row, 3).setValue(mData[m2][3]);
-            sheet.getRange(row, 4).setValue(mData[m2][4]);
-            sheet.getRange(row, 5).setValue(mData[m2][5]);
+            sheet.getRange(row, 4).setValue(mData[m2][5]);
+            sheet.getRange(row, 5).setValue(mData[m2][6]);
             sheet.getRange(row, 6).setValue(masterCar);
-            sheet.getRange(row, 7).setValue(mData[m2][7]);
-            sheet.getRange(row, 8).setValue(mData[m2][8]);
+            sheet.getRange(row, 7).setValue(mData[m2][8]);
+            sheet.getRange(row, 8).setValue(mData[m2][9]);
+            sheet.getRange(row, 9).setValue(mData[m2][4]);
             break;
           }
         }
@@ -956,23 +959,23 @@ function onEditMasterVehicle_(sheet, range) {
         idCell.setValue('S-' + String(nextNum).padStart(4, '0'));
       }
     }
-    // E列（col5）のトン数に対応する燃費をK列（col11）に自動反映
-    var tonsRaw = String(sheet.getRange(row, 5).getValue()).trim();
+    // F列（col6）のトン数に対応する燃費をL列（col12）に自動反映
+    var tonsRaw = String(sheet.getRange(row, 6).getValue()).trim();
     if (tonsRaw) {
       var tonsNorm = tonsRaw
         .replace(/[０-９]/g, function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);})
         .replace(/[ｔＴ]/g,'t').toLowerCase();
       var numPart = tonsNorm.replace(/t$/,'');
       var fuel = fuelMap[tonsNorm] || fuelMap[numPart+'t'] || fuelMap[numPart] || '';
-      if (fuel !== '' && fuel !== undefined) sheet.getRange(row, 11).setValue(fuel);
+      if (fuel !== '' && fuel !== undefined) sheet.getRange(row, 12).setValue(fuel);
     }
     // 仮日数/給料/%が変わったら集計表の該当行（車番+乗務員名一致）に即反映
-    var mRow = sheet.getRange(row, 1, 1, 15).getValues()[0];
-    var mCar    = String(mRow[6]  || '').trim();
-    var mName   = String(mRow[7]  || '').trim();
-    var mKari   = mRow[12];
-    var mKyuryo = mRow[13];
-    var mPct    = mRow[14];
+    var mRow = sheet.getRange(row, 1, 1, 16).getValues()[0];
+    var mCar    = String(mRow[7]  || '').trim();
+    var mName   = String(mRow[8]  || '').trim();
+    var mKari   = mRow[13];
+    var mKyuryo = mRow[14];
+    var mPct    = mRow[15];
     if (mCar || mName) {
       var sumSheet = ss.getSheetByName('集計表');
       if (sumSheet && sumSheet.getLastRow() >= 2) {
@@ -1065,15 +1068,15 @@ function generateSummary() {
   var master = ss.getSheetByName('自車専属マスタ');
   var payCondMap = {};
   if (master && master.getLastRow() >= 2) {
-    var mData = master.getRange(2, 1, master.getLastRow()-1, 15).getValues();
+    var mData = master.getRange(2, 1, master.getLastRow()-1, 16).getValues();
     for (var m = 0; m < mData.length; m++) {
-      var mcar  = String(mData[m][6]  || '').trim();
-      var mname = String(mData[m][7]  || '').trim();
+      var mcar  = String(mData[m][7]  || '').trim();
+      var mname = String(mData[m][8]  || '').trim();
       var pkey  = mcar + '_' + mname;
       payCondMap[pkey] = {
-        kari:   mData[m][12] || '',
-        kyuryo: mData[m][13] || '',
-        pct:    mData[m][14] || ''
+        kari:   mData[m][13] || '',
+        kyuryo: mData[m][14] || '',
+        pct:    mData[m][15] || ''
       };
     }
   }
@@ -1282,14 +1285,14 @@ function syncSummaryForId_(targetId) {
   var master = ss.getSheetByName('自車専属マスタ');
   var payCondMap = {};
   if (master && master.getLastRow() >= 2) {
-    var mData = master.getRange(2, 1, master.getLastRow()-1, 15).getValues();
+    var mData = master.getRange(2, 1, master.getLastRow()-1, 16).getValues();
     for (var m = 0; m < mData.length; m++) {
-      var mcar  = String(mData[m][6]  || '').trim();
-      var mname = String(mData[m][7]  || '').trim();
+      var mcar  = String(mData[m][7]  || '').trim();
+      var mname = String(mData[m][8]  || '').trim();
       payCondMap[mcar+'_'+mname] = {
-        kari:   mData[m][12] || '',
-        kyuryo: mData[m][13] || '',
-        pct:    mData[m][14] || ''
+        kari:   mData[m][13] || '',
+        kyuryo: mData[m][14] || '',
+        pct:    mData[m][15] || ''
       };
     }
   }
@@ -1563,22 +1566,22 @@ function refreshActiveVehiclesAuto_() {
   var activeSheet = ss.getSheetByName('自車専属運行');
   if (!activeSheet) activeSheet = ss.insertSheet('自車専属運行');
 
-  var header  = ['車両ID','運行状態','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','アドレス','燃費','備考','仮日数','給料','％'];
+  var header  = ['車両ID','運行状態','区分','会社名','看板名','トン数','車種','車番','乗務員名','携帯番号','アドレス','燃費','備考','仮日数','給料','％'];
   var lastRow = master.getLastRow();
-  var mData   = lastRow >= 2 ? master.getRange(2, 1, lastRow-1, 15).getValues() : [];
+  var mData   = lastRow >= 2 ? master.getRange(2, 1, lastRow-1, 16).getValues() : [];
   var outRows = [header];
   for (var i = 0; i < mData.length; i++) {
     if (String(mData[i][1]||'').trim() === '運行') {
       outRows.push([
         mData[i][0],  mData[i][1],  mData[i][2],  mData[i][3],  mData[i][4],
         mData[i][5],  mData[i][6],  mData[i][7],  mData[i][8],  mData[i][9],
-        mData[i][10], mData[i][11], mData[i][12], mData[i][13], mData[i][14]
+        mData[i][10], mData[i][11], mData[i][12], mData[i][13], mData[i][14], mData[i][15]
       ]);
     }
   }
   activeSheet.clear();
   if (outRows.length > 0) {
-    activeSheet.getRange(1, 1, outRows.length, 15).setValues(outRows);
+    activeSheet.getRange(1, 1, outRows.length, 16).setValues(outRows);
     activeSheet.setFrozenRows(1);
   }
 }
@@ -1638,7 +1641,7 @@ function generateNextMonth() {
     ui.alert('自車専属マスタに車両データがありません');
     return;
   }
-  var mData = master.getRange(2, 1, master.getLastRow() - 1, 15).getValues();
+  var mData = master.getRange(2, 1, master.getLastRow() - 1, 16).getValues();
   var activeVehicles = [];
   for (var v = 0; v < mData.length; v++) {
     if (String(mData[v][1] || '').trim() === '運行') activeVehicles.push(mData[v]);
@@ -1669,8 +1672,8 @@ function generateNextMonth() {
         nextNum++;
         var rn = insertRow + rowsData.length;
         rowsData.push([
-          rowId,   veh[2], veh[3], veh[4], veh[5], veh[6], veh[7], veh[8],
-          veh[3],  dateObj, '', '', '',
+          rowId,   veh[2], veh[3], veh[5], veh[6], veh[7], veh[8], veh[9],
+          veh[4],  dateObj, '', '', '',
           '', '', '', '', '',  // 誘導〜降完（14-18列）
           '', '', '',          // 売上・請求高速・実費高速（19-21列）
           '',                  // 合計高速（22列: 後で数式セット）
@@ -1852,10 +1855,10 @@ function archiveMonthData_(ss, year, month, companyName) {
   // 自車専属マスタのJ列(index[9]=メールアドレス)に登録された全員に編集権限を付与
   var master = ss.getSheetByName('自車専属マスタ');
   if (master && master.getLastRow() >= 2) {
-    var mData = master.getRange(2, 1, master.getLastRow() - 1, 10).getValues();
+    var mData = master.getRange(2, 1, master.getLastRow() - 1, 11).getValues();
     var sharedEmails = {};
     for (var m = 0; m < mData.length; m++) {
-      var email = String(mData[m][9] || '').trim();
+      var email = String(mData[m][10] || '').trim();
       if (email && email.indexOf('@') !== -1 && !sharedEmails[email]) {
         sharedEmails[email] = true;
         try { newFile.addEditor(email); } catch(e) {}
@@ -1931,10 +1934,10 @@ function getInitialData(hintEmail, companySsId) {
   var data       = master.getDataRange().getValues();
   var emailLower = savedEmail.toLowerCase().trim();
   for (var i = 1; i < data.length; i++) {
-    if (data[i][9] && String(data[i][9]).toLowerCase().trim() === emailLower) {
+    if (data[i][10] && String(data[i][10]).toLowerCase().trim() === emailLower) {
       result.profile = {
-        company: data[i][3], tons: data[i][4], type: data[i][5],
-        carNo:   data[i][6], name: data[i][7], tel:  data[i][8]
+        company: data[i][3], tons: data[i][5], type: data[i][6],
+        carNo:   data[i][7], name: data[i][8], tel:  data[i][9]
       };
       break;
     }
@@ -1954,7 +1957,7 @@ function linkAddress(email, companySsId) {
   if (!master) return "エラー：マスタシートなし";
   var rows = master.getDataRange().getValues();
   for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][9]).trim() === String(email).trim()) {
+    if (String(rows[i][10]).trim() === String(email).trim()) {
       var props = PropertiesService.getUserProperties();
       props.setProperty('linkedEmail', email);
       // 紐づけ時に会社SSのIDも保存（次回以降URLなしでも正しいSSを開ける）
@@ -1962,8 +1965,8 @@ function linkAddress(email, companySsId) {
       if (!linkedSsId) props.setProperty('linkedSsId', ss.getId());
       return {
         status: "紐づけOK", email: email,
-        company: rows[i][3], tons: rows[i][4], type: rows[i][5],
-        carNo:   rows[i][6], name: rows[i][7], tel:  rows[i][8]
+        company: rows[i][3], tons: rows[i][5], type: rows[i][6],
+        carNo:   rows[i][7], name: rows[i][8], tel:  rows[i][9]
       };
     }
   }
@@ -2052,8 +2055,8 @@ function getTodayRoutes() {
   var mAll = master.getDataRange().getValues();
   var name = '';
   for (var j = 1; j < mAll.length; j++) {
-    if (String(mAll[j][9]).trim() === savedEmail) {
-      name = String(mAll[j][7]).trim();
+    if (String(mAll[j][10]).trim() === savedEmail) {
+      name = String(mAll[j][8]).trim();
       break;
     }
   }
@@ -2106,11 +2109,11 @@ function createParentRows(picks, drops, dateStr, overrideInfo) {
     var mAll = master.getDataRange().getValues();
     var info = null;
     for (var j = 1; j < mAll.length; j++) {
-      if (String(mAll[j][9]).trim() === savedEmail) {
+      if (String(mAll[j][10]).trim() === savedEmail) {
         info = {
-          kubun:mAll[j][2], company:mAll[j][3], tons:mAll[j][4],
-          type:mAll[j][5], car:mAll[j][6], name:mAll[j][7], tel:mAll[j][8],
-          kanban:mAll[j][3]  // 看板名デフォルトは会社名
+          kubun:mAll[j][2], company:mAll[j][3], kanban:mAll[j][4],
+          tons:mAll[j][5], type:mAll[j][6], car:mAll[j][7],
+          name:mAll[j][8], tel:mAll[j][9]
         };
         break;
       }
@@ -2357,8 +2360,8 @@ function getListData(year, month) {
   var mAll   = master ? master.getDataRange().getValues() : [];
   var myName = '';
   for (var j = 1; j < mAll.length; j++) {
-    if (String(mAll[j][9]).trim().toLowerCase() === savedEmail.toLowerCase()) {
-      myName = String(mAll[j][7]).trim();
+    if (String(mAll[j][10]).trim().toLowerCase() === savedEmail.toLowerCase()) {
+      myName = String(mAll[j][8]).trim();
       break;
     }
   }
@@ -3215,7 +3218,7 @@ function getMyNotices() {
   var mAll   = master.getDataRange().getValues();
   var myName = '';
   for (var j = 1; j < mAll.length; j++) {
-    if (String(mAll[j][9]).trim() === savedEmail) { myName = String(mAll[j][7]).trim(); break; }
+    if (String(mAll[j][10]).trim() === savedEmail) { myName = String(mAll[j][8]).trim(); break; }
   }
   if (!myName) return [];
   var readList = JSON.parse(PropertiesService.getUserProperties().getProperty('readNotices') || '[]');
