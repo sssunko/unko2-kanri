@@ -505,8 +505,8 @@ function applyHolidayRowColors_() {
 //  ソート後に V列(22)の数式を行番号に合わせて再セットする
 //  generateNextMonth / 手動メニューから呼び出す
 // ================================================================
-function sortUnkouByDate_() {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+function sortUnkouByDate_(companySsId) {
+  var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet || sheet.getLastRow() < 3) return; // データが1行以下はスキップ
 
@@ -549,6 +549,50 @@ function sortUnkouByDate_() {
 
 
 // ================================================================
+//  1-9: 集計表シートを日付順に並び替え（sortSummaryByDate_）  【大B / 中1 / 小1-9】
+//  集計表シートのデータ行を J列(日付)昇順 → G列(乗務員名)昇順 でソートする
+//  ソート後に数式列（V/Z/AB）を行番号に合わせて再セットする
+// ================================================================
+function sortSummaryByDate_(companySsId) {
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('集計表');
+  if (!sheet || sheet.getLastRow() < 3) return;
+  var lastRow = sheet.getLastRow();
+  var numRows = lastRow - 1;
+  var colCount = sheet.getLastColumn();
+  var cols = Math.max(colCount, 34);
+  var data = sheet.getRange(2, 1, numRows, cols).getValues();
+  data.sort(function(a, b) {
+    var da = (a[9] instanceof Date) ? a[9].getTime() : 0;
+    var db = (b[9] instanceof Date) ? b[9].getTime() : 0;
+    if (da !== db) return da - db;
+    return String(a[6] || '').localeCompare(String(b[6] || ''));
+  });
+  // 数式列を空にして値を書き戻す
+  var writeData = data.map(function(r) {
+    var row = r.slice();
+    row[21] = ''; row[25] = ''; row[27] = ''; // V/Z/AB列
+    return row;
+  });
+  sheet.getRange(2, 1, numRows, cols).setValues(writeData);
+  // 数式を一括再セット
+  var f22 = [], f26 = [], f28 = [];
+  for (var i = 0; i < numRows; i++) {
+    var rn = i + 2;
+    f22.push(['=IF(AND(U'+rn+'="",T'+rn+'=""),"",U'+rn+'-T'+rn+')']);
+    f26.push(['=IF(OR(W'+rn+'="",X'+rn+'=""),"",W'+rn+'/X'+rn+'*Y'+rn+')']);
+    f28.push(['=IF(AND(S'+rn+'="",V'+rn+'="",Z'+rn+'="",AA'+rn+'=""),"",S'+rn+'-(V'+rn+'+Z'+rn+'+AA'+rn+'))']);
+  }
+  sheet.getRange(2, 22, numRows, 1).setFormulas(f22);
+  sheet.getRange(2, 26, numRows, 1).setFormulas(f26);
+  sheet.getRange(2, 28, numRows, 1).setFormulas(f28);
+  sheet.getRange(2, 10, numRows, 1).setNumberFormat('yyyy/MM/dd');
+  applyMoneyFormat_(sheet, 2, numRows, 'summary');
+  applyDateTimeFormat_(sheet, 2, numRows);
+}
+
+
+// ================================================================
 //  2-1: メニュー設定（onOpen）  【大C / 中2 / 小2-1】
 //  スプレッドシート上部に「メニュー」を表示する（客先配布用）
 //  項目：ホーム画面を表示 / 集計表再生成 / シート再生成 /
@@ -561,28 +605,30 @@ function onOpen() {
 
   var menu = SpreadsheetApp.getUi().createMenu('メニュー')
     .addItem('ホーム画面を表示', 'showSidebar')
-    .addItem('集計表再生成', 'generateSummary')
-    .addItem('シート再生成', 'expandAndRefreshSheets')
-    .addItem('🔃 日付順並び替え', 'sortUnkouByDate_')
-    .addItem('看板名列を挿入（初回のみ）', 'insertKanbanColumn')
-    .addItem('シート保護設定', 'setupSheetProtection')
     .addSeparator()
-    .addItem('📅 月生成', 'generateNextMonth')
+    .addItem('📅 今月分生成（途中契約）', 'generateCurrentMonth')
+    .addItem('📅 翌月分生成', 'generateNextMonth')
     .addItem('📦 前月分アーカイブ', 'archiveOldMonth')
     .addSeparator()
-    .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
+    .addItem('集計表再生成', 'generateSummary')
+    .addItem('シート再生成', 'expandAndRefreshSheets')
+    .addItem('💴 経費自動入力', 'autoFillExpense')
+    .addItem('🔃 日付順並び替え', 'sortUnkouByDate_')
     .addSeparator()
+    .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
     .addItem('📖 使い方シート作成', 'createUsageSheet');
 
   if (isAdmin) {
     menu
-      .addItem('🏢 会社セットアップ実行', 'setupCompanies')
-      .addItem('📧 配布メール送信', 'triggerDistributionMail')
       .addSeparator()
+      .addItem('シート保護設定', 'setupSheetProtection')
+      .addSeparator()
+      .addItem('🏢 会社セットアップ実行', 'setupCompanies')
       .addItem('📤 会社SS作成＆メール送信', 'sendCompanySetupEmails')
+      .addItem('📧 配布メール送信', 'triggerDistributionMail')
       .addItem('📝 申し込みフォーム作成', 'createSignupForm')
       .addSeparator()
-      .addItem('🔧 初期設定（最初に1回だけ押す）', 'installTriggers');
+      .addItem('🔧 初期設定', 'installTriggers');
   }
 
   menu.addToUi();
@@ -843,22 +889,43 @@ function onEditUnkou_(sheet, range) {
     }
     dateCell.setNumberFormat('yyyy/MM/dd');
     var editedCol = range.getColumn();
+    // Y列(25)連絡(端末)・Z列(26)データ(端末)：削除・複数セル貼り付けはOK、手入力はブロック
+    // GAS側書き込み（saveTermNoticeByDriver 等）はシンプルトリガー非発火のため影響なし
+    if (editedCol === 25 || editedCol === 26) {
+      var isEmptyEdit = (e.value === undefined || String(e.value || '').trim() === '');
+      var isPasteEdit = (range.getNumColumns() > 1 || range.getNumRows() > 1);
+      if (!isEmptyEdit && !isPasteEdit) {
+        var colLabel = editedCol === 25 ? '連絡(端末)' : 'データ(端末)';
+        range.setValue(e.oldValue !== undefined ? e.oldValue : '');
+        SpreadsheetApp.getActiveSpreadsheet().toast(colLabel + 'はアプリからのみ入力できます（削除・貼り付けはOK）', '⛔ 保護', 4);
+      }
+      continue;
+    }
     // F列(6)：車番を入力→自車専属マスタと部分一致で他項目を自動補完
     if (editedCol === 6 && range.getNumColumns() === 1) {
       var inputCar = String(sheet.getRange(row, 6).getValue()).trim();
       if (inputCar && mData.length > 1) {
-        for (var m2 = 1; m2 < mData.length; m2++) {
-          var masterCar = String(mData[m2][7] || '').trim();
-          if (masterCar === inputCar || masterCar.indexOf(inputCar) !== -1 || inputCar.indexOf(masterCar) !== -1) {
-            sheet.getRange(row, 2).setValue(mData[m2][2]);
-            sheet.getRange(row, 3).setValue(mData[m2][3]);
-            sheet.getRange(row, 4).setValue(mData[m2][5]);
-            sheet.getRange(row, 5).setValue(mData[m2][6]);
-            sheet.getRange(row, 6).setValue(masterCar);
-            sheet.getRange(row, 7).setValue(mData[m2][8]);
-            sheet.getRange(row, 8).setValue(mData[m2][9]);
-            sheet.getRange(row, 9).setValue(mData[m2][4]);
-            break;
+        // B〜I列（F=col6を除く）にすでに値があれば補完しない（先入力優先）
+        var bToI = sheet.getRange(row, 2, 1, 8).getValues()[0];
+        var hasPreInput = false;
+        for (var ci = 0; ci < bToI.length; ci++) {
+          if (ci === 4) continue; // index4=F列(col6)はスキップ
+          if (String(bToI[ci] || '').trim() !== '') { hasPreInput = true; break; }
+        }
+        if (!hasPreInput) {
+          for (var m2 = 1; m2 < mData.length; m2++) {
+            var masterCar = String(mData[m2][7] || '').trim();
+            if (masterCar === inputCar || masterCar.indexOf(inputCar) !== -1 || inputCar.indexOf(masterCar) !== -1) {
+              sheet.getRange(row, 2).setValue(mData[m2][2]);
+              sheet.getRange(row, 3).setValue(mData[m2][3]);
+              sheet.getRange(row, 4).setValue(mData[m2][5]);
+              sheet.getRange(row, 5).setValue(mData[m2][6]);
+              sheet.getRange(row, 6).setValue(masterCar);
+              sheet.getRange(row, 7).setValue(mData[m2][8]);
+              sheet.getRange(row, 8).setValue(mData[m2][9]);
+              sheet.getRange(row, 9).setValue(mData[m2][4]);
+              break;
+            }
           }
         }
       }
@@ -979,15 +1046,15 @@ function onEditMasterVehicle_(sheet, range) {
     if (mCar || mName) {
       var sumSheet = ss.getSheetByName('集計表');
       if (sumSheet && sumSheet.getLastRow() >= 2) {
-        var sumData = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 34).getValues();
+        var sumData = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 35).getValues();
         for (var s = 0; s < sumData.length; s++) {
           var sCar  = String(sumData[s][6] || '').trim();
           var sName = String(sumData[s][7] || '').trim();
           if (sCar === mCar && sName === mName) {
             var sRow = s + 2;
-            if (mKari   !== '') sumSheet.getRange(sRow, 30).setValue(mKari);
-            if (mKyuryo !== '') sumSheet.getRange(sRow, 31).setValue(mKyuryo);
-            if (mPct    !== '') sumSheet.getRange(sRow, 32).setValue(mPct);
+            if (mKari   !== '') sumSheet.getRange(sRow, 31).setValue(mKari);   // AE=仮日数
+            if (mKyuryo !== '') sumSheet.getRange(sRow, 32).setValue(mKyuryo); // AF=給料
+            if (mPct    !== '') sumSheet.getRange(sRow, 33).setValue(mPct);    // AG=%
           }
         }
         calculatePaymentAmount();
@@ -1000,8 +1067,101 @@ function onEditMasterVehicle_(sheet, range) {
     else if (status === '待機') { rowRange.setBackground('#fff9c4'); }
     else if (status === '故障') { rowRange.setBackground('#c8e6c9'); }
     else { rowRange.setBackground(null); }
+    // B列（ステータス）が変更された場合、運行シートを今日以降で同期する
+    var editedStartCol = range.getColumn();
+    var editedEndCol   = editedStartCol + range.getNumColumns() - 1;
+    if (editedStartCol <= 2 && editedEndCol >= 2) {
+      var mRowData = sheet.getRange(row, 1, 1, 16).getValues()[0];
+      syncVehicleToCurrentMonth_(mRowData, false);
+    }
+    // 経費列（Q=17〜AE=31）を手入力したら文字色を黒にリセット（自動入力の赤を解除）
+    var expS = Math.max(editedStartCol, 17);
+    var expE = Math.min(editedEndCol, 31);
+    if (expS <= expE) {
+      sheet.getRange(row, expS, 1, expE - expS + 1).setFontColor(null);
+    }
   }
   refreshActiveVehiclesAuto_();
+}
+
+
+// ================================================================
+//  3-3b: 車両ステータス変更時の運行シート同期（syncVehicleToCurrentMonth_）
+//  自車専属マスタのB列（運行/故障/待機）変更時に呼ばれる
+//  ・今日以降の積地空（未配車）行を削除
+//  ・ステータスが「運行」なら今日〜今月末の行を再生成
+//  ・skipSort=true のとき並び替え・色付けをスキップ（一括処理用）
+// ================================================================
+function syncVehicleToCurrentMonth_(veh, skipSort) {
+  var carNo  = String(veh[7] || '').trim(); // H列(index7)=車番
+  var status = String(veh[1] || '').trim(); // B列(index1)=ステータス
+  if (!carNo) return;
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet) return;
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  // ① 今日以降の積地空行を削除（過去・積地ありは触らない）
+  if (sheet.getLastRow() >= 2) {
+    var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 12).getValues();
+    var toDelete = [];
+    for (var i = 0; i < data.length; i++) {
+      if (String(data[i][5] || '').trim() !== carNo) continue;
+      var d = data[i][9];
+      if (!(d instanceof Date)) continue;
+      var dm = new Date(d); dm.setHours(0, 0, 0, 0);
+      if (dm < today) continue;
+      if (String(data[i][11] || '').trim() !== '') continue; // 積地ありは保護
+      toDelete.push(i + 2);
+    }
+    for (var r = toDelete.length - 1; r >= 0; r--) sheet.deleteRow(toDelete[r]);
+  }
+  // ② 集計表の孤立ID（削除した行のID）を除去
+  cleanAllOrphanSummary_();
+  // ③ ステータスが「運行」なら今日〜今月末の行を生成
+  if (status === '運行') {
+    var now = new Date();
+    var yr = now.getFullYear(), mo = now.getMonth(), startDay = now.getDate();
+    var endDay = new Date(yr, mo + 1, 0).getDate();
+    var lock = LockService.getDocumentLock();
+    try { lock.waitLock(30000); } catch(e) { return; }
+    try {
+      var insertRow = sheet.getLastRow() + 1;
+      var nextNum   = getNextIdNum_(sheet, 'V-');
+      var rowsData  = [], formulas = [];
+      for (var day = startDay; day <= endDay; day++) {
+        var rowId = 'V-' + String(nextNum).padStart(4, '0'); nextNum++;
+        var rn    = insertRow + rowsData.length;
+        rowsData.push([rowId, veh[2], veh[3], veh[5], veh[6], veh[7], veh[8], veh[9],
+          veh[4], new Date(yr, mo, day), '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+        formulas.push(['=IF(AND(U'+rn+'="",T'+rn+'=""),"",U'+rn+'-T'+rn+')']);
+      }
+      if (rowsData.length > 0) {
+        sheet.getRange(insertRow, 1, rowsData.length, 26).setValues(rowsData);
+        sheet.getRange(insertRow, 22, formulas.length, 1).setFormulas(formulas);
+        sheet.getRange(insertRow, 10, rowsData.length, 1).setNumberFormat('yyyy/MM/dd');
+        sheet.getRange(insertRow, 12, rowsData.length, 2).setNumberFormat('@');
+      }
+    } finally { lock.releaseLock(); }
+  }
+  if (!skipSort) { sortUnkouByDate_(); applyHolidayRowColors_(); }
+}
+
+
+// ================================================================
+//  3-3c: 全車両を今月分に同期（syncAllVehiclesToCurrentMonth_）
+//  expandAndRefreshSheets から呼ばれる全車両一括同期
+// ================================================================
+function syncAllVehiclesToCurrentMonth_() {
+  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var master = ss.getSheetByName('自車専属マスタ');
+  if (!master || master.getLastRow() < 2) return;
+  var mData = master.getRange(2, 1, master.getLastRow() - 1, 16).getValues();
+  for (var v = 0; v < mData.length; v++) {
+    syncVehicleToCurrentMonth_(mData[v], true); // 並び替えは最後に1回だけ
+  }
+  sortUnkouByDate_();
+  applyHolidayRowColors_();
+  cleanAllOrphanSummary_();
 }
 
 
@@ -1064,19 +1224,22 @@ function generateSummary() {
     }
   }
 
-  // 自車専属マスタから 車番+乗務員名 → 仮日数/給料/% の支払条件マップを作成
+  // 自車専属マスタから 車番+乗務員名 → 仮日数/給料/%/月間経費 の支払条件マップを作成
   var master = ss.getSheetByName('自車専属マスタ');
   var payCondMap = {};
   if (master && master.getLastRow() >= 2) {
-    var mData = master.getRange(2, 1, master.getLastRow()-1, 16).getValues();
+    var mData = master.getRange(2, 1, master.getLastRow()-1, 31).getValues();
     for (var m = 0; m < mData.length; m++) {
       var mcar  = String(mData[m][7]  || '').trim();
       var mname = String(mData[m][8]  || '').trim();
       var pkey  = mcar + '_' + mname;
+      var mExp  = 0;
+      for (var ei = 16; ei <= 30; ei++) mExp += Number(mData[m][ei]) || 0;
       payCondMap[pkey] = {
-        kari:   mData[m][13] || '',
-        kyuryo: mData[m][14] || '',
-        pct:    mData[m][15] || ''
+        kari:    mData[m][13] || '',
+        kyuryo:  mData[m][14] || '',
+        pct:     mData[m][15] || '',
+        expense: mExp
       };
     }
   }
@@ -1086,7 +1249,8 @@ function generateSummary() {
   var oldData = {};
   if (sumSheet && sumSheet.getLastRow() >= 2) {
     var colCount = sumSheet.getLastColumn();
-    var oldRows = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, Math.max(colCount, 34)).getValues();
+    var oldRows = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, Math.max(colCount, 35)).getValues();
+    var isNewSumLayout = colCount >= 35; // 経費合計列（AB=28）が追加済みか
     for (var o = 0; o < oldRows.length; o++) {
       var oldId = String(oldRows[o][0] || '').trim();
       if (oldId) {
@@ -1094,11 +1258,11 @@ function generateSummary() {
           distance: oldRows[o][22],
           gas:      oldRows[o][24],
           pay:      oldRows[o][26],
-          memo:     oldRows[o][28],
-          kari:     oldRows[o][29] || '',
-          kyuryo:   oldRows[o][30] || '',
-          pct:      oldRows[o][31] || '',
-          other:    oldRows[o][33] || ''  // AH=その他手当（手入力保持）
+          memo:     isNewSumLayout ? oldRows[o][29] : oldRows[o][28],
+          kari:     isNewSumLayout ? (oldRows[o][30] || '') : (oldRows[o][29] || ''),
+          kyuryo:   isNewSumLayout ? (oldRows[o][31] || '') : (oldRows[o][30] || ''),
+          pct:      isNewSumLayout ? (oldRows[o][32] || '') : (oldRows[o][31] || ''),
+          other:    isNewSumLayout ? (oldRows[o][34] || '') : (oldRows[o][33] || '')
         };
       }
     }
@@ -1109,7 +1273,7 @@ function generateSummary() {
     'ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名',
     '日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻',
     '売上','請求(高速代)','実費(高速代)','合計(高速代)',
-    '距離','燃費','ガソリン代','燃料代','支払い','利益','備考',
+    '距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考',
     '仮日数','給料','％','有休手当','その他手当'
   ];
 
@@ -1150,6 +1314,20 @@ function generateSummary() {
     g.tollReal+= Number(r[20]) || 0;
   }
 
+  // 車両・月ごとの実稼働日数をカウント（経費按分用：有休・休みを除く）
+  var workDayMap = {};
+  for (var wd = 0; wd < idOrder.length; wd++) {
+    var gwd  = idMap[idOrder[wd]];
+    var gpwd = gwd.picks.join('・'), gdwd = gwd.drops.join('・');
+    var isHoli = gpwd.indexOf('有休') !== -1 || gdwd.indexOf('有休') !== -1 ||
+                 gpwd.indexOf('休み') !== -1 || gdwd.indexOf('休み') !== -1;
+    if (!isHoli && gwd.date instanceof Date) {
+      var ymKey = gwd.date.getFullYear() + '_' + gwd.date.getMonth();
+      var vKey  = String(gwd.car||'').trim() + '_' + String(gwd.name||'').trim() + '_' + ymKey;
+      workDayMap[vKey] = (workDayMap[vKey] || 0) + 1;
+    }
+  }
+
   // 集計表に書き出す行データを組み立て
   // 距離・ガソリン代・支払いは退避データを復元（再生成で消えない）
   // 支払条件（仮日数/給料/%）はマスタ優先、次に退避データ
@@ -1160,30 +1338,39 @@ function generateSummary() {
     var fuel   = fuelMap[tonsStr] || fuelMap[tonsStr.replace(/[tT]/,'')+'t'] || 3;
     var old    = oldData[g.id] || {};
     var pkey   = String(g.car||'').trim() + '_' + String(g.name||'').trim();
-    var pc     = payCondMap[pkey] || {kari:'', kyuryo:'', pct:''};
+    var pc     = payCondMap[pkey] || {kari:'', kyuryo:'', pct:'', expense:0};
     var kari   = (pc.kari   !== undefined && pc.kari   !== '') ? pc.kari   : (old.kari   || '');
     var kyuryo = (pc.kyuryo !== undefined && pc.kyuryo !== '') ? pc.kyuryo : (old.kyuryo || '');
     var pct    = (pc.pct    !== undefined && pc.pct    !== '') ? pc.pct    : (old.pct    || '');
 
     var gpick = g.picks.join('・'), gdrop = g.drops.join('・');
-    var gIsYukyu = gpick.indexOf('有休') !== -1 || gdrop.indexOf('有休') !== -1;
+    var gIsYukyu  = gpick.indexOf('有休') !== -1 || gdrop.indexOf('有休') !== -1;
+    var gIsYasumi = !gIsYukyu && (gpick.indexOf('休み') !== -1 || gdrop.indexOf('休み') !== -1);
+    // 経費按分（有休・休みは0円、実稼働日数で按分）
+    var gExpense = 0;
+    if (!gIsYukyu && !gIsYasumi && g.date instanceof Date) {
+      var gYmKey   = g.date.getFullYear() + '_' + g.date.getMonth();
+      var gVKey    = String(g.car||'').trim() + '_' + String(g.name||'').trim() + '_' + gYmKey;
+      var gWorkDays= workDayMap[gVKey] || 1;
+      gExpense     = Math.round((pc.expense || 0) / gWorkDays);
+    }
     outRows.push([
       g.id, g.kubun, g.company, g.tons, g.type, g.car, g.name, g.tel, g.kanban||g.company,
       g.date, g.clients.join('・'), gpick, gdrop,
       g.guideTime||'', g.pickTime, g.restStart, g.restEnd, g.dropTime,
       g.sales||'', g.tollReq||'', g.tollReal||'', '',
       old.distance||'', fuel, old.gas||'', '',
-      old.pay||'', '', old.memo||'',
+      old.pay||'', gExpense, '', old.memo||'',   // AA=支払い, AB=経費合計, AC=利益空, AD=備考
       kari, kyuryo, pct,
       gIsYukyu ? yukyuRate : '',
-      old.other || ''   // AH=その他手当（手入力保持）
+      old.other || ''   // AI=その他手当（手入力保持）
     ]);
   }
 
   // 集計表を全クリアして再書き込み
   sumSheet.clear();
   if (outRows.length > 0) {
-    sumSheet.getRange(1, 1, outRows.length, 34).setValues(outRows);
+    sumSheet.getRange(1, 1, outRows.length, 35).setValues(outRows);
     sumSheet.setFrozenRows(1);
 
     // 4時間超で黄色（労働時間過超）、30分未満で水色（休憩不足）の判定閾値
@@ -1195,19 +1382,20 @@ function generateSummary() {
       sumSheet.getRange(row, 22).setFormula('=IF(AND(U'+row+'="",T'+row+'=""),"",U'+row+'-T'+row+')');
       // Z列(26)：燃料代 = 距離(W) / 燃費(X) * ガソリン代(Y)
       sumSheet.getRange(row, 26).setFormula('=IF(OR(W'+row+'="",X'+row+'=""),"",W'+row+'/X'+row+'*Y'+row+')');
-      // AB列(28)：利益 = 売上(S) - (合計高速代(V) + 燃料代(Z) + 支払い(AA))
-      sumSheet.getRange(row, 28).setFormula('=IF(AND(S'+row+'="",V'+row+'="",Z'+row+'="",AA'+row+'=""),"",S'+row+'-(V'+row+'+Z'+row+'+AA'+row+'))');
+      // AC列(29)：利益 = 売上(S) - (合計高速(V) + 燃料代(Z) + 支払(AA) + 経費合計(AB))
+      sumSheet.getRange(row, 29).setFormula('=IF(AND(S'+row+'="",V'+row+'="",Z'+row+'="",AA'+row+'="",AB'+row+'=""),"",S'+row+'-(V'+row+'+Z'+row+'+AA'+row+'+AB'+row+'))');
 
-      var g2       = idMap[idOrder[row-2]];
-      var keepPay  = outRows[row-1][26] || '';
-      var keepDist = outRows[row-1][22] || '';
-      var keepGas  = outRows[row-1][24] || '';
-      var calcToll = (Number(g2.tollReal)||0)-(Number(g2.tollReq)||0);
-      var calcFuel = (Number(keepDist)&&Number(fuel)&&Number(keepGas)) ? (Number(keepDist)/Number(fuel)*Number(keepGas)) : 0;
-      var calcProfit = (Number(g2.sales)||0)-(calcToll+calcFuel+(Number(keepPay)||0));
+      var g2        = idMap[idOrder[row-2]];
+      var keepPay   = outRows[row-1][26] || '';
+      var keepDist  = outRows[row-1][22] || '';
+      var keepGas   = outRows[row-1][24] || '';
+      var rowExpense= outRows[row-1][27] || 0; // AB=経費合計
+      var calcToll  = (Number(g2.tollReal)||0)-(Number(g2.tollReq)||0);
+      var calcFuel  = (Number(keepDist)&&Number(fuel)&&Number(keepGas)) ? (Number(keepDist)/Number(fuel)*Number(keepGas)) : 0;
+      var calcProfit= (Number(g2.sales)||0)-(calcToll+calcFuel+(Number(keepPay)||0)+(Number(rowExpense)||0));
 
       // 利益がマイナスの行は薄赤で警告表示
-      sumSheet.getRange(row, 1, 1, 32).setBackground(calcProfit < 0 ? '#ffebee' : null);
+      sumSheet.getRange(row, 1, 1, 33).setBackground(calcProfit < 0 ? '#ffebee' : null);
       // 積完〜降完間の労働時間・休憩時間を判定して背景色で警告
       sumSheet.getRange(row, 15, 1, 4).setBackground(null);
       if (g2.rawPickTime  && g2.rawRestStart && (g2.rawRestStart-g2.rawPickTime)  > F) { sumSheet.getRange(row,15,1,2).setBackground('#ffd600'); }
@@ -1285,14 +1473,17 @@ function syncSummaryForId_(targetId) {
   var master = ss.getSheetByName('自車専属マスタ');
   var payCondMap = {};
   if (master && master.getLastRow() >= 2) {
-    var mData = master.getRange(2, 1, master.getLastRow()-1, 16).getValues();
+    var mData = master.getRange(2, 1, master.getLastRow()-1, 31).getValues();
     for (var m = 0; m < mData.length; m++) {
       var mcar  = String(mData[m][7]  || '').trim();
       var mname = String(mData[m][8]  || '').trim();
+      var mExp  = 0;
+      for (var ei = 16; ei <= 30; ei++) mExp += Number(mData[m][ei]) || 0;
       payCondMap[mcar+'_'+mname] = {
-        kari:   mData[m][13] || '',
-        kyuryo: mData[m][14] || '',
-        pct:    mData[m][15] || ''
+        kari:    mData[m][13] || '',
+        kyuryo:  mData[m][14] || '',
+        pct:     mData[m][15] || '',
+        expense: mExp
       };
     }
   }
@@ -1332,18 +1523,19 @@ function syncSummaryForId_(targetId) {
   var keepKari='', keepKyuryo='', keepPct='', keepOther='';
   if (sumLast >= 2) {
     var colCount = sumSheet.getLastColumn();
-    var sumIds   = sumSheet.getRange(2, 1, sumLast-1, Math.max(colCount, 34)).getValues();
+    var isNewSumLayout = colCount >= 35; // 経費合計列（AB=28）が追加済みか
+    var sumIds   = sumSheet.getRange(2, 1, sumLast-1, Math.max(colCount, 35)).getValues();
     for (var k = 0; k < sumIds.length; k++) {
       if (String(sumIds[k][0]).trim() === String(targetId).trim()) {
         sumRow      = k + 2;
         keepDistance= sumIds[k][22];
         keepGas     = sumIds[k][24];
         keepPay     = sumIds[k][26];
-        keepMemo    = sumIds[k][28];
-        keepKari    = sumIds[k][29] || '';
-        keepKyuryo  = sumIds[k][30] || '';
-        keepPct     = sumIds[k][31] || '';
-        keepOther   = sumIds[k][33] || '';  // AH=その他手当
+        keepMemo    = isNewSumLayout ? sumIds[k][29] : sumIds[k][28];
+        keepKari    = isNewSumLayout ? (sumIds[k][30] || '') : (sumIds[k][29] || '');
+        keepKyuryo  = isNewSumLayout ? (sumIds[k][31] || '') : (sumIds[k][30] || '');
+        keepPct     = isNewSumLayout ? (sumIds[k][32] || '') : (sumIds[k][31] || '');
+        keepOther   = isNewSumLayout ? (sumIds[k][34] || '') : (sumIds[k][33] || '');
         break;
       }
     }
@@ -1360,40 +1552,59 @@ function syncSummaryForId_(targetId) {
   var pct    = (pc.pct    !== undefined && pc.pct    !== '') ? pc.pct    : keepPct;
 
   var spick = g.picks.join('・'), sdrop = g.drops.join('・');
-  var sIsYukyu = spick.indexOf('有休') !== -1 || sdrop.indexOf('有休') !== -1;
+  var sIsYukyu  = spick.indexOf('有休') !== -1 || sdrop.indexOf('有休') !== -1;
   var sIsYasumi = !sIsYukyu && (spick.indexOf('休み') !== -1 || sdrop.indexOf('休み') !== -1);
+
+  // 経費按分計算（有休・休みは0円、実稼働日数で按分）
+  var gCar  = String(g.car||'').trim(), gName = String(g.name||'').trim();
+  var gDate = g.date instanceof Date ? g.date : new Date(g.date);
+  var gYear = gDate.getFullYear(), gMon = gDate.getMonth();
+  var uniqueWIds = {};
+  for (var ui = 1; ui < unkouData.length; ui++) {
+    var ur = unkouData[ui];
+    if (String(ur[5]||'').trim() !== gCar || String(ur[6]||'').trim() !== gName) continue;
+    var ud = ur[9]; if (!(ud instanceof Date)) continue;
+    if (ud.getFullYear() !== gYear || ud.getMonth() !== gMon) continue;
+    var upick = String(ur[11]||'').trim();
+    if (upick === '' || upick.indexOf('有休') !== -1 || upick.indexOf('休み') !== -1) continue;
+    uniqueWIds[String(ur[0]||'').trim()] = true;
+  }
+  var expWorkDays = Math.max(Object.keys(uniqueWIds).length, 1);
+  var pcExp       = (payCondMap[pkey] || {}).expense || 0;
+  var expenseVal  = (sIsYukyu || sIsYasumi) ? 0 : Math.round(pcExp / expWorkDays);
+
   var rowData = [
     g.id, g.kubun, g.company, g.tons, g.type, g.car, g.name, g.tel, g.kanban||g.company,
     g.date, g.clients.join('・'), spick, sdrop,
     g.guideTime||'', g.pickTime, g.restStart, g.restEnd, g.dropTime,
     g.sales||'', g.tollReq||'', g.tollReal||'', '',
-    keepDistance, fuel, keepGas, '', keepPay, '', keepMemo,
+    keepDistance, fuel, keepGas, '', keepPay, expenseVal, '', keepMemo,  // AA=支払い, AB=経費合計, AC=利益空, AD=備考
     kari, kyuryo, pct,
     sIsYukyu ? yukyuRate : '',
-    keepOther   // AH=その他手当（手入力保持）
+    keepOther   // AI=その他手当（手入力保持）
   ];
 
   if (sumRow > 0) {
-    sumSheet.getRange(sumRow, 1, 1, 34).setValues([rowData]);
+    sumSheet.getRange(sumRow, 1, 1, 35).setValues([rowData]);
   } else {
     sumRow = sumSheet.getLastRow()+1;
     if (sumRow === 1) {
-      var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','利益','備考','仮日数','給料','％','有休手当','その他手当'];
-      sumSheet.getRange(1, 1, 1, 34).setValues([hdr]);
+      var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考','仮日数','給料','％','有休手当','その他手当'];
+      sumSheet.getRange(1, 1, 1, 35).setValues([hdr]);
       sumSheet.setFrozenRows(1);
       sumRow = 2;
     }
-    sumSheet.getRange(sumRow, 1, 1, 34).setValues([rowData]);
+    sumSheet.getRange(sumRow, 1, 1, 35).setValues([rowData]);
   }
 
   sumSheet.getRange(sumRow, 22).setFormula('=IF(AND(U'+sumRow+'="",T'+sumRow+'=""),"",U'+sumRow+'-T'+sumRow+')');
   sumSheet.getRange(sumRow, 26).setFormula('=IF(OR(W'+sumRow+'="",X'+sumRow+'=""),"",W'+sumRow+'/X'+sumRow+'*Y'+sumRow+')');
-  sumSheet.getRange(sumRow, 28).setFormula('=IF(AND(S'+sumRow+'="",V'+sumRow+'="",Z'+sumRow+'="",AA'+sumRow+'=""),"",S'+sumRow+'-(V'+sumRow+'+Z'+sumRow+'+AA'+sumRow+'))');
+  sumSheet.getRange(sumRow, 29).setFormula('=IF(AND(S'+sumRow+'="",V'+sumRow+'="",Z'+sumRow+'="",AA'+sumRow+'="",AB'+sumRow+'=""),"",S'+sumRow+'-(V'+sumRow+'+Z'+sumRow+'+AA'+sumRow+'+AB'+sumRow+'))');
 
   var calcToll  = (Number(g.tollReal)||0)-(Number(g.tollReq)||0);
   var calcFuel  = (Number(keepDistance)&&Number(fuel)&&Number(keepGas)) ? (Number(keepDistance)/Number(fuel)*Number(keepGas)) : 0;
-  var calcProfit= (Number(g.sales)||0)-(calcToll+calcFuel+(Number(keepPay)||0));
-  sumSheet.getRange(sumRow, 1, 1, 31).setBackground(calcProfit < 0 ? '#ffebee' : null);
+  var calcProfit= (Number(g.sales)||0)-(calcToll+calcFuel+(Number(keepPay)||0)+(Number(expenseVal)||0));
+  sumSheet.getRange(sumRow, 1, 1, 32).setBackground(calcProfit < 0 ? '#ffebee' : null);
 
   var F = 4*60*60*1000;
   var T = 30*60*1000;
@@ -1409,7 +1620,7 @@ function syncSummaryForId_(targetId) {
   var kariNum   = Number(kari)   || 0;
   var thisToll  = (Number(g.tollReal) || 0) - (Number(g.tollReq) || 0);
   var payCell   = sumSheet.getRange(sumRow, 27);
-  sumSheet.getRange(sumRow, 30, 1, 3).setBackground(null);
+  sumSheet.getRange(sumRow, 31, 1, 3).setBackground(null); // AE〜AG = 仮日数/給料/%
   payCell.setBackground(null);
   var yukyuVal = '';
   if (pctNum > 0) {
@@ -1421,13 +1632,13 @@ function syncSummaryForId_(targetId) {
     var dailyPay = Math.round(kyuryoNum / kariNum);
     payCell.setValue(sIsYasumi ? -dailyPay : dailyPay);
   } else if (kyuryoNum > 0 || kariNum > 0) {
-    if (!kyuryoNum) sumSheet.getRange(sumRow, 31).setBackground('#f4cccc');
-    if (!kariNum)   sumSheet.getRange(sumRow, 30).setBackground('#f4cccc');
+    if (!kyuryoNum) sumSheet.getRange(sumRow, 32).setBackground('#f4cccc'); // AF=給料
+    if (!kariNum)   sumSheet.getRange(sumRow, 31).setBackground('#f4cccc'); // AE=仮日数
   } else {
     if (!keepPay) payCell.setBackground('#f4cccc');
   }
-  // 有休手当(AG=col33): 歩合制+有休のみ
-  sumSheet.getRange(sumRow, 33).setValue(yukyuVal);
+  // 有休手当(AH=col34): 歩合制+有休のみ
+  sumSheet.getRange(sumRow, 34).setValue(yukyuVal);
   // 集計表のL列(12=積地)に休み/有休が含まれる場合はグレー着色
   sumSheet.getRange(sumRow, 12).setBackground(
     (spick.indexOf('休み') !== -1 || spick.indexOf('有休') !== -1) ? '#9e9e9e' : null
@@ -1439,6 +1650,7 @@ function syncSummaryForId_(targetId) {
 //  4-3: シート再生成（expandAndRefreshSheets）  【大B / 中4 / 小4-3】
 //  メニューの「シート再生成」から呼び出す
 //  ・自車専属マスタに仮日数/給料/%列がなければ追加
+//  ・自車専属マスタに15経費列がなければ追加（按分計算用）
 //  ・自車専属運行シートをマスタから再生成（15列対応）
 // ================================================================
 function expandAndRefreshSheets() {
@@ -1464,7 +1676,27 @@ function expandAndRefreshSheets() {
     }
   }
 
+  // 自車専属マスタに15経費列を追加（なければ）
+  var masterExpCols = [
+    '車両リース代', '任意保険料', '自賠責保険料', '重量税積立', '車検費積立',
+    '整備費積立', 'タイヤ代積立', '修理積立', '駐車場代', 'ETCリース料',
+    'カーナビリース料', '通信費', '洗車費', '制服費', 'その他固定費'
+  ];
+  var masterSheet = ss.getSheetByName('自車専属マスタ');
+  if (masterSheet) {
+    var mLastCol  = masterSheet.getLastColumn();
+    var mHeaders  = mLastCol > 0 ? masterSheet.getRange(1, 1, 1, mLastCol).getValues()[0] : [];
+    var mNextCol  = mLastCol + 1;
+    for (var ej = 0; ej < masterExpCols.length; ej++) {
+      if (mHeaders.indexOf(masterExpCols[ej]) === -1) {
+        masterSheet.getRange(1, mNextCol).setValue(masterExpCols[ej]);
+        mNextCol++;
+      }
+    }
+  }
+
   refreshActiveVehiclesAuto_();
+  syncAllVehiclesToCurrentMonth_(); // 車両ステータスに応じて運行シートを今月分で同期
 
   var unkouForFmt = ss.getSheetByName('運行');
   if (unkouForFmt && unkouForFmt.getLastRow() >= 2) {
@@ -1479,6 +1711,109 @@ function expandAndRefreshSheets() {
   }
 
   SpreadsheetApp.getUi().alert('シート再生成が完了しました。');
+}
+
+
+// ================================================================
+//  4-3b: 経費自動入力（autoFillExpense）  【大B / 中4 / 小4-3b】
+//  自車専属マスタで選択中の行のトン数（F列）を読み
+//  トン数別平均値を15経費列（Q〜AE列）に一括セットする
+//  ・平均値セル → 文字色を赤にして「自動入力」とわかるようにする
+//  ・手入力済みセル（文字色が黒/null）は上書きしない
+//  ・トン数不明は4トンを使うか確認（1〜30t対応）
+// ================================================================
+function autoFillExpense() {
+  var ui    = SpreadsheetApp.getUi();
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getActiveSheet();
+
+  if (sheet.getName() !== '自車専属マスタ') {
+    ui.alert('自車専属マスタシートを開いた状態で実行してください。');
+    return;
+  }
+
+  var row = sheet.getActiveRange().getRow();
+  if (row < 2) { ui.alert('データ行（2行目以降）を選択してください。'); return; }
+
+  // トン数別平均値テーブル（Q〜AE列＝15経費列: 1t〜30t）
+  // 列順: 車両リース代,任意保険,自賠責,重量税積立,車検費積立,整備費積立,タイヤ代積立,修理積立,駐車場代,ETCリース,カーナビ,通信費,洗車費,制服費,その他固定費
+  var expTable = {
+     1: [ 35000, 10000, 1200,  1500,  3000,  7000,  2500,  5000, 10000, 1500, 2000, 2000, 1500, 1000,  3000],
+     2: [ 60000, 14000, 1350,  2500,  4500, 13000,  4500, 10000, 15000, 1500, 2000, 2000, 2000, 1000,  5000],
+     3: [ 80000, 17000, 1550,  3500,  6000, 16000,  6000, 12000, 17000, 1500, 2000, 2000, 2800, 1000,  7500],
+     4: [100000, 20000, 1750,  5000,  7500, 20000,  7500, 15000, 20000, 1500, 2000, 2000, 3500, 1000, 10000],
+     5: [110000, 23000, 2000,  6500,  9000, 23000,  9000, 17000, 21000, 1500, 2000, 2000, 4000, 1000, 11000],
+     6: [120000, 25000, 2100,  7500, 10500, 26000, 10500, 19000, 22000, 1500, 2000, 2000, 4300, 1000, 12000],
+     7: [130000, 27000, 2200,  8500, 11500, 28000, 11500, 22000, 23000, 1500, 2000, 2000, 4500, 1000, 13000],
+     8: [140000, 29000, 2300,  9500, 12500, 31000, 12500, 25000, 24000, 1500, 2000, 2000, 4700, 1000, 14000],
+     9: [150000, 30000, 2400, 10000, 13500, 33000, 13500, 27000, 24500, 1500, 2000, 2000, 4900, 1000, 14500],
+    10: [160000, 32000, 2500, 11000, 15000, 35000, 15000, 30000, 25000, 1500, 2000, 2000, 5000, 1000, 15000],
+    11: [165000, 33000, 2600, 12000, 15500, 36000, 16000, 32000, 26000, 1500, 2000, 2000, 5300, 1000, 16000],
+    12: [170000, 34000, 2700, 13000, 16500, 37000, 17000, 34000, 27000, 1500, 2000, 2000, 5500, 1000, 17000],
+    13: [175000, 35000, 2800, 14000, 17500, 38000, 18000, 36000, 28000, 1500, 2000, 2000, 5800, 1000, 17500],
+    14: [180000, 36000, 3000, 15000, 18000, 39000, 19000, 37000, 29000, 1500, 2000, 2000, 6000, 1000, 18000],
+    15: [185000, 37000, 3200, 16000, 18500, 40000, 20000, 38000, 30000, 1500, 2000, 2000, 6200, 1000, 18500],
+    16: [188000, 38000, 3400, 16500, 19000, 41000, 21000, 39000, 30500, 1500, 2000, 2000, 6400, 1000, 19000],
+    17: [190000, 39000, 3600, 17000, 19500, 42000, 22000, 40000, 31000, 1500, 2000, 2000, 6600, 1000, 19500],
+    18: [192000, 40000, 3800, 17500, 20000, 44000, 23000, 41000, 32000, 1500, 2000, 2000, 6800, 1000, 19500],
+    19: [195000, 41000, 4000, 18000, 20500, 46000, 25000, 42000, 33000, 1500, 2000, 2000, 7000, 1000, 19500],
+    20: [200000, 42000, 4500, 18500, 21000, 47000, 27000, 43000, 33500, 1500, 2000, 2000, 7200, 1000, 19500],
+    21: [205000, 43000, 4600, 19000, 21000, 48000, 28000, 44000, 34000, 1500, 2000, 2000, 7400, 1000, 20000],
+    22: [210000, 43500, 4700, 19500, 21500, 48500, 28500, 44500, 34500, 1500, 2000, 2000, 7500, 1000, 20000],
+    23: [215000, 44000, 4800, 19800, 21800, 49000, 29000, 45000, 35000, 1500, 2000, 2000, 7700, 1000, 20000],
+    24: [218000, 44300, 4850, 20000, 22000, 49500, 29500, 45500, 35000, 1500, 2000, 2000, 7800, 1000, 20000],
+    25: [220000, 44500, 4900, 20200, 22000, 50000, 30000, 45000, 35000, 1500, 2000, 2000, 8000, 1000, 20000],
+    26: [222000, 44700, 5000, 20300, 22000, 50000, 30000, 45000, 35000, 1500, 2000, 2000, 8000, 1000, 20000],
+    27: [225000, 44800, 5000, 20400, 22000, 50000, 30000, 45000, 35000, 1500, 2000, 2000, 8000, 1000, 20000],
+    28: [228000, 45000, 5000, 20500, 22000, 50000, 30000, 45000, 35000, 1500, 2000, 2000, 8000, 1000, 20000],
+    29: [230000, 45000, 5000, 20500, 22000, 50000, 30000, 45000, 35000, 1500, 2000, 2000, 8000, 1000, 20000],
+    30: [235000, 45000, 5000, 20500, 22000, 50000, 30000, 45000, 35000, 1500, 2000, 2000, 8000, 1000, 20000]
+  };
+
+  // トン数を読んで数値に変換（全角→半角、"t"等を除去）
+  var tonsRaw = String(sheet.getRange(row, 6).getValue() || '').trim();
+  tonsRaw = tonsRaw.replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); });
+  var tNum = parseInt(tonsRaw.replace(/[^0-9]/g, ''), 10);
+
+  if (isNaN(tNum) || tNum < 1) {
+    var res = ui.alert(
+      'トン数が不明です',
+      'F列のトン数が読み取れませんでした。\n4トンの平均値を入力しますか？',
+      ui.ButtonSet.YES_NO
+    );
+    if (res !== ui.Button.YES) return;
+    tNum = 4;
+  }
+  // 1〜30の範囲にクランプ
+  tNum = Math.min(30, Math.max(1, tNum));
+  var vals = expTable[tNum];
+
+  // 手入力済みセルの判定：文字色が赤（#cc0000）でなく値が入っているセルは手入力→スキップ
+  var expRange    = sheet.getRange(row, 17, 1, 15);
+  var existVals   = expRange.getValues()[0];
+  var fontColors  = expRange.getFontColors()[0];
+  var AUTO_COLOR  = '#cc0000';
+
+  var manualCount = 0;
+  for (var k = 0; k < 15; k++) {
+    var hasVal   = existVals[k] !== '' && existVals[k] !== 0;
+    var isAuto   = String(fontColors[k] || '').toLowerCase() === AUTO_COLOR;
+    if (hasVal && !isAuto) manualCount++;
+  }
+  if (manualCount > 0) {
+    ui.alert('手入力済みの項目（' + manualCount + '件）はそのまま残します。\n赤字の項目のみ平均値で更新します。');
+  }
+
+  // セルごとに判定して書き込み（手入力済みはスキップ）
+  for (var j = 0; j < 15; j++) {
+    var hasVal2 = existVals[j] !== '' && existVals[j] !== 0;
+    var isAuto2 = String(fontColors[j] || '').toLowerCase() === AUTO_COLOR;
+    if (!hasVal2 || isAuto2) {
+      sheet.getRange(row, 17 + j).setValue(vals[j]).setFontColor(AUTO_COLOR);
+    }
+  }
+
+  ui.alert(tNum + 'トンの平均値を入力しました（赤字）。\n実態に合わせて修正してください。修正すると黒字に変わります。');
 }
 
 
@@ -1507,24 +1842,24 @@ function calculatePaymentAmount() {
     }
   }
 
-  var data = sheet.getRange(2, 1, lastRow-1, 34).getValues();
+  var data = sheet.getRange(2, 1, lastRow-1, 35).getValues();
   var yukyuVals = [];
 
   for (var i = 0; i < data.length; i++) {
     var rowNum    = i + 2;
     var sales     = Number(data[i][18]) || 0;
     var totalToll = Number(data[i][21]) || 0;
-    var kari      = Number(data[i][29]) || 0;
-    var kyuryo    = Number(data[i][30]) || 0;
-    var pct       = Number(data[i][31]) || 0;
+    var kari      = Number(data[i][30]) || 0;  // AE=col31=index30=仮日数
+    var kyuryo    = Number(data[i][31]) || 0;  // AF=col32=index31=給料
+    var pct       = Number(data[i][32]) || 0;  // AG=col33=index32=%
     var pick      = String(data[i][11] || '');
     var drop      = String(data[i][12] || '');
     var isYukyu   = pick.indexOf('有休') !== -1 || drop.indexOf('有休') !== -1;
     var isYasumi  = !isYukyu && (pick.indexOf('休み') !== -1 || drop.indexOf('休み') !== -1);
-    var yCell     = sheet.getRange(rowNum, 27);
+    var yCell     = sheet.getRange(rowNum, 27); // AA=col27=支払い
 
     yCell.setBackground(null);
-    sheet.getRange(rowNum, 30, 1, 3).setBackground(null);
+    sheet.getRange(rowNum, 31, 1, 3).setBackground(null); // AE〜AG=仮日数/給料/%
 
     var yukyuVal = '';
     if (pct > 0) {
@@ -1537,8 +1872,8 @@ function calculatePaymentAmount() {
         var dailyPay = Math.round(kyuryo / kari);
         yCell.setValue(isYasumi ? -dailyPay : dailyPay);
       } else {
-        if (!kyuryo) sheet.getRange(rowNum, 31).setBackground('#f4cccc');
-        if (!kari)   sheet.getRange(rowNum, 30).setBackground('#f4cccc');
+        if (!kyuryo) sheet.getRange(rowNum, 32).setBackground('#f4cccc'); // AF=給料
+        if (!kari)   sheet.getRange(rowNum, 31).setBackground('#f4cccc'); // AE=仮日数
       }
     } else {
       if (yCell.getValue() === '') yCell.setBackground('#f4cccc');
@@ -1546,9 +1881,9 @@ function calculatePaymentAmount() {
     yukyuVals.push([yukyuVal]);
   }
 
-  // 有休手当(AG=col33)を一括書込
+  // 有休手当(AH=col34)を一括書込
   if (yukyuVals.length > 0) {
-    sheet.getRange(2, 33, yukyuVals.length, 1).setValues(yukyuVals);
+    sheet.getRange(2, 34, yukyuVals.length, 1).setValues(yukyuVals);
   }
 }
 
@@ -1600,6 +1935,86 @@ function addStatusColumnToMaster() {
   sheet.getRange(1, 2).setValue('運行');
   var lastRow = sheet.getLastRow();
   if (lastRow >= 2) { sheet.getRange(2, 2, lastRow-1, 1).setValue('運行'); }
+}
+
+
+// ================================================================
+//  4-6b: 今月分生成（generateCurrentMonth）  【大C / 中4 / 小4-6b】
+//  今日〜今月末日 × 運行中車両 のプレースホルダーIDを運行シートに生成する
+//  月途中で契約した会社の初期設定時に使用する
+// ================================================================
+function generateCurrentMonth() {
+  var ui    = SpreadsheetApp.getUi();
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet) { ui.alert('運行シートが見つかりません'); return; }
+
+  var today       = new Date();
+  var curYear     = today.getFullYear();
+  var curMon      = today.getMonth(); // 0-indexed
+  var startDay    = today.getDate();
+  var daysInMonth = new Date(curYear, curMon + 1, 0).getDate();
+
+  var master = ss.getSheetByName('自車専属マスタ');
+  if (!master || master.getLastRow() < 2) {
+    ui.alert('自車専属マスタに車両データがありません');
+    return;
+  }
+  var mData = master.getRange(2, 1, master.getLastRow() - 1, 16).getValues();
+  var activeVehicles = [];
+  for (var v = 0; v < mData.length; v++) {
+    if (String(mData[v][1] || '').trim() === '運行') activeVehicles.push(mData[v]);
+  }
+  if (activeVehicles.length === 0) {
+    ui.alert('運行中の車両がありません。\n自車専属マスタのB列（運行状態）を確認してください。');
+    return;
+  }
+
+  var lock = LockService.getDocumentLock();
+  try { lock.waitLock(30000); } catch(e) { ui.alert('ロック取得失敗: ' + e.message); return; }
+
+  try {
+    var insertRow = sheet.getLastRow() + 1;
+    var nextNum   = getNextIdNum_(sheet, 'V-');
+    var rowsData  = [];
+    var formulas  = [];
+
+    for (var day = startDay; day <= daysInMonth; day++) {
+      var dateObj = new Date(curYear, curMon, day);
+      for (var v2 = 0; v2 < activeVehicles.length; v2++) {
+        var veh   = activeVehicles[v2];
+        var rowId = 'V-' + String(nextNum).padStart(4, '0');
+        nextNum++;
+        var rn = insertRow + rowsData.length;
+        rowsData.push([
+          rowId,  veh[2], veh[3], veh[5], veh[6], veh[7], veh[8], veh[9],
+          veh[4], dateObj, '', '', '',
+          '', '', '', '', '',
+          '', '', '', '',
+          '', '', '', ''
+        ]);
+        formulas.push(['=IF(AND(U' + rn + '="",T' + rn + '=""),"",U' + rn + '-T' + rn + ')']);
+      }
+    }
+
+    sheet.getRange(insertRow, 1, rowsData.length, 26).setValues(rowsData);
+    sheet.getRange(insertRow, 22, formulas.length, 1).setFormulas(formulas);
+    sheet.getRange(insertRow, 10, rowsData.length, 1).setNumberFormat('yyyy/MM/dd');
+    sheet.getRange(insertRow, 12, rowsData.length, 2).setNumberFormat('@');
+  } finally {
+    lock.releaseLock();
+  }
+
+  sortUnkouByDate_();
+  applyHolidayRowColors_();
+
+  var generatedDays = daysInMonth - startDay + 1;
+  ui.alert(
+    '📅 今月分生成完了\n\n' +
+    curYear + '年' + (curMon + 1) + '月 ' + startDay + '日〜' + daysInMonth + '日\n' +
+    activeVehicles.length + '台 × ' + generatedDays + '日 = ' +
+    (activeVehicles.length * generatedDays) + '行を生成しました。'
+  );
 }
 
 
@@ -1928,7 +2343,7 @@ function getInitialData(hintEmail, companySsId) {
   var savedEmail = hintEmail || PropertiesService.getUserProperties().getProperty('linkedEmail');
   var result = { email: savedEmail || "", profile: null };
   if (!savedEmail) return result;
-  var ss     = getTargetSS_(companySsId); // 会社専用SSがあればそちらを参照
+  var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var master = ss.getSheetByName('自車専属マスタ');
   if (!master) return result;
   var data       = master.getDataRange().getValues();
@@ -1947,12 +2362,39 @@ function getInitialData(hintEmail, companySsId) {
 
 
 // ================================================================
+//  5-1b: 車番でマスタ検索（getCarInfoByNumber）  【大A / 中5 / 小5-1b】
+//  行程入力フォームの車番フィールドからマスタ補完に使用
+//  完全一致のみ。マスタにない車番は null を返す
+// ================================================================
+function getCarInfoByNumber(carNo, companySsId) {
+  var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var master = ss.getSheetByName('自車専属マスタ');
+  if (!master || master.getLastRow() < 2) return null;
+  var mData = master.getRange(2, 1, master.getLastRow() - 1, 10).getValues();
+  for (var i = 0; i < mData.length; i++) {
+    var masterCar = String(mData[i][6] || '').trim(); // G列(7)=車番
+    if (!masterCar) continue;
+    if (masterCar === carNo) {
+      return {
+        tons:    String(mData[i][4] || '').trim(), // E列(5)=トン数
+        type:    String(mData[i][5] || '').trim(), // F列(6)=車種
+        company: String(mData[i][3] || '').trim(), // D列(4)=会社名（看板名）
+        name:    String(mData[i][7] || '').trim(), // H列(8)=乗務員名
+        tel:     String(mData[i][8] || '').trim()  // I列(9)=携帯番号
+      };
+    }
+  }
+  return null;
+}
+
+
+// ================================================================
 //  5-2: 紐づけ実行（linkAddress）  【大A / 中5 / 小5-2】
 //  入力アドレスを自車専属マスタのJ列と照合し
 //  一致したら端末のPropertiesServiceに保存する（シートには書かない）
 // ================================================================
 function linkAddress(email, companySsId) {
-  var ss     = getTargetSS_(companySsId); // 会社専用SSがあればそちらを参照
+  var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var master = ss.getSheetByName('自車専属マスタ');
   if (!master) return "エラー：マスタシートなし";
   var rows = master.getDataRange().getValues();
@@ -1992,17 +2434,18 @@ function unlinkAddress(companySsId) {
 function saveRunState(state) {
   var p = PropertiesService.getUserProperties();
   p.setProperties({
-    'picks':        JSON.stringify(state.picks        || []),
-    'drops':        JSON.stringify(state.drops        || []),
-    'rows':         JSON.stringify(state.rows         || []),
-    'guideDone':    JSON.stringify(state.guideDone    || []),
-    'pickDone':     JSON.stringify(state.pickDone     || []),
-    'dropDone':     JSON.stringify(state.dropDone     || []),
-    'phase':        state.phase                       || '',
-    'lastPickRow':  String(state.lastPickRow          || ''),
-    'guideHistory': JSON.stringify(state.guideHistory || []),
-    'pickHistory':  JSON.stringify(state.pickHistory  || []),
-    'dropHistory':  JSON.stringify(state.dropHistory  || [])
+    'picks':          JSON.stringify(state.picks          || []),
+    'drops':          JSON.stringify(state.drops          || []),
+    'rows':           JSON.stringify(state.rows           || []),
+    'runId':          state.runId                         || '',
+    'guideDone':      JSON.stringify(state.guideDone      || []),
+    'pickDone':       JSON.stringify(state.pickDone       || []),
+    'dropDone':       JSON.stringify(state.dropDone       || []),
+    'phase':          state.phase                         || '',
+    'lastPickIndex':  (state.lastPickIndex !== null && state.lastPickIndex !== undefined) ? String(state.lastPickIndex) : '',
+    'guideHistory':   JSON.stringify(state.guideHistory   || []),
+    'pickHistory':    JSON.stringify(state.pickHistory    || []),
+    'dropHistory':    JSON.stringify(state.dropHistory    || [])
   }, false);
 }
 
@@ -2013,18 +2456,20 @@ function saveRunState(state) {
 // ================================================================
 function loadRunState() {
   var all = PropertiesService.getUserProperties().getProperties();
+  var lpi = all['lastPickIndex'];
   return {
-    picks:        JSON.parse(all['picks']        || '[]'),
-    drops:        JSON.parse(all['drops']        || '[]'),
-    rows:         JSON.parse(all['rows']         || '[]'),
-    guideDone:    JSON.parse(all['guideDone']    || '[]'),
-    pickDone:     JSON.parse(all['pickDone']     || '[]'),
-    dropDone:     JSON.parse(all['dropDone']     || '[]'),
-    phase:        all['phase']                   || '',
-    lastPickRow:  all['lastPickRow']             || '',
-    guideHistory: JSON.parse(all['guideHistory'] || '[]'),
-    pickHistory:  JSON.parse(all['pickHistory']  || '[]'),
-    dropHistory:  JSON.parse(all['dropHistory']  || '[]')
+    picks:         JSON.parse(all['picks']         || '[]'),
+    drops:         JSON.parse(all['drops']         || '[]'),
+    rows:          JSON.parse(all['rows']          || '[]'),
+    runId:         all['runId']                    || '',
+    guideDone:     JSON.parse(all['guideDone']     || '[]'),
+    pickDone:      JSON.parse(all['pickDone']      || '[]'),
+    dropDone:      JSON.parse(all['dropDone']      || '[]'),
+    phase:         all['phase']                    || '',
+    lastPickIndex: (lpi !== '' && lpi !== undefined && lpi !== null) ? Number(lpi) : null,
+    guideHistory:  JSON.parse(all['guideHistory']  || '[]'),
+    pickHistory:   JSON.parse(all['pickHistory']   || '[]'),
+    dropHistory:   JSON.parse(all['dropHistory']   || '[]')
   };
 }
 
@@ -2036,7 +2481,7 @@ function loadRunState() {
 // ================================================================
 function clearRunState() {
   var p    = PropertiesService.getUserProperties();
-  var keys = ['picks','drops','rows','guideDone','pickDone','dropDone','phase','lastPickRow','guideHistory','pickHistory','dropHistory'];
+  var keys = ['picks','drops','rows','runId','guideDone','pickDone','dropDone','phase','lastPickIndex','guideHistory','pickHistory','dropHistory'];
   for (var i = 0; i < keys.length; i++) { p.deleteProperty(keys[i]); }
 }
 
@@ -2076,9 +2521,29 @@ function getTodayRoutes() {
     if (r[17]) continue;
     var pickV = (r[11] instanceof Date) ? '' : String(r[11] || '');
     var dropV = (r[12] instanceof Date) ? '' : String(r[12] || '');
-    out.push({ row: i+1, pick: pickV, drop: dropV, guideDone: !!r[13], pickDone: !!r[14], dropDone: !!r[17] });
+    out.push({ id: String(r[0]||'').trim(), row: i+1, pick: pickV, drop: dropV, guideDone: !!r[13], pickDone: !!r[14], dropDone: !!r[17] });
   }
   return out;
+}
+
+
+// ================================================================
+//  7-1b: IDとルートインデックスで行番号を動的検索（findRowByIdAndIndex_）
+//  【大A / 中7 / 小7-1b】
+//  SS側で行移動・削除が発生しても現在の正しい行番号を返す
+// ================================================================
+function findRowByIdAndIndex_(sheet, id, routeIndex) {
+  if (!id && id !== 0) return -1;
+  if (routeIndex === null || routeIndex === undefined) return -1;
+  var all = sheet.getDataRange().getValues();
+  var count = 0;
+  for (var i = 1; i < all.length; i++) {
+    if (String(all[i][0] || '').trim() === String(id).trim()) {
+      if (count === Number(routeIndex)) return i + 1; // 1-indexed
+      count++;
+    }
+  }
+  return -1;
 }
 
 
@@ -2092,7 +2557,7 @@ function getTodayRoutes() {
 //    → スプレッドシートで積地が先入力済みなら別ID生成（既存動作にフォールバック）
 //    → 複数行程の場合は先頭行をプレースホルダー更新、追加行程は末尾に新規追加（同ID）
 // ================================================================
-function createParentRows(picks, drops, dateStr, overrideInfo) {
+function createParentRows(picks, drops, dateStr, overrideInfo, companySsId) {
   // 端末のメールアドレスを確認（未連携なら運行開始不可）
   var savedEmail = PropertiesService.getUserProperties().getProperty('linkedEmail');
   if (!savedEmail) throw new Error('紐づけされていません');
@@ -2102,7 +2567,7 @@ function createParentRows(picks, drops, dateStr, overrideInfo) {
   try { lock.waitLock(10000); } catch(e) { throw new Error('混雑中です。少し待ってから再試行してください'); }
 
   try {
-    var ss     = SpreadsheetApp.getActiveSpreadsheet();
+    var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
     // マスタからメールアドレスが一致する乗務員情報を取得
     var master = ss.getSheetByName('自車専属マスタ');
     if (!master) throw new Error('自車専属マスタシートがありません');
@@ -2162,9 +2627,8 @@ function createParentRows(picks, drops, dateStr, overrideInfo) {
 
     if (phRowNum !== -1) {
       // ── プレースホルダー使用パス ──
-      // picks[0]/drops[0] で既存行を上書き（積地・降地・荷主のみ。IDや日付はそのまま）
-      sheet.getRange(phRowNum, 11, 1, 3).setNumberFormat('@');
-      sheet.getRange(phRowNum, 11).setValue(info.company || ''); // 荷主(K列)
+      // picks[0]/drops[0] で既存行を上書き（積地・降地のみ。IDや日付・荷主はそのまま）
+      sheet.getRange(phRowNum, 12, 1, 2).setNumberFormat('@');
       sheet.getRange(phRowNum, 12).setValue(picks[0] || '');     // 積地(L列)
       sheet.getRange(phRowNum, 13).setValue(drops[0] || '');     // 降地(M列)
       sheet.getRange(phRowNum, 12).setBackground(null);          // 配車漏れ黄色警告を解除
@@ -2174,22 +2638,28 @@ function createParentRows(picks, drops, dateStr, overrideInfo) {
       if (picks.length > 1) {
         var addStart = lastRow + 1;
         var addData  = [];
+        var addDates = [];
         for (var ai = 1; ai < picks.length; ai++) {
           addData.push([
             sameId, info.kubun, info.company, info.tons, info.type, info.car,
-            info.name, info.tel, info.kanban || info.company, now, '', picks[ai], drops[ai],
+            info.name, info.tel, info.kanban || info.company, '', '', picks[ai], drops[ai],
             '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
+          addDates.push([now]);
         }
-        sheet.getRange(addStart, 12, addData.length, 2).setNumberFormat('@');
         sheet.getRange(addStart, 1, addData.length, 26).setValues(addData);
+        sheet.getRange(addStart, 12, addData.length, 2).setNumberFormat('@');
+        // 日付は1行ずつ個別setValue（バッチ書き込みが効かない問題を回避）
+        for (var ad = 0; ad < addData.length; ad++) {
+          sheet.getRange(addStart + ad, 10).setValue(now);
+          sheet.getRange(addStart + ad, 10).setNumberFormat('yyyy/MM/dd');
+        }
         var addFmls = [];
         for (var af = 0; af < addData.length; af++) {
           var afr = addStart + af;
           addFmls.push(['=IF(AND(U'+afr+'="",T'+afr+'=""),"",U'+afr+'-T'+afr+')']);
         }
         sheet.getRange(addStart, 22, addFmls.length, 1).setFormulas(addFmls);
-        sheet.getRange(addStart, 10, addData.length, 1).setNumberFormat('yyyy/MM/dd');
         applyDateTimeFormat_(sheet, addStart, addData.length);
         for (var ai2 = 0; ai2 < addData.length; ai2++) resultRows.push(addStart + ai2);
       }
@@ -2201,22 +2671,28 @@ function createParentRows(picks, drops, dateStr, overrideInfo) {
       var startRow = lastRow + 1;
       var num      = picks.length;
       var rowsData = [];
+      var dateData = [];
       for (var i = 0; i < num; i++) {
         rowsData.push([
           sameId, info.kubun, info.company, info.tons, info.type, info.car,
-          info.name, info.tel, info.kanban || info.company, now, '', picks[i], drops[i],
+          info.name, info.tel, info.kanban || info.company, '', '', picks[i], drops[i],
           '', '', '', '', '', '', '', '', '', '', '', '', ''
         ]);
+        dateData.push([now]);
       }
-      sheet.getRange(startRow, 12, num, 2).setNumberFormat('@'); // 積地・降地をテキスト書式に固定
       sheet.getRange(startRow, 1, num, 26).setValues(rowsData);
+      sheet.getRange(startRow, 12, num, 2).setNumberFormat('@'); // 積地・降地をテキスト書式に固定
+      // 日付は1行ずつ個別setValue（バッチ書き込みが効かない問題を回避）
+      for (var di = 0; di < num; di++) {
+        sheet.getRange(startRow + di, 10).setValue(now);
+        sheet.getRange(startRow + di, 10).setNumberFormat('yyyy/MM/dd');
+      }
       var formulas = [];
       for (var fi = 0; fi < num; fi++) {
         var fr = startRow + fi;
         formulas.push(['=IF(AND(U'+fr+'="",T'+fr+'=""),"",U'+fr+'-T'+fr+')']);
       }
       sheet.getRange(startRow, 22, num, 1).setFormulas(formulas);
-      sheet.getRange(startRow, 10, num, 1).setNumberFormat('yyyy/MM/dd');
       applyDateTimeFormat_(sheet, startRow, num);
       for (var ri = 0; ri < num; ri++) resultRows.push(startRow + ri);
     }
@@ -2224,7 +2700,11 @@ function createParentRows(picks, drops, dateStr, overrideInfo) {
     // 集計表を非同期で同期（遅延実行）
     delaySyncSummary_(sameId);
 
-    return resultRows;
+    // 日付順にソート（新規行が末尾に追加されているため）
+    sortUnkouByDate_(companySsId);
+    sortSummaryByDate_(companySsId);
+
+    return { rows: resultRows, id: sameId };
 
   } finally {
     lock.releaseLock();
@@ -2234,101 +2714,138 @@ function createParentRows(picks, drops, dateStr, overrideInfo) {
 
 // ================================================================
 //  7-3: 誘導時刻記録（setGuideComplete）  【大A / 中7 / 小7-3】
-//  指定行のM列（13列目）に現在時刻を書き込み集計表を同期する
+//  IDとルートインデックスで行を動的検索してN列（14列目）に現在時刻を書き込む
 // ================================================================
-function setGuideComplete(row) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+function setGuideComplete(id, routeIndex, companySsId) {
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  var row = findRowByIdAndIndex_(sheet, id, routeIndex);
+  if (row < 0) return;
   var cell = sheet.getRange(row, 14);
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
-  var id = sheet.getRange(row, 1).getValue();
   if (id) delaySyncSummary_(id);
 }
 
 
 // ================================================================
 //  7-4: 積完時刻記録（setPickComplete）  【大A / 中7 / 小7-4】
-//  指定行のN列（14列目）に現在時刻を書き込み集計表を同期する
+//  IDとルートインデックスで行を動的検索してO列（15列目）に現在時刻を書き込む
 // ================================================================
-function setPickComplete(row) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+function setPickComplete(id, routeIndex, companySsId) {
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  var row = findRowByIdAndIndex_(sheet, id, routeIndex);
+  if (row < 0) return;
   var cell = sheet.getRange(row, 15);
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
-  var id = sheet.getRange(row, 1).getValue();
   if (id) delaySyncSummary_(id);
 }
 
 
 // ================================================================
 //  7-5: 休憩開始・終了時刻記録（setRest）  【大A / 中7 / 小7-5】
-//  type='start'→O列(15), type='end'→P列(16) に現在時刻を書き込む
+//  IDとルートインデックスで行を動的検索して P列(16)/Q列(17) に現在時刻を書き込む
 // ================================================================
-function setRest(row, type) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+function setRest(id, routeIndex, type, companySsId) {
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  var row = findRowByIdAndIndex_(sheet, id, routeIndex);
+  if (row < 0) return;
   var col = (type === 'start') ? 16 : (type === 'end') ? 17 : 0;
   if (col) {
     var cell = sheet.getRange(row, col);
     cell.setValue(new Date());
     cell.setNumberFormat('M/d HH:mm');
   }
-  var id = sheet.getRange(row, 1).getValue();
   if (id) delaySyncSummary_(id);
 }
 
 
 // ================================================================
 //  7-6: 降完時刻記録（setDropComplete）  【大A / 中7 / 小7-6】
-//  指定行のQ列（17列目）に現在時刻を書き込み集計表を同期する
+//  IDとルートインデックスで行を動的検索してR列（18列目）に現在時刻を書き込む
 // ================================================================
-function setDropComplete(row) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+function setDropComplete(id, routeIndex, companySsId) {
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  var row = findRowByIdAndIndex_(sheet, id, routeIndex);
+  if (row < 0) return;
   var cell = sheet.getRange(row, 18);
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
-  var id = sheet.getRange(row, 1).getValue();
   if (id) delaySyncSummary_(id);
 }
 
 
 // ================================================================
-//  8-1: 行程データ更新（updateRouteData）  【大A / 中8 / 小8-1】
-//  戻るボタン用：指定行のK列（積地）・L列（降地）を更新し集計表を同期する
+//  7-7: 状態保存＋時刻記録 一括実行（recordAction）  【大A / 中7 / 小7-7】
+//  saveRunState と setXxxComplete を1回のサーバー呼び出しでまとめて実行する
+//  actionType: 'guide' / 'pick' / 'restStart' / 'restEnd' / 'drop'
 // ================================================================
-function updateRouteData(rows, picks, drops) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+function recordAction(actionType, id, routeIndex, stateObj, companySsId) {
+  saveRunState(stateObj);
+  if      (actionType === 'guide')     setGuideComplete(id, routeIndex, companySsId);
+  else if (actionType === 'pick')      setPickComplete(id, routeIndex, companySsId);
+  else if (actionType === 'restStart') setRest(id, routeIndex, 'start', companySsId);
+  else if (actionType === 'restEnd')   setRest(id, routeIndex, 'end',   companySsId);
+  else if (actionType === 'drop')      setDropComplete(id, routeIndex, companySsId);
+}
+
+
+// ================================================================
+//  8-1: 行程データ更新（updateRouteData）  【大A / 中8 / 小8-1】
+//  戻るボタン用：IDで行を動的検索してL列（積地）・M列（降地）を更新し集計表を同期する
+// ================================================================
+function updateRouteData(id, picks, drops, companySsId) {
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
-  for (var i = 0; i < rows.length; i++) {
-    sheet.getRange(rows[i], 12).setValue(picks[i] || '');
-    sheet.getRange(rows[i], 13).setValue(drops[i] || '');
+  var all = sheet.getDataRange().getValues();
+  var ri = 0;
+  for (var i = 1; i < all.length; i++) {
+    if (String(all[i][0] || '').trim() !== String(id).trim()) continue;
+    if (ri < picks.length) {
+      sheet.getRange(i + 1, 12).setValue(picks[ri] || '');
+      sheet.getRange(i + 1, 13).setValue(drops[ri] || '');
+      ri++;
+    }
   }
-  var id = sheet.getRange(rows[0], 1).getValue();
   if (id) delaySyncSummary_(id);
 }
 
 
 // ================================================================
 //  8-2: 運行シート行削除（deleteRunRows）  【大A / 中8 / 小8-2】
-//  戻るボタン用：指定行番号を降順に削除し集計表を同期する
+//  戻るボタン用：IDで全行を動的検索して降順に削除し集計表を同期する
 // ================================================================
-function deleteRunRows(rows) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+function deleteRunRows(id, companySsId) {
+  if (!id) return;
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
-  var id = sheet.getRange(rows[0], 1).getValue();
-  rows.sort(function(a, b) { return b - a; });
-  for (var i = 0; i < rows.length; i++) sheet.deleteRow(rows[i]);
+  var all = sheet.getDataRange().getValues();
+  var del = [];
+  for (var i = 1; i < all.length; i++) {
+    if (String(all[i][0] || '').trim() === String(id).trim()) del.push(i + 1);
+  }
+  del.sort(function(a, b) { return b - a; });
+  for (var j = 0; j < del.length; j++) sheet.deleteRow(del[j]);
   if (id) delaySyncSummary_(id);
 }
 
 
 // ================================================================
 //  8-3: 時刻セルクリア（clearTimeCell）  【大A / 中8 / 小8-3】
-//  戻るボタン用：指定行・列のセルをクリアし集計表を同期する
+//  戻るボタン用：IDとルートインデックスで行を動的検索して指定列をクリアし集計表を同期する
 // ================================================================
-function clearTimeCell(row, col) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+function clearTimeCell(id, routeIndex, col, companySsId) {
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  var row = findRowByIdAndIndex_(sheet, id, routeIndex);
+  if (row < 0) return;
   sheet.getRange(row, col).clearContent();
-  var id = sheet.getRange(row, 1).getValue();
   if (id) delaySyncSummary_(id);
 }
 
@@ -2503,13 +3020,13 @@ function getListData(year, month) {
       sales:g.sales, tollReq:g.tollReq, tollReal:g.tollReal, tollTotal:g.tollTotal,
       pay:g.pay, yukyu:g.yukyu, other:g.other,
       notice:g.notice, dataUrl:g.dataUrl, hasNotice:g.hasNotice,
-      isComplete: !!(g.pickTime && g.restStart && g.restEnd && g.dropTime),
+      isComplete: !!(g.guideTime && g.pickTime && g.restStart && g.restEnd && g.dropTime),
       isNew:      !g.guideTime && !g.pickTime && !g.restStart && !g.restEnd && !g.dropTime
     });
     totalSales += g.sales; totalToll += g.tollTotal; totalPay += g.pay;
     totalYukyu += g.yukyu || 0;
     totalOther += g.other || 0;
-    dateSet[g.date] = true;
+    if (g.picks.join('').trim() !== '') dateSet[g.date] = true; // 積地空（未配車）はノーカウント
   }
   result.sort(function(a,b){ return b.dateSort - a.dateSort; });
   return { rows:result, total:{ days:Object.keys(dateSet).length, sales:totalSales, toll:totalToll, pay:totalPay, yukyu:totalYukyu, other:totalOther, yukyuDays:yukyuDays, yasumiDays:yasumiDays } };
@@ -2687,6 +3204,22 @@ function saveEditData(obj) {
 
 
 // ================================================================
+//  8-6c: 端末連絡保存（saveTermNoticeByDriver）  【大A / 中8 / 小8-6c】
+//  端末アプリの一覧編集モーダルから連絡(端末)(Y列=25)のみを書き込む
+// ================================================================
+function saveTermNoticeByDriver(id, termNotice, companySsId) {
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet) return;
+  var all = sheet.getDataRange().getValues();
+  for (var i = 1; i < all.length; i++) {
+    if (String(all[i][0]||'').trim() !== String(id).trim()) continue;
+    sheet.getRange(i + 1, 25).setValue(termNotice || '');
+  }
+}
+
+
+// ================================================================
 //  8-6b: シート保護設定（setupSheetProtection）  【大C / 中8 / 小8-6b】
 //  集計表: 距離(V=22)・ガソリン代(X=24)・備考(AB=28)以外ロック
 //  運行シート: 合計高速(U=21)列のみロック
@@ -2732,13 +3265,16 @@ function setupSheetProtection() {
     unkouSheet.setFrozenColumns(1);
     unkouSheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p){p.remove();});
     var unkouLastRow = Math.max(unkouSheet.getLastRow(), 2);
-    // 合計(高速代)=V列(22): ヘッダーをグレーで色付け
-    unkouSheet.getRange(1, 22).setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
-    // V列のデータ全体を薄いグレーで色付け
-    unkouSheet.getRange(2, 22, unkouLastRow - 1, 1).setBackground('#eceff1');
+    // 保護列: V(22)=合計高速, Y(25)=連絡(端末), Z(26)=データ(端末) → グレー着色
+    var protectedUnkouCols = [22, 25, 26];
+    for (var pc = 0; pc < protectedUnkouCols.length; pc++) {
+      var pcol = protectedUnkouCols[pc];
+      unkouSheet.getRange(1, pcol).setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
+      unkouSheet.getRange(2, pcol, unkouLastRow - 1, 1).setBackground('#eceff1');
+    }
   }
 
-  ui.alert('保護設定完了\n■ 集計表\n  編集可: 距離(W)・ガソリン代(Y)・支払い(AA)・備考(AC)・その他手当(AH)\n  緑枠＋緑ヘッダー = 編集可 / 灰色ヘッダー = 保護\n■ 運行シート: 合計(高速代)V列を薄いグレーで色付け');
+  ui.alert('保護設定完了\n■ 集計表\n  編集可: 距離(W)・ガソリン代(Y)・支払い(AA)・備考(AC)・その他手当(AH)\n  緑枠＋緑ヘッダー = 編集可 / 灰色ヘッダー = 保護\n■ 運行シート: V(合計高速)・Y(連絡端末)・Z(データ端末) をグレー着色');
 }
 
 
@@ -2796,14 +3332,53 @@ function insertKanbanColumn() {
 //  col25のリッチテキストからリンクURLを配列で返す
 // ================================================================
 function getTerminalUrls_(sheet, rowNum) {
-  var rtv = sheet.getRange(rowNum, 26).getRichTextValue();
-  if (!rtv) return [];
-  var runs = rtv.getRuns();
+  var cell = sheet.getRange(rowNum, 26);
   var urls = [];
-  for (var i = 0; i < runs.length; i++) {
-    var link = runs[i].getLinkUrl();
-    if (link) urls.push(link);
+
+  // 1. リッチテキストのrunからURL取得（アプリ経由でアップした場合）
+  var rtv = cell.getRichTextValue();
+  if (rtv) {
+    var runs = rtv.getRuns();
+    for (var i = 0; i < runs.length; i++) {
+      var link = runs[i].getLinkUrl();
+      if (link && urls.indexOf(link) === -1) urls.push(link);
+    }
   }
+
+  // 2. セルノートからURL取得
+  if (urls.length === 0) {
+    var note = cell.getNote();
+    if (note) {
+      note.split('\n').forEach(function(u) {
+        u = u.trim();
+        if (u.match(/^https?:\/\//) && urls.indexOf(u) === -1) urls.push(u);
+      });
+    }
+  }
+
+  // 3. HYPERLINK数式からURL取得（SS上でHYPERLINK関数を使った場合）
+  if (urls.length === 0) {
+    var formula = cell.getFormula();
+    if (formula) {
+      var re = /HYPERLINK\s*\(\s*"([^"]+)"/gi;
+      var m;
+      while ((m = re.exec(formula)) !== null) {
+        if (m[1].match(/^https?:\/\//) && urls.indexOf(m[1]) === -1) urls.push(m[1]);
+      }
+    }
+  }
+
+  // 4. プレーンテキストURL（直接URLを入力した場合）
+  if (urls.length === 0) {
+    var plain = String(cell.getValue() || '').trim();
+    if (plain) {
+      plain.split(/[\n,]/).forEach(function(u) {
+        u = u.trim();
+        if (u.match(/^https?:\/\//) && urls.indexOf(u) === -1) urls.push(u);
+      });
+    }
+  }
+
   return urls;
 }
 
@@ -3298,11 +3873,12 @@ function getRoutesById(id) {
 //  10-2b: 行番号指定で連絡事項取得（getNoticeByRow）  【大A / 中10 / 小10-2b】
 //  誘導画面に管理側の連絡事項・データURLを表示するために使う
 // ================================================================
-function getNoticeByRow(row) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
-  if (!sheet || !row) return { notice:'', dataUrl:'' };
+function getNoticeByRow(id, companySsId) {
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet || !id) return { notice:'', dataUrls:[], dataUrl:'' };
   var all = sheet.getDataRange().getValues();
-  if (all.length < 2) return { notice:'', dataUrl:'' };
+  if (all.length < 2) return { notice:'', dataUrls:[], dataUrl:'' };
   // ヘッダー行で列位置を特定（列追加前後どちらでも対応）
   var headers = all[0];
   var noticeCol = -1, dataCol = -1;
@@ -3313,12 +3889,8 @@ function getNoticeByRow(row) {
   }
   if (noticeCol < 0) noticeCol = 21;
   if (dataCol   < 0) dataCol   = 22;
-  // 同一IDの行を検索
-  var rNum = Number(row) - 1;
-  var id = (rNum > 0 && rNum < all.length) ? String(all[rNum][0]||'').trim() : '';
-  if (!id) return { notice:'', dataUrl:'' };
   for (var i = 1; i < all.length; i++) {
-    if (String(all[i][0]||'').trim() !== id) continue;
+    if (String(all[i][0]||'').trim() !== String(id).trim()) continue;
     var notice = String(all[i][noticeCol]||'');
     var cell = sheet.getRange(i+1, dataCol+1);
     var note = cell.getNote() || '';

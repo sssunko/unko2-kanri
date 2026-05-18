@@ -492,7 +492,7 @@
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
         <div><div style="font-size:11px;color:#888;margin-bottom:2px;">看板名</div><input id="step1Kanban" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
-        <div><div style="font-size:11px;color:#888;margin-bottom:2px;">車番</div><input id="step1Car" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
+        <div><div style="font-size:11px;color:#888;margin-bottom:2px;">車番</div><input id="step1Car" type="text" onblur="fillCarFromMaster()" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
         <div><div style="font-size:11px;color:#888;margin-bottom:2px;">乗務員名</div><input id="step1Name" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
@@ -509,7 +509,10 @@
        B-3.5: 誘導画面（連絡事項表示・行程ごとに誘導ボタン）
        ============================================================ -->
   <div id="stepGuide" class="screen">
-    <button class="reset-small" onclick="goBack()">戻る</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <button class="reset-small" style="float:none;margin-bottom:0;background:#6d3200;" onclick="openNewRouteModal()">＋ 新規行程追加</button>
+      <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+    </div>
     <div class="section-title">誘導</div>
     <div id="guideNoticeArea" style="background:#1e1e1e;border-radius:12px;padding:12px;margin-bottom:12px;display:none;"></div>
     <div id="guideButtons"></div>
@@ -520,7 +523,10 @@
        B-4: 積完画面（行程ごとに積完ボタン・戻るで1操作巻き戻し）
        ============================================================ -->
   <div id="step2" class="screen">
-    <button class="reset-small" onclick="goBack()">戻る</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <button class="reset-small" style="float:none;margin-bottom:0;background:#6d3200;" onclick="openNewRouteModal()">＋ 新規行程追加</button>
+      <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+    </div>
     <div class="section-title">積完（選択式）</div>
     <div id="pickButtons"></div>
     <button class="big-btn dark" onclick="goHome()">ホーム</button>
@@ -530,9 +536,12 @@
        B-5: 休憩開始画面（戻るで積完に戻る）
        ============================================================ -->
   <div id="step3" class="screen">
-    <button class="reset-small" onclick="goBack()">戻る</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <button class="reset-small" style="float:none;margin-bottom:0;background:#6d3200;" onclick="openNewRouteModal()">＋ 新規行程追加</button>
+      <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+    </div>
     <div class="section-title">休憩開始</div>
-    <button class="big-btn orange" onclick="restStart()">休憩開始</button>
+    <button class="big-btn" style="background:#e65100;" onclick="restStart()">休憩開始</button>
     <button class="big-btn dark" onclick="goHome()">ホーム</button>
   </div>
 
@@ -540,9 +549,12 @@
        B-6: 休憩終了画面（戻るで休憩開始に戻る）
        ============================================================ -->
   <div id="step4" class="screen">
-    <button class="reset-small" onclick="goBack()">戻る</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <button class="reset-small" style="float:none;margin-bottom:0;background:#6d3200;" onclick="openNewRouteModal()">＋ 新規行程追加</button>
+      <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+    </div>
     <div class="section-title">休憩終了</div>
-    <button class="big-btn green" onclick="restEnd()">休憩終了</button>
+    <button class="big-btn" style="background:#6a1b9a;" onclick="restEnd()">休憩終了</button>
     <button class="big-btn dark" onclick="goHome()">ホーム</button>
   </div>
 
@@ -550,7 +562,10 @@
        B-7: 降完画面（行程ごとに降完ボタン・全完了で即ホーム）
        ============================================================ -->
   <div id="step5" class="screen">
-    <button class="reset-small" onclick="goBack()">戻る</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <button class="reset-small" style="float:none;margin-bottom:0;background:#6d3200;" onclick="openNewRouteModal()">＋ 新規行程追加</button>
+      <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+    </div>
     <div class="section-title">降完（選択式）</div>
     <div id="dropButtons"></div>
     <button class="big-btn dark" onclick="goHome()">ホーム</button>
@@ -593,7 +608,8 @@
     </div>
     <div class="list-card" id="summaryCard"></div>
     <div id="listBody"></div>
-    <button class="big-btn dark" onclick="goHome()" style="margin-top:16px;">ホーム</button>
+    <button class="big-btn" style="background:#6d3200;margin-top:16px;" onclick="openNewRouteModal()">＋ 新規行程追加（別日登録）</button>
+    <button class="big-btn dark" onclick="goHome()" style="margin-top:8px;">ホーム</button>
   </div>
 
   <!-- ============================================================
@@ -633,6 +649,26 @@
        ============================================================ -->
   <div id="termDataOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:400;overflow-y:auto;padding:16px;" onclick="if(event.target===this)closeTermDataModal()">
     <div id="termDataBox" style="max-width:500px;margin:40px auto;background:#1e1e1e;border-radius:16px;padding:20px;"></div>
+  </div>
+
+  <!-- ============================================================
+       B-10d: 新規行程追加モーダル（現在の運行状態を変えずにSSへ行程を追加）
+       ============================================================ -->
+  <div id="newRouteOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:400;overflow-y:auto;padding:16px;">
+    <div style="background:#1e1e1e;border-radius:18px;padding:20px;max-width:500px;margin:0 auto;">
+      <h3 style="color:#ffd600;margin:0 0 14px;">新規行程追加</h3>
+      <div style="color:#aaa;font-size:12px;margin-bottom:12px;">現在の運行は継続したまま、別日の行程をSSに登録します。</div>
+      <!-- 日付 -->
+      <div style="background:#252525;border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="font-size:12px;color:#aaa;margin-bottom:4px;">日付</div>
+        <input type="date" id="newRouteDate" style="width:100%;box-sizing:border-box;padding:10px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:16px;">
+      </div>
+      <!-- 行程エリア -->
+      <div id="newRouteArea"></div>
+      <button onclick="addNewRouteRow()" style="width:100%;padding:12px;margin-bottom:8px;background:#7c4dff;color:white;border:none;border-radius:10px;font-size:15px;cursor:pointer;">＋ 行程を追加</button>
+      <button id="newRouteSaveBtn" onclick="submitNewRoute()" style="width:100%;padding:14px;margin-bottom:8px;background:#00897b;color:white;border:none;border-radius:12px;font-size:16px;font-weight:bold;cursor:pointer;">保存して追加</button>
+      <button onclick="closeNewRouteModal()" style="width:100%;padding:12px;background:#333;color:#ccc;border:none;border-radius:10px;font-size:15px;cursor:pointer;">キャンセル</button>
+    </div>
   </div>
 
   <!-- ============================================================
@@ -778,10 +814,12 @@ function handleUnlink() {
 //  colFilters            : カラムフィルター状態
 //  _cfPopupCol           : 現在開いているフィルターの列番号
 // ============================================================
-var picks=[], drops=[], runRows=[];
+var picks=[], drops=[], runRows=[], runId='';
 var driverProfile = { company:'', tons:'', type:'', car:'', name:'', tel:'' };
 var guideDone=[], pickDone=[], dropDone=[];
-var phase='', lastPickRow=null;
+var phase='', lastPickRow=null, lastPickIndex=null;
+var driverCreatedRows = false;
+var runReturnTo = ''; // 一覧から運行開始した場合は 'list' にセット
 var guideHistory=[], pickHistory=[], dropHistory=[];
 var guideNotice=null;
 var listYear, listMonth, filterCar='';
@@ -839,13 +877,14 @@ function goHome() {
 //  C-8: 状態保存（saveState）
 //  サーバに運行進捗を保存する
 // ============================================================
+function getStateObj() {
+  return {picks:picks, drops:drops, rows:runRows, runId:runId,
+          guideDone:guideDone, pickDone:pickDone, dropDone:dropDone,
+          phase:phase, lastPickIndex:lastPickIndex,
+          guideHistory:guideHistory, pickHistory:pickHistory, dropHistory:dropHistory};
+}
 function saveState() {
-  google.script.run.saveRunState({
-    picks:picks, drops:drops, rows:runRows,
-    guideDone:guideDone, pickDone:pickDone, dropDone:dropDone,
-    phase:phase, lastPickRow:lastPickRow,
-    guideHistory:guideHistory, pickHistory:pickHistory, dropHistory:dropHistory
-  });
+  google.script.run.saveRunState(getStateObj());
 }
 
 // ============================================================
@@ -859,42 +898,56 @@ function goBack() {
   if (phase === 'guide') {
     if (guideHistory.length > 0) {
       var li = guideHistory.pop(); guideDone[li] = false;
-      google.script.run.clearTimeCell(runRows[li], 13, COMPANY_SS_ID);
+      google.script.run.clearTimeCell(runId, li, 14, COMPANY_SS_ID);
       saveState(); showGuideScreen(); return;
     }
-    var oldRows = runRows.slice();
-    phase=''; lastPickRow=null; guideDone=[]; pickDone=[]; dropDone=[]; guideHistory=[]; pickHistory=[]; dropHistory=[];
-    google.script.run.withSuccessHandler(function() {
-      runRows=[]; saveState(); showScreen('step1','行程入力'); reloadRouteInput();
-    }).deleteRunRows(oldRows, COMPANY_SS_ID);
+    if (driverCreatedRows) {
+      // アプリから入力した行程: 削除してから行程入力画面へ
+      var oldId = runId;
+      phase=''; lastPickIndex=null; guideDone=[]; pickDone=[]; dropDone=[]; guideHistory=[]; pickHistory=[]; dropHistory=[]; driverCreatedRows=false;
+      google.script.run.withSuccessHandler(function() {
+        runRows=[]; runId=''; saveState(); showScreen('step1','行程入力'); reloadRouteInput();
+      }).deleteRunRows(oldId, COMPANY_SS_ID);
+    } else {
+      // SS配車済み行程: 削除せず行程入力へ（一覧から来た場合は一覧へ）
+      phase=''; runRows=[]; runId=''; lastPickIndex=null; guideDone=[]; pickDone=[]; dropDone=[]; guideHistory=[]; pickHistory=[]; dropHistory=[]; driverCreatedRows=false;
+      saveState();
+      if (runReturnTo === 'list') { runReturnTo = ''; showList(); }
+      else { showScreen('step1','行程入力'); initRouteInput(); }
+    }
     return;
   }
   if (phase === 'pick') {
     if (pickHistory.length > 0) {
       var li = pickHistory.pop(); pickDone[li] = false;
-      google.script.run.clearTimeCell(runRows[li], 14, COMPANY_SS_ID);
-      lastPickRow = pickHistory.length > 0 ? runRows[pickHistory[pickHistory.length-1]] : null;
+      google.script.run.clearTimeCell(runId, li, 15, COMPANY_SS_ID);
+      lastPickIndex = pickHistory.length > 0 ? pickHistory[pickHistory.length-1] : null;
       saveState(); showPickScreen(); return;
+    }
+    // 積完を全部取り消したら、誘導を1つ取り消してから誘導画面へ
+    if (guideHistory.length > 0) {
+      var gi = guideHistory.pop(); guideDone[gi] = false;
+      google.script.run.clearTimeCell(runId, gi, 14, COMPANY_SS_ID);
     }
     phase='guide'; saveState(); showGuideScreen(); return;
   }
   if (phase === 'restStart') {
     var li = pickHistory.pop(); pickDone[li] = false;
-    google.script.run.clearTimeCell(runRows[li], 14, COMPANY_SS_ID);
-    lastPickRow = pickHistory.length > 0 ? runRows[pickHistory[pickHistory.length-1]] : null;
+    google.script.run.clearTimeCell(runId, li, 15, COMPANY_SS_ID);
+    lastPickIndex = pickHistory.length > 0 ? pickHistory[pickHistory.length-1] : null;
     phase='pick'; saveState(); showPickScreen(); return;
   }
   if (phase === 'restEnd') {
-    google.script.run.clearTimeCell(lastPickRow, 15, COMPANY_SS_ID);
+    google.script.run.clearTimeCell(runId, lastPickIndex, 16, COMPANY_SS_ID);
     phase='restStart'; saveState(); showScreen('step3','休憩開始'); return;
   }
   if (phase === 'drop') {
     if (dropHistory.length > 0) {
       var li = dropHistory.pop(); dropDone[li] = false;
-      google.script.run.clearTimeCell(runRows[li], 17, COMPANY_SS_ID);
+      google.script.run.clearTimeCell(runId, li, 18, COMPANY_SS_ID);
       saveState(); showDropScreen(); return;
     }
-    google.script.run.clearTimeCell(lastPickRow, 16, COMPANY_SS_ID);
+    google.script.run.clearTimeCell(runId, lastPickIndex, 17, COMPANY_SS_ID);
     phase='restEnd'; saveState(); showScreen('step4','休憩終了'); return;
   }
   goHome();
@@ -902,8 +955,8 @@ function goBack() {
 
 // ============================================================
 //  C-10: 運行開始ボタン（startRun）
-//  途中状態があればその画面に復帰
-//  途中状態がなければ新規行程入力画面へ
+//  途中状態があればその画面に復帰、なければ新規行程入力へ
+//  ※SS配車済み行程の自動ロードは廃止（一覧から再開するように変更）
 // ============================================================
 function startRun() {
   var status = document.getElementById('statusText').innerText;
@@ -918,6 +971,30 @@ function startRun() {
   }
   showScreen('step1','行程入力');
   initRouteInput();
+}
+
+// ============================================================
+//  C-10b: 車番フォーカスアウト時にマスタ補完（fillCarFromMaster）
+//  自車専属マスタに一致する車番があれば空フィールドのみ補完
+//  先入力済みのフィールドは上書きしない。マスタにない車番は何もしない
+// ============================================================
+function fillCarFromMaster() {
+  var carVal = document.getElementById('step1Car').value.trim();
+  if (!carVal) return;
+  // 車番以外のフィールドになにか入力済みなら補完しない（手入力優先）
+  if (document.getElementById('step1Name').value.trim()   ||
+      document.getElementById('step1Kanban').value.trim() ||
+      document.getElementById('step1Tons').value.trim()   ||
+      document.getElementById('step1Type').value.trim()   ||
+      document.getElementById('step1Tel').value.trim()) return;
+  google.script.run.withSuccessHandler(function(info) {
+    if (!info) return;
+    document.getElementById('step1Tons').value   = info.tons    || '';
+    document.getElementById('step1Type').value   = info.type    || '';
+    document.getElementById('step1Kanban').value = info.company || '';
+    document.getElementById('step1Name').value   = info.name    || '';
+    document.getElementById('step1Tel').value    = info.tel     || '';
+  }).getCarInfoByNumber(carVal, COMPANY_SS_ID);
 }
 
 // ============================================================
@@ -991,11 +1068,12 @@ function startRunFromInput() {
   function createNew() {
     google.script.run
       .withSuccessHandler(function(r) {
-        picks=np; drops=nd; runRows=r;
+        picks=np; drops=nd; runRows=r.rows; runId=r.id;
+        driverCreatedRows=true;
         guideDone=new Array(picks.length).fill(false);
         pickDone=new Array(picks.length).fill(false);
         dropDone=new Array(drops.length).fill(false);
-        phase='guide'; lastPickRow=null; guideHistory=[]; pickHistory=[]; dropHistory=[];
+        phase='guide'; lastPickIndex=null; guideHistory=[]; pickHistory=[]; dropHistory=[];
         guideNotice=null;
         saveState(); showGuideScreen();
       })
@@ -1003,7 +1081,7 @@ function startRunFromInput() {
       .createParentRows(np, nd, runDate, overrideInfo, COMPANY_SS_ID);
   }
   if (runRows.length>0) {
-    google.script.run.withSuccessHandler(function(){ runRows=[]; createNew(); }).deleteRunRows(runRows, COMPANY_SS_ID);
+    google.script.run.withSuccessHandler(function(){ runRows=[]; runId=''; createNew(); }).deleteRunRows(runId, COMPANY_SS_ID);
   } else {
     createNew();
   }
@@ -1035,7 +1113,7 @@ function showGuideScreen() {
   picks.forEach(function(p,i) {
     if (!guideDone[i]) {
       rem++;
-      var btn=document.createElement('button'); btn.className='big-btn teal';
+      var btn=document.createElement('button'); btn.className='big-btn'; btn.style.backgroundColor='#00838f';
       btn.innerText='行程'+(i+1)+'：'+p+' を誘導';
       btn.onclick=(function(idx){return function(){selectGuide(idx);};})(i);
       area.appendChild(btn);
@@ -1051,14 +1129,15 @@ function showGuideScreen() {
     google.script.run
       .withSuccessHandler(function(n){ guideNotice=n||{notice:'',dataUrl:''}; updateGuideNoticeArea(); })
       .withFailureHandler(function(){ guideNotice={notice:'',dataUrl:''}; updateGuideNoticeArea(); })
-      .getNoticeByRow(runRows[0], COMPANY_SS_ID);
+      .getNoticeByRow(runId, COMPANY_SS_ID);
   } else {
     updateGuideNoticeArea();
   }
 }
 function selectGuide(i) {
   guideDone[i]=true; guideHistory.push(i);
-  saveState(); google.script.run.setGuideComplete(runRows[i], COMPANY_SS_ID); showGuideScreen();
+  showGuideScreen();
+  google.script.run.recordAction('guide', runId, i, getStateObj(), COMPANY_SS_ID);
 }
 
 // ============================================================
@@ -1073,7 +1152,7 @@ function showPickScreen() {
   picks.forEach(function(p,i) {
     if (!pickDone[i]) {
       rem++;
-      var btn=document.createElement('button'); btn.className='big-btn blue';
+      var btn=document.createElement('button'); btn.className='big-btn'; btn.style.backgroundColor='#2e7d32';
       btn.innerText='行程'+(i+1)+'：'+p+' を積完';
       btn.onclick=(function(idx){return function(){selectPick(idx);};})(i);
       area.appendChild(btn);
@@ -1083,8 +1162,9 @@ function showPickScreen() {
   else { document.getElementById('step2').style.display='block'; }
 }
 function selectPick(i) {
-  lastPickRow=runRows[i]; pickDone[i]=true; pickHistory.push(i);
-  saveState(); google.script.run.setPickComplete(runRows[i], COMPANY_SS_ID); showPickScreen();
+  lastPickIndex=i; pickDone[i]=true; pickHistory.push(i);
+  showPickScreen();
+  google.script.run.recordAction('pick', runId, i, getStateObj(), COMPANY_SS_ID);
 }
 
 // ============================================================
@@ -1092,19 +1172,19 @@ function selectPick(i) {
 //  休憩開始ボタン押下→休憩終了画面へ
 // ============================================================
 function restStart() {
-  var targetRow = Number(lastPickRow) || Number(runRows[runRows.length-1]) || 0;
-  if (!targetRow) { alert('行程がありません'); return; }
-  google.script.run.setRest(targetRow, 'start', COMPANY_SS_ID);
-  phase='restEnd'; saveState(); showScreen('step4','休憩終了');
+  var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
+  if (!runId) { alert('行程がありません'); return; }
+  phase='restEnd'; showScreen('step4','休憩終了');
+  google.script.run.recordAction('restStart', runId, targetIndex, getStateObj(), COMPANY_SS_ID);
 }
 
 // ============================================================
 //  C-15: 休憩終了（restEnd）
 // ============================================================
 function restEnd() {
-  var targetRow = Number(lastPickRow) || Number(runRows[runRows.length-1]) || 0;
-  if (targetRow) google.script.run.setRest(targetRow, 'end', COMPANY_SS_ID);
-  phase='drop'; saveState(); showDropScreen();
+  var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
+  phase='drop'; showDropScreen();
+  if (runId) google.script.run.recordAction('restEnd', runId, targetIndex, getStateObj(), COMPANY_SS_ID);
 }
 
 // ============================================================
@@ -1123,7 +1203,7 @@ function showDropScreen() {
       remaining++;
       var btn = document.createElement('button');
       btn.className = 'big-btn';
-      btn.style.backgroundColor = '#e64a19';
+      btn.style.backgroundColor = '#c62828';
       btn.style.color = 'white';
       btn.innerText = '行程' + (i + 1) + '：' + d + ' を降完';
       btn.onclick = (function(idx) { return function() { selectDrop(idx); }; })(i);
@@ -1144,9 +1224,8 @@ function showDropScreen() {
 function selectDrop(i) {
   dropDone[i] = true;
   dropHistory.push(i);
-  saveState();
-  google.script.run.setDropComplete(runRows[i], COMPANY_SS_ID);
   showDropScreen();
+  google.script.run.recordAction('drop', runId, i, getStateObj(), COMPANY_SS_ID);
 }
 
 // ============================================================
@@ -1154,10 +1233,10 @@ function selectDrop(i) {
 // ============================================================
 function clearRunStateAndHome() {
   google.script.run.withSuccessHandler(function() {
-    phase = ''; picks = []; drops = []; runRows = [];
+    phase = ''; picks = []; drops = []; runRows = []; runId = '';
     guideDone = []; pickDone = []; dropDone = [];
     guideHistory = []; pickHistory = []; dropHistory = [];
-    guideNotice = null;
+    lastPickIndex = null; guideNotice = null; runReturnTo = '';
     saveState();
     goHome();
   }).clearRunState();
@@ -1176,8 +1255,6 @@ function showList() {
   var now = new Date();
   listYear = now.getFullYear();
   listMonth = now.getMonth() + 1;
-  filterCar = ''; filterDateFrom = ''; filterDateTo = '';
-  sortCol = -1; sortAsc = true;
   showScreen('listScreen', '運行一覧');
   google.script.run
     .withSuccessHandler(function(r) { readIds = r || []; loadList(); })
@@ -1221,23 +1298,69 @@ function loadList() {
       payDetail += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:2px solid #388e3c;margin-top:2px;">';
       payDetail += '<span style="color:#66bb6a;font-size:13px;font-weight:700;">支払合計</span><span style="font-size:26px;font-weight:900;color:#66bb6a;">¥'+tTotal.toLocaleString()+'</span></div>';
       // 稼働日数ブレークダウン
-      var yukyuTxt  = (t.yukyuDays ||0) > 0 ? '<span style="background:#e65100;color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;">有休 '+(t.yukyuDays||0)+'日</span>' : '';
-      var yasumiTxt = (t.yasumiDays||0) > 0 ? '<span style="background:#37474f;color:#cfd8dc;border-radius:4px;padding:1px 6px;font-size:11px;">休み '+(t.yasumiDays||0)+'日</span>' : '';
-      var daySub = (yukyuTxt||yasumiTxt) ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">'+(yukyuTxt)+(yasumiTxt)+'</div>' : '';
+      var yukyuTxt  = (t.yukyuDays ||0) > 0 ? '<span style="background:rgba(230,81,0,.25);color:#ffb74d;border:1px solid rgba(255,183,77,.3);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">有休 '+(t.yukyuDays||0)+'日</span>' : '';
+      var yasumiTxt = (t.yasumiDays||0) > 0 ? '<span style="background:rgba(55,71,79,.4);color:#b0bec5;border:1px solid rgba(176,190,197,.2);border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700;">休み '+(t.yasumiDays||0)+'日</span>' : '';
+      var daySub = (yukyuTxt||yasumiTxt) ? '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;">'+(yukyuTxt)+(yasumiTxt)+'</div>' : '';
+      // 支払明細行
+      var detailRows = '';
+      detailRows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">'
+        +'<span style="font-size:11px;color:#888;">支 払</span>'
+        +'<span style="font-size:13px;font-weight:600;color:#ccc;">¥'+tPay.toLocaleString()+'</span></div>';
+      if (tYukyu > 0) detailRows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">'
+        +'<span style="font-size:11px;color:#ffb74d;">＋ 有休手当</span>'
+        +'<span style="font-size:13px;font-weight:600;color:#ffb74d;">¥'+tYukyu.toLocaleString()+'</span></div>';
+      if (tOther > 0) detailRows += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;">'
+        +'<span style="font-size:11px;color:#80cbc4;">＋ その他手当</span>'
+        +'<span style="font-size:13px;font-weight:600;color:#80cbc4;">¥'+tOther.toLocaleString()+'</span></div>';
       document.getElementById('summaryCard').innerHTML =
-        '<div style="background:#1a1a1a;border-radius:14px;padding:14px 16px;margin-bottom:8px;border:1px solid #2a2a2a;">'+payDetail+'</div>'+
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
-        '<div style="background:#1a1a1a;border-radius:12px;padding:12px;border:1px solid #2a2a2a;">'+
-          '<div style="font-size:11px;color:#666;letter-spacing:.5px;margin-bottom:2px;">稼 働</div>'+
-          '<div style="font-size:32px;font-weight:900;color:#bb86fc;line-height:1;">'+(t.days||0)+'<span style="font-size:13px;color:#9e9e9e;font-weight:400;">日</span></div>'+daySub+
-        '</div>'+
-        '<div style="background:#1a1a1a;border-radius:12px;padding:12px;border:1px solid #2a2a2a;">'+
-          '<div style="font-size:11px;color:#666;margin-bottom:4px;">売 上</div>'+
-          '<div style="font-size:15px;font-weight:700;color:#e0e0e0;">¥'+Math.round(t.sales||0).toLocaleString()+'</div>'+
-          '<div style="font-size:11px;color:#666;margin-top:10px;margin-bottom:4px;">高 速</div>'+
-          '<div style="font-size:14px;font-weight:700;color:#bdbdbd;">¥'+Math.round(t.toll||0).toLocaleString()+'</div>'+
-        '</div>'+
-        '</div>';
+        // ── 支払カード（左：明細 ／ 右：合計） ──
+        '<div style="background:linear-gradient(135deg,#0d2010,#162716);border-radius:12px;padding:8px 12px;margin-bottom:6px;border:1px solid #2d5a2d;display:flex;align-items:center;gap:8px;">'
+        // 左：支払 / 有休手当 / その他手当
+        +'<div style="flex:1;min-width:0;overflow:hidden;">'
+          +'<div style="display:flex;justify-content:space-between;align-items:baseline;">'
+            +'<span style="font-size:13px;font-weight:600;color:#aaa;">支払</span>'
+            +'<span style="font-size:15px;font-weight:800;color:#ddd;">¥'+tPay.toLocaleString()+'</span>'
+          +'</div>'
+          +(tYukyu > 0
+            ? '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:3px;">'
+              +'<span style="font-size:13px;font-weight:600;color:#ffb74d;">有休手当</span>'
+              +'<span style="font-size:15px;font-weight:800;color:#ffb74d;">¥'+tYukyu.toLocaleString()+'</span>'
+              +'</div>'
+            : '')
+          +(tOther > 0
+            ? '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:3px;">'
+              +'<span style="font-size:13px;font-weight:600;color:#80cbc4;">その他手当</span>'
+              +'<span style="font-size:15px;font-weight:800;color:#80cbc4;">¥'+tOther.toLocaleString()+'</span>'
+              +'</div>'
+            : '')
+        +'</div>'
+        // 縦区切り線
+        +'<div style="width:1px;align-self:stretch;background:rgba(255,255,255,.1);flex-shrink:0;"></div>'
+        // 右：支払合計
+        +'<div style="flex:1;min-width:0;text-align:right;">'
+          +'<div style="font-size:13px;font-weight:700;color:#4caf50;margin-bottom:2px;">支払合計</div>'
+          +'<div style="font-size:22px;font-weight:900;color:#66bb6a;letter-spacing:-.5px;line-height:1;">¥'+tTotal.toLocaleString()+'</div>'
+        +'</div>'
+        +'</div>'
+        // ── 下段グリッド：稼働 ／ 売上 ／ 高速 ──
+        +'<div style="display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:6px;">'
+        // 稼働
+        +'<div style="background:#1c1428;border-radius:10px;padding:7px 8px;border:1px solid #2a2040;text-align:center;">'
+          +'<div style="font-size:12px;font-weight:700;color:#9c6fda;margin-bottom:2px;">稼働</div>'
+          +'<div style="font-size:22px;font-weight:900;color:#bb86fc;line-height:1;">'+(t.days||0)+'<span style="font-size:13px;color:#7c5cbf;font-weight:600;">日</span></div>'
+          +daySub
+        +'</div>'
+        // 売上
+        +'<div style="background:#101a28;border-radius:10px;padding:7px 8px;border:1px solid #1e2f40;text-align:center;">'
+          +'<div style="font-size:12px;font-weight:700;color:#5b9bd5;margin-bottom:2px;">売上</div>'
+          +'<div style="font-size:15px;font-weight:800;color:#64b5f6;word-break:break-all;">¥'+Math.round(t.sales||0).toLocaleString()+'</div>'
+        +'</div>'
+        // 高速
+        +'<div style="background:#111e16;border-radius:10px;padding:7px 8px;border:1px solid #1e3524;text-align:center;">'
+          +'<div style="font-size:12px;font-weight:700;color:#5aaa72;margin-bottom:2px;">高速</div>'
+          +'<div style="font-size:15px;font-weight:800;color:#81c784;word-break:break-all;">¥'+Math.round(t.toll||0).toLocaleString()+'</div>'
+        +'</div>'
+        +'</div>';
       renderTable();
     })
     .withFailureHandler(function(err) {
@@ -1649,15 +1772,16 @@ function openTermDataModal(id) {
       h += '<div style="color:#888;margin-bottom:12px;">ファイルなし</div>';
     } else {
       termUrls.forEach(function(url, idx) {
-        h += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">';
-        h += '<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">ファイル'+(idx+1)+'</a>';
-        h += '<button onclick="changeTermFileDirect(\''+id+'\',\''+url+'\')" style="padding:4px 10px;border-radius:8px;background:#37474f;color:white;font-size:12px;flex-shrink:0;">変更</button>';
-        h += '<button onclick="deleteTermFileDirect(\''+id+'\',\''+encodeURIComponent(url)+'\')" style="padding:4px 10px;border-radius:8px;background:#d32f2f;color:white;font-size:12px;flex-shrink:0;">削除</button>';
+        var enc = encodeURIComponent(url);
+        h += '<div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;">';
+        h += '<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;flex:1;">ファイル'+(idx+1)+'</a>';
+        h += '<button onclick="changeTermFileDirect(\''+id+'\',\''+url+'\')" style="padding:3px 8px;border-radius:6px;background:#555;color:white;font-size:11px;">変更</button>';
+        h += '<button onclick="deleteTermFileDirect(\''+id+'\',\''+enc+'\')" style="padding:3px 8px;border-radius:6px;background:#c62828;color:white;font-size:11px;">削除</button>';
         h += '</div>';
       });
     }
-    h += '<div style="display:flex;gap:8px;margin-top:12px;">';
-    h += '<button onclick="addTermFileDirect(\''+id+'\')" style="padding:6px 14px;border-radius:8px;background:#1565c0;color:white;font-size:13px;">＋ 追加</button>';
+    h += '<div style="margin-top:12px;display:flex;gap:8px;">';
+    h += '<button onclick="addTermFileDirect(\''+id+'\')" style="padding:6px 14px;border-radius:8px;background:#388e3c;color:white;font-size:13px;">ファイル追加</button>';
     h += '<button onclick="closeTermDataModal()" style="padding:6px 14px;border-radius:8px;background:#444;color:white;font-size:13px;">閉じる</button>';
     h += '</div>';
     document.getElementById('termDataBox').innerHTML = h;
@@ -1849,11 +1973,12 @@ function openEditModal(id) {
       return '<div class="edit-row"><div class="edit-label">'+label+'</div><input class="edit-input" id="ed_'+name+'" type="'+type+'" value="'+v+'"></div>';
     }
     h+=ro('ID',d.id)+ro('区分',d.kubun)+ro('会社名',d.company);
-    h+=ed('トン数','tons',d.tons)+ed('車種','type',d.type)+ed('看板名','kanban',d.kanban)+ed('車番','car',d.car)+ed('乗務員名','name',d.name)+ed('携帯番号','tel',d.tel,'tel');
-    h+=ed('日付','date',d.date,'date')+ed('荷主名','client',d.client)+ed('積地','pick',d.pick)+ed('降地','drop',d.drop);
-    h+=ed('誘導時刻','guideTime',d.guideTime,'time')+ed('積完時刻','pickTime',d.pickTime,'time')+ed('休憩開始','restStart',d.restStart,'time')+ed('休憩終了','restEnd',d.restEnd,'time')+ed('降完時刻','dropTime',d.dropTime,'time');
+    h+=ro('トン数',d.tons)+ro('車種',d.type)+ro('看板名',d.kanban)+ro('車番',d.car)+ro('乗務員名',d.name)+ro('携帯番号',d.tel);
+    h+=ro('日付',d.date)+ro('荷主名',d.client)+ro('積地',d.pick)+ro('降地',d.drop);
+    h+=ro('誘導時刻',d.guideTime)+ro('積完時刻',d.pickTime)+ro('休憩開始',d.restStart)+ro('休憩終了',d.restEnd)+ro('降完時刻',d.dropTime);
     h+=ro('売上', d.sales!==''&&d.sales!==null ? Math.trunc(Number(d.sales)).toLocaleString() : '');
-    h+=ed('請求高速','tollReq',d.tollReq,'number')+ed('実費高速','tollReal',d.tollReal,'number');
+    h+=ro('請求高速', d.tollReq!==''&&d.tollReq!==null ? d.tollReq : '');
+    h+=ro('実費高速', d.tollReal!==''&&d.tollReal!==null ? d.tollReal : '');
     h+=ro('高速計', d.tollTotal!==''&&d.tollTotal!==null ? Math.trunc(Number(d.tollTotal)).toLocaleString() : '');
     h+=ro('支払', d.pay!==''&&d.pay!==null ? Math.trunc(Number(d.pay)).toLocaleString() : '');
     h+=ro('有休手当', (d.yukyu !== '' && d.yukyu !== null && d.yukyu !== undefined && d.yukyu !== 0) ? '¥'+Math.trunc(Number(d.yukyu)).toLocaleString() : '—');
@@ -1864,32 +1989,32 @@ function openEditModal(id) {
     if(adminUrls.length===0){h+='<div style="color:#888;margin-bottom:6px;">なし</div>';}
     else{
       adminUrls.forEach(function(url,idx){
-        h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">';
-        h+='<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">ファイル'+(idx+1)+'</a>';
-        h+='<button onclick="changeAdminFile(\''+editId+'\',\''+url+'\')" style="padding:4px 10px;border-radius:8px;background:#37474f;color:white;font-size:12px;flex-shrink:0;">変更</button>';
-        h+='<button onclick="deleteAdminFile(\''+editId+'\',\''+encodeURIComponent(url)+'\')" style="padding:4px 10px;border-radius:8px;background:#d32f2f;color:white;font-size:12px;flex-shrink:0;">削除</button>';
+        h+='<div style="margin-bottom:6px;">';
+        h+='<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;">ファイル'+(idx+1)+'</a>';
         h+='</div>';
       });
     }
-    h+='<button onclick="addAdminFile(\''+editId+'\')" style="padding:6px 14px;border-radius:8px;background:#1565c0;color:white;font-size:13px;">＋ 追加</button>';
     h+='</div></div>';
-    h+=ed('連絡(端末)','termNotice',d.termNotice);
-    // データ(端末): 複数ファイル管理
+    h+=ed('連絡(端末)','termNotice',d.termNotice||'');
+    // データ(端末): 追加・変更・削除可能
     var termUrls=(d.termData||'').split(',').map(function(u){return u.trim();}).filter(function(u){return u;});
     h+='<div class="edit-row"><div class="edit-label">データ(端末)</div><div class="edit-val">';
-    termUrls.forEach(function(url,idx){
-      h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">';
-      h+='<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">ファイル'+(idx+1)+'</a>';
-      h+='<button onclick="changeTermFile(\''+editId+'\',\''+url+'\')" style="padding:4px 10px;border-radius:8px;background:#37474f;color:white;font-size:12px;flex-shrink:0;">変更</button>';
-      h+='<button onclick="deleteTermFile(\''+editId+'\',\''+encodeURIComponent(url)+'\')" style="padding:4px 10px;border-radius:8px;background:#d32f2f;color:white;font-size:12px;flex-shrink:0;">削除</button>';
-      h+='</div>';
-    });
-    h+='<button onclick="addTermFile(\''+editId+'\')" style="padding:6px 14px;border-radius:8px;background:#1565c0;color:white;font-size:13px;margin-top:2px;">＋ 追加</button>';
+    if(termUrls.length===0){h+='<div style="color:#888;margin-bottom:6px;">なし</div>';}
+    else{
+      termUrls.forEach(function(url,idx){
+        var enc=encodeURIComponent(url);
+        h+='<div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;">';
+        h+='<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;flex:1;">ファイル'+(idx+1)+'</a>';
+        h+='<button onclick="changeTermFile(\''+id+'\',\''+url+'\')" style="padding:3px 8px;border-radius:6px;background:#555;color:white;font-size:11px;">変更</button>';
+        h+='<button onclick="deleteTermFile(\''+id+'\',\''+enc+'\')" style="padding:3px 8px;border-radius:6px;background:#c62828;color:white;font-size:11px;">削除</button>';
+        h+='</div>';
+      });
+    }
+    h+='<button onclick="addTermFile(\''+id+'\')" style="margin-top:6px;padding:4px 10px;border-radius:6px;background:#388e3c;color:white;font-size:12px;">ファイル追加</button>';
     h+='</div></div>';
     h+='<div class="edit-btns">'+
+      '<button class="edit-btn eb-save" onclick="saveTermNoticeFromEdit(\''+id+'\')">保存</button>'+
       '<button class="edit-btn eb-close" onclick="closeEditModal()">閉じる</button>'+
-      '<button class="edit-btn eb-save" onclick="saveEditModal()">保存</button>'+
-      '<button class="edit-btn eb-delete" onclick="deleteEditModal()">削除</button>'+
       '</div>';
     document.getElementById('editBox').innerHTML=h;
     document.getElementById('editOverlay').classList.add('show');
@@ -1969,6 +2094,13 @@ function changeTermFile(id, oldUrl) {
   };
   input.click();
 }
+function saveTermNoticeFromEdit(id) {
+  var val = (document.getElementById('ed_termNotice') || {}).value || '';
+  google.script.run
+    .withSuccessHandler(function(){ openEditModal(id); })
+    .withFailureHandler(function(e){ alert('保存エラー: '+e.message); })
+    .saveTermNoticeByDriver(id, val, COMPANY_SS_ID);
+}
 
 // ============================================================
 //  C-23: 一覧から運行開始・再開（startRunFromList）
@@ -1980,13 +2112,14 @@ function startRunFromList(id) {
     if (data.progress==='complete') return;
     picks=data.routes.map(function(r){return r.pick;});
     drops=data.routes.map(function(r){return r.drop;});
-    runRows=data.routes.map(function(r){return r.row;});
+    runRows=data.routes.map(function(r){return r.row;}); runId=id;
     guideDone=data.routes.map(function(r){return !!r.guideDone;});
     pickDone=data.routes.map(function(r){return !!r.pickDone;});
     dropDone=data.routes.map(function(r){return !!r.dropDone;});
-    guideHistory=[]; pickHistory=[]; dropHistory=[]; lastPickRow=null; guideNotice=null;
+    driverCreatedRows=false; runReturnTo='list'; // 一覧から来たことを記録
+    guideHistory=[]; pickHistory=[]; dropHistory=[]; lastPickIndex=null; guideNotice=null;
     for(var i=0;i<guideDone.length;i++){if(guideDone[i]) guideHistory.push(i);}
-    for(var i=0;i<pickDone.length;i++){if(pickDone[i]){pickHistory.push(i);lastPickRow=runRows[i];}}
+    for(var i=0;i<pickDone.length;i++){if(pickDone[i]){pickHistory.push(i);lastPickIndex=i;}}
     for(var i=0;i<dropDone.length;i++){if(dropDone[i]) dropHistory.push(i);}
     phase=data.progress; saveState();
     if(phase==='guide') showGuideScreen();
@@ -1995,6 +2128,65 @@ function startRunFromList(id) {
     else if(phase==='restEnd') showScreen('step4','休憩終了');
     else if(phase==='drop') showDropScreen();
   }).withFailureHandler(function(){alert('通信エラー');}).getRoutesById(id, COMPANY_SS_ID);
+}
+
+// ============================================================
+//  C-23b: 新規行程追加モーダル（openNewRouteModal / addNewRouteRow / submitNewRoute / closeNewRouteModal）
+//  現在の運行フェーズ（phase/runId等）を一切変更せずSS行を追加する
+// ============================================================
+function openNewRouteModal() {
+  var area = document.getElementById('newRouteArea');
+  area.innerHTML = '';
+  var t = new Date(); t.setDate(t.getDate() + 1);
+  var yyyy = t.getFullYear(), mm = String(t.getMonth()+1).padStart(2,'0'), dd = String(t.getDate()).padStart(2,'0');
+  document.getElementById('newRouteDate').value = yyyy+'-'+mm+'-'+dd;
+  addNewRouteRow();
+  document.getElementById('newRouteOverlay').style.display = 'block';
+}
+function addNewRouteRow() {
+  var area = document.getElementById('newRouteArea');
+  var n = area.querySelectorAll('.nr-row').length;
+  var div = document.createElement('div');
+  div.className = 'nr-row';
+  div.style.cssText = 'background:#252525;border-radius:10px;padding:12px;margin-bottom:8px;';
+  div.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+    + '<span style="color:#aaa;font-size:13px;">行程 '+(n+1)+'</span>'
+    + (n > 0 ? '<button type="button" onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:#f44336;font-size:20px;cursor:pointer;line-height:1;">×</button>' : '')
+    + '</div>'
+    + '<div style="font-size:11px;color:#888;margin-bottom:2px;">積地</div>'
+    + '<input class="nr-pick" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;margin-bottom:6px;" placeholder="積地">'
+    + '<div style="font-size:11px;color:#888;margin-bottom:2px;">降地</div>'
+    + '<input class="nr-drop" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;" placeholder="降地">';
+  area.appendChild(div);
+}
+function submitNewRoute() {
+  var rows = document.getElementById('newRouteArea').querySelectorAll('.nr-row');
+  var np = [], nd = [];
+  for (var i = 0; i < rows.length; i++) {
+    var p = rows[i].querySelector('.nr-pick').value.trim();
+    var d = rows[i].querySelector('.nr-drop').value.trim();
+    if (!p || !d) { alert('全ての行程に積地・降地を入力してください'); return; }
+    np.push(p); nd.push(d);
+  }
+  var dateVal = document.getElementById('newRouteDate').value;
+  if (!dateVal) { alert('日付を選択してください'); return; }
+  var btn = document.getElementById('newRouteSaveBtn');
+  btn.disabled = true; btn.textContent = '登録中...';
+  google.script.run
+    .withSuccessHandler(function() {
+      btn.disabled = false; btn.textContent = '保存して追加';
+      alert('行程を追加しました');
+      closeNewRouteModal();
+    })
+    .withFailureHandler(function(e) {
+      btn.disabled = false; btn.textContent = '保存して追加';
+      alert('エラー: ' + e.message);
+    })
+    .createParentRows(np, nd, dateVal, null, COMPANY_SS_ID);
+}
+function closeNewRouteModal() {
+  document.getElementById('newRouteOverlay').style.display = 'none';
 }
 
 // ============================================================
