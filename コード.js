@@ -1710,6 +1710,7 @@ function expandAndRefreshSheets() {
     applyDateTimeFormat_(sumForFmt, 2, sumForFmt.getLastRow() - 1);
   }
 
+  applySheetColors_();
   SpreadsheetApp.getUi().alert('シート再生成が完了しました。');
 }
 
@@ -2897,7 +2898,7 @@ function getListData(year, month) {
   var sumSheet = ss.getSheetByName('集計表');
   var payMap   = {};
   if (sumSheet && sumSheet.getLastRow() >= 2) {
-    var sumAll = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 34).getValues();
+    var sumAll = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 35).getValues();
     for (var s = 0; s < sumAll.length; s++) {
       var sid = String(sumAll[s][0]||'').trim();
       if (sid) payMap[sid] = {
@@ -2906,8 +2907,9 @@ function getListData(year, month) {
         tollReal: Math.round(Number(sumAll[s][20])) || 0,
         tollTotal:Math.round(Number(sumAll[s][21])) || 0,
         pay:      Math.round(Number(sumAll[s][26])) || 0,
-        yukyu:    Math.round(Number(sumAll[s][32])) || 0,
-        other:    Math.round(Number(sumAll[s][33])) || 0
+        expense:  Math.round(Number(sumAll[s][27])) || 0,  // col28=AB=経費合計
+        yukyu:    Math.round(Number(sumAll[s][33])) || 0,  // col34=AH=有休手当
+        other:    Math.round(Number(sumAll[s][34])) || 0   // col35=AI=その他手当
       };
     }
   }
@@ -2941,7 +2943,7 @@ function getListData(year, month) {
         dateSort: baseDateSort,
         dateDisp:'', picks:[], drops:[],
         guideTime:'', pickTime:'', restStart:'', restEnd:'', dropTime:'',
-        sales:0, tollReq:0, tollReal:0, tollTotal:0, pay:0, yukyu:0, other:0,
+        sales:0, tollReq:0, tollReal:0, tollTotal:0, pay:0, expense:0, yukyu:0, other:0,
         notice:r[22]||'', dataUrls:du23, dataUrl:du23[0]||'',
         hasNotice:!!(r[22]||du23.length),
         _rawDv: dv
@@ -2994,6 +2996,7 @@ function getListData(year, month) {
       g.tollReal = pm.tollReal;
       g.tollTotal= pm.tollTotal;
       g.pay      = pm.pay;
+      g.expense  = pm.expense || 0;
       g.yukyu    = pm.yukyu || 0;
       g.other    = pm.other || 0;
     }
@@ -3018,7 +3021,7 @@ function getListData(year, month) {
       car:g.car, pick:gpick2, drop:gdrop2,
       guideTime:g.guideTime, pickTime:g.pickTime, restStart:g.restStart, restEnd:g.restEnd, dropTime:g.dropTime,
       sales:g.sales, tollReq:g.tollReq, tollReal:g.tollReal, tollTotal:g.tollTotal,
-      pay:g.pay, yukyu:g.yukyu, other:g.other,
+      pay:g.pay, expense:g.expense, yukyu:g.yukyu, other:g.other,
       notice:g.notice, dataUrl:g.dataUrl, hasNotice:g.hasNotice,
       isComplete: !!(g.guideTime && g.pickTime && g.restStart && g.restEnd && g.dropTime),
       isNew:      !g.guideTime && !g.pickTime && !g.restStart && !g.restEnd && !g.dropTime
@@ -3224,6 +3227,36 @@ function saveTermNoticeByDriver(id, termNotice, companySsId) {
 //  集計表: 距離(V=22)・ガソリン代(X=24)・備考(AB=28)以外ロック
 //  運行シート: 合計高速(U=21)列のみロック
 // ================================================================
+function applySheetColors_(ss) {
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sumSheet = ss.getSheetByName('集計表');
+  if (sumSheet) {
+    var editableCols = [23, 25, 27, 29, 34];
+    var lastCol = Math.max(sumSheet.getLastColumn(), 34);
+    sumSheet.getRange(1, 1, 1, lastCol)
+      .setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
+    for (var ec = 0; ec < editableCols.length; ec++) {
+      sumSheet.getRange(1, editableCols[ec])
+        .setBackground('#1b5e20').setFontColor('#a5d6a7').setFontWeight('bold');
+    }
+    var lastRow = Math.max(sumSheet.getLastRow(), 2);
+    for (var ec2 = 0; ec2 < editableCols.length; ec2++) {
+      sumSheet.getRange(1, editableCols[ec2], lastRow, 1)
+        .setBorder(null, true, null, true, null, null, '#4caf50', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    }
+  }
+  var unkouSheet = ss.getSheetByName('運行');
+  if (unkouSheet) {
+    var unkouLastRow = Math.max(unkouSheet.getLastRow(), 2);
+    var protectedUnkouCols = [22, 25, 26];
+    for (var pc = 0; pc < protectedUnkouCols.length; pc++) {
+      var pcol = protectedUnkouCols[pc];
+      unkouSheet.getRange(1, pcol).setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
+      unkouSheet.getRange(2, pcol, unkouLastRow - 1, 1).setBackground('#eceff1');
+    }
+  }
+}
+
 function setupSheetProtection() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var ui = SpreadsheetApp.getUi();
@@ -3234,7 +3267,6 @@ function setupSheetProtection() {
     sumSheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p){p.remove();});
     sumSheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p){p.remove();});
     var sp = sumSheet.protect().setDescription('集計表保護');
-    var editableCols = [23, 25, 27, 29, 34]; // W=距離, Y=ガソリン代, AA=支払い, AC=備考, AH=その他手当
     sp.setUnprotectedRanges([
       sumSheet.getRange('W2:W2000'),
       sumSheet.getRange('Y2:Y2000'),
@@ -3242,38 +3274,13 @@ function setupSheetProtection() {
       sumSheet.getRange('AC2:AC2000'),
       sumSheet.getRange('AH2:AH2000')
     ]);
-
-    // ヘッダー行: 保護列=グレー, 編集可列=グリーン で視覚区別
-    var lastCol = Math.max(sumSheet.getLastColumn(), 34);
-    sumSheet.getRange(1, 1, 1, lastCol)
-      .setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
-    for (var ec = 0; ec < editableCols.length; ec++) {
-      sumSheet.getRange(1, editableCols[ec])
-        .setBackground('#1b5e20').setFontColor('#a5d6a7').setFontWeight('bold');
-    }
-
-    // 編集可列: 列全体に緑の中太枠線を適用
-    var lastRow = Math.max(sumSheet.getLastRow(), 2);
-    for (var ec2 = 0; ec2 < editableCols.length; ec2++) {
-      sumSheet.getRange(1, editableCols[ec2], lastRow, 1)
-        .setBorder(null, true, null, true, null, null, '#4caf50', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-    }
   }
-
   var unkouSheet = ss.getSheetByName('運行');
   if (unkouSheet) {
     unkouSheet.setFrozenColumns(1);
     unkouSheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p){p.remove();});
-    var unkouLastRow = Math.max(unkouSheet.getLastRow(), 2);
-    // 保護列: V(22)=合計高速, Y(25)=連絡(端末), Z(26)=データ(端末) → グレー着色
-    var protectedUnkouCols = [22, 25, 26];
-    for (var pc = 0; pc < protectedUnkouCols.length; pc++) {
-      var pcol = protectedUnkouCols[pc];
-      unkouSheet.getRange(1, pcol).setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
-      unkouSheet.getRange(2, pcol, unkouLastRow - 1, 1).setBackground('#eceff1');
-    }
   }
-
+  applySheetColors_(ss);
   ui.alert('保護設定完了\n■ 集計表\n  編集可: 距離(W)・ガソリン代(Y)・支払い(AA)・備考(AC)・その他手当(AH)\n  緑枠＋緑ヘッダー = 編集可 / 灰色ヘッダー = 保護\n■ 運行シート: V(合計高速)・Y(連絡端末)・Z(データ端末) をグレー着色');
 }
 

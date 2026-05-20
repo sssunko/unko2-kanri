@@ -585,9 +585,7 @@
     <div class="list-card">
       <h3 style="cursor:pointer;" onclick="toggleFilter()">絞り込み ▼</h3>
       <div id="filterArea" style="display:none;">
-        <div style="font-size:13px;color:#aaa;margin-bottom:4px;">車番</div>
-        <select id="filterCarSelect"><option value="">すべて</option></select>
-        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
+        <div style="display:flex;gap:8px;margin-top:4px;align-items:center;flex-wrap:wrap;">
           <div style="flex:1;min-width:120px;">
             <div style="font-size:13px;color:#aaa;margin-bottom:4px;">開始日</div>
             <input type="date" id="filterDateFrom" style="width:100%;padding:10px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;">
@@ -824,7 +822,8 @@ var guideHistory=[], pickHistory=[], dropHistory=[];
 var guideNotice=null;
 var listYear, listMonth, filterCar='';
 var filterDateFrom='', filterDateTo='';
-var sortCol=-1, sortAsc=true;
+var sortCol=0, sortAsc=false;
+var _pendingActions=[];
 var listRows=[];
 var readIds=[];
 var noticeReturnTo='';
@@ -1065,23 +1064,39 @@ function startRunFromInput() {
     name:   document.getElementById('step1Name').value.trim(),
     tel:    document.getElementById('step1Tel').value.trim()
   };
+  var oldRunId=runId, oldRunRows=runRows.slice();
+  picks=np; drops=nd;
+  driverCreatedRows=true;
+  guideDone=new Array(picks.length).fill(false);
+  pickDone=new Array(picks.length).fill(false);
+  dropDone=new Array(drops.length).fill(false);
+  phase='guide'; lastPickIndex=null; guideHistory=[]; pickHistory=[]; dropHistory=[];
+  guideNotice=null; runRows=[]; runId=''; _pendingActions=[];
+  showGuideScreen();
   function createNew() {
     google.script.run
       .withSuccessHandler(function(r) {
-        picks=np; drops=nd; runRows=r.rows; runId=r.id;
-        driverCreatedRows=true;
-        guideDone=new Array(picks.length).fill(false);
-        pickDone=new Array(picks.length).fill(false);
-        dropDone=new Array(drops.length).fill(false);
-        phase='guide'; lastPickIndex=null; guideHistory=[]; pickHistory=[]; dropHistory=[];
-        guideNotice=null;
-        saveState(); showGuideScreen();
+        runRows=r.rows; runId=r.id;
+        saveState();
+        while (_pendingActions.length>0) {
+          var a=_pendingActions.shift();
+          google.script.run.recordAction(a.type, runId, a.idx, getStateObj(), COMPANY_SS_ID);
+        }
+        if (guideNotice===null && runId) {
+          google.script.run
+            .withSuccessHandler(function(n){ guideNotice=n||{notice:'',dataUrl:''}; updateGuideNoticeArea(); })
+            .withFailureHandler(function(){ guideNotice={notice:'',dataUrl:''}; updateGuideNoticeArea(); })
+            .getNoticeByRow(runId, COMPANY_SS_ID);
+        }
       })
       .withFailureHandler(function(e){ alert('エラー：'+e.message); })
       .createParentRows(np, nd, runDate, overrideInfo, COMPANY_SS_ID);
   }
-  if (runRows.length>0) {
-    google.script.run.withSuccessHandler(function(){ runRows=[]; runId=''; createNew(); }).deleteRunRows(runId, COMPANY_SS_ID);
+  if (oldRunRows.length>0) {
+    google.script.run
+      .withSuccessHandler(function(){ createNew(); })
+      .withFailureHandler(function(){ createNew(); })
+      .deleteRunRows(oldRunId, COMPANY_SS_ID);
   } else {
     createNew();
   }
@@ -1137,7 +1152,11 @@ function showGuideScreen() {
 function selectGuide(i) {
   guideDone[i]=true; guideHistory.push(i);
   showGuideScreen();
-  google.script.run.recordAction('guide', runId, i, getStateObj(), COMPANY_SS_ID);
+  if (runId) {
+    google.script.run.recordAction('guide', runId, i, getStateObj(), COMPANY_SS_ID);
+  } else {
+    _pendingActions.push({type:'guide', idx:i});
+  }
 }
 
 // ============================================================
@@ -1164,7 +1183,11 @@ function showPickScreen() {
 function selectPick(i) {
   lastPickIndex=i; pickDone[i]=true; pickHistory.push(i);
   showPickScreen();
-  google.script.run.recordAction('pick', runId, i, getStateObj(), COMPANY_SS_ID);
+  if (runId) {
+    google.script.run.recordAction('pick', runId, i, getStateObj(), COMPANY_SS_ID);
+  } else {
+    _pendingActions.push({type:'pick', idx:i});
+  }
 }
 
 // ============================================================
@@ -1173,9 +1196,12 @@ function selectPick(i) {
 // ============================================================
 function restStart() {
   var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
-  if (!runId) { alert('行程がありません'); return; }
   phase='restEnd'; showScreen('step4','休憩終了');
-  google.script.run.recordAction('restStart', runId, targetIndex, getStateObj(), COMPANY_SS_ID);
+  if (runId) {
+    google.script.run.recordAction('restStart', runId, targetIndex, getStateObj(), COMPANY_SS_ID);
+  } else {
+    _pendingActions.push({type:'restStart', idx:targetIndex});
+  }
 }
 
 // ============================================================
@@ -1184,7 +1210,11 @@ function restStart() {
 function restEnd() {
   var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
   phase='drop'; showDropScreen();
-  if (runId) google.script.run.recordAction('restEnd', runId, targetIndex, getStateObj(), COMPANY_SS_ID);
+  if (runId) {
+    google.script.run.recordAction('restEnd', runId, targetIndex, getStateObj(), COMPANY_SS_ID);
+  } else {
+    _pendingActions.push({type:'restEnd', idx:targetIndex});
+  }
 }
 
 // ============================================================
@@ -1225,7 +1255,11 @@ function selectDrop(i) {
   dropDone[i] = true;
   dropHistory.push(i);
   showDropScreen();
-  google.script.run.recordAction('drop', runId, i, getStateObj(), COMPANY_SS_ID);
+  if (runId) {
+    google.script.run.recordAction('drop', runId, i, getStateObj(), COMPANY_SS_ID);
+  } else {
+    _pendingActions.push({type:'drop', idx:i});
+  }
 }
 
 // ============================================================
@@ -1271,13 +1305,6 @@ function loadList() {
   google.script.run
     .withSuccessHandler(function(data) {
       listRows = data.rows || [];
-      var cars = {};
-      listRows.forEach(function(r) { if (r.car) cars[r.car] = true; });
-      var sel = document.getElementById('filterCarSelect');
-      sel.innerHTML = '<option value="">すべて</option>';
-      Object.keys(cars).forEach(function(c) {
-        sel.innerHTML += '<option value="'+c+'"'+(filterCar===c?' selected':'')+'>'+c+'</option>';
-      });
       var t = data.total;
       var tPay   = Math.round(t.pay   || 0);
       var tYukyu = Math.round(t.yukyu || 0);
@@ -1361,6 +1388,8 @@ function loadList() {
           +'<div style="font-size:15px;font-weight:800;color:#81c784;word-break:break-all;">¥'+Math.round(t.toll||0).toLocaleString()+'</div>'
         +'</div>'
         +'</div>';
+      document.getElementById('filterDateFrom').value = filterDateFrom;
+      document.getElementById('filterDateTo').value   = filterDateTo;
       renderTable();
     })
     .withFailureHandler(function(err) {
@@ -1397,7 +1426,6 @@ function toggleFilter() {
 }
 
 function applyFilter() {
-  filterCar = document.getElementById('filterCarSelect').value;
   filterDateFrom = document.getElementById('filterDateFrom').value;
   filterDateTo = document.getElementById('filterDateTo').value;
   loadList();
@@ -1405,7 +1433,6 @@ function applyFilter() {
 
 function clearFilter() {
   filterCar = ''; filterDateFrom = ''; filterDateTo = '';
-  document.getElementById('filterCarSelect').value = '';
   document.getElementById('filterDateFrom').value = '';
   document.getElementById('filterDateTo').value = '';
   loadList();
@@ -1430,7 +1457,7 @@ function openColFilter(colIdx, thEl, event) {
   closeColFilter();
   _cfPopupCol = colIdx;
 
-  var cols = ['date','car','pick','drop','guideTime','pickTime','restStart','restEnd','dropTime','sales','tollReq','tollReal','tollTotal','pay'];
+  var cols = ['date','car','pick','drop','guideTime','pickTime','restStart','restEnd','dropTime','sales','tollReq','tollReal','tollTotal','pay','expense','yukyu','other'];
   var colKey = cols[colIdx];
 
   var allVals = {};
@@ -1594,11 +1621,10 @@ function closeColFilter() {
 // ============================================================
 function renderTable() {
   var rows = listRows.slice();
-  if (filterCar) rows = rows.filter(function(r) { return r.car === filterCar; });
   if (filterDateFrom) rows = rows.filter(function(r) { return r.date >= filterDateFrom.replace(/-/g,'/'); });
   if (filterDateTo) rows = rows.filter(function(r) { return r.date <= filterDateTo.replace(/-/g,'/'); });
 
-  var cols = ['date','car','pick','drop','guideTime','pickTime','restStart','restEnd','dropTime','sales','tollReq','tollReal','tollTotal','pay','yukyu','other'];
+  var cols = ['date','car','pick','drop','guideTime','pickTime','restStart','restEnd','dropTime','sales','tollReq','tollReal','tollTotal','pay','expense','yukyu','other'];
   Object.keys(colFilters).forEach(function(ci) {
     var cf = colFilters[ci];
     if (cf === null) return;
@@ -1609,7 +1635,12 @@ function renderTable() {
   if (sortCol >= 0 && sortCol < cols.length) {
     var key = cols[sortCol];
     rows.sort(function(a,b) {
-      if (key === 'date') return sortAsc ? a.dateSort-b.dateSort : b.dateSort-a.dateSort;
+      if (key === 'date') {
+        var da=(a.dateDisp||a.date||''), db=(b.dateDisp||b.date||'');
+        if (da !== db) return sortAsc ? da.localeCompare(db) : db.localeCompare(da);
+        var an=parseInt((a.id||'').replace(/\D+/g,''))||0, bn=parseInt((b.id||'').replace(/\D+/g,''))||0;
+        return sortAsc ? an-bn : bn-an;
+      }
       var va = a[key]||'', vb = b[key]||'';
       if (typeof va==='number'&&typeof vb==='number') return sortAsc?va-vb:vb-va;
       return sortAsc?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va));
@@ -1618,8 +1649,9 @@ function renderTable() {
 
   function toMin(t) { if(!t) return -1; var p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]); }
   function moneyStyle(v) { return v<0?'color:#ff5252;font-weight:900;':''; }
+  function moneyDisp(v)  { return v<0 ? Math.abs(v).toLocaleString() : v.toLocaleString(); }
 
-  var headers = ['日付','車番','積地','降地','誘導','積完','休開','休終','降完','売上','請求高速','実費高速','高速計','支払','有休手当','その他手当'];
+  var headers = ['日付','車番','積地','降地','誘導','積完','休開','休終','降完','売上','請求高速','実費高速','高速計','支払','経費合計','有休手当','その他手当'];
   var html = '<div class="list-table-wrap"><table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">';
   html += '<thead><tr>';
   html += '<th style="padding:10px 6px;border-bottom:2px solid #444;background:#2a2a2a;position:sticky;left:0;z-index:11;"></th>';
@@ -1628,20 +1660,14 @@ function renderTable() {
     var isSorted  = sortCol === idx;
     var arrow     = isSorted ? (sortAsc?' ▲':' ▼') : '';
     var thStyle   = 'padding:10px 6px;color:#bb86fc;font-weight:900;text-align:left;border-bottom:2px solid #444;background:#2a2a2a;cursor:pointer;white-space:nowrap;';
-    if (idx === 0) {
-      // 日付列のみフィルタードロップダウンあり
-      var dot = hasFilter ? '<span style="font-size:10px;color:#bb86fc;"> ●</span>' : '';
-      html += '<th id="th_col_'+idx+'" style="'+thStyle+'" onclick="openColFilter('+idx+',this,event)">'+h+arrow+'<span style="font-size:11px;color:#555;"> ▼</span>'+dot+'</th>';
-    } else {
-      // その他の列はクリックでソートのみ（フィルタードロップダウンなし）
-      html += '<th id="th_col_'+idx+'" style="'+thStyle+'" onclick="sortList('+idx+')">'+h+arrow+'</th>';
-    }
+    var dot = hasFilter ? '<span style="font-size:10px;color:#bb86fc;"> ●</span>' : '';
+    html += '<th id="th_col_'+idx+'" style="'+thStyle+'" onclick="openColFilter('+idx+',this,event)">'+h+arrow+'<span style="font-size:11px;color:#555;"> ▼</span>'+dot+'</th>';
   });
   html += '<th style="padding:10px 6px;color:#bb86fc;font-weight:900;text-align:left;border-bottom:2px solid #444;background:#2a2a2a;">操作</th>';
   html += '</tr></thead><tbody>';
 
   if (rows.length === 0) {
-    html += '<tr><td colspan="16" style="padding:20px;text-align:center;color:#888;">データがありません</td></tr>';
+    html += '<tr><td colspan="17" style="padding:20px;text-align:center;color:#888;">データがありません</td></tr>';
   }
 
   rows.forEach(function(r) {
@@ -1687,11 +1713,13 @@ function renderTable() {
     html += '<td style="padding:8px;'+restSCellBg+'">'+r.restStart+'</td>';
     html += '<td style="padding:8px;'+restECellBg+'">'+r.restEnd+'</td>';
     html += '<td style="padding:8px;'+dropCellBg+'">'+r.dropTime+'</td>';
-    html += '<td style="padding:8px;'+moneyStyle(sales)+'">'+sales.toLocaleString()+'</td>';
-    html += '<td style="padding:8px;'+moneyStyle(tollReq)+'">'+tollReq.toLocaleString()+'</td>';
-    html += '<td style="padding:8px;'+moneyStyle(tollReal)+'">'+tollReal.toLocaleString()+'</td>';
-    html += '<td style="padding:8px;'+moneyStyle(tollTotal)+'">'+tollTotal.toLocaleString()+'</td>';
-    html += '<td style="padding:8px;'+moneyStyle(pay)+'">'+pay.toLocaleString()+'</td>';
+    html += '<td style="padding:8px;'+moneyStyle(sales)+'">'+moneyDisp(sales)+'</td>';
+    html += '<td style="padding:8px;'+moneyStyle(tollReq)+'">'+moneyDisp(tollReq)+'</td>';
+    html += '<td style="padding:8px;'+moneyStyle(tollReal)+'">'+moneyDisp(tollReal)+'</td>';
+    html += '<td style="padding:8px;'+moneyStyle(tollTotal)+'">'+moneyDisp(tollTotal)+'</td>';
+    html += '<td style="padding:8px;'+moneyStyle(pay)+'">'+moneyDisp(pay)+'</td>';
+    var expense = Math.round(r.expense || 0);
+    html += '<td style="padding:8px;'+(expense>0?'color:#ef9a9a;font-weight:700;':'color:#555;')+'">'+( expense>0 ? expense.toLocaleString() : '—')+'</td>';
     var yukyu = Math.round(r.yukyu || 0);
     html += '<td style="padding:8px;'+(yukyu>0?'color:#ffb74d;font-weight:700;':'color:#555;')+'">'+( yukyu>0 ? yukyu.toLocaleString() : '—')+'</td>';
     var other = Math.round(r.other || 0);
@@ -2096,8 +2124,16 @@ function changeTermFile(id, oldUrl) {
 }
 function saveTermNoticeFromEdit(id) {
   var val = (document.getElementById('ed_termNotice') || {}).value || '';
+  closeEditModal();
   google.script.run
-    .withSuccessHandler(function(){ openEditModal(id); })
+    .withSuccessHandler(function(){
+      loadList();
+      var t=document.createElement('div');
+      t.style.cssText='position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#388e3c;color:white;padding:10px 28px;border-radius:20px;font-size:15px;font-weight:700;z-index:9999;';
+      t.innerText='保存完了';
+      document.body.appendChild(t);
+      setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2000);
+    })
     .withFailureHandler(function(e){ alert('保存エラー: '+e.message); })
     .saveTermNoticeByDriver(id, val, COMPANY_SS_ID);
 }
@@ -2171,18 +2207,16 @@ function submitNewRoute() {
   }
   var dateVal = document.getElementById('newRouteDate').value;
   if (!dateVal) { alert('日付を選択してください'); return; }
-  var btn = document.getElementById('newRouteSaveBtn');
-  btn.disabled = true; btn.textContent = '登録中...';
+  closeNewRouteModal();
   google.script.run
     .withSuccessHandler(function() {
-      btn.disabled = false; btn.textContent = '保存して追加';
-      alert('行程を追加しました');
-      closeNewRouteModal();
+      var t=document.createElement('div');
+      t.style.cssText='position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#388e3c;color:white;padding:10px 28px;border-radius:20px;font-size:15px;font-weight:700;z-index:9999;';
+      t.innerText='行程を追加しました';
+      document.body.appendChild(t);
+      setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2000);
     })
-    .withFailureHandler(function(e) {
-      btn.disabled = false; btn.textContent = '保存して追加';
-      alert('エラー: ' + e.message);
-    })
+    .withFailureHandler(function(e){ alert('エラー: ' + e.message); })
     .createParentRows(np, nd, dateVal, null, COMPANY_SS_ID);
 }
 function closeNewRouteModal() {
