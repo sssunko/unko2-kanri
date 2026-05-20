@@ -4783,7 +4783,7 @@ function getOrCreateCompanyTemplate_() {
 //  戻り値: { ssId, ssUrl }
 // ================================================================
 function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
-  // 元SSをコピーして客SS作成（GASコード付き → 客用メニューが自動表示される）
+  // 元SSをコピーして客SS作成（GASコード付き）
   var sourceFile = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId());
   var destFolder = targetFolderId
     ? DriveApp.getFolderById(targetFolderId)
@@ -4793,12 +4793,9 @@ function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
   var newSs   = SpreadsheetApp.openById(newFile.getId());
   try { newFile.addEditor(adminEmail); } catch(e) {}
 
-  // 客SS用シート（残すもの）
-  var keepSheets = ['運行', '集計表', '自車専属マスタ', '自車専属運行', '取引先マスタ', '設定'];
-
   // 客SS用シート以外を全て削除
-  var allSheets = newSs.getSheets();
-  allSheets.forEach(function(s) {
+  var keepSheets = ['運行', '集計表', '自車専属マスタ', '自車専属運行', '取引先マスタ', '設定'];
+  newSs.getSheets().forEach(function(s) {
     if (keepSheets.indexOf(s.getName()) === -1) {
       try { if (newSs.getSheets().length > 1) newSs.deleteSheet(s); } catch(e) {}
     }
