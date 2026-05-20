@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>利用規約 - 運行管理システム</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+      background: #f5f5f5; margin: 0; padding: 16px; color: #333; line-height: 1.6;
+    }
+    .container {
+      max-width: 640px; margin: 0 auto; background: #fff;
+      border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    }
+    h1 { font-size: 20px; margin: 0 0 6px; color: #1a73e8; }
+    .company-label { font-size: 13px; color: #666; margin-bottom: 20px; }
+    .terms-box {
+      background: #fafafa; border: 1px solid #ddd; border-radius: 4px;
+      padding: 16px; height: 320px; overflow-y: auto;
+      font-size: 13px; line-height: 1.9; margin-bottom: 20px;
+    }
+    .terms-box h2 { font-size: 13px; font-weight: bold; margin: 14px 0 4px; }
+    .terms-box p  { margin: 0 0 8px; }
+    .agree-section { text-align: center; padding: 8px 0 0; }
+    .agree-btn {
+      background: #1a73e8; color: #fff; border: none; border-radius: 6px;
+      padding: 14px 0; font-size: 16px; font-weight: bold;
+      cursor: pointer; width: 100%; letter-spacing: 0.05em;
+    }
+    .agree-btn:disabled { background: #aaa; cursor: not-allowed; }
+    .loading-msg { display: none; color: #666; font-size: 13px; margin-top: 10px; }
+    .error-msg   { display: none; color: #d32f2f; font-size: 13px; margin-top: 10px; }
+    .done-wrap   { display: none; text-align: center; padding: 24px 0; }
+    .done-icon   { font-size: 52px; margin-bottom: 8px; }
+    .done-wrap h2 { color: #188038; margin: 0 0 10px; }
+    .done-wrap p  { font-size: 14px; color: #555; margin: 0; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div id="mainContent">
+    <h1>運行管理システム 利用規約</h1>
+    <div class="company-label">対象会社：<?= companyName ?></div>
+
+    <div class="terms-box">
+      <p>本システム（以下「本システム」）をご利用いただくにあたり、以下の利用規約（以下「本規約」）をよくお読みください。同意いただいた場合のみご利用いただけます。</p>
+
+      <h2>第1条（利用目的）</h2>
+      <p>本システムは、貨物運送事業に関わる運行管理業務を支援するためのものです。許可された目的以外での使用はできません。</p>
+
+      <h2>第2条（アカウント管理）</h2>
+      <p>利用者は自己の責任においてアカウント情報を管理するものとし、第三者への譲渡・貸与・共有はできません。</p>
+
+      <h2>第3条（禁止事項）</h2>
+      <p>以下の行為を禁止します。<br>
+      ・本システムのリバースエンジニアリング・改ざん<br>
+      ・法令または公序良俗に違反する行為<br>
+      ・提供者のシステムに過大な負荷をかける行為<br>
+      ・その他、提供者が不適切と判断する行為</p>
+
+      <h2>第4条（データの取り扱い）</h2>
+      <p>ご入力いただいたデータはGoogleスプレッドシート上に保存されます。提供者はデータの内容を無断で第三者に開示しません。ただし、法令に基づく開示請求があった場合を除きます。</p>
+
+      <h2>第5条（免責事項）</h2>
+      <p>本システムの利用により生じた損害について、提供者は一切の責任を負いません。システムの停止・変更・廃止についても同様です。</p>
+
+      <h2>第6条（サービスの変更・終了）</h2>
+      <p>提供者は利用者への事前通知なく、本システムの内容を変更または提供を終了することができます。</p>
+
+      <h2>第7条（規約の変更）</h2>
+      <p>提供者は必要に応じて本規約を変更できます。変更後の規約は本システム上に掲載した時点で効力を生じます。</p>
+
+      <h2>第8条（準拠法・管轄）</h2>
+      <p>本規約は日本法に準拠し、紛争が生じた場合は提供者所在地を管轄する裁判所を専属的合意管轄とします。</p>
+    </div>
+
+    <div class="agree-section">
+      <button id="agreeBtn" class="agree-btn" onclick="doAgree()">上記の利用規約に同意する</button>
+      <div id="loadingMsg" class="loading-msg">処理中...しばらくお待ちください</div>
+      <div id="errorMsg"  class="error-msg"></div>
+    </div>
+  </div>
+
+  <div id="doneContent" class="done-wrap">
+    <div class="done-icon">✅</div>
+    <h2>同意が完了しました</h2>
+    <p>ご同意ありがとうございます。<br>
+    スプレッドシートとアプリのURLを<br>
+    メールでお送りしましたのでご確認ください。</p>
+  </div>
+
+</div>
+<script>
+  var SSID         = '<?= companySsId ?>';
+  var COMPANY_NAME = '<?= companyName ?>';
+  var ADMIN_EMAIL  = '<?= adminEmail ?>';
+  var CONTRACT_ROW = '<?= contractRow ?>';
+
+  function doAgree() {
+    var btn     = document.getElementById('agreeBtn');
+    var loading = document.getElementById('loadingMsg');
+    var errMsg  = document.getElementById('errorMsg');
+    btn.disabled        = true;
+    loading.style.display = 'block';
+    errMsg.style.display  = 'none';
+
+    google.script.run
+      .withSuccessHandler(function() {
+        document.getElementById('mainContent').style.display  = 'none';
+        document.getElementById('doneContent').style.display = 'block';
+      })
+      .withFailureHandler(function(err) {
+        btn.disabled          = false;
+        loading.style.display = 'none';
+        errMsg.textContent    = 'エラーが発生しました: ' + (err.message || err);
+        errMsg.style.display  = 'block';
+      })
+      .agreeContract(SSID, COMPANY_NAME, ADMIN_EMAIL, CONTRACT_ROW);
+  }
+</script>
+</body>
+</html>

@@ -598,27 +598,63 @@ function sortSummaryByDate_(companySsId) {
 //        月生成 / 前月分アーカイブ / 写真・ファイル取込
 // ================================================================
 function onOpen() {
-  // '__COMPANY_SS__' シートがあれば客先配布SSとして客用メニューを表示
-  // マスターSSにはこのシートがないため常に管理者メニューを表示
-  var isAdmin = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('__COMPANY_SS__') === null;
+  var DEV_SCRIPT_ID = '1weCq7YSieGA6kBnqvcycwdTIwT8t8euhHa6QsD2DM3twYBElTpCTOa6W';
+  var isDev    = (ScriptApp.getScriptId() === DEV_SCRIPT_ID);
+  var isClient = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('__COMPANY_SS__') !== null;
 
-  var menu = SpreadsheetApp.getUi().createMenu('メニュー')
-    .addItem('ホーム画面を表示', 'showSidebar')
-    .addSeparator()
-    .addItem('📅 今月分生成（途中契約）', 'generateCurrentMonth')
-    .addItem('📅 翌月分生成', 'generateNextMonth')
-    .addItem('📦 前月分アーカイブ', 'archiveOldMonth')
-    .addSeparator()
-    .addItem('集計表再生成', 'generateSummary')
-    .addItem('シート再生成', 'expandAndRefreshSheets')
-    .addItem('💴 経費自動入力', 'autoFillExpense')
-    .addItem('🔃 日付順並び替え', 'sortUnkouByDate_')
-    .addSeparator()
-    .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
-    .addItem('📖 使い方シート作成', 'createUsageSheet');
+  var menu = SpreadsheetApp.getUi().createMenu('メニュー');
 
-  if (isAdmin) {
+  if (isDev) {
+    // 修正用SS: テスト用フルメニュー＋元データに反映（会社管理系は非表示）
     menu
+      .addItem('ホーム画面を表示', 'showSidebar')
+      .addSeparator()
+      .addItem('📅 今月分生成（途中契約）', 'generateCurrentMonth')
+      .addItem('📅 翌月分生成', 'generateNextMonth')
+      .addItem('📦 前月分アーカイブ', 'archiveOldMonth')
+      .addSeparator()
+      .addItem('集計表再生成', 'generateSummary')
+      .addItem('シート再生成', 'expandAndRefreshSheets')
+      .addItem('💴 経費自動入力', 'autoFillExpense')
+      .addItem('🔃 日付順並び替え', 'sortUnkouByDate_')
+      .addSeparator()
+      .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
+      .addItem('📖 使い方シート作成', 'createUsageSheet')
+      .addSeparator()
+      .addItem('シート保護設定', 'setupSheetProtection')
+      .addSeparator()
+      .addItem('🔧 初期設定', 'installTriggers')
+      .addSeparator()
+      .addItem('📤 元データに反映', 'syncToOriginalSS');
+  } else if (isClient) {
+    // 客SS: 必要最小限のみ
+    menu
+      .addItem('ホーム画面を表示', 'showSidebar')
+      .addSeparator()
+      .addItem('📅 今月分生成（途中契約）', 'generateCurrentMonth')
+      .addItem('📅 翌月分生成', 'generateNextMonth')
+      .addItem('📦 前月分アーカイブ', 'archiveOldMonth')
+      .addSeparator()
+      .addItem('集計表再生成', 'generateSummary')
+      .addItem('シート再生成', 'expandAndRefreshSheets')
+      .addSeparator()
+      .addItem('📷 写真・ファイル取込', 'showUploadSidebar');
+  } else {
+    // 元SS: 会社管理フルメニュー（修正用SS関連は非表示）
+    menu
+      .addItem('ホーム画面を表示', 'showSidebar')
+      .addSeparator()
+      .addItem('📅 今月分生成（途中契約）', 'generateCurrentMonth')
+      .addItem('📅 翌月分生成', 'generateNextMonth')
+      .addItem('📦 前月分アーカイブ', 'archiveOldMonth')
+      .addSeparator()
+      .addItem('集計表再生成', 'generateSummary')
+      .addItem('シート再生成', 'expandAndRefreshSheets')
+      .addItem('💴 経費自動入力', 'autoFillExpense')
+      .addItem('🔃 日付順並び替え', 'sortUnkouByDate_')
+      .addSeparator()
+      .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
+      .addItem('📖 使い方シート作成', 'createUsageSheet')
       .addSeparator()
       .addItem('シート保護設定', 'setupSheetProtection')
       .addSeparator()
@@ -632,12 +668,14 @@ function onOpen() {
 
   menu.addToUi();
 
-  // マスターSSのIDを保存（時間トリガーからopenByIdで開くために使う）
-  try {
-    PropertiesService.getScriptProperties().setProperty(
-      'masterSsId', SpreadsheetApp.getActiveSpreadsheet().getId()
-    );
-  } catch(ex) {}
+  // 元SSのみmasterSsIdを保存（時間トリガーからopenByIdで開くために使う）
+  if (!isDev && !isClient) {
+    try {
+      PropertiesService.getScriptProperties().setProperty(
+        'masterSsId', SpreadsheetApp.getActiveSpreadsheet().getId()
+      );
+    } catch(ex) {}
+  }
   convertLegacyAdminDataUrls_();
   applyHolidayRowColors_();
 }
@@ -651,7 +689,8 @@ function onOpen() {
 //  これにより会社SS作成時のアプリURLが自動で設定される（手動入力不要）。
 // ================================================================
 function doGet(e) {
-  var ssId = (e && e.parameter && e.parameter.ssId) ? e.parameter.ssId : '';
+  var page  = (e && e.parameter && e.parameter.page)  ? e.parameter.page  : '';
+  var ssId  = (e && e.parameter && e.parameter.ssId)  ? e.parameter.ssId  : '';
 
   // WebアプリURLを常に最新に更新（deployするたびに正しいURLで上書き）
   try {
@@ -660,6 +699,18 @@ function doGet(e) {
       PropertiesService.getScriptProperties().setProperty('webAppUrl', svcUrl);
     }
   } catch(ex) {}
+
+  // 契約書ページ（?page=contract）
+  if (page === 'contract') {
+    var ctmpl = HtmlService.createTemplateFromFile('contract');
+    ctmpl.companySsId = ssId;
+    ctmpl.companyName = (e && e.parameter && e.parameter.company)    ? e.parameter.company    : '';
+    ctmpl.adminEmail  = (e && e.parameter && e.parameter.adminEmail) ? e.parameter.adminEmail : '';
+    ctmpl.contractRow = (e && e.parameter && e.parameter.row)        ? e.parameter.row        : '';
+    return ctmpl.evaluate()
+      .setTitle('利用規約 - 運行管理システム')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
 
   var tmpl = HtmlService.createTemplateFromFile('index');
   tmpl.companySsId = ssId;
@@ -3098,12 +3149,12 @@ function clearTimeCell(id, routeIndex, col, companySsId) {
 //  8-4-5: dateDisp は積完時刻があれば「yyyy/MM/dd　HH:mm」形式、なければ日付のみ
 //  8-4-6: 月合計（稼働日数・売上合計・高速合計・支払合計）を計算して一緒に返す
 // ================================================================
-function getListData(year, month) {
+function getListData(year, month, companySsId) {
   // 端末に紐付いたメールアドレスを取得（未連携なら空リストを返す）
   var savedEmail = PropertiesService.getUserProperties().getProperty('linkedEmail');
   if (!savedEmail) return {rows:[], total:{days:0,sales:0,toll:0,pay:0}};
 
-  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   // マスタからメールアドレスが一致する乗務員名を特定
   var master = ss.getSheetByName('自車専属マスタ');
   var mAll   = master ? master.getDataRange().getValues() : [];
@@ -4727,29 +4778,118 @@ function getOrCreateCompanyTemplate_() {
 
 // ================================================================
 //  12-3: 会社専用スプレッドシートを作成（createCompanySpreadsheet_）  【大B / 中12 / 小12-3】
-//  テンプレートSS（マスターのデータなしコピー）を makeCopy() して会社SSを作成する。
-//  テンプレートにはメニュー・月生成・集計等の全機能が含まれる。
+//  新規SSを作成し、必要なシートをコードなし・ヘッダー＋見本1行で構築する。
 //  targetFolderId が指定されたそのフォルダに移動する（未指定なら「運行管理_会社別」）。
 //  戻り値: { ssId, ssUrl }
 // ================================================================
 function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
-  // テンプレートSSを取得（なければ自動作成）
-  var templateFile = getOrCreateCompanyTemplate_();
-
-  // テンプレートをコピーして会社SS作成
-  var newFile = templateFile.makeCopy(companyName + ' 運行管理');
-
-  // 管理Gmailに編集権限を付与
-  try { newFile.addEditor(adminEmail); } catch(e) {}
-
-  // 指定フォルダ（または「運行管理_会社別」）に移動
+  // 元SSをコピーして客SS作成（GASコード付き → 客用メニューが自動表示される）
+  var sourceFile = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId());
   var destFolder = targetFolderId
     ? DriveApp.getFolderById(targetFolderId)
     : getOrCreateFolder_('運行管理_会社別');
-  destFolder.addFile(newFile);
-  try { DriveApp.getRootFolder().removeFile(newFile); } catch(e) {}
 
-  var newSs = SpreadsheetApp.openById(newFile.getId());
+  var newFile = sourceFile.makeCopy(companyName + ' 運行管理', destFolder);
+  var newSs   = SpreadsheetApp.openById(newFile.getId());
+  try { newFile.addEditor(adminEmail); } catch(e) {}
+
+  // 客SS用シート（残すもの）
+  var keepSheets = ['運行', '集計表', '自車専属マスタ', '自車専属運行', '取引先マスタ', '設定'];
+
+  // 客SS用シート以外を全て削除
+  var allSheets = newSs.getSheets();
+  allSheets.forEach(function(s) {
+    if (keepSheets.indexOf(s.getName()) === -1) {
+      try { if (newSs.getSheets().length > 1) newSs.deleteSheet(s); } catch(e) {}
+    }
+  });
+
+  // 各シートのヘッダーをリセットしてデータ行を全削除（コピー元のデータを消す）
+  var unkouHeader = [
+    'ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付',
+    '荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻',
+    '売上','請求(高速代)','実費(高速代)','合計(高速代)','備考','管理データ',
+    '連絡(端末)','データ(端末)','点呼前完了','点呼後完了'
+  ];
+  var sumHeader = [
+    'ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名',
+    '日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻',
+    '売上','請求(高速代)','実費(高速代)','合計(高速代)',
+    '距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考',
+    '仮日数','給料','％','有休手当','その他手当','点呼前完了','点呼後完了'
+  ];
+  var masterHeader = [
+    '車両ID','運行状態','区分','会社名','看板名','トン数','車種','車番','乗務員名','携帯番号',
+    'アドレス','燃費','備考','仮日数','給料','％','高速を引く（空欄時は引かない）',
+    '車両リース代','任意保険料','自賠責保険料','重量税積立','車検費積立',
+    '整備費積立','タイヤ代積立','修理積立','駐車場代','ETCリース料',
+    'カーナビリース料','通信費','洗車費','制服費','その他固定費'
+  ];
+  var activeHeader = [
+    '車両ID','運行状態','区分','会社名','看板名','トン数','車種','車番',
+    '乗務員名','携帯番号','アドレス','燃費','備考','仮日数','給料','％'
+  ];
+  var custHeader    = ['ID','会社名','担当者名','電話番号','メールアドレス','備考'];
+  var settingHeader = ['トン数','燃費','ラベル','日額'];
+
+  function resetSheet(name, header) {
+    var s = newSs.getSheetByName(name);
+    if (!s) { s = newSs.insertSheet(name); }
+    if (s.getMaxColumns() < header.length) {
+      s.insertColumnsAfter(s.getMaxColumns(), header.length - s.getMaxColumns());
+    }
+    s.getRange(1, 1, 1, header.length).setValues([header]);
+    if (s.getLastRow() > 1) s.deleteRows(2, s.getLastRow() - 1);
+    s.setFrozenRows(1);
+    return s;
+  }
+
+  var unkouSheet   = resetSheet('運行',         unkouHeader);
+  var sumSheet     = resetSheet('集計表',        sumHeader);
+  var masterSheet  = resetSheet('自車専属マスタ', masterHeader);
+  var activeSheet  = resetSheet('自車専属運行',  activeHeader);
+  var custSheet    = resetSheet('取引先マスタ',  custHeader);
+  var settingSheet = resetSheet('設定',          settingHeader);
+
+  // 見本行を追加
+  unkouSheet.getRange(2, 1, 1, 28).setValues([[
+    'V-0001','自車','テスト商事','4t','平車','品川1234','山田太郎','090-0000-0000','テスト看板',new Date(),
+    'テスト荷主','テスト積地','テスト降地','','','','','',
+    50000,0,0,0,'','','','','',''
+  ]]);
+  unkouSheet.getRange(2, 10).setNumberFormat('yyyy/MM/dd');
+
+  sumSheet.getRange(2, 1, 1, 37).setValues([[
+    'V-0001','自車','テスト商事','4t','平車','品川1234','山田太郎','090-0000-0000','テスト看板',
+    new Date(),'テスト荷主','テスト積地','テスト降地','','','','','',
+    50000,0,0,0,0,6.5,0,0,0,0,50000,'',25,200000,75,'','','',''
+  ]]);
+  sumSheet.getRange(2, 10).setNumberFormat('yyyy/MM/dd');
+
+  masterSheet.getRange(2, 1, 1, 32).setValues([[
+    'S-0001','運行','自車','テスト商事','テスト看板','4t','平車','品川1234','山田太郎','090-0000-0000',
+    'test@example.com',6.5,'',25,200000,75,'',
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  ]]);
+
+  custSheet.getRange(2, 1, 1, 6).setValues([['M-0001','テスト荷主','担当太郎','03-0000-0000','test@example.com','']]);
+
+  settingSheet.getRange(2, 1, 5, 4).setValues([
+    ['4t', 6.5, '', ''],
+    ['8t', 5.0, '', ''],
+    ['10t', 4.5, '', ''],
+    ['大型', 3.5, '', ''],
+    ['', '', '有休', 8000]
+  ]);
+
+  // __COMPANY_SS__ マーカーシートを追加（非表示）→ onOpenで客用メニュー表示のトリガーになる
+  var marker = newSs.insertSheet('__COMPANY_SS__');
+  marker.getRange(1, 1).setValue(companyName);
+  marker.hideSheet();
+
+  // 書式・色を適用（集計表・運行シートのヘッダー色など）
+  applySheetColors_(newSs);
+
   return { ssId: newSs.getId(), ssUrl: newSs.getUrl() };
 }
 
@@ -4757,14 +4897,14 @@ function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
 // ================================================================
 //  12-4: 新規会社フルセットアップ（processNewCompany_）  【大B / 中12 / 小12-4】
 //  ① 共有フォルダ（運行管理_アーカイブ/会社名/）を作成して管理Gmailに共有
-//  ② そのフォルダの中にコードなしSSを作成（開けばスプレッドシートが見える）
+//  ② コードなしSSをそのフォルダ内に作成
 //  ③ アプリURL（WebアプリURL?ssId=会社SS_ID）を生成
-//  ④ 会社登録シートに各URLを記録
-//  ⑤ 管理者に配布メール1通だけ送信（フォルダ通知メールは送らない）
-//  メニュー「📤 会社SS作成＆メール送信」または時間トリガー（processPendingCompanies_）から呼ぶ。
+//  ④ 契約書URL（?page=contract&ssId=...&company=...&row=...）を生成
+//  ⑤ 会社登録シートにSSURL・AppURL・フォルダURL・契約書URLを記録（I列）
+//  ⑥ 管理Gmail宛に「契約書確認のお願い」メールを送信
+//  メニュー「📤 会社SS作成＆メール送信」から手動実行。
 // ================================================================
 function processNewCompany_(companyName, adminEmail) {
-  // マスターSS取得（メニュー実行 or 時間トリガーの両方に対応）
   var ss;
   try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch(ex) {}
   if (!ss) {
@@ -4775,14 +4915,19 @@ function processNewCompany_(companyName, adminEmail) {
 
   var regSheet = ss.getSheetByName('会社登録');
 
+  // 会社登録シートのI列・J列ヘッダーを確保
+  if (regSheet && regSheet.getLastRow() >= 1) {
+    var hdrColCount = regSheet.getLastColumn();
+    if (hdrColCount < 9)  regSheet.getRange(1, 9).setValue('契約書URL');
+    if (hdrColCount < 10) regSheet.getRange(1, 10).setValue('同意時刻');
+  }
+
   // ① 共有フォルダを作成（メール送信なし）
-  //    フォルダパス: 運行管理_アーカイブ/会社名/
-  var folderResult = setupOneCompany_(companyName, adminEmail, true); // suppressEmail=true
+  var folderResult = setupOneCompany_(companyName, adminEmail, true);
   var folderUrl = folderResult.folderUrl;
   var folderId  = folderResult.folderId;
 
-  // ② コードなしSSをその共有フォルダ内に作成
-  //    → 相手が共有フォルダを開くとスプレッドシートが見える
+  // ② 元SSコピーで客SS作成（GASコード付き → 客用メニューが自動表示される）
   var ssResult = createCompanySpreadsheet_(companyName, adminEmail, folderId);
   var ssUrl    = ssResult.ssUrl;
   var ssId     = ssResult.ssId;
@@ -4791,7 +4936,7 @@ function processNewCompany_(companyName, adminEmail) {
   var webAppUrl = getWebAppBaseUrl_();
   var appUrl    = webAppUrl ? (webAppUrl + '?ssId=' + ssId) : '[WebアプリURL未設定]';
 
-  // ④ 会社登録シートにSSURL・AppURL・フォルダURLを記録
+  // ④ 会社登録シートの行番号を特定
   var targetRow = -1;
   if (regSheet && regSheet.getLastRow() >= 2) {
     var rows = regSheet.getRange(2, 1, regSheet.getLastRow() - 1, 1).getValues();
@@ -4799,22 +4944,109 @@ function processNewCompany_(companyName, adminEmail) {
       if (String(rows[i][0]).trim() === companyName) { targetRow = i + 2; break; }
     }
   }
+
+  // ④ 契約書URL生成（?page=contract&ssId=...&company=...&adminEmail=...&row=...）
+  var contractUrl = '[WebアプリURL未設定]';
+  if (webAppUrl) {
+    contractUrl = webAppUrl + '?page=contract' +
+      '&ssId='       + encodeURIComponent(ssId) +
+      '&company='    + encodeURIComponent(companyName) +
+      '&adminEmail=' + encodeURIComponent(adminEmail) +
+      (targetRow > 0 ? '&row=' + targetRow : '');
+  }
+
+  // ⑤ 会社登録シートに記録
   if (targetRow > 0) {
-    regSheet.getRange(targetRow, 3).setValue('済').setBackground('#c8e6c9').clearNote();
+    regSheet.getRange(targetRow, 3).setValue('契約書送信済').setBackground('#fff9c4').clearNote();
     regSheet.getRange(targetRow, 4).setValue(new Date());
     regSheet.getRange(targetRow, 5).setValue(folderUrl);
     regSheet.getRange(targetRow, 6).setValue(ssUrl);
     regSheet.getRange(targetRow, 7).setValue(appUrl);
+    regSheet.getRange(targetRow, 9).setValue(contractUrl);
   }
 
-  // ⑤ 配布メール1通だけ送信（管理者向け + 乗務員向け）
-  sendDistributionMail_(
-    companyName, adminEmail, ssUrl, appUrl,
-    targetRow > 0 ? targetRow : null,
-    targetRow > 0 ? regSheet : null
-  );
+  // ⑥ 管理Gmail宛に「契約書確認のお願い」メールを送信
+  var subject = '[運行管理] ' + companyName + ' 利用規約への同意のお願い';
+  var body =
+    companyName + ' ご担当者様\n\n' +
+    'このたびは運行管理システムへのお申し込みありがとうございます。\n\n' +
+    '下記URLより利用規約をご確認いただき、「同意する」ボタンを押してください。\n' +
+    '同意完了後に、スプレッドシートおよびアプリのURLをメールでお送りします。\n\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+    '■ 利用規約・同意フォーム\n' +
+    contractUrl + '\n' +
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+    '何かご不明な点があればお気軽にお問い合わせください。\n' +
+    'よろしくお願いいたします。';
+  try {
+    GmailApp.sendEmail(adminEmail, subject, body);
+    if (targetRow > 0) {
+      regSheet.getRange(targetRow, 8).setValue('契約書メール送信済(' +
+        Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm') + ')')
+        .setBackground('#fff9c4');
+    }
+  } catch(e) {}
 
-  return { ssId: ssId, ssUrl: ssUrl, appUrl: appUrl, folderUrl: folderUrl };
+  return { ssId: ssId, ssUrl: ssUrl, appUrl: appUrl, folderUrl: folderUrl, contractUrl: contractUrl };
+}
+
+
+// ================================================================
+//  12-4b: 契約書同意処理（agreeContract）  【大B / 中12 / 小12-4b】
+//  contract.html の「同意する」ボタンから google.script.run で呼ばれる。
+//  ① 会社登録シートのJ列(10)に同意時刻を記録・C列を「同意済」に更新
+//  ② 管理Gmail宛にSS URLとアプリURLをメール送信
+//  ③ H列(8)に送信済ステータスを記録
+// ================================================================
+function agreeContract(ssId, companyName, adminEmail, contractRow) {
+  var masterSsId = PropertiesService.getScriptProperties().getProperty('masterSsId');
+  if (!masterSsId) throw new Error('マスターSSが見つかりません');
+
+  var ss = SpreadsheetApp.openById(masterSsId);
+  var regSheet = ss.getSheetByName('会社登録');
+  if (!regSheet) throw new Error('会社登録シートが見つかりません');
+
+  var row = parseInt(contractRow, 10);
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm');
+
+  var ssUrl  = '';
+  var appUrl = '';
+  if (row >= 2) {
+    ssUrl  = String(regSheet.getRange(row, 6).getValue() || '');
+    appUrl = String(regSheet.getRange(row, 7).getValue() || '');
+    regSheet.getRange(row, 10).setValue(now).setBackground('#c8e6c9');
+    regSheet.getRange(row, 3).setValue('同意済').setBackground('#c8e6c9');
+  }
+
+  if (adminEmail && adminEmail.indexOf('@') !== -1) {
+    var subject = '[運行管理] ' + companyName + ' 運行管理システム利用開始のご案内';
+    var body =
+      companyName + ' ご担当者様\n\n' +
+      '利用規約へのご同意ありがとうございます。\n\n' +
+      '以下のURLよりご利用を開始いただけます。\n\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+      '■ 運行管理スプレッドシート（PC・タブレット推奨）\n' +
+      ssUrl + '\n' +
+      '　→ 配車・運行データの入力・月生成・集計表の確認はこちら\n\n' +
+      '■ 運行管理アプリ（乗務員用 スマートフォン推奨）\n' +
+      appUrl + '\n' +
+      '　→ 乗務員がスマートフォンから運行状況を入力するアプリです\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+      '【スプレッドシートの使い方】\n' +
+      '・「自車専属マスタ」タブのK列（アドレス）に乗務員メールを入力してください\n\n' +
+      '【乗務員への配布方法】\n' +
+      '・各乗務員に上記アプリURLを共有してください\n' +
+      '・初回は「紐づけ設定」でメールアドレスを登録するだけで使えます\n\n' +
+      'ご不明な点はお気軽にお問い合わせください。\n' +
+      'よろしくお願いいたします。';
+    GmailApp.sendEmail(adminEmail, subject, body);
+  }
+
+  if (row >= 2) {
+    regSheet.getRange(row, 8).setValue('送信済(' + now + ')').setBackground('#c8e6c9');
+  }
+
+  return { success: true, ssUrl: ssUrl, appUrl: appUrl };
 }
 
 
@@ -5090,7 +5322,8 @@ function installedOnEdit_(e) {
       var status      = String(sheet.getRange(row, 3).getValue() || '').trim();
 
       if (!companyName || !adminEmail || adminEmail.indexOf('@') === -1) return;
-      if (status === '済' || status.indexOf('エラー') === 0) return;
+      // 未処理（空）またはエラーのみ実行。処理済ステータスは全てスキップ
+      if (status !== '' && status.indexOf('エラー') !== 0) return;
 
       sheet.getRange(row, 3).setValue('処理中...').setBackground('#fff9c4');
       try {
@@ -5118,4 +5351,80 @@ function installedOnEdit_(e) {
       }
     }
   } catch(ex) {}
+}
+
+
+// ================================================================
+//  14-1: 修正用SSを作成（createDevSs）
+//  今のSS（元SS）をコピーして「修正用_運行管理」を作成する。
+//  作成後、修正用SSでメニュー「🆔 スクリプトID確認」を実行してIDをVSCODE担当者に伝える。
+// ================================================================
+function createDevSs() {
+  var ui   = SpreadsheetApp.getUi();
+  var ss   = SpreadsheetApp.getActiveSpreadsheet();
+  var file = DriveApp.getFileById(ss.getId());
+
+  var existing = DriveApp.getFilesByName('修正用_運行管理');
+  if (existing.hasNext()) {
+    var ans = ui.alert(
+      '修正用SSが既に存在します',
+      '「修正用_運行管理」が既にドライブにあります。\n新たに作り直しますか？',
+      ui.ButtonSet.YES_NO
+    );
+    if (ans !== ui.Button.YES) return;
+  }
+
+  var copy    = file.makeCopy('修正用_運行管理');
+  var copyUrl = 'https://docs.google.com/spreadsheets/d/' + copy.getId() + '/edit';
+
+  PropertiesService.getScriptProperties().setProperty('originalSsId', ss.getId());
+
+  ui.alert(
+    '修正用SSを作成しました！\n\n' +
+    '修正用SS URL:\n' + copyUrl + '\n\n' +
+    '次の手順：\n' +
+    '① 上のURLを開く\n' +
+    '② 「メニュー」→「🆔 スクリプトID確認」を実行\n' +
+    '③ 表示されたIDをVSCODE担当者に伝える\n' +
+    '（以降このVSCODEが修正用SSと連動します）'
+  );
+}
+
+
+// ================================================================
+//  14-2: このSSのスクリプトIDを確認（showMyScriptId）
+//  修正用SSを開いてこれを実行するとIDが表示される。
+//  表示されたIDをVSCODE担当者（.clasp.json）に設定してもらう。
+// ================================================================
+function showMyScriptId() {
+  var id = ScriptApp.getScriptId();
+  SpreadsheetApp.getUi().alert(
+    'このSSのスクリプトID:\n\n' +
+    id + '\n\n' +
+    'このIDをVSCODE担当者に伝えてください。\n' +
+    '（.clasp.jsonに設定します）'
+  );
+}
+
+
+// ================================================================
+//  14-3: 修正用SSのコードを元SSに反映してデプロイまで自動更新（syncToOriginalSS）
+//  ① 修正用SSのコードを取得
+//  ② 元SSのGASプロジェクトに上書き
+//  ③ 元SSに新バージョンを作成
+//  ④ 本番デプロイIDで更新（URLは変わらない）
+//  ⑤ 古いデプロイをMAX_KEEP件だけ残して自動削除（200個制限対策）
+// ================================================================
+function syncToOriginalSS() {
+  var ui        = SpreadsheetApp.getUi();
+  var ORIG_ID   = '1n79omnAcdsEojMRyjnj9-Ic9pIl1-7Nt_HB7Avy0NVFizOSeqt0guqyZ';
+  var DEPLOY_ID = 'AKfycbw5MLHFep_jOQEdAg4_wX8LMGPX7wVL41XbmygqVV794LkZu6Xv-XcRLNAHYqg9bd0fyw';
+  var MAX_KEEP  = 5;
+  var BASE      = 'https://script.googleapis.com/v1/projects/';
+
+  ui.alert(
+    '元データに反映',
+    'VSCODEで Ctrl+Shift+B を押してください。\n\npush＋デプロイ更新＋古いデプロイ削除まで全自動で実行されます。',
+    ui.ButtonSet.OK
+  );
 }
