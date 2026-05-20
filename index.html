@@ -546,6 +546,20 @@
   </div>
 
   <!-- ============================================================
+       B-5b: 点呼確認画面（業務前点検 / 業務後点検）
+       ============================================================ -->
+  <div id="stepInsp" class="screen">
+    <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:10px;">
+      <button class="reset-small" style="float:none;margin-bottom:0;" onclick="inspBack()">戻る</button>
+    </div>
+    <div class="section-title" id="inspTitle">点呼確認</div>
+    <button id="inspAllBtn" style="width:100%;padding:10px;margin-bottom:10px;background:#37474f;color:#90a4ae;border:none;border-radius:8px;font-size:14px;cursor:pointer;" onclick="inspCheckAll()">一括確認済にする</button>
+    <div id="inspItems" style="margin-bottom:16px;"></div>
+    <button class="big-btn" id="inspNextBtn" style="background:#1565c0;" onclick="inspComplete()">次へ</button>
+    <button class="big-btn dark" onclick="goHome()">ホーム</button>
+  </div>
+
+  <!-- ============================================================
        B-6: 休憩終了画面（戻るで休憩開始に戻る）
        ============================================================ -->
   <div id="step4" class="screen">
@@ -705,6 +719,8 @@ window.onload = function() {
         } else {
           document.getElementById('statusText').innerText = '状態：マスタ未登録';
         }
+        if (init.inspectionBefore) inspBeforeItems = init.inspectionBefore;
+        if (init.inspectionAfter)  inspAfterItems  = init.inspectionAfter;
       } else {
         document.getElementById('statusText').innerText = '状態：未紐づけ';
       }
@@ -818,6 +834,9 @@ var guideDone=[], pickDone=[], dropDone=[];
 var phase='', lastPickRow=null, lastPickIndex=null;
 var driverCreatedRows = false;
 var runReturnTo = ''; // 一覧から運行開始した場合は 'list' にセット
+var inspBeforeItems = [], inspAfterItems = [];
+var inspBeforeDone = [], inspAfterDone = [];
+var _inspType = '', _inspNextPhase = '';
 var guideHistory=[], pickHistory=[], dropHistory=[];
 var guideNotice=null;
 var listYear, listMonth, filterCar='';
@@ -837,7 +856,7 @@ var _listRefreshTimer = null;
 function hideAll() {
   // リスト自動更新タイマーを停止
   if (_listRefreshTimer) { clearInterval(_listRefreshTimer); _listRefreshTimer = null; }
-  ['home','step1','stepGuide','step2','step3','step4','step5','listScreen','noticeDetail','helpScreen']
+  ['home','step1','stepGuide','step2','step3','stepInsp','step4','step5','listScreen','noticeDetail','helpScreen']
     .forEach(function(id) {
       var el = document.getElementById(id);
       if (el) el.style.display = 'none';
@@ -880,7 +899,8 @@ function getStateObj() {
   return {picks:picks, drops:drops, rows:runRows, runId:runId,
           guideDone:guideDone, pickDone:pickDone, dropDone:dropDone,
           phase:phase, lastPickIndex:lastPickIndex,
-          guideHistory:guideHistory, pickHistory:pickHistory, dropHistory:dropHistory};
+          guideHistory:guideHistory, pickHistory:pickHistory, dropHistory:dropHistory,
+          inspBeforeDone:inspBeforeDone, inspAfterDone:inspAfterDone};
 }
 function saveState() {
   google.script.run.saveRunState(getStateObj());
@@ -894,6 +914,7 @@ function saveState() {
 //  降完画面: 1個ずつ降完を巻き戻す→全部戻ったら休憩終了画面へ
 // ============================================================
 function goBack() {
+  if (phase === 'inspBefore' || phase === 'inspAfter') { inspBack(); return; }
   if (phase === 'guide') {
     if (guideHistory.length > 0) {
       var li = guideHistory.pop(); guideDone[li] = false;
@@ -961,11 +982,13 @@ function startRun() {
   var status = document.getElementById('statusText').innerText;
   if (status.indexOf('紐づけOK') === -1) { alert('先にアドレスを紐づけしてください'); return; }
   if (phase && phase !== '') {
-    if (phase === 'guide') showGuideScreen();
-    else if (phase === 'pick') showPickScreen();
-    else if (phase === 'restStart') showScreen('step3','休憩開始');
-    else if (phase === 'restEnd') showScreen('step4','休憩終了');
-    else if (phase === 'drop') showDropScreen();
+    if      (phase === 'inspBefore') showInspScreen('before');
+    else if (phase === 'inspAfter')  showInspScreen('after');
+    else if (phase === 'guide')      showGuideScreen();
+    else if (phase === 'pick')       showPickScreen();
+    else if (phase === 'restStart')  showScreen('step3','休憩開始');
+    else if (phase === 'restEnd')    showScreen('step4','休憩終了');
+    else if (phase === 'drop')       showDropScreen();
     return;
   }
   showScreen('step1','行程入力');
@@ -1070,9 +1093,11 @@ function startRunFromInput() {
   guideDone=new Array(picks.length).fill(false);
   pickDone=new Array(picks.length).fill(false);
   dropDone=new Array(drops.length).fill(false);
-  phase='guide'; lastPickIndex=null; guideHistory=[]; pickHistory=[]; dropHistory=[];
+  phase='inspBefore'; lastPickIndex=null; guideHistory=[]; pickHistory=[]; dropHistory=[];
+  inspBeforeDone=new Array(inspBeforeItems.length).fill(false);
+  inspAfterDone=new Array(inspAfterItems.length).fill(false);
   guideNotice=null; runRows=[]; runId=''; _pendingActions=[];
-  showGuideScreen();
+  showInspScreen('before');
   function createNew() {
     google.script.run
       .withSuccessHandler(function(r) {
@@ -1209,11 +1234,114 @@ function restStart() {
 // ============================================================
 function restEnd() {
   var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
-  phase='drop'; showDropScreen();
+  phase='inspAfter'; inspAfterDone=new Array(inspAfterItems.length).fill(false); showInspScreen('after');
   if (runId) {
     google.script.run.recordAction('restEnd', runId, targetIndex, getStateObj(), COMPANY_SS_ID);
   } else {
     _pendingActions.push({type:'restEnd', idx:targetIndex});
+  }
+}
+
+// ============================================================
+//  C-15b: 点呼確認画面（showInspScreen / toggleInspItem / inspComplete / inspBack）
+//  業務前点検 / 業務後点検のチェックリスト画面
+//  項目はアプリ起動時に設定シートから取得済み（inspBeforeItems / inspAfterItems）
+// ============================================================
+function showInspScreen(type) {
+  _inspType = type;
+  var items = (type === 'before') ? inspBeforeItems : inspAfterItems;
+  var done  = (type === 'before') ? inspBeforeDone  : inspAfterDone;
+  if (done.length !== items.length) {
+    done = new Array(items.length).fill(false);
+    if (type === 'before') inspBeforeDone = done;
+    else                   inspAfterDone  = done;
+  }
+  hideAll();
+  document.getElementById('screenName').style.display = 'block';
+  document.getElementById('screenName').innerText = type === 'before' ? '点呼前確認' : '点呼後確認';
+  document.getElementById('inspTitle').innerText  = type === 'before' ? '業務前点検' : '業務後点検';
+  var area = document.getElementById('inspItems');
+  area.innerHTML = '';
+  if (items.length === 0) { inspComplete(); return; }
+  items.forEach(function(item, i) {
+    var row  = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 8px;border-bottom:1px solid #333;';
+    var label = document.createElement('span');
+    label.innerText = item;
+    label.style.cssText = 'color:white;font-size:15px;flex:1;margin-right:8px;';
+    var btn = document.createElement('button');
+    btn.innerText   = done[i] ? '✓ 確認済' : '確認';
+    btn.style.cssText = done[i]
+      ? 'padding:8px 16px;background:#1b5e20;color:#a5d6a7;border:none;border-radius:8px;font-size:14px;min-width:72px;'
+      : 'padding:8px 16px;background:#333;color:#aaa;border:none;border-radius:8px;font-size:14px;min-width:72px;';
+    btn.onclick = (function(idx) { return function() { toggleInspItem(idx); }; })(i);
+    row.appendChild(label);
+    row.appendChild(btn);
+    area.appendChild(row);
+  });
+  var allDone = done.length > 0 && done.every(function(v) { return v; });
+  var nextBtn = document.getElementById('inspNextBtn');
+  nextBtn.disabled    = !allDone;
+  nextBtn.style.opacity = allDone ? '1' : '0.4';
+  document.getElementById('stepInsp').style.display = 'block';
+}
+
+function toggleInspItem(i) {
+  var done = (_inspType === 'before') ? inspBeforeDone : inspAfterDone;
+  done[i] = !done[i];
+  showInspScreen(_inspType);
+}
+
+function inspCheckAll() {
+  var done = (_inspType === 'before') ? inspBeforeDone : inspAfterDone;
+  for (var i = 0; i < done.length; i++) done[i] = true;
+  showInspScreen(_inspType);
+}
+
+function inspComplete() {
+  var type = _inspType;
+  if (type === 'before') {
+    // _inspNextPhase が設定されている場合（一覧から再開）はそのphaseへ。なければ誘導へ。
+    var next = _inspNextPhase || 'guide';
+    _inspNextPhase = '';
+    if      (next === 'guide')     { phase='guide';     showGuideScreen(); }
+    else if (next === 'pick')      { phase='pick';      showPickScreen(); }
+    else if (next === 'restStart') { phase='restStart'; showScreen('step3','休憩開始'); }
+    else if (next === 'restEnd')   { phase='restEnd';   showScreen('step4','休憩終了'); }
+    else if (next === 'inspAfter') { phase='inspAfter'; showInspScreen('after'); }
+    else if (next === 'drop')      { phase='drop';      showDropScreen(); }
+    else                           { phase='guide';     showGuideScreen(); }
+    if (runId) { google.script.run.recordAction('inspBefore', runId, 0, getStateObj(), COMPANY_SS_ID); }
+    else        { _pendingActions.push({type:'inspBefore', idx:0}); }
+  } else {
+    phase = 'drop'; showDropScreen();
+    if (runId) { google.script.run.recordAction('inspAfter', runId, 0, getStateObj(), COMPANY_SS_ID); }
+    else        { _pendingActions.push({type:'inspAfter', idx:0}); }
+  }
+}
+
+function inspBack() {
+  if (_inspType === 'before') {
+    if (driverCreatedRows) {
+      var oldId = runId;
+      phase=''; lastPickIndex=null; guideDone=[]; pickDone=[]; dropDone=[];
+      inspBeforeDone=[]; inspAfterDone=[];
+      guideHistory=[]; pickHistory=[]; dropHistory=[]; driverCreatedRows=false;
+      google.script.run.withSuccessHandler(function() {
+        runRows=[]; runId=''; saveState(); showScreen('step1','行程入力'); reloadRouteInput();
+      }).withFailureHandler(function() {
+        runRows=[]; runId=''; saveState(); showScreen('step1','行程入力'); reloadRouteInput();
+      }).deleteRunRows(oldId, COMPANY_SS_ID);
+    } else {
+      phase=''; runRows=[]; runId=''; lastPickIndex=null;
+      guideDone=[]; pickDone=[]; dropDone=[]; inspBeforeDone=[]; inspAfterDone=[];
+      guideHistory=[]; pickHistory=[]; dropHistory=[]; driverCreatedRows=false;
+      saveState();
+      if (runReturnTo === 'list') { runReturnTo=''; showList(); }
+      else { showScreen('step1','行程入力'); initRouteInput(); }
+    }
+  } else {
+    phase='restEnd'; saveState(); showScreen('step4','休憩終了');
   }
 }
 
@@ -1270,6 +1398,7 @@ function clearRunStateAndHome() {
     phase = ''; picks = []; drops = []; runRows = []; runId = '';
     guideDone = []; pickDone = []; dropDone = [];
     guideHistory = []; pickHistory = []; dropHistory = [];
+    inspBeforeDone = []; inspAfterDone = [];
     lastPickIndex = null; guideNotice = null; runReturnTo = '';
     saveState();
     goHome();
@@ -1457,7 +1586,7 @@ function openColFilter(colIdx, thEl, event) {
   closeColFilter();
   _cfPopupCol = colIdx;
 
-  var cols = ['date','car','pick','drop','guideTime','pickTime','restStart','restEnd','dropTime','sales','tollReq','tollReal','tollTotal','pay','expense','yukyu','other'];
+  var cols = ['date','car','pick','drop','guideTime','pickTime','restStart','restEnd','dropTime','sales','tollReq','tollReal','tollTotal','pay','expense','yukyu','other','inspBefore','inspAfter'];
   var colKey = cols[colIdx];
 
   var allVals = {};
@@ -1624,7 +1753,7 @@ function renderTable() {
   if (filterDateFrom) rows = rows.filter(function(r) { return r.date >= filterDateFrom.replace(/-/g,'/'); });
   if (filterDateTo) rows = rows.filter(function(r) { return r.date <= filterDateTo.replace(/-/g,'/'); });
 
-  var cols = ['date','car','pick','drop','guideTime','pickTime','restStart','restEnd','dropTime','sales','tollReq','tollReal','tollTotal','pay','expense','yukyu','other'];
+  var cols = ['date','car','pick','drop','guideTime','pickTime','restStart','restEnd','dropTime','sales','tollReq','tollReal','tollTotal','pay','expense','yukyu','other','inspBefore','inspAfter'];
   Object.keys(colFilters).forEach(function(ci) {
     var cf = colFilters[ci];
     if (cf === null) return;
@@ -1651,7 +1780,7 @@ function renderTable() {
   function moneyStyle(v) { return v<0?'color:#ff5252;font-weight:900;':''; }
   function moneyDisp(v)  { return v<0 ? Math.abs(v).toLocaleString() : v.toLocaleString(); }
 
-  var headers = ['日付','車番','積地','降地','誘導','積完','休開','休終','降完','売上','請求高速','実費高速','高速計','支払','経費合計','有休手当','その他手当'];
+  var headers = ['日付','車番','積地','降地','誘導','積完','休開','休終','降完','売上','請求高速','実費高速','高速計','支払','経費合計','有休手当','その他手当','点呼前','点呼後'];
   var html = '<div class="list-table-wrap"><table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">';
   html += '<thead><tr>';
   html += '<th style="padding:10px 6px;border-bottom:2px solid #444;background:#2a2a2a;position:sticky;left:0;z-index:11;"></th>';
@@ -1667,7 +1796,7 @@ function renderTable() {
   html += '</tr></thead><tbody>';
 
   if (rows.length === 0) {
-    html += '<tr><td colspan="17" style="padding:20px;text-align:center;color:#888;">データがありません</td></tr>';
+    html += '<tr><td colspan="19" style="padding:20px;text-align:center;color:#888;">データがありません</td></tr>';
   }
 
   rows.forEach(function(r) {
@@ -1678,7 +1807,12 @@ function renderTable() {
     var pay      = Math.round(r.pay      || 0);
 
     var hasNegative = sales<0||tollReq<0||tollReal<0||tollTotal<0||pay<0;
-    var rowBg = hasNegative ? 'background:rgba(211,47,47,0.15);' : '';
+    var isYukyu  = r.pick && r.pick.indexOf('有休') !== -1;
+    var isYasumi = !isYukyu && r.pick && r.pick.indexOf('休み') !== -1;
+    var rowBg = isYukyu  ? 'background:rgba(158,158,158,0.22);'
+              : isYasumi ? 'background:rgba(80,80,80,0.45);'
+              : hasNegative ? 'background:rgba(211,47,47,0.15);'
+              : '';
 
     var pickMin=toMin(r.pickTime), restSMin=toMin(r.restStart);
     var restEMin=toMin(r.restEnd), dropMin=toMin(r.dropTime);
@@ -1697,11 +1831,11 @@ function renderTable() {
 
     html += '<tr style="border-bottom:1px solid #333;'+rowBg+'">';
     html += '<td style="padding:8px;text-align:center;position:sticky;left:0;z-index:1;background:#1e1e1e;">'+noticeIcon+'<div style="font-size:10px;color:#666;margin-top:2px;white-space:nowrap;">'+r.id+'</div></td>';
-    var pickHoliday = r.pick && (r.pick.indexOf('休み') !== -1 || r.pick.indexOf('有休') !== -1);
+    var pickHoliday = isYukyu || isYasumi;
     var pickEmpty   = !r.pick || r.pick.trim() === '';
     var todayMid    = new Date(); todayMid.setHours(0, 0, 0, 0);
     var isUnassigned = pickEmpty && r.dateSort >= todayMid.getTime(); // 積地空 + 今日以降 = 配車漏れ
-    var pickCellSt  = pickHoliday ? 'background:#616161;color:#ddd;'
+    var pickCellSt  = pickHoliday ? ''  // 行全体に背景色あり・セル個別は設定不要
                     : isUnassigned ? 'background:#fff9c4;color:#5d4037;font-weight:700;'
                     : '';
     html += '<td style="padding:8px;">'+r.dateDisp+'</td>';
@@ -1724,6 +1858,8 @@ function renderTable() {
     html += '<td style="padding:8px;'+(yukyu>0?'color:#ffb74d;font-weight:700;':'color:#555;')+'">'+( yukyu>0 ? yukyu.toLocaleString() : '—')+'</td>';
     var other = Math.round(r.other || 0);
     html += '<td style="padding:8px;'+(other>0?'color:#80cbc4;font-weight:700;':'color:#555;')+'">'+( other>0 ? other.toLocaleString() : '—')+'</td>';
+    html += '<td style="padding:8px;color:'+(r.inspBefore?'#a5d6a7':'#555')+';">'+(r.inspBefore||'—')+'</td>';
+    html += '<td style="padding:8px;color:'+(r.inspAfter ?'#a5d6a7':'#555')+';">'+(r.inspAfter ||'—')+'</td>';
     html += '<td style="padding:8px;"><div style="display:flex;gap:4px;">';
 
     if (r.isComplete) {
@@ -2157,12 +2293,10 @@ function startRunFromList(id) {
     for(var i=0;i<guideDone.length;i++){if(guideDone[i]) guideHistory.push(i);}
     for(var i=0;i<pickDone.length;i++){if(pickDone[i]){pickHistory.push(i);lastPickIndex=i;}}
     for(var i=0;i<dropDone.length;i++){if(dropDone[i]) dropHistory.push(i);}
-    phase=data.progress; saveState();
-    if(phase==='guide') showGuideScreen();
-    else if(phase==='pick') showPickScreen();
-    else if(phase==='restStart') showScreen('step3','休憩開始');
-    else if(phase==='restEnd') showScreen('step4','休憩終了');
-    else if(phase==='drop') showDropScreen();
+    // 一覧から起動時は常に点呼前チェックを経由する
+    _inspNextPhase = data.progress;
+    phase='inspBefore'; inspBeforeDone=new Array(inspBeforeItems.length).fill(false); saveState();
+    showInspScreen('before');
   }).withFailureHandler(function(){alert('通信エラー');}).getRoutesById(id, COMPANY_SS_ID);
 }
 
