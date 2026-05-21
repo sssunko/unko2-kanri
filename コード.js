@@ -1796,6 +1796,13 @@ function syncSummaryForId_(targetId) {
   } else if (spick.indexOf('休み') !== -1 || sdrop.indexOf('休み') !== -1) {
     sumSheet.getRange(sumRow, 1, 1, sumLastColBg).setBackground('#9e9e9e');
   }
+
+  // フィルターをデータ全列に再設定（列追加時も自動対応）
+  var sfExisting = sumSheet.getFilter();
+  if (!sfExisting || sumSheet.getLastColumn() > sfExisting.getRange().getLastColumn()) {
+    if (sfExisting) sfExisting.remove();
+    sumSheet.getRange(1, 1, sumSheet.getLastRow(), sumSheet.getLastColumn()).createFilter();
+  }
 }
 
 
@@ -5048,77 +5055,103 @@ function initTemplateSS_() {
   var TEMPLATE_SS_ID = '1mrLkGv_BNcvunxF_IdXFtKlgh9EJUo722OLrScjHrRE';
   var srcSs = SpreadsheetApp.getActiveSpreadsheet(); // 元SS（修正用SS）
   var tgtSs = SpreadsheetApp.openById(TEMPLATE_SS_ID);
+  var allowSheets = ['運行', '集計表', '自車専属マスタ', '自車専属運行', 'マスタ', '設定'];
 
-  // 一時シートを作成（全削除のためシートが0にならないよう保持）
+  // ① 既存データ行を退避（仕様更新後に復元するため）
+  var savedData = {};
+  allowSheets.forEach(function(n) {
+    var s = tgtSs.getSheetByName(n);
+    if (!s || s.getLastRow() < 2) return;
+    var numCols = s.getLastColumn();
+    var numRows = s.getLastRow() - 1;
+    savedData[n] = {
+      values:      s.getRange(2, 1, numRows, numCols).getValues(),
+      backgrounds: s.getRange(2, 1, numRows, numCols).getBackgrounds()
+    };
+  });
+
+  // ② 一時シートを作成してから全シート削除
   var tmpName = '__TEMP_INIT__';
   var existTmp = tgtSs.getSheetByName(tmpName);
   if (existTmp) tgtSs.deleteSheet(existTmp);
   var tmpSheet = tgtSs.insertSheet(tmpName);
-
-  // テンプレートの既存シートをすべて削除
   tgtSs.getSheets().forEach(function(s) {
     if (s.getName() !== tmpName) { try { tgtSs.deleteSheet(s); } catch(e) {} }
   });
 
-  // 元SSから客用に必要な6シートだけコピー（ホワイトリスト方式）
-  var allowSheets = ['運行', '集計表', '自車専属マスタ', '自車専属運行', 'マスタ', '設定'];
+  // ③ 元SSから6シートをコピー（最新の仕様・書式・ヘッダーを反映）
   var srcSheets = srcSs.getSheets();
   for (var i = 0; i < srcSheets.length; i++) {
     var src  = srcSheets[i];
     var name = src.getName();
-    if (allowSheets.indexOf(name) === -1) continue; // ホワイトリスト外はスキップ
+    if (allowSheets.indexOf(name) === -1) continue;
     var copied = src.copyTo(tgtSs);
-    // 「〜のコピー」となる名前を元の名前に変更
     var dup = tgtSs.getSheetByName(name);
     if (dup && dup.getSheetId() !== copied.getSheetId()) tgtSs.deleteSheet(dup);
     copied.setName(name);
   }
 
-  // __COMPANY_SS__ マーカーを追加（非表示）
+  // ④ 退避したデータを復元（データ行のみ。ヘッダー行は元SSコピーを維持）
+  allowSheets.forEach(function(n) {
+    if (!savedData[n]) return;
+    var s = tgtSs.getSheetByName(n);
+    if (!s) return;
+    var hdrCols = s.getLastColumn();
+    var rows = savedData[n].values;
+    var bgs  = savedData[n].backgrounds;
+    // コピー時に入った元SSのデータ行を削除してから書き戻す
+    if (s.getLastRow() > 1) s.deleteRows(2, s.getLastRow() - 1);
+    var restoreRows = rows.map(function(r) {
+      var row = r.slice(0, hdrCols);
+      while (row.length < hdrCols) row.push('');
+      return row;
+    });
+    var restoreBgs = bgs.map(function(b) {
+      var bg = b.slice(0, hdrCols);
+      while (bg.length < hdrCols) bg.push(null);
+      return bg;
+    });
+    s.getRange(2, 1, restoreRows.length, hdrCols).setValues(restoreRows);
+    s.getRange(2, 1, restoreBgs.length, hdrCols).setBackgrounds(restoreBgs);
+  });
+
+  // ⑤ __COMPANY_SS__ マーカーを追加（非表示）
   var marker = tgtSs.getSheetByName('__COMPANY_SS__') || tgtSs.insertSheet('__COMPANY_SS__');
   marker.getRange(1, 1).setValue('テンプレート');
   if (!marker.isSheetHidden()) marker.hideSheet();
 
-  // 一時シートを削除
+  // ⑥ 一時シートを削除
   try { tgtSs.deleteSheet(tmpSheet); } catch(e) {}
 
-  // データ行をクリア（シート構造・書式・設定データは残す）
-  var clearTargets = ['運行', '集計表', '自車専属マスタ', '自車専属運行', 'マスタ'];
-  clearTargets.forEach(function(n) {
-    var s = tgtSs.getSheetByName(n);
-    if (s && s.getLastRow() > 1) s.deleteRows(2, s.getLastRow() - 1);
-  });
-
-  // テスト用1行を挿入（フォーマット確認用）
+  // ⑦ データが空のシートのみテスト行を挿入
   var mSheet = tgtSs.getSheetByName('自車専属マスタ');
-  if (mSheet) {
+  if (mSheet && mSheet.getLastRow() < 2) {
     var mCols = Math.max(mSheet.getLastColumn(), 32);
     var mTestRow = new Array(mCols).fill('');
     mTestRow[0]  = 'S-0001'; mTestRow[1] = '運行';    mTestRow[2]  = '自車';
     mTestRow[3]  = 'テスト商事'; mTestRow[4] = 'テスト看板'; mTestRow[5] = '4t';
     mTestRow[6]  = '平車';   mTestRow[7] = '品川1234'; mTestRow[8]  = '山田太郎';
     mTestRow[9]  = '090-0000-0000'; mTestRow[10] = 'test@example.com'; mTestRow[11] = 6.5;
-    mTestRow[13] = 25; mTestRow[14] = 200000; // 仮日数+給料モード（%は空）
+    mTestRow[13] = 25; mTestRow[14] = 200000;
     mSheet.getRange(2, 1, 1, mCols).setValues([mTestRow]);
-    mSheet.getRange(2, 1, 1, mCols).setBackground('#ffcdd2'); // 運行=薄赤
-    mSheet.getRange(2, 17).setBackground('#e0e0e0'); // 高速を引くはグレー（仮日数モード）
+    mSheet.getRange(2, 1, 1, mCols).setBackground('#ffcdd2');
+    mSheet.getRange(2, 17).setBackground('#e0e0e0');
   }
   var cSheet = tgtSs.getSheetByName('マスタ');
-  if (cSheet) {
+  if (cSheet && cSheet.getLastRow() < 2) {
     cSheet.getRange(2, 1, 1, 14).setValues([['M-0001','テスト荷主','03-0000-0000','','','','担当太郎','','','','','','','']]);
   }
   var aSheet = tgtSs.getSheetByName('自車専属運行');
-  if (aSheet && mSheet) {
-    var aTestRow = new Array(16).fill('');
-    for (var ai = 0; ai < 16; ai++) aTestRow[ai] = mTestRow[ai];
-    aSheet.getRange(2, 1, 1, 16).setValues([aTestRow]);
+  if (aSheet && aSheet.getLastRow() < 2 && mSheet && mSheet.getLastRow() >= 2) {
+    var mTestSaved = mSheet.getRange(2, 1, 1, 16).getValues()[0];
+    aSheet.getRange(2, 1, 1, 16).setValues([mTestSaved]);
     aSheet.getRange(2, 1, 1, 16).setBackground('#ffcdd2');
   }
 
-  // 設定シートに点検項目がなければデフォルトを挿入
+  // ⑧ 設定シートに点検項目がなければデフォルトを挿入
   ensureSettingItems_(tgtSs);
 
-  // シート保護をすべて削除（客が別ユーザーで使うため）
+  // ⑨ シート保護をすべて削除（客が別ユーザーで使うため）
   tgtSs.getSheets().forEach(function(s) {
     s.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p) { p.remove(); });
     s.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p) { p.remove(); });
