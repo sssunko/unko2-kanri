@@ -38,4 +38,11 @@ if ($others.Count -gt $MAX_KEEP) {
 }
 
 Restore-DevId
+
+Write-Host "[5/5] Push client template code..."
+Push-Location (Join-Path $PSScriptRoot "client-template")
+clasp push --force
+if ($LASTEXITCODE -ne 0) { Write-Host "Client template push failed."; Pop-Location; exit 1 }
+Pop-Location
+
 Write-Host "Done! All client apps updated."
