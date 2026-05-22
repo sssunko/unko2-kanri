@@ -614,7 +614,7 @@ function sortSummaryByDate_(companySsId) {
 //        月生成 / 前月分アーカイブ / 写真・ファイル取込
 // ================================================================
 function onOpen() {
-  var DEV_SCRIPT_ID      = '1weCq7YSieGA6kBnqvcycwdTIwT8t8euhHa6QsD2DM3twYBElTpCTOa6W';
+  var DEV_SCRIPT_ID      = '1n79omnAcdsEojMRyjnj9-Ic9pIl1-7Nt_HB7Avy0NVFizOSeqt0guqyZ';
   var TEMPLATE_SS_ID     = '1mrLkGv_BNcvunxF_IdXFtKlgh9EJUo722OLrScjHrRE';
   var isDev      = (ScriptApp.getScriptId() === DEV_SCRIPT_ID);
   var currentId  = SpreadsheetApp.getActiveSpreadsheet().getId();
@@ -644,6 +644,7 @@ function onOpen() {
       .addItem('シート保護設定', 'setupSheetProtection')
       .addSeparator()
       .addItem('🔧 初期設定', 'installTriggers')
+      .addItem('📧 エラー通知先設定', 'setErrorLogEmails')
       .addSeparator()
       .addItem('📤 元データに反映', 'syncToOriginalSS');
   } else if (isClient) {
@@ -716,32 +717,47 @@ function doGet(e) {
   var page  = (e && e.parameter && e.parameter.page)  ? e.parameter.page  : '';
   var ssId  = (e && e.parameter && e.parameter.ssId)  ? e.parameter.ssId  : '';
 
-  // 本番デプロイのURLのみ保存（テンプレートSS等からのアクセスで上書きされないよう限定）
   try {
-    var PROD_DEPLOY_ID = 'AKfycbw5MLHFep_jOQEdAg4_wX8LMGPX7wVL41XbmygqVV794LkZu6Xv-XcRLNAHYqg9bd0fyw';
-    var svcUrl = ScriptApp.getService().getUrl();
-    if (svcUrl && svcUrl.indexOf(PROD_DEPLOY_ID) !== -1) {
-      PropertiesService.getScriptProperties().setProperty('webAppUrl', svcUrl);
+    // 本番デプロイのURLのみ保存（テンプレートSS等からのアクセスで上書きされないよう限定）
+    try {
+      var PROD_DEPLOY_ID = 'AKfycbw5MLHFep_jOQEdAg4_wX8LMGPX7wVL41XbmygqVV794LkZu6Xv-XcRLNAHYqg9bd0fyw';
+      var svcUrl = ScriptApp.getService().getUrl();
+      if (svcUrl && svcUrl.indexOf(PROD_DEPLOY_ID) !== -1) {
+        PropertiesService.getScriptProperties().setProperty('webAppUrl', svcUrl);
+      }
+    } catch(ex) {}
+
+    // ライセンスチェック（ssIdあり かつ 期限切れ → 期限切れページ）
+    if (ssId && !checkLicense_(ssId)) {
+      return HtmlService.createTemplateFromFile('license_expired')
+        .evaluate()
+        .setTitle('ご利用期限切れ - 運行管理システム')
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1');
     }
-  } catch(ex) {}
 
-  // 契約書ページ（?page=contract）
-  if (page === 'contract') {
-    var ctmpl = HtmlService.createTemplateFromFile('contract');
-    ctmpl.companySsId = ssId;
-    ctmpl.companyName = (e && e.parameter && e.parameter.company)    ? e.parameter.company    : '';
-    ctmpl.adminEmail  = (e && e.parameter && e.parameter.adminEmail) ? e.parameter.adminEmail : '';
-    ctmpl.contractRow = (e && e.parameter && e.parameter.row)        ? e.parameter.row        : '';
-    return ctmpl.evaluate()
-      .setTitle('利用規約 - 運行管理システム')
+    // 契約書ページ（?page=contract）
+    if (page === 'contract') {
+      var ctmpl = HtmlService.createTemplateFromFile('contract');
+      ctmpl.companySsId = ssId;
+      ctmpl.companyName = (e && e.parameter && e.parameter.company)    ? e.parameter.company    : '';
+      ctmpl.adminEmail  = (e && e.parameter && e.parameter.adminEmail) ? e.parameter.adminEmail : '';
+      ctmpl.contractRow = (e && e.parameter && e.parameter.row)        ? e.parameter.row        : '';
+      return ctmpl.evaluate()
+        .setTitle('利用規約 - 運行管理システム')
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    }
+
+    var tmpl = HtmlService.createTemplateFromFile('index');
+    tmpl.companySsId = ssId;
+    return tmpl.evaluate()
+      .setTitle('運行管理システム')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-  }
 
-  var tmpl = HtmlService.createTemplateFromFile('index');
-  tmpl.companySsId = ssId;
-  return tmpl.evaluate()
-    .setTitle('運行管理システム')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  } catch(e_) {
+    logError_('doGet', e_, ssId);
+    return HtmlService.createHtmlOutput('<p style="font-family:sans-serif;padding:20px">システムエラーが発生しました。管理者に連絡してください。</p>')
+      .setTitle('エラー');
+  }
 }
 
 
@@ -3193,6 +3209,48 @@ function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, emai
 
 
 // ================================================================
+//  時刻順序検証ヘルパー（validateTimeSeq_）  【大B / 中7】
+//  時刻記録前に呼び出す。順序矛盾があれば日本語エラーメッセージを返す（正常時null）
+//  チェック順: 点呼前完了→誘導→積完→休憩開始→休憩終了→降完→点呼後完了
+// ================================================================
+function validateTimeSeq_(sheet, row, newCol, newTime) {
+  try {
+    var lastCol = Math.max(sheet.getLastColumn(), 18);
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var rowVals = sheet.getRange(row, 1, 1, lastCol).getValues()[0];
+    var inspBCol = headers.indexOf('点呼前完了') + 1;
+    var inspACol = headers.indexOf('点呼後完了') + 1;
+    var seq = [];
+    if (inspBCol > 0) seq.push(['点呼前完了', inspBCol]);
+    seq.push(['誘導時刻', 14]);
+    seq.push(['積完時刻', 15]);
+    seq.push(['休憩開始', 16]);
+    seq.push(['休憩終了', 17]);
+    seq.push(['降完時刻', 18]);
+    if (inspACol > 0) seq.push(['点呼後完了', inspACol]);
+    var vals = {};
+    for (var s = 0; s < seq.length; s++) {
+      var c = seq[s][1];
+      var v = (c === newCol) ? newTime : rowVals[c - 1];
+      if (v instanceof Date && !isNaN(v.getTime())) { vals[c] = v; }
+      else if (v && !(v instanceof Date)) { var d = new Date(v); if (!isNaN(d.getTime())) vals[c] = d; }
+    }
+    if (newCol === 17 && !vals[16])                        return '休憩開始時刻が入力されていません';
+    if (newCol === inspACol && inspACol > 0 && !vals[18]) return '降完時刻が入力されていません';
+    var prevTime = null, prevLabel = '';
+    for (var s2 = 0; s2 < seq.length; s2++) {
+      var c2 = seq[s2][1], lb = seq[s2][0];
+      if (vals[c2]) {
+        if (prevTime && vals[c2] < prevTime) return lb + 'が' + prevLabel + 'より前の時刻です';
+        prevTime = vals[c2]; prevLabel = lb;
+      }
+    }
+    return null;
+  } catch(e) { return null; }
+}
+
+
+// ================================================================
 //  7-3: 誘導時刻記録（setGuideComplete）  【大A / 中7 / 小7-3】
 //  IDとルートインデックスで行を動的検索してN列（14列目）に現在時刻を書き込む
 // ================================================================
@@ -3201,8 +3259,11 @@ function setGuideComplete(id, routeIndex, companySsId) {
   var sheet = ss.getSheetByName('運行');
   var row = findRowByIdAndIndex_(sheet, id, routeIndex);
   if (row < 0) return;
+  var now = new Date();
+  var err = validateTimeSeq_(sheet, row, 14, now);
+  if (err) { logError_('setGuideComplete', {message: err, stack: ''}, id); throw new Error(err); }
   var cell = sheet.getRange(row, 14);
-  cell.setValue(new Date());
+  cell.setValue(now);
   cell.setNumberFormat('M/d HH:mm');
   if (id) delaySyncSummary_(id);
 }
@@ -3217,8 +3278,11 @@ function setPickComplete(id, routeIndex, companySsId) {
   var sheet = ss.getSheetByName('運行');
   var row = findRowByIdAndIndex_(sheet, id, routeIndex);
   if (row < 0) return;
+  var now = new Date();
+  var err = validateTimeSeq_(sheet, row, 15, now);
+  if (err) { logError_('setPickComplete', {message: err, stack: ''}, id); throw new Error(err); }
   var cell = sheet.getRange(row, 15);
-  cell.setValue(new Date());
+  cell.setValue(now);
   cell.setNumberFormat('M/d HH:mm');
   if (id) delaySyncSummary_(id);
 }
@@ -3235,8 +3299,11 @@ function setRest(id, routeIndex, type, companySsId) {
   if (row < 0) return;
   var col = (type === 'start') ? 16 : (type === 'end') ? 17 : 0;
   if (col) {
+    var now = new Date();
+    var err = validateTimeSeq_(sheet, row, col, now);
+    if (err) { logError_('setRest', {message: err, stack: ''}, id); throw new Error(err); }
     var cell = sheet.getRange(row, col);
-    cell.setValue(new Date());
+    cell.setValue(now);
     cell.setNumberFormat('M/d HH:mm');
   }
   if (id) delaySyncSummary_(id);
@@ -3252,8 +3319,11 @@ function setDropComplete(id, routeIndex, companySsId) {
   var sheet = ss.getSheetByName('運行');
   var row = findRowByIdAndIndex_(sheet, id, routeIndex);
   if (row < 0) return;
+  var now = new Date();
+  var err = validateTimeSeq_(sheet, row, 18, now);
+  if (err) { logError_('setDropComplete', {message: err, stack: ''}, id); throw new Error(err); }
   var cell = sheet.getRange(row, 18);
-  cell.setValue(new Date());
+  cell.setValue(now);
   cell.setNumberFormat('M/d HH:mm');
   if (id) delaySyncSummary_(id);
 }
@@ -3294,7 +3364,10 @@ function setInspectionComplete_(id, type, companySsId) {
   var now = new Date();
   for (var i = 1; i < allRows.length; i++) {
     if (String(allRows[i][0]||'').trim() === String(id).trim()) {
-      var cell = sheet.getRange(i + 1, colIdx + 1);
+      var colNum = colIdx + 1;
+      var err = validateTimeSeq_(sheet, i + 1, colNum, now);
+      if (err) { logError_('setInspectionComplete_', {message: err, stack: ''}, id); throw new Error(err); }
+      var cell = sheet.getRange(i + 1, colNum);
       cell.setValue(now);
       cell.setNumberFormat('M/d HH:mm');
       break;
@@ -4483,8 +4556,10 @@ function getReadNotices(email) {
 //  11-1: 会社登録シートのonEditハンドラ（onEditCompanyRegister_）  【大B / 中11 / 小11-1】
 //  ・A列(会社名)+B列(管理Gmail) が揃いC列が空 → フォルダ作成・通知メール送信
 //  ・F列(スプレッドシートURL)+G列(WebアプリURL) が両方揃いH列が空 → 配布メール自動送信
-//  C列: セットアップ状態（済/エラー）  D列: 実行日時  E列: フォルダURL
+//  ・K列に「停止」と入力 → L列に解約日時を自動記録
+//  C列: セットアップ状態  D列: 実行日時  E列: フォルダURL
 //  F列: スプレッドシートURL  G列: WebアプリURL  H列: 配布メール送信状態
+//  I列: 契約書URL  J列: 同意時刻  K列: 停止フラグ  L列: 解約日時
 //  onEdit(e) から呼び出す（シート名='会社登録' の場合）
 // ================================================================
 function onEditCompanyRegister_(sheet, range) {
@@ -4496,6 +4571,21 @@ function onEditCompanyRegister_(sheet, range) {
   // ── A列 or B列が編集された → installedOnEdit_ がフルセットアップを実行する ──
   // （シンプルトリガーには認証付き処理が不可のため、ここでは何もしない）
   if (col === 1 || col === 2) return;
+
+  // ── K列（停止フラグ）が編集された → L列に解約日時を自動入力 ──
+  if (col === 11) {
+    var stopVal = String(sheet.getRange(row, 11).getValue() || '').trim();
+    if (stopVal === '停止') {
+      sheet.getRange(row, 12).setValue(new Date())
+        .setNumberFormat('yyyy/MM/dd HH:mm')
+        .setBackground('#ffcdd2');
+      sheet.getRange(row, 11).setBackground('#ffcdd2');
+    } else {
+      sheet.getRange(row, 12).clearContent().setBackground(null);
+      sheet.getRange(row, 11).setBackground(null);
+    }
+    return;
+  }
 
   // ── F列 or G列が編集された → 両方揃ったら配布メール自動送信 ──
   if (col === 6 || col === 7) {
@@ -4567,9 +4657,9 @@ function setupCompanies() {
   if (!sheet) {
     sheet = ss.insertSheet('会社登録');
     var header = ['会社名', '管理用Gmail', 'セットアップ状態', '実行日時', 'フォルダURL',
-                  'スプレッドシートURL', 'WebアプリURL', '配布メール送信状態'];
-    sheet.getRange(1, 1, 1, 8).setValues([header]);
-    sheet.getRange(1, 1, 1, 8).setBackground('#1565c0').setFontColor('#ffffff').setFontWeight('bold');
+                  'スプレッドシートURL', 'WebアプリURL', '配布メール送信状態', '契約書URL', '同意時刻', '停止', '解約日時'];
+    sheet.getRange(1, 1, 1, 12).setValues([header]);
+    sheet.getRange(1, 1, 1, 12).setBackground('#1565c0').setFontColor('#ffffff').setFontWeight('bold');
     sheet.setFrozenRows(1);
     sheet.setColumnWidth(1, 150);
     sheet.setColumnWidth(2, 220);
@@ -4579,6 +4669,10 @@ function setupCompanies() {
     sheet.setColumnWidth(6, 350);
     sheet.setColumnWidth(7, 350);
     sheet.setColumnWidth(8, 200);
+    sheet.setColumnWidth(9, 350);
+    sheet.setColumnWidth(10, 160);
+    sheet.setColumnWidth(11, 80);
+    sheet.setColumnWidth(12, 160);
     // サンプル行（社名A・社名B）
     sheet.getRange(2, 1, 2, 2).setValues([
       ['社名A', '（管理用Gmailを入力）'],
@@ -4593,7 +4687,7 @@ function setupCompanies() {
     return;
   }
 
-  // 既存シートにF〜H列ヘッダーが未追加なら追加
+  // 既存シートにF〜I列ヘッダーが未追加なら追加
   var existingHeader = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   if (existingHeader.length < 6 || !existingHeader[5]) {
     sheet.getRange(1, 6).setValue('スプレッドシートURL').setBackground('#1565c0').setFontColor('#ffffff').setFontWeight('bold');
@@ -4602,6 +4696,14 @@ function setupCompanies() {
     sheet.setColumnWidth(6, 350);
     sheet.setColumnWidth(7, 350);
     sheet.setColumnWidth(8, 200);
+  }
+  if (existingHeader.length < 11 || !existingHeader[10]) {
+    sheet.getRange(1, 11).setValue('停止').setBackground('#1565c0').setFontColor('#ffffff').setFontWeight('bold');
+    sheet.setColumnWidth(11, 80);
+  }
+  if (existingHeader.length < 12 || !existingHeader[11]) {
+    sheet.getRange(1, 12).setValue('解約日時').setBackground('#1565c0').setFontColor('#ffffff').setFontWeight('bold');
+    sheet.setColumnWidth(12, 160);
   }
 
   var lastRow = sheet.getLastRow();
@@ -5358,10 +5460,7 @@ function processNewCompany_(companyName, adminEmail) {
 //  ③ H列(8)に送信済ステータスを記録
 // ================================================================
 function agreeContract(ssId, companyName, adminEmail, contractRow) {
-  var masterSsId = PropertiesService.getScriptProperties().getProperty('masterSsId');
-  if (!masterSsId) throw new Error('マスターSSが見つかりません');
-
-  var ss = SpreadsheetApp.openById(masterSsId);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
   var regSheet = ss.getSheetByName('会社登録');
   if (!regSheet) throw new Error('会社登録シートが見つかりません');
 
@@ -5647,6 +5746,22 @@ function installTriggers() {
     .onEdit()
     .create();
 
+  // エラーログ通知トリガー（毎日朝9時）
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'sendErrorLogEmail_') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('sendErrorLogEmail_')
+    .timeBased()
+    .atHour(9)
+    .everyDays(1)
+    .inTimezone(Session.getScriptTimeZone())
+    .create();
+
+  // エラー通知先メールアドレスを初期設定（未設定の場合のみ）
+  if (!props.getProperty('errorLogEmails')) {
+    props.setProperty('errorLogEmails', 'smart.simple.system@gmail.com');
+  }
+
   var finalUrl = props.getProperty('webAppUrl') || '（未設定 — URLを貼り付けてから再実行してください）';
   ui.alert(
     '初期設定が完了しました！\n\n' +
@@ -5741,7 +5856,21 @@ function installedOnEdit_(e) {
         sheet.getRange(row, 8).setValue('エラー: ' + err.message).setBackground('#ffcdd2');
       }
     }
-  } catch(ex) {}
+
+    // ── K列（停止フラグ）: 「停止」と入力したらL列に解約日時を自動入力 ──────
+    if (col === 11) {
+      var stopVal = String(sheet.getRange(row, 11).getValue() || '').trim();
+      if (stopVal === '停止') {
+        sheet.getRange(row, 12).setValue(new Date())
+          .setNumberFormat('yyyy/MM/dd HH:mm')
+          .setBackground('#ffcdd2');
+        sheet.getRange(row, 11).setBackground('#ffcdd2');
+      } else {
+        sheet.getRange(row, 12).clearContent().setBackground(null);
+        sheet.getRange(row, 11).setBackground(null);
+      }
+    }
+  } catch(ex) { logError_('installedOnEdit_', ex, ''); }
 }
 
 
@@ -5830,17 +5959,213 @@ function showMyScriptId() {
 // ================================================================
 function syncToOriginalSS() {
   var ui        = SpreadsheetApp.getUi();
-  var ORIG_ID   = '1n79omnAcdsEojMRyjnj9-Ic9pIl1-7Nt_HB7Avy0NVFizOSeqt0guqyZ';
+  var ORIG_ID   = '1da5ntDh1EHwzSj8UBa04tIQ9Gg37X-XJi_Jf3iaiHpA2ai1PguFqZoPJ';
   var DEPLOY_ID = 'AKfycbw5MLHFep_jOQEdAg4_wX8LMGPX7wVL41XbmygqVV794LkZu6Xv-XcRLNAHYqg9bd0fyw';
-  var MAX_KEEP  = 5;
   var BASE      = 'https://script.googleapis.com/v1/projects/';
 
-  ui.alert(
-    '元データに反映',
-    'VSCODEで Ctrl+Shift+B を押してください。\n\npush＋デプロイ更新＋古いデプロイ削除まで全自動で実行されます。',
-    ui.ButtonSet.OK
-  );
+  var ans = ui.alert('元データに反映', '修正用SSのコードを元SSに反映してデプロイします。よろしいですか？', ui.ButtonSet.OK_CANCEL);
+  if (ans !== ui.Button.OK) return;
+
+  try {
+    var token = ScriptApp.getOAuthToken();
+    var myId  = ScriptApp.getScriptId();
+    var hdrs  = { 'Authorization': 'Bearer ' + token };
+    var hdrsJ = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+    // 1. 修正用SSのコード取得
+    var r1 = UrlFetchApp.fetch(BASE + myId + '/content', { headers: hdrs, muteHttpExceptions: true });
+    if (r1.getResponseCode() !== 200) throw new Error('コード取得失敗(' + r1.getResponseCode() + ')\n' + r1.getContentText());
+
+    // 2. 元SSのコードを更新
+    var r2 = UrlFetchApp.fetch(BASE + ORIG_ID + '/content', {
+      method: 'PUT', headers: hdrsJ,
+      payload: r1.getContentText(), muteHttpExceptions: true
+    });
+    if (r2.getResponseCode() !== 200) throw new Error('元SSへのpush失敗(' + r2.getResponseCode() + ')\n' + r2.getContentText());
+
+    // 3. HEADデプロイIDを取得または新規作成（バージョン不要・URLが変わる場合あり）
+    var props_   = PropertiesService.getScriptProperties();
+    var headId_  = props_.getProperty('genSsHeadDeployId') || '';
+    var newUrl_  = '';
+
+    if (!headId_) {
+      // 既存デプロイ一覧からHEADデプロイ（versionNumber無し）を探す
+      var rList_ = UrlFetchApp.fetch(BASE + ORIG_ID + '/deployments', { headers: hdrs, muteHttpExceptions: true });
+      var dList_ = JSON.parse(rList_.getContentText()).deployments || [];
+      for (var di_ = 0; di_ < dList_.length; di_++) {
+        var dc_ = dList_[di_].deploymentConfig || {};
+        if (!dc_.versionNumber) { headId_ = dList_[di_].deploymentId; break; }
+      }
+    }
+
+    if (!headId_) {
+      // HEADデプロイを新規作成
+      var rNew_ = UrlFetchApp.fetch(BASE + ORIG_ID + '/deployments', {
+        method: 'POST', headers: hdrsJ,
+        payload: JSON.stringify({
+          entryPoints: [{ entryPointType: 'WEB_APP',
+            webApp: { access: 'ANYONE_ANONYMOUS', executeAs: 'USER_DEPLOYING' } }],
+          description: 'HEADデプロイ（自動更新）'
+        }),
+        muteHttpExceptions: true
+      });
+      if (rNew_.getResponseCode() !== 200) throw new Error('HEADデプロイ作成失敗\n' + rNew_.getContentText());
+      var created_ = JSON.parse(rNew_.getContentText());
+      headId_ = created_.deploymentId;
+      var ep_ = (created_.entryPoints || [])[0];
+      newUrl_ = ep_ && ep_.webApp ? ep_.webApp.url : '';
+      props_.setProperty('genSsHeadDeployId', headId_);
+    }
+
+    // HEADデプロイはPUT /contentで自動更新されるためdeployment更新不要
+    var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm');
+    SpreadsheetApp.getActiveSpreadsheet().toast('元SSへの反映完了 ' + now, '✅ 元SSに反映', 8);
+    if (newUrl_) {
+      ui.alert('WebアプリURLが変わりました', '新しいWebアプリURL:\n' + newUrl_ + '\n\nこのURLに切り替えてください。', ui.ButtonSet.OK);
+    }
+  } catch(e) {
+    ui.alert('エラー', e.message, ui.ButtonSet.OK);
+  }
 }
+
+// ================================================================
+//  11-7: ライセンス期限チェック（checkLicense_）
+//  会社登録シートのK列「停止」・L列「解約日時」を確認する
+//  ・ssIdなし → true（管理者アクセス）
+//  ・会社登録シートなし → true（チェックなし）
+//  ・F列のSSURLにssIdが含まれる行を検索
+//    - K列が空 → true（停止未設定 = 有効）
+//    - K列が「停止」→ L列の月末まで有効、翌月1日からブロック
+//    - ssIdが見つからない → true（未登録会社は通す）
+// ================================================================
+function checkLicense_(ssId) {
+  if (!ssId) return true;
+  try {
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('会社登録');
+    if (!sheet) return true;
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return true;
+    var data = sheet.getRange(2, 6, lastRow - 1, 7).getValues(); // F〜L列
+    for (var i = 0; i < data.length; i++) {
+      var ssUrl   = String(data[i][0] || '');
+      if (ssUrl.indexOf(ssId) === -1) continue;
+      var stopFlag = String(data[i][5] || '').trim(); // K列（停止フラグ）
+      if (!stopFlag) return true; // 空 = 有効
+      if (stopFlag !== '停止') return true; // 停止以外は無視
+      // K列が「停止」→ L列の解約日時の月末まで有効
+      var cancelDate = data[i][6]; // L列（解約日時）
+      if (!cancelDate) return false; // 解約日時なし → 即ブロック
+      var d = new Date(cancelDate);
+      if (isNaN(d.getTime())) return false;
+      // 解約月の末日を計算（翌月0日 = 当月末）
+      var endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      endOfMonth.setHours(23, 59, 59, 999);
+      return new Date() <= endOfMonth;
+    }
+    return true;
+  } catch(e) {
+    return true; // エラー時は通す（安全側）
+  }
+}
+
+
+// ================================================================
+//  14-4: エラーログ記録（logError_）
+//  エラーログシートに1行追記する。シートがなければ自動作成。
+// ================================================================
+function logError_(funcName, err, ssId) {
+  try {
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('エラーログ');
+    if (!sheet) {
+      sheet = ss.insertSheet('エラーログ');
+      var hdr = [['日時', '会社ID', '関数名', 'エラー内容', 'スタック', '確認']];
+      sheet.getRange(1, 1, 1, 6).setValues(hdr)
+        .setBackground('#1565c0').setFontColor('#fff').setFontWeight('bold');
+      sheet.setFrozenRows(1);
+      sheet.setColumnWidths(1, 6, 160);
+      sheet.setColumnWidth(4, 320);
+      sheet.setColumnWidth(5, 400);
+      sheet.setColumnWidth(6, 50);
+    }
+    sheet.appendRow([
+      new Date(),
+      ssId || '',
+      funcName || '',
+      err ? err.message : '',
+      err ? (err.stack || '') : '',
+      ''
+    ]);
+  } catch(e2) {}
+}
+
+
+// ================================================================
+//  14-5: エラーログ日次メール送信（sendErrorLogEmail_）
+//  毎日朝9時にトリガーで実行。前日分の未確認エラーをメール送信。
+// ================================================================
+function sendErrorLogEmail_() {
+  try {
+    var masterSsId = PropertiesService.getScriptProperties().getProperty('masterSsId');
+    var ss = masterSsId ? SpreadsheetApp.openById(masterSsId) : SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('エラーログ');
+    if (!sheet || sheet.getLastRow() < 2) return;
+
+    var tz       = Session.getScriptTimeZone();
+    var today    = new Date(); today.setHours(0, 0, 0, 0);
+    var yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+
+    var data   = sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getValues();
+    var errors = data.filter(function(r) {
+      var d = new Date(r[0]);
+      return d >= yesterday && d < today && String(r[5]).trim() !== '済';
+    });
+    if (errors.length === 0) return;
+
+    var dateStr = Utilities.formatDate(yesterday, tz, 'yyyy/MM/dd');
+    var subject = '【運行管理】エラー通知 ' + errors.length + '件 (' + dateStr + ')';
+    var body    = '【運行管理システム】エラーログ通知\n対象日: ' + dateStr + '\n件数: ' + errors.length + '件\n\n';
+    errors.forEach(function(r, i) {
+      body += '--- エラー ' + (i + 1) + ' ---\n';
+      body += '日時  : ' + Utilities.formatDate(new Date(r[0]), tz, 'yyyy/MM/dd HH:mm:ss') + '\n';
+      body += '会社ID: ' + (r[1] || '（なし）') + '\n';
+      body += '関数名: ' + r[2] + '\n';
+      body += 'エラー: ' + r[3] + '\n';
+      if (r[4]) body += 'スタック:\n' + r[4] + '\n';
+      body += '\n';
+    });
+
+    var emailsStr = PropertiesService.getScriptProperties().getProperty('errorLogEmails') || 'smart.simple.system@gmail.com';
+    emailsStr.split(',').forEach(function(addr) {
+      addr = addr.trim();
+      if (addr) try { GmailApp.sendEmail(addr, subject, body); } catch(e) {}
+    });
+  } catch(e) {}
+}
+
+
+// ================================================================
+//  14-6: エラー通知先メールアドレス設定（setErrorLogEmails）
+//  メニュー「📧 エラー通知先設定」から実行。カンマ区切りで複数追加可。
+// ================================================================
+function setErrorLogEmails() {
+  var props   = PropertiesService.getScriptProperties();
+  var current = props.getProperty('errorLogEmails') || 'smart.simple.system@gmail.com';
+  var ui      = SpreadsheetApp.getUi();
+  var resp    = ui.prompt(
+    'エラー通知先メールアドレス設定',
+    '複数の場合はカンマ区切りで入力してください。\n例: a@gmail.com, b@gmail.com\n\n現在の設定:\n' + current,
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (resp.getSelectedButton() !== ui.Button.OK) return;
+  var val = resp.getResponseText().trim();
+  if (val) {
+    props.setProperty('errorLogEmails', val);
+    ui.alert('設定しました:\n' + val);
+  }
+}
+
 
 function checkScopeAuth() {
   var token = ScriptApp.getOAuthToken();

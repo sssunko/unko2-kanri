@@ -2157,12 +2157,11 @@ function openEditModal(id) {
       return '<div class="edit-row"><div class="edit-label">'+label+'</div><input class="edit-input" id="ed_'+name+'" type="'+type+'" value="'+v+'"></div>';
     }
     h+=ro('ID',d.id)+ro('区分',d.kubun)+ro('会社名',d.company);
-    h+=ro('トン数',d.tons)+ro('車種',d.type)+ro('看板名',d.kanban)+ro('車番',d.car)+ro('乗務員名',d.name)+ro('携帯番号',d.tel);
-    h+=ro('日付',d.date)+ro('荷主名',d.client)+ro('積地',d.pick)+ro('降地',d.drop);
-    h+=ro('誘導時刻',d.guideTime)+ro('積完時刻',d.pickTime)+ro('休憩開始',d.restStart)+ro('休憩終了',d.restEnd)+ro('降完時刻',d.dropTime);
+    h+=ed('トン数','tons',d.tons)+ed('車種','type',d.type)+ed('看板名','kanban',d.kanban)+ed('車番','car',d.car)+ed('乗務員名','name',d.name)+ed('携帯番号','tel',d.tel,'tel');
+    h+=ed('日付','date',d.date,'date')+ed('荷主名','client',d.client)+ed('積地','pick',d.pick)+ed('降地','drop',d.drop);
+    h+=ed('誘導時刻','guideTime',d.guideTime,'time')+ed('積完時刻','pickTime',d.pickTime,'time')+ed('休憩開始','restStart',d.restStart,'time')+ed('休憩終了','restEnd',d.restEnd,'time')+ed('降完時刻','dropTime',d.dropTime,'time');
     h+=ro('売上', d.sales!==''&&d.sales!==null ? Math.trunc(Number(d.sales)).toLocaleString() : '');
-    h+=ro('請求高速', d.tollReq!==''&&d.tollReq!==null ? d.tollReq : '');
-    h+=ro('実費高速', d.tollReal!==''&&d.tollReal!==null ? d.tollReal : '');
+    h+=ed('請求高速','tollReq',d.tollReq!==''&&d.tollReq!==null ? d.tollReq : '','number')+ed('実費高速','tollReal',d.tollReal!==''&&d.tollReal!==null ? d.tollReal : '','number');
     h+=ro('高速計', d.tollTotal!==''&&d.tollTotal!==null ? Math.trunc(Number(d.tollTotal)).toLocaleString() : '');
     h+=ro('支払', d.pay!==''&&d.pay!==null ? Math.trunc(Number(d.pay)).toLocaleString() : '');
     h+=ro('有休手当', (d.yukyu !== '' && d.yukyu !== null && d.yukyu !== undefined && d.yukyu !== 0) ? '¥'+Math.trunc(Number(d.yukyu)).toLocaleString() : '—');
@@ -2197,7 +2196,7 @@ function openEditModal(id) {
     h+='<button onclick="addTermFile(\''+id+'\')" style="margin-top:6px;padding:4px 10px;border-radius:6px;background:#388e3c;color:white;font-size:12px;">ファイル追加</button>';
     h+='</div></div>';
     h+='<div class="edit-btns">'+
-      '<button class="edit-btn eb-save" onclick="saveTermNoticeFromEdit(\''+id+'\')">保存</button>'+
+      '<button class="edit-btn eb-save" onclick="saveEditModal()">保存</button>'+
       '<button class="edit-btn eb-close" onclick="closeEditModal()">閉じる</button>'+
       '</div>';
     document.getElementById('editBox').innerHTML=h;

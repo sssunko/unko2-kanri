@@ -100,25 +100,12 @@
   var CONTRACT_ROW = '<?= contractRow ?>';
 
   function doAgree() {
-    var btn     = document.getElementById('agreeBtn');
-    var loading = document.getElementById('loadingMsg');
-    var errMsg  = document.getElementById('errorMsg');
-    btn.disabled        = true;
-    loading.style.display = 'block';
-    errMsg.style.display  = 'none';
-
-    google.script.run
-      .withSuccessHandler(function() {
-        document.getElementById('mainContent').style.display  = 'none';
-        document.getElementById('doneContent').style.display = 'block';
-      })
-      .withFailureHandler(function(err) {
-        btn.disabled          = false;
-        loading.style.display = 'none';
-        errMsg.textContent    = 'エラーが発生しました: ' + (err.message || err);
-        errMsg.style.display  = 'block';
-      })
-      .agreeContract(SSID, COMPANY_NAME, ADMIN_EMAIL, CONTRACT_ROW);
+    var btn = document.getElementById('agreeBtn');
+    btn.disabled = true;
+    // 即座に完了画面へ遷移（裏でSSに送信）
+    document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('doneContent').style.display = 'block';
+    google.script.run.agreeContract(SSID, COMPANY_NAME, ADMIN_EMAIL, CONTRACT_ROW);
   }
 </script>
 </body>
