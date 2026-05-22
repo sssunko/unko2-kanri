@@ -502,7 +502,10 @@
     <div id="routeArea"></div>
     <button class="big-btn purple" onclick="addRoute()">＋ 行程を追加</button>
     <button class="big-btn teal" onclick="startRunFromInput()">誘導へ進む</button>
-    <button class="big-btn dark" onclick="goHome()">ホーム</button>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="big-btn dark" style="flex:1;" onclick="goHome()">ホーム</button>
+      <button class="big-btn" style="flex:1;background:#b71c1c;" onclick="clearRunStateAndHome()">リセット</button>
+    </div>
   </div>
 
   <!-- ============================================================
@@ -511,7 +514,10 @@
   <div id="stepGuide" class="screen">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
       <button class="reset-small" style="float:none;margin-bottom:0;background:#6d3200;" onclick="openNewRouteModal()">＋ 新規行程追加</button>
-      <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="reset-small" style="float:none;margin-bottom:0;background:#b71c1c;" onclick="clearRunStateAndHome()">リセット</button>
+        <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+      </div>
     </div>
     <div class="section-title">誘導</div>
     <div id="guideNoticeArea" style="background:#1e1e1e;border-radius:12px;padding:12px;margin-bottom:12px;display:none;"></div>
@@ -525,7 +531,10 @@
   <div id="step2" class="screen">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
       <button class="reset-small" style="float:none;margin-bottom:0;background:#6d3200;" onclick="openNewRouteModal()">＋ 新規行程追加</button>
-      <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="reset-small" style="float:none;margin-bottom:0;background:#b71c1c;" onclick="clearRunStateAndHome()">リセット</button>
+        <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+      </div>
     </div>
     <div class="section-title">積完（選択式）</div>
     <div id="pickButtons"></div>
@@ -538,7 +547,10 @@
   <div id="step3" class="screen">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
       <button class="reset-small" style="float:none;margin-bottom:0;background:#6d3200;" onclick="openNewRouteModal()">＋ 新規行程追加</button>
-      <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="reset-small" style="float:none;margin-bottom:0;background:#b71c1c;" onclick="clearRunStateAndHome()">リセット</button>
+        <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+      </div>
     </div>
     <div class="section-title">休憩開始</div>
     <button class="big-btn" style="background:#e65100;" onclick="restStart()">休憩開始</button>
@@ -550,6 +562,7 @@
        ============================================================ -->
   <div id="stepInsp" class="screen">
     <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:10px;">
+      <button class="reset-small" style="float:none;margin-bottom:0;background:#b71c1c;margin-right:6px;" onclick="clearRunStateAndHome()">リセット</button>
       <button class="reset-small" style="float:none;margin-bottom:0;" onclick="inspBack()">戻る</button>
     </div>
     <div class="section-title" id="inspTitle">点呼確認</div>
@@ -565,7 +578,10 @@
   <div id="step4" class="screen">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
       <button class="reset-small" style="float:none;margin-bottom:0;background:#6d3200;" onclick="openNewRouteModal()">＋ 新規行程追加</button>
-      <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="reset-small" style="float:none;margin-bottom:0;background:#b71c1c;" onclick="clearRunStateAndHome()">リセット</button>
+        <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+      </div>
     </div>
     <div class="section-title">休憩終了</div>
     <button class="big-btn" style="background:#6a1b9a;" onclick="restEnd()">休憩終了</button>
@@ -578,7 +594,10 @@
   <div id="step5" class="screen">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
       <button class="reset-small" style="float:none;margin-bottom:0;background:#6d3200;" onclick="openNewRouteModal()">＋ 新規行程追加</button>
-      <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="reset-small" style="float:none;margin-bottom:0;background:#b71c1c;" onclick="clearRunStateAndHome()">リセット</button>
+        <button class="reset-small" style="float:none;margin-bottom:0;" onclick="goBack()">戻る</button>
+      </div>
     </div>
     <div class="section-title">降完（選択式）</div>
     <div id="dropButtons"></div>
@@ -700,6 +719,7 @@
 // ============================================================
 var COMPANY_SS_ID = '<?= companySsId ?>'; // doGet(e) から渡される会社のスプレッドシートID
 var LS_EMAIL_KEY = 'unkouLinkedEmail' + (COMPANY_SS_ID ? '_' + COMPANY_SS_ID : '');
+function getMyEmail() { return localStorage.getItem(LS_EMAIL_KEY) || ''; }
 
 window.onload = function() {
   var savedEmail = localStorage.getItem(LS_EMAIL_KEY) || '';
@@ -882,7 +902,7 @@ function showScreen(id, title) {
           renderTable();
         })
         .withFailureHandler(function(){})
-        .getListData(listYear, listMonth, COMPANY_SS_ID);
+        .getListData(listYear, listMonth, COMPANY_SS_ID, getMyEmail());
     }, 90000);
   }
 }
@@ -1115,7 +1135,7 @@ function startRunFromInput() {
         }
       })
       .withFailureHandler(function(e){ alert('エラー：'+e.message); })
-      .createParentRows(np, nd, runDate, overrideInfo, COMPANY_SS_ID);
+      .createParentRows(np, nd, runDate, overrideInfo, COMPANY_SS_ID, getMyEmail());
   }
   if (oldRunRows.length>0) {
     google.script.run
@@ -1422,7 +1442,7 @@ function showList() {
   google.script.run
     .withSuccessHandler(function(r) { readIds = r || []; loadList(); })
     .withFailureHandler(function() { readIds = []; loadList(); })
-    .getReadNotices();
+    .getReadNotices(getMyEmail());
 }
 
 function prevMonth() { listMonth--; if (listMonth===0) { listMonth=12; listYear--; } filterDateFrom=''; filterDateTo=''; loadList(); }
@@ -1524,7 +1544,7 @@ function loadList() {
     .withFailureHandler(function(err) {
       document.getElementById('listBody').innerHTML = '<div style="padding:20px;color:#ff5252;">データ取得エラー: '+err+'</div>';
     })
-    .getListData(listYear, listMonth, COMPANY_SS_ID);
+    .getListData(listYear, listMonth, COMPANY_SS_ID, getMyEmail());
 }
 
 // ============================================================
@@ -2279,6 +2299,9 @@ function saveTermNoticeFromEdit(id) {
 //  ID指定でGASから進捗を取得し対応する画面に遷移する
 // ============================================================
 function startRunFromList(id) {
+  if (phase && phase !== '' && runId && runId !== id) {
+    if (!confirm('現在 ' + runId + ' の運行中です。\n' + id + ' に切り替えますか？')) return;
+  }
   google.script.run.withSuccessHandler(function(data) {
     if (!data||!data.routes||data.routes.length===0){alert('行程がありません');return;}
     if (data.progress==='complete') return;
@@ -2351,7 +2374,7 @@ function submitNewRoute() {
       setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2000);
     })
     .withFailureHandler(function(e){ alert('エラー: ' + e.message); })
-    .createParentRows(np, nd, dateVal, null, COMPANY_SS_ID);
+    .createParentRows(np, nd, dateVal, null, COMPANY_SS_ID, getMyEmail());
 }
 function closeNewRouteModal() {
   document.getElementById('newRouteOverlay').style.display = 'none';
@@ -2376,7 +2399,7 @@ function loadNotices() {
       html+='<span style="font-size:12px;color:#f57c00;font-weight:700;">未開封有</span></div></div>';
     });
     el.innerHTML=html; window._homeNotices=list;
-  }).getMyNotices(COMPANY_SS_ID);
+  }).getMyNotices(COMPANY_SS_ID, getMyEmail());
 }
 function openHomeNoticeDetail(idx) {
   var n=window._homeNotices[idx]; if(!n) return;
@@ -2389,7 +2412,7 @@ function openHomeNoticeDetail(idx) {
   h+='</div></div>';
   document.getElementById('noticeDetailBody').innerHTML=h;
   noticeReturnTo='home'; showScreen('noticeDetail','連絡詳細');
-  google.script.run.markAsRead(n.id);
+  google.script.run.markAsRead(n.id, getMyEmail());
   var el=document.getElementById('homeNotice_'+n.id);
   if(el) el.remove();
   var area=document.getElementById('noticeArea');
@@ -2408,7 +2431,7 @@ function openNoticeDetail(id, alreadyRead) {
   h+='</div></div>';
   document.getElementById('noticeDetailBody').innerHTML=h;
   noticeReturnTo='list'; showScreen('noticeDetail','連絡詳細');
-  if(!alreadyRead){ if(readIds.indexOf(id)===-1) readIds.push(id); google.script.run.markAsRead(id); }
+  if(!alreadyRead){ if(readIds.indexOf(id)===-1) readIds.push(id); google.script.run.markAsRead(id, getMyEmail()); }
 }
 function closeNoticeDetail() {
   if(noticeReturnTo==='home'){ goHome(); loadNotices(); }

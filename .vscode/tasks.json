@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "修正用SSに反映",
+      "label": "元SSに反映（push）",
       "type": "shell",
       "command": "clasp push --force",
       "group": {

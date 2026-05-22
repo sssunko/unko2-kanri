@@ -465,17 +465,23 @@ function applyHolidayRowColors_() {
   var today = new Date(); today.setHours(0, 0, 0, 0);
 
   // 運行シート: 有休=薄グレー・休み=暗グレーで行全体着色、配車漏れ=L列のみ黄色
+  // 通常行の既存背景色は保護（有休/休み色のみ上書き）
   var sheet = ss.getSheetByName('運行');
   if (sheet && sheet.getLastRow() >= 2) {
-    var lr   = sheet.getLastRow();
+    var lr      = sheet.getLastRow();
     var lastCol = Math.max(sheet.getLastColumn(), 12);
-    var vals = sheet.getRange(2, 10, lr - 1, 3).getValues();
-    var bgs2D = vals.map(function(r) {
+    var vals    = sheet.getRange(2, 10, lr - 1, 3).getValues();
+    var curBgs  = sheet.getRange(2, 1, lr - 1, lastCol).getBackgrounds();
+    var bgs2D   = vals.map(function(r, idx) {
       var dateV = r[0];
       var pickV = String(r[2] || '');
       if (pickV.indexOf('有休') !== -1) return new Array(lastCol).fill('#e0e0e0');
       if (pickV.indexOf('休み') !== -1) return new Array(lastCol).fill('#9e9e9e');
-      var rowArr = new Array(lastCol).fill(null);
+      // 通常行: 既存背景を保護し、有休/休み色だけクリア
+      var rowArr = curBgs[idx].slice();
+      for (var ci = 0; ci < rowArr.length; ci++) {
+        if (rowArr[ci] === '#e0e0e0' || rowArr[ci] === '#9e9e9e') rowArr[ci] = null;
+      }
       if (pickV === '' && dateV instanceof Date) {
         var d = new Date(dateV); d.setHours(0, 0, 0, 0);
         if (d >= today) rowArr[11] = '#fff9c4'; // L列(col12)のみ黄色
@@ -485,19 +491,24 @@ function applyHolidayRowColors_() {
     sheet.getRange(2, 1, lr - 1, lastCol).setBackgrounds(bgs2D);
   }
 
-  // 集計表: 同様に行全体着色
+  // 集計表: 同様に行全体着色（警告グレー・保護色を維持）
   var sumSheet = ss.getSheetByName('集計表');
   if (sumSheet && sumSheet.getLastRow() >= 2) {
-    var slr     = sumSheet.getLastRow();
+    var slr      = sumSheet.getLastRow();
     var sLastCol = Math.max(sumSheet.getLastColumn(), 12);
-    var svals   = sumSheet.getRange(2, 10, slr - 1, 3).getValues();
-    var sbgs2D  = svals.map(function(r) {
-      var dateV = r[0];
+    var svals    = sumSheet.getRange(2, 10, slr - 1, 3).getValues();
+    var sCurBgs  = sumSheet.getRange(2, 1, slr - 1, sLastCol).getBackgrounds();
+    var sbgs2D   = svals.map(function(r, idx) {
       var pickV = String(r[2] || '');
       if (pickV.indexOf('有休') !== -1) return new Array(sLastCol).fill('#e0e0e0');
       if (pickV.indexOf('休み') !== -1) return new Array(sLastCol).fill('#9e9e9e');
-      var rowArr = new Array(sLastCol).fill(null);
-      if (pickV === '' && dateV instanceof Date) {
+      // 通常行: 既存背景を保護し、有休/休み色だけクリア
+      var rowArr = sCurBgs[idx].slice();
+      for (var ci = 0; ci < rowArr.length; ci++) {
+        if (rowArr[ci] === '#e0e0e0' || rowArr[ci] === '#9e9e9e') rowArr[ci] = null;
+      }
+      var dateV = r[0];
+      if (r[2] === '' && dateV instanceof Date) {
         var d = new Date(dateV); d.setHours(0, 0, 0, 0);
         if (d >= today) rowArr[11] = '#fff9c4';
       }
@@ -853,6 +864,9 @@ function onEdit(e) {
       if (blocked) {
         if (numR === 1 && numC === 1) { range.setValue(e.oldValue !== undefined ? e.oldValue : ''); }
         ss.toast('この列は編集できません', '⛔ 保護', 3);
+      } else {
+        var rowId = sheet.getRange(row, 1).getValue();
+        if (rowId) delaySyncSummary_(rowId);
       }
       return;
     }
@@ -1112,35 +1126,38 @@ function onEditMasterVehicle_(sheet, range) {
     var mKyuryo = mRow[14]; // O=15
     var mPct    = mRow[15]; // P=16
 
-    // 排他制御: 仮日数か給料に入力 → %をクリア / %に入力 → 仮日数・給料をクリア
+    // 排他制御: 給料と%は排他。仮日数は経費按分用なので%・給料どちらとも共存可能。
     var kariEdited   = editedStartCol <= 14 && editedEndCol >= 14;
     var kyuryoEdited = editedStartCol <= 15 && editedEndCol >= 15;
     var pctEdited    = editedStartCol <= 16 && editedEndCol >= 16;
-    if ((kariEdited || kyuryoEdited) && (mKari !== '' || mKyuryo !== '')) {
+    if (kyuryoEdited && mKyuryo !== '') {
+      // 給料に入力 → %をクリア
       mPct = '';
       sheet.getRange(row, 16).clearContent();
     } else if (pctEdited && mPct !== '') {
-      mKari = ''; mKyuryo = '';
-      sheet.getRange(row, 14).clearContent();
+      // %に入力 → 給料のみクリア（仮日数は保持）
+      mKyuryo = '';
       sheet.getRange(row, 15).clearContent();
     }
+    // 仮日数に入力しても%・給料は変更しない
 
-    // 集計表の該当行に反映（空でも書き込む）
+    // 集計表の該当車番_乗務員名の全行をsyncSummaryForId_で即反映
     if (mCar || mName) {
-      var sumSheet = ss.getSheetByName('集計表');
-      if (sumSheet && sumSheet.getLastRow() >= 2) {
-        var sumData = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 35).getValues();
-        for (var s = 0; s < sumData.length; s++) {
-          var sCar  = String(sumData[s][6] || '').trim();
-          var sName = String(sumData[s][7] || '').trim();
+      var sumSheetM = ss.getSheetByName('集計表');
+      if (sumSheetM && sumSheetM.getLastRow() >= 2) {
+        var sumIdsM = sumSheetM.getRange(2, 1, sumSheetM.getLastRow()-1, 7).getValues();
+        var targetIds = [];
+        for (var si = 0; si < sumIdsM.length; si++) {
+          var sCar  = String(sumIdsM[si][5] || '').trim(); // F列=車番
+          var sName = String(sumIdsM[si][6] || '').trim(); // G列=乗務員名
           if (sCar === mCar && sName === mName) {
-            var sRow = s + 2;
-            sumSheet.getRange(sRow, 31).setValue(mKari);
-            sumSheet.getRange(sRow, 32).setValue(mKyuryo);
-            sumSheet.getRange(sRow, 33).setValue(mPct);
+            var tid = String(sumIdsM[si][0] || '').trim();
+            if (tid) targetIds.push(tid);
           }
         }
-        calculatePaymentAmount();
+        for (var ti = 0; ti < targetIds.length; ti++) {
+          try { syncSummaryForId_(targetIds[ti]); } catch(e) {}
+        }
       }
     }
 
@@ -1170,6 +1187,37 @@ function onEditMasterVehicle_(sheet, range) {
     }
   }
   refreshActiveVehiclesAuto_();
+  applyMasterVehicleWarnings_(sheet);
+}
+
+
+// ================================================================
+//  自車専属マスタ全行の支払条件不備を警告（N=仮日数/O=給料/P=%列のみ一括更新）
+// ================================================================
+function applyMasterVehicleWarnings_(sheet) {
+  if (!sheet || sheet.getLastRow() < 2) return;
+  var lr        = sheet.getLastRow();
+  var lc        = Math.max(sheet.getLastColumn(), 32);
+  var hdr       = sheet.getRange(1, 1, 1, lc).getValues()[0];
+  var data      = sheet.getRange(2, 1, lr - 1, lc).getValues();
+  var hasToll   = String(hdr[16] || '').trim() === '高速を引く（空欄時は引かない）';
+  var expStartI = hasToll ? 17 : 16; // 0-based（payCondMapビルダーと同ロジック）
+  var warnBgs   = [];
+  for (var r = 0; r < data.length; r++) {
+    var kariN  = Number(data[r][13]) || 0;
+    var kyuN   = Number(data[r][14]) || 0;
+    var pctN   = Number(data[r][15]) || 0;
+    var expTot = 0;
+    for (var e = expStartI; e <= expStartI + 14; e++) expTot += Number(data[r][e]) || 0;
+    var status = String(data[r][1] || '').trim();
+    var rowBg  = status === '運行' ? '#ffcdd2' : status === '待機' ? '#fff9c4' : status === '故障' ? '#c8e6c9' : null;
+    // 仮日数なし かつ 給料/%/経費のいずれかあり → N列(仮日数)をグレー警告
+    var nBg = (!kariN && (kyuN > 0 || pctN > 0 || expTot > 0)) ? '#b0bec5' : rowBg;
+    // 仮日数あり かつ 給料も%もなし → O列(給料)とP列(%)を両方グレー警告
+    var opBg = (kariN > 0 && !kyuN && !pctN) ? '#b0bec5' : rowBg;
+    warnBgs.push([nBg, opBg, opBg]);
+  }
+  sheet.getRange(2, 14, lr - 1, 3).setBackgrounds(warnBgs);
 }
 
 
@@ -1205,11 +1253,23 @@ function syncVehicleToCurrentMonth_(veh, skipSort) {
   }
   // ② 集計表の孤立ID（削除した行のID）を除去
   cleanAllOrphanSummary_();
-  // ③ ステータスが「運行」なら今日〜今月末の行を生成
+  // ③ ステータスが「運行」なら今日〜今月末の行を生成（既存行程のある日はスキップ）
   if (status === '運行') {
     var now = new Date();
     var yr = now.getFullYear(), mo = now.getMonth(), startDay = now.getDate();
     var endDay = new Date(yr, mo + 1, 0).getDate();
+    // 削除後の現状を読み直して、この車番で既に行がある日付を収集
+    var existingDates = {};
+    if (sheet.getLastRow() >= 2) {
+      var remainData = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
+      for (var ei = 0; ei < remainData.length; ei++) {
+        if (String(remainData[ei][5] || '').trim() !== carNo) continue;
+        var ed = remainData[ei][9];
+        if (!(ed instanceof Date)) continue;
+        var edMid = new Date(ed); edMid.setHours(0, 0, 0, 0);
+        existingDates[edMid.getTime()] = true;
+      }
+    }
     var lock = LockService.getDocumentLock();
     try { lock.waitLock(30000); } catch(e) { return; }
     try {
@@ -1217,6 +1277,8 @@ function syncVehicleToCurrentMonth_(veh, skipSort) {
       var nextNum   = getNextIdNum_(sheet, 'V-');
       var rowsData  = [], formulas = [];
       for (var day = startDay; day <= endDay; day++) {
+        var dateMid = new Date(yr, mo, day); dateMid.setHours(0, 0, 0, 0);
+        if (existingDates[dateMid.getTime()]) continue; // 既存行程のある日はスキップ
         var rowId = 'V-' + String(nextNum).padStart(4, '0'); nextNum++;
         var rn    = insertRow + rowsData.length;
         rowsData.push([rowId, veh[2], veh[3], veh[5], veh[6], veh[7], veh[8], veh[9],
@@ -1352,6 +1414,7 @@ function generateSummary() {
           distance: oldRows[o][22],
           gas:      oldRows[o][24],
           pay:      oldRows[o][26],
+          expense:  isNewSumLayout ? (oldRows[o][27] || '') : '',
           memo:     isNewSumLayout ? oldRows[o][29] : oldRows[o][28],
           kari:     isNewSumLayout ? (oldRows[o][30] || '') : (oldRows[o][29] || ''),
           kyuryo:   isNewSumLayout ? (oldRows[o][31] || '') : (oldRows[o][30] || ''),
@@ -1431,6 +1494,15 @@ function generateSummary() {
     }
   }
 
+  // 月締めロック：再計算範囲の制限日付を取得（設定がなければ全期間）
+  var recalcFromStr_ = PropertiesService.getScriptProperties().getProperty('recalcFromDate');
+  var recalcFrom_ = null;
+  if (recalcFromStr_) {
+    var rfp_ = recalcFromStr_.split('/');
+    recalcFrom_ = new Date(Number(rfp_[0]), Number(rfp_[1])-1, Number(rfp_[2]));
+    recalcFrom_.setHours(0, 0, 0, 0);
+  }
+
   // 集計表に書き出す行データを組み立て
   // 距離・ガソリン代・支払いは退避データを復元（再生成で消えない）
   // 支払条件（仮日数/給料/%）はマスタ優先、次に退避データ
@@ -1440,22 +1512,35 @@ function generateSummary() {
     var tonsStr= String(g.tons || '').trim();
     var fuel   = fuelMap[tonsStr] || fuelMap[tonsStr.replace(/[tT]/,'')+'t'] || 3;
     var old    = oldData[g.id] || {};
-    var pkey   = String(g.car||'').trim() + '_' + String(g.name||'').trim();
-    var pc     = payCondMap[pkey] || {kari:'', kyuryo:'', pct:'', tollDeduct:'', expense:0};
-    var kari   = (pc.kari   !== undefined && pc.kari   !== '') ? pc.kari   : (old.kari   || '');
-    var kyuryo = (pc.kyuryo !== undefined && pc.kyuryo !== '') ? pc.kyuryo : (old.kyuryo || '');
-    var pct    = (pc.pct    !== undefined && pc.pct    !== '') ? pc.pct    : (old.pct    || '');
+    var pkey       = String(g.car||'').trim() + '_' + String(g.name||'').trim();
+    var hasMasterG = pkey in payCondMap;
+    var pc         = payCondMap[pkey] || {kari:'', kyuryo:'', pct:'', tollDeduct:'', expense:0};
+    // 月締めロック: 制限日付より前の行はマスタ更新を反映しない（旧集計表の値を保持）
+    var rowDate_ = g.date instanceof Date ? g.date : null;
+    var useOld_  = recalcFrom_ && rowDate_ && rowDate_ < recalcFrom_;
+    // マスタに登録がある場合はマスタの値のみ使う（空は空のまま）
+    // マスタに登録がない場合のみ旧集計表の手入力値を使う
+    var kari   = (!useOld_ && hasMasterG) ? pc.kari   : (old.kari   || '');
+    var kyuryo = (!useOld_ && hasMasterG) ? pc.kyuryo : (old.kyuryo || '');
+    var pct    = (!useOld_ && hasMasterG) ? pc.pct    : (old.pct    || '');
 
     var gpick = g.picks.join('・'), gdrop = g.drops.join('・');
     var gIsYukyu  = gpick.indexOf('有休') !== -1 || gdrop.indexOf('有休') !== -1;
     var gIsYasumi = !gIsYukyu && (gpick.indexOf('休み') !== -1 || gdrop.indexOf('休み') !== -1);
-    // 経費按分（有休・休みは0円、実稼働日数で按分）
+    // 経費按分（有休・休みは0円、仮日数設定時はそれを月間予定稼働日数として使用）
     var gExpense = 0;
     if (!gIsYukyu && !gIsYasumi && g.date instanceof Date) {
-      var gYmKey   = g.date.getFullYear() + '_' + g.date.getMonth();
-      var gVKey    = String(g.car||'').trim() + '_' + String(g.name||'').trim() + '_' + gYmKey;
-      var gWorkDays= workDayMap[gVKey] || 1;
-      gExpense     = Math.round((pc.expense || 0) / gWorkDays);
+      var scheduledDaysG = Number(kari) || 0;
+      var pcExpG = pc.expense || 0;
+      if (pcExpG > 0 && scheduledDaysG === 0) {
+        gExpense = ''; // 仮日数なし・経費あり→空欄(グレー警告)
+      } else if (scheduledDaysG > 0) {
+        gExpense = Math.round(pcExpG / scheduledDaysG);
+      }
+    }
+    // 月締めロック: 制限日付より前の行は旧集計表の経費値を維持
+    if (useOld_ && old.expense !== undefined && old.expense !== '') {
+      gExpense = old.expense;
     }
     // V/Z/支払/利益を値で計算（数式廃止でフィルター時のズレを防止）
     var vRow = (g.tollReq === 0 && g.tollReal === 0) ? '' : (Number(g.tollReal)||0)-(Number(g.tollReq)||0);
@@ -1489,10 +1574,23 @@ function generateSummary() {
     ]);
   }
 
-  // 集計表を全クリアして再書き込み
-  sumSheet.clear();
+  // 集計表を再書き込み（値のみクリア・背景リセット、枠線・書式・ヘッダー色は保持）
+  var prevLR_ = sumSheet.getLastRow();
+  var prevLC_ = Math.max(sumSheet.getLastColumn(), 37);
+  sumSheet.clearContents();
+  if (prevLR_ >= 2) {
+    sumSheet.getRange(2, 1, prevLR_ - 1, prevLC_).setBackground(null);
+  }
   if (outRows.length > 0) {
     sumSheet.getRange(1, 1, outRows.length, 37).setValues(outRows);
+    // 燃料代（Z=26列）に数式を設定（距離÷燃費×ガソリン代）
+    if (outRows.length > 1) {
+      var fuelFormulas = [];
+      for (var fRow = 2; fRow <= outRows.length; fRow++) {
+        fuelFormulas.push(['=IF(OR(W'+fRow+'="",Y'+fRow+'=""),"",ROUND(W'+fRow+'/X'+fRow+'*Y'+fRow+',0))']);
+      }
+      sumSheet.getRange(2, 26, outRows.length - 1, 1).setFormulas(fuelFormulas);
+    }
     sumSheet.setFrozenRows(1);
 
     // 4時間超で黄色（労働時間過超）、30分未満で水色（休憩不足）の判定閾値
@@ -1506,27 +1604,44 @@ function generateSummary() {
       var rowPayN = typeof outRows[row-1][26]==='number' ? outRows[row-1][26] : 0;
       var rowExpN = Number(outRows[row-1][27])||0;
       var calcProfit = (Number(g2.sales)||0)-(rowVN+rowZN+rowPayN+rowExpN);
-      sumSheet.getRange(row, 1, 1, 33).setBackground(calcProfit < 0 ? '#ffebee' : null);
-      sumSheet.getRange(row, 15, 1, 4).setBackground(null);
+      var rowRed = calcProfit < 0 ? '#ffebee' : null;
+      sumSheet.getRange(row, 1, 1, 37).setBackground(rowRed);
+      sumSheet.getRange(row, 15, 1, 4).setBackground(rowRed);
       if (g2.rawPickTime  && g2.rawRestStart && (g2.rawRestStart-g2.rawPickTime)  > F) { sumSheet.getRange(row,15,1,2).setBackground('#ffd600'); }
       if (g2.rawRestStart && g2.rawRestEnd   && (g2.rawRestEnd  -g2.rawRestStart) < T) { sumSheet.getRange(row,16,1,2).setBackground('#4fc3f7'); }
       if (g2.rawRestEnd   && g2.rawDropTime  && (g2.rawDropTime -g2.rawRestEnd)   > F) { sumSheet.getRange(row,17,1,2).setBackground('#ffd600'); }
-      // 支払い条件不備の警告背景色
+      // 支払い条件不備の警告背景色（グレー）
       var pctNR = Number(outRows[row-1][32])||0, kyuRN = Number(outRows[row-1][31])||0, kariRN = Number(outRows[row-1][30])||0;
-      sumSheet.getRange(row, 27).setBackground(null);
-      sumSheet.getRange(row, 31, 1, 3).setBackground(null);
+      sumSheet.getRange(row, 27).setBackground(rowRed);
+      sumSheet.getRange(row, 28).setBackground(rowRed);
+      sumSheet.getRange(row, 31, 1, 3).setBackground(rowRed);
       if (!pctNR && !(kyuRN > 0 && kariRN > 0)) {
         if (kyuRN > 0 || kariRN > 0) {
-          if (!kyuRN)  sumSheet.getRange(row, 32).setBackground('#f4cccc');
-          if (!kariRN) sumSheet.getRange(row, 31).setBackground('#f4cccc');
+          if (!kyuRN)  sumSheet.getRange(row, 32).setBackground('#b0bec5');
+          if (!kariRN) sumSheet.getRange(row, 31).setBackground('#b0bec5');
         } else if (!outRows[row-1][26]) {
-          sumSheet.getRange(row, 27).setBackground('#f4cccc');
+          sumSheet.getRange(row, 27).setBackground('#b0bec5');
         }
+      }
+      // 経費合計（AB=28列）: 仮日数なし経費あり→値を空欄でグレー警告
+      if (outRows[row-1][27] === '') {
+        sumSheet.getRange(row, 28).setBackground('#b0bec5');
       }
     }
     applyMoneyFormat_(sumSheet, 2, outRows.length - 1, 'summary');
     applyDateTimeFormat_(sumSheet, 2, outRows.length - 1);
+    sumSheet.getRange(2, 36, outRows.length - 1, 2).setNumberFormat('M/d HH:mm');
+    applySumEditableBorders_(sumSheet, 2, outRows.length - 1);
   }
+  // 旧データより行数が減った場合、余分な行の書式（枠線・色含む）をクリア
+  if (prevLR_ > outRows.length) {
+    sumSheet.getRange(outRows.length + 1, 1, prevLR_ - outRows.length, prevLC_).clearFormat();
+  }
+
+  // 月締めロックフラグをクリア（集計表再生成が完了したのでリセット）
+  var lockProps_ = PropertiesService.getScriptProperties();
+  lockProps_.deleteProperty('recalcFromDate');
+  lockProps_.deleteProperty('recalcFromDateSet');
 
   convertLegacyAdminDataUrls_();
   applyHolidayRowColors_();
@@ -1710,9 +1825,10 @@ function syncSummaryForId_(targetId) {
     if (upick === '' || upick.indexOf('有休') !== -1 || upick.indexOf('休み') !== -1) continue;
     uniqueWIds[String(ur[0]||'').trim()] = true;
   }
-  var expWorkDays = Math.max(Object.keys(uniqueWIds).length, 1);
+  var scheduledDaysS = Number(kari) || 0;
+  var expWorkDays = scheduledDaysS > 0 ? scheduledDaysS : Math.max(Object.keys(uniqueWIds).length, 1);
   var pcExp       = (payCondMap[pkey] || {}).expense || 0;
-  var expenseVal  = (sIsYukyu || sIsYasumi) ? 0 : Math.round(pcExp / expWorkDays);
+  var expenseVal  = (sIsYukyu || sIsYasumi) ? 0 : (pcExp > 0 && scheduledDaysS === 0 ? '' : Math.round(pcExp / expWorkDays));
 
   var rowData = [
     g.id, g.kubun, g.company, g.tons, g.type, g.car, g.name, g.tel, g.kanban||g.company,
@@ -1739,11 +1855,10 @@ function syncSummaryForId_(targetId) {
     sumSheet.getRange(sumRow, 1, 1, 37).setValues([rowData]);
   }
 
-  // V(22)・Z(26) を値で書き込む（数式廃止でフィルター時のズレを防止）
   var vSyncVal = (g.tollReq === 0 && g.tollReal === 0) ? '' : (Number(g.tollReal)||0)-(Number(g.tollReq)||0);
-  var zSyncVal = keepDistance ? Math.round(Number(keepDistance)/Number(fuel)*(Number(keepGas)||0)) : '';
   sumSheet.getRange(sumRow, 22).setValue(vSyncVal);
-  sumSheet.getRange(sumRow, 26).setValue(zSyncVal);
+  // 燃料代（Z=26列）に数式を設定（距離÷燃費×ガソリン代）
+  sumSheet.getRange(sumRow, 26).setFormula('=IF(OR(W'+sumRow+'="",Y'+sumRow+'=""),"",ROUND(W'+sumRow+'/X'+sumRow+'*Y'+sumRow+',0))');
 
   var F = 4*60*60*1000;
   var T = 30*60*1000;
@@ -1753,6 +1868,7 @@ function syncSummaryForId_(targetId) {
   if (rawRestEnd   && rawDropTime  && (rawDropTime -rawRestEnd)   > F) { sumSheet.getRange(sumRow,17,1,2).setBackground('#ffd600'); }
   applyMoneyFormat_(sumSheet, sumRow, 1, 'summary');
   applyDateTimeFormat_(sumSheet, sumRow, 1);
+  sumSheet.getRange(sumRow, 36, 1, 2).setNumberFormat('M/d HH:mm');
   // この行だけの支払い(AA=col27)をインライン計算
   var pctNum    = Number(pct)    || 0;
   var kyuryoNum = Number(kyuryo) || 0;
@@ -1773,10 +1889,9 @@ function syncSummaryForId_(targetId) {
     finalPaySync = sIsYasumi ? -dailyPay : dailyPay;
     payCell.setValue(finalPaySync);
   } else if (kyuryoNum > 0 || kariNum > 0) {
-    if (!kyuryoNum) sumSheet.getRange(sumRow, 32).setBackground('#f4cccc');
-    if (!kariNum)   sumSheet.getRange(sumRow, 31).setBackground('#f4cccc');
+    // 警告は行背景設定後に適用
   } else {
-    if (!keepPay) payCell.setBackground('#f4cccc');
+    // 警告は行背景設定後に適用
   }
   // AC(29)=利益 を値で書き込む（支払い確定後に計算）
   var vSN = typeof vSyncVal==='number' ? vSyncVal : 0;
@@ -1786,7 +1901,7 @@ function syncSummaryForId_(targetId) {
   var acSyncVal = (!salesSync&&!vSN&&!zSN&&!resolvedPaySync&&!expenseVal) ? '' : salesSync-(vSN+zSN+resolvedPaySync+(Number(expenseVal)||0));
   sumSheet.getRange(sumRow, 29).setValue(acSyncVal);
   // 利益マイナス → 薄赤（有休/休み行はこの後上書き）
-  sumSheet.getRange(sumRow, 1, 1, 32).setBackground(typeof acSyncVal==='number' && acSyncVal < 0 ? '#ffebee' : null);
+  sumSheet.getRange(sumRow, 1, 1, 37).setBackground(typeof acSyncVal==='number' && acSyncVal < 0 ? '#ffebee' : null);
   // 有休手当(AH=col34)
   sumSheet.getRange(sumRow, 34).setValue(yukyuVal);
   // 有休/休み → 行全体をグレー着色
@@ -1796,6 +1911,22 @@ function syncSummaryForId_(targetId) {
   } else if (spick.indexOf('休み') !== -1 || sdrop.indexOf('休み') !== -1) {
     sumSheet.getRange(sumRow, 1, 1, sumLastColBg).setBackground('#9e9e9e');
   }
+  // 支払い/経費条件不備の警告（行全体の背景色設定の後に適用、グレー）
+  if (!sIsYukyu && !sIsYasumi) {
+    if (pctNum <= 0 && !(kyuryoNum > 0 && kariNum > 0)) {
+      if (kyuryoNum > 0 || kariNum > 0) {
+        if (!kyuryoNum) sumSheet.getRange(sumRow, 32).setBackground('#b0bec5');
+        if (!kariNum)   sumSheet.getRange(sumRow, 31).setBackground('#b0bec5');
+      } else if (!keepPay) {
+        sumSheet.getRange(sumRow, 27).setBackground('#b0bec5');
+      }
+    }
+    if (expenseVal === '') {
+      sumSheet.getRange(sumRow, 28).setBackground('#b0bec5');
+    }
+  }
+
+  applySumEditableBorders_(sumSheet, sumRow, 1);
 
   // フィルターをデータ全列に再設定（列追加時も自動対応）
   var sfExisting = sumSheet.getFilter();
@@ -2841,8 +2972,8 @@ function clearRunState() {
 //  紐づけアドレスから乗務員名・車番を特定し
 //  運行シートから本日分の未完了行程を返す
 // ================================================================
-function getTodayRoutes() {
-  var savedEmail = PropertiesService.getUserProperties().getProperty('linkedEmail');
+function getTodayRoutes(email, companySsId) {
+  var savedEmail = email || '';
   if (!savedEmail) return [];
   var ss     = SpreadsheetApp.getActiveSpreadsheet();
   var master = ss.getSheetByName('自車専属マスタ');
@@ -2907,14 +3038,14 @@ function findRowByIdAndIndex_(sheet, id, routeIndex) {
 //    → スプレッドシートで積地が先入力済みなら別ID生成（既存動作にフォールバック）
 //    → 複数行程の場合は先頭行をプレースホルダー更新、追加行程は末尾に新規追加（同ID）
 // ================================================================
-function createParentRows(picks, drops, dateStr, overrideInfo, companySsId) {
+function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, email) {
   // 端末のメールアドレスを確認（未連携なら運行開始不可）
-  var savedEmail = PropertiesService.getUserProperties().getProperty('linkedEmail');
+  var savedEmail = email || '';
   if (!savedEmail) throw new Error('紐づけされていません');
 
   // 同時に複数端末が運行開始した場合のID重複を防ぐためロック取得
   var lock = LockService.getScriptLock();
-  try { lock.waitLock(10000); } catch(e) { throw new Error('混雑中です。少し待ってから再試行してください'); }
+  try { lock.waitLock(30000); } catch(e) { throw new Error('混雑中です。少し待ってから再試行してください'); }
 
   try {
     var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
@@ -3244,9 +3375,9 @@ function clearTimeCell(id, routeIndex, col, companySsId) {
 //  8-4-5: dateDisp は積完時刻があれば「yyyy/MM/dd　HH:mm」形式、なければ日付のみ
 //  8-4-6: 月合計（稼働日数・売上合計・高速合計・支払合計）を計算して一緒に返す
 // ================================================================
-function getListData(year, month, companySsId) {
+function getListData(year, month, companySsId, email) {
   // 端末に紐付いたメールアドレスを取得（未連携なら空リストを返す）
-  var savedEmail = PropertiesService.getUserProperties().getProperty('linkedEmail');
+  var savedEmail = email || '';
   if (!savedEmail) return {rows:[], total:{days:0,sales:0,toll:0,pay:0}};
 
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
@@ -3644,6 +3775,15 @@ function applySheetColors_(ss) {
   applyHolidayRowColors_();
 }
 
+function applySumEditableBorders_(sumSheet, startRow, numRows) {
+  if (!sumSheet || numRows < 1) return;
+  var editCols = [23, 25, 27, 30, 35]; // W=距離, Y=ガソリン代, AA=支払い, AD=備考, AI=その他手当
+  for (var c = 0; c < editCols.length; c++) {
+    sumSheet.getRange(startRow, editCols[c], numRows, 1)
+      .setBorder(true, true, true, true, null, true, '#ffd600', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  }
+}
+
 function setupSheetProtection() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var ui = SpreadsheetApp.getUi();
@@ -3667,8 +3807,20 @@ function setupSheetProtection() {
     unkouSheet.setFrozenColumns(1);
     unkouSheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p){p.remove();});
   }
+  if (sumSheet && sumSheet.getLastRow() >= 2) {
+    var spLr = sumSheet.getLastRow();
+    var spIds = sumSheet.getRange(2, 1, spLr - 1, 1).getValues();
+    var spEditCols = [23, 25, 27, 30, 35];
+    for (var spi = 0; spi < spIds.length; spi++) {
+      if (!spIds[spi][0]) continue;
+      for (var spc = 0; spc < spEditCols.length; spc++) {
+        sumSheet.getRange(spi + 2, spEditCols[spc])
+          .setBorder(true, true, true, true, null, null, '#ffd600', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+      }
+    }
+  }
   applySheetColors_(ss);
-  ui.alert('保護設定完了\n■ 集計表\n  編集可: 距離(W)・ガソリン代(Y)・支払い(AA)・備考(AD)・その他手当(AI)\n  緑枠＋緑ヘッダー = 編集可 / 灰色ヘッダー = 保護\n■ 運行シート: V(合計高速)・Y(連絡端末)・Z(データ端末) をグレー着色');
+  ui.alert('保護設定完了\n■ 集計表\n  編集可: 距離(W)・ガソリン代(Y)・支払い(AA)・備考(AD)・その他手当(AI)\n  黄色枠線＝手入力可 / 灰色ヘッダー = 保護\n■ 運行シート: V(合計高速)・Y(連絡端末)・Z(データ端末) をグレー着色');
 }
 
 
@@ -4178,10 +4330,10 @@ function uploadTerminalFile(id, fileName, base64Data, mimeType) {
 //
 //  返却値：{ id, date, notice, dataUrls[], dataUrl } の配列（最新順・最大20件）
 // ================================================================
-function getMyNotices() {
-  var savedEmail = PropertiesService.getUserProperties().getProperty('linkedEmail');
+function getMyNotices(companySsId, email) {
+  var savedEmail = email || '';
   if (!savedEmail) return [];
-  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var master = ss.getSheetByName('自車専属マスタ');
   if (!master) return [];
   var mAll   = master.getDataRange().getValues();
@@ -4190,7 +4342,8 @@ function getMyNotices() {
     if (String(mAll[j][10]).trim() === savedEmail) { myName = String(mAll[j][8]).trim(); break; }
   }
   if (!myName) return [];
-  var readList = JSON.parse(PropertiesService.getUserProperties().getProperty('readNotices') || '[]');
+  var readKey  = 'readNotices_' + savedEmail;
+  var readList = JSON.parse(PropertiesService.getScriptProperties().getProperty(readKey) || '[]');
   var sheet    = ss.getSheetByName('運行');
   if (!sheet) return [];
   var all = sheet.getDataRange().getValues();
@@ -4304,13 +4457,14 @@ function getNoticeByRow(id, companySsId) {
 //  10-3: 既読管理・既読にする（markAsRead）  【大A / 中10 / 小10-3】
 //  既読にしたIDをPropertiesServiceに保存する（最大200件）
 // ================================================================
-function markAsRead(id) {
-  var p    = PropertiesService.getUserProperties();
-  var read = JSON.parse(p.getProperty('readNotices') || '[]');
+function markAsRead(id, email) {
+  var readKey = email ? ('readNotices_' + email) : 'readNotices';
+  var p    = PropertiesService.getScriptProperties();
+  var read = JSON.parse(p.getProperty(readKey) || '[]');
   if (read.indexOf(id) === -1) {
     read.push(id);
     if (read.length > 200) read = read.slice(-200);
-    p.setProperty('readNotices', JSON.stringify(read));
+    p.setProperty(readKey, JSON.stringify(read));
   }
 }
 
@@ -4319,8 +4473,9 @@ function markAsRead(id) {
 //  10-4: 既読管理・既読一覧取得（getReadNotices）  【大A / 中10 / 小10-4】
 //  PropertiesServiceから既読IDリストを取得して返す
 // ================================================================
-function getReadNotices() {
-  return JSON.parse(PropertiesService.getUserProperties().getProperty('readNotices') || '[]');
+function getReadNotices(email) {
+  var readKey = email ? ('readNotices_' + email) : 'readNotices';
+  return JSON.parse(PropertiesService.getScriptProperties().getProperty(readKey) || '[]');
 }
 
 
@@ -5053,105 +5208,42 @@ function initClientSSSheets_(ss, companyName) {
 // ================================================================
 function initTemplateSS_() {
   var TEMPLATE_SS_ID = '1mrLkGv_BNcvunxF_IdXFtKlgh9EJUo722OLrScjHrRE';
-  var srcSs = SpreadsheetApp.getActiveSpreadsheet(); // 元SS（修正用SS）
+  var srcSs = SpreadsheetApp.getActiveSpreadsheet(); // 元SS
   var tgtSs = SpreadsheetApp.openById(TEMPLATE_SS_ID);
   var allowSheets = ['運行', '集計表', '自車専属マスタ', '自車専属運行', 'マスタ', '設定'];
 
-  // ① 既存データ行を退避（仕様更新後に復元するため）
-  var savedData = {};
-  allowSheets.forEach(function(n) {
-    var s = tgtSs.getSheetByName(n);
-    if (!s || s.getLastRow() < 2) return;
-    var numCols = s.getLastColumn();
-    var numRows = s.getLastRow() - 1;
-    savedData[n] = {
-      values:      s.getRange(2, 1, numRows, numCols).getValues(),
-      backgrounds: s.getRange(2, 1, numRows, numCols).getBackgrounds()
-    };
-  });
+  // ヘッダー行（1行目）の値・書式だけを最新化。データ行・フィルターは一切触らない。
+  for (var si = 0; si < allowSheets.length; si++) {
+    var sheetName = allowSheets[si];
+    var srcSheet  = srcSs.getSheetByName(sheetName);
+    if (!srcSheet || srcSheet.getLastColumn() === 0) continue;
 
-  // ② 一時シートを作成してから全シート削除
-  var tmpName = '__TEMP_INIT__';
-  var existTmp = tgtSs.getSheetByName(tmpName);
-  if (existTmp) tgtSs.deleteSheet(existTmp);
-  var tmpSheet = tgtSs.insertSheet(tmpName);
-  tgtSs.getSheets().forEach(function(s) {
-    if (s.getName() !== tmpName) { try { tgtSs.deleteSheet(s); } catch(e) {} }
-  });
+    // テンプレートSSにシートがなければ新規作成（ヘッダー行のみ）
+    var tgtSheet = tgtSs.getSheetByName(sheetName);
+    if (!tgtSheet) tgtSheet = tgtSs.insertSheet(sheetName);
 
-  // ③ 元SSから6シートをコピー（最新の仕様・書式・ヘッダーを反映）
-  var srcSheets = srcSs.getSheets();
-  for (var i = 0; i < srcSheets.length; i++) {
-    var src  = srcSheets[i];
-    var name = src.getName();
-    if (allowSheets.indexOf(name) === -1) continue;
-    var copied = src.copyTo(tgtSs);
-    var dup = tgtSs.getSheetByName(name);
-    if (dup && dup.getSheetId() !== copied.getSheetId()) tgtSs.deleteSheet(dup);
-    copied.setName(name);
+    var srcCols = srcSheet.getLastColumn();
+    var hdrVals = srcSheet.getRange(1, 1, 1, srcCols).getValues();
+    var hdrBg   = srcSheet.getRange(1, 1, 1, srcCols).getBackgrounds();
+    var hdrFc   = srcSheet.getRange(1, 1, 1, srcCols).getFontColors();
+    var hdrFw   = srcSheet.getRange(1, 1, 1, srcCols).getFontWeights();
+
+    tgtSheet.getRange(1, 1, 1, srcCols).setValues(hdrVals);
+    tgtSheet.getRange(1, 1, 1, srcCols).setBackgrounds(hdrBg);
+    tgtSheet.getRange(1, 1, 1, srcCols).setFontColors(hdrFc);
+    tgtSheet.getRange(1, 1, 1, srcCols).setFontWeights(hdrFw);
+    tgtSheet.setFrozenRows(1);
   }
 
-  // ④ 退避したデータを復元（データ行のみ。ヘッダー行は元SSコピーを維持）
-  allowSheets.forEach(function(n) {
-    if (!savedData[n]) return;
-    var s = tgtSs.getSheetByName(n);
-    if (!s) return;
-    var hdrCols = s.getLastColumn();
-    var rows = savedData[n].values;
-    var bgs  = savedData[n].backgrounds;
-    // コピー時に入った元SSのデータ行を削除してから書き戻す
-    if (s.getLastRow() > 1) s.deleteRows(2, s.getLastRow() - 1);
-    var restoreRows = rows.map(function(r) {
-      var row = r.slice(0, hdrCols);
-      while (row.length < hdrCols) row.push('');
-      return row;
-    });
-    var restoreBgs = bgs.map(function(b) {
-      var bg = b.slice(0, hdrCols);
-      while (bg.length < hdrCols) bg.push(null);
-      return bg;
-    });
-    s.getRange(2, 1, restoreRows.length, hdrCols).setValues(restoreRows);
-    s.getRange(2, 1, restoreBgs.length, hdrCols).setBackgrounds(restoreBgs);
-  });
-
-  // ⑤ __COMPANY_SS__ マーカーを追加（非表示）
+  // __COMPANY_SS__ マーカーがなければ追加（非表示）
   var marker = tgtSs.getSheetByName('__COMPANY_SS__') || tgtSs.insertSheet('__COMPANY_SS__');
   marker.getRange(1, 1).setValue('テンプレート');
   if (!marker.isSheetHidden()) marker.hideSheet();
 
-  // ⑥ 一時シートを削除
-  try { tgtSs.deleteSheet(tmpSheet); } catch(e) {}
-
-  // ⑦ データが空のシートのみテスト行を挿入
-  var mSheet = tgtSs.getSheetByName('自車専属マスタ');
-  if (mSheet && mSheet.getLastRow() < 2) {
-    var mCols = Math.max(mSheet.getLastColumn(), 32);
-    var mTestRow = new Array(mCols).fill('');
-    mTestRow[0]  = 'S-0001'; mTestRow[1] = '運行';    mTestRow[2]  = '自車';
-    mTestRow[3]  = 'テスト商事'; mTestRow[4] = 'テスト看板'; mTestRow[5] = '4t';
-    mTestRow[6]  = '平車';   mTestRow[7] = '品川1234'; mTestRow[8]  = '山田太郎';
-    mTestRow[9]  = '090-0000-0000'; mTestRow[10] = 'test@example.com'; mTestRow[11] = 6.5;
-    mTestRow[13] = 25; mTestRow[14] = 200000;
-    mSheet.getRange(2, 1, 1, mCols).setValues([mTestRow]);
-    mSheet.getRange(2, 1, 1, mCols).setBackground('#ffcdd2');
-    mSheet.getRange(2, 17).setBackground('#e0e0e0');
-  }
-  var cSheet = tgtSs.getSheetByName('マスタ');
-  if (cSheet && cSheet.getLastRow() < 2) {
-    cSheet.getRange(2, 1, 1, 14).setValues([['M-0001','テスト荷主','03-0000-0000','','','','担当太郎','','','','','','','']]);
-  }
-  var aSheet = tgtSs.getSheetByName('自車専属運行');
-  if (aSheet && aSheet.getLastRow() < 2 && mSheet && mSheet.getLastRow() >= 2) {
-    var mTestSaved = mSheet.getRange(2, 1, 1, 16).getValues()[0];
-    aSheet.getRange(2, 1, 1, 16).setValues([mTestSaved]);
-    aSheet.getRange(2, 1, 1, 16).setBackground('#ffcdd2');
-  }
-
-  // ⑧ 設定シートに点検項目がなければデフォルトを挿入
+  // 設定シートに点検項目がなければデフォルトを挿入（あれば何もしない）
   ensureSettingItems_(tgtSs);
 
-  // ⑨ シート保護をすべて削除（客が別ユーザーで使うため）
+  // シート保護をすべて削除（客が別ユーザーで使うため）
   tgtSs.getSheets().forEach(function(s) {
     s.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p) { p.remove(); });
     s.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p) { p.remove(); });
@@ -5580,6 +5672,38 @@ function installedOnEdit_(e) {
     var row       = range.getRow();
     var col       = range.getColumn();
 
+    // ── 自車専属マスタ or 設定シート編集時：再計算範囲ポップアップ ──────
+    if (sheetName === '自車専属マスタ' || sheetName === '設定') {
+      var mProps = PropertiesService.getScriptProperties();
+      if (mProps.getProperty('recalcFromDateSet')) {
+        SpreadsheetApp.getActiveSpreadsheet().toast('集計表再生成を押してください', '📋 マスタ変更済み', 5);
+        return;
+      }
+      var mToday = new Date();
+      var mTodayStr = Utilities.formatDate(mToday, Session.getScriptTimeZone(), 'yyyy/MM/dd');
+      var mFirst = new Date(mToday.getFullYear(), mToday.getMonth(), 1);
+      var mFirstStr = Utilities.formatDate(mFirst, Session.getScriptTimeZone(), 'yyyy/MM/dd');
+      var mHtml = HtmlService.createHtmlOutput(
+        '<style>' +
+        'body{font-family:sans-serif;padding:14px;text-align:center;margin:0}' +
+        'p{margin:0 0 12px;font-size:13px}' +
+        'button{display:block;width:100%;padding:10px 8px;margin:6px 0;font-size:13px;' +
+        'cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#fff}' +
+        'button:hover{background:#f0f0f0}.cancel{color:#999}' +
+        '</style>' +
+        '<p>集計表を再計算する範囲を選んでください。</p>' +
+        '<button onclick="go(\'today\')">本日以降（' + mTodayStr + '〜）</button>' +
+        '<button onclick="go(\'month\')">今月以降（' + mFirstStr + '〜）</button>' +
+        '<button onclick="go(\'all\')">全期間（制限なし・従来通り）</button>' +
+        '<button class="cancel" onclick="go(\'cancel\')">キャンセル</button>' +
+        '<script>function go(v){' +
+        'google.script.run.withSuccessHandler(function(){google.script.host.close();}).setRecalcChoice(v);' +
+        '}<\/script>'
+      ).setWidth(300).setHeight(235);
+      SpreadsheetApp.getUi().showModalDialog(mHtml, 'マスタ／設定が変更されました');
+      return;
+    }
+
     if (sheetName !== '会社登録' || row <= 1) return;
 
     // ── A列 or B列: 会社名+Gmail が揃ったらフルセットアップ ──────────
@@ -5618,6 +5742,28 @@ function installedOnEdit_(e) {
       }
     }
   } catch(ex) {}
+}
+
+
+// ================================================================
+//  13-2b: マスタ変更時の再計算範囲保存（setRecalcChoice_）
+//  showModalDialogのボタンから呼ばれる。choiceを受け取りScriptPropertiesに保存。
+// ================================================================
+function setRecalcChoice(choice) {
+  if (choice === 'cancel') return;
+  var mToday = new Date();
+  var fromDate = '';
+  if (choice === 'today') {
+    fromDate = Utilities.formatDate(mToday, Session.getScriptTimeZone(), 'yyyy/MM/dd');
+  } else if (choice === 'month') {
+    var mFirst = new Date(mToday.getFullYear(), mToday.getMonth(), 1);
+    fromDate = Utilities.formatDate(mFirst, Session.getScriptTimeZone(), 'yyyy/MM/dd');
+  }
+  // 'all' → fromDate = ''（全期間・制限なし）
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('recalcFromDate', fromDate);
+  props.setProperty('recalcFromDateSet', '1');
+  SpreadsheetApp.getActiveSpreadsheet().toast('集計表再生成を押してください', '📋 マスタ変更', 5);
 }
 
 
