@@ -532,26 +532,41 @@ function sortUnkouByDate_(companySsId) {
 
   var lastRow = sheet.getLastRow();
   var numRows = lastRow - 1; // ヘッダー除く行数
-  var totalCols = Math.max(sheet.getLastColumn(), 26); // 点呼列(27,28)等も含めて全列処理
+  var totalCols = Math.max(sheet.getLastColumn(), 28); // 点呼列(27,28)等も含めて全列処理
 
   // 全データを値として一括取得（数式は値に変換される）
   var data = sheet.getRange(2, 1, numRows, totalCols).getValues();
 
+  // リッチテキストが入る列（col24=管理データ, col26=データ端末）を別途取得してリンクを保持
+  var rtv24 = sheet.getRange(2, 24, numRows, 1).getRichTextValues();
+  var rtv26 = sheet.getRange(2, 26, numRows, 1).getRichTextValues();
+
+  // ソート前インデックス付きで保持
+  var indexed = data.map(function(row, idx) {
+    return { row: row, rtv24: rtv24[idx][0], rtv26: rtv26[idx][0] };
+  });
+
   // J列(index[9]=日付)昇順 → G列(index[6]=乗務員名)昇順 でソート
-  data.sort(function(a, b) {
-    var da = (a[9] instanceof Date) ? a[9].getTime() : 0;
-    var db = (b[9] instanceof Date) ? b[9].getTime() : 0;
+  indexed.sort(function(a, b) {
+    var da = (a.row[9] instanceof Date) ? a.row[9].getTime() : 0;
+    var db = (b.row[9] instanceof Date) ? b.row[9].getTime() : 0;
     if (da !== db) return da - db;
-    return String(a[6] || '').localeCompare(String(b[6] || ''));
+    return String(a.row[6] || '').localeCompare(String(b.row[6] || ''));
   });
 
   // V列(22, 0-indexed:21)を空にして値を書き戻す
-  var writeData = data.map(function(r) {
-    var row = r.slice();
+  var writeData = indexed.map(function(item) {
+    var row = item.row.slice();
     row[21] = ''; // 合計高速は数式で再セットするため空に
     return row;
   });
   sheet.getRange(2, 1, numRows, totalCols).setValues(writeData);
+
+  // リッチテキストをソート後の順序で復元（リンクを維持）
+  var newRtv24 = indexed.map(function(item) { return [item.rtv24]; });
+  var newRtv26 = indexed.map(function(item) { return [item.rtv26]; });
+  sheet.getRange(2, 24, numRows, 1).setRichTextValues(newRtv24);
+  sheet.getRange(2, 26, numRows, 1).setRichTextValues(newRtv26);
 
   // V列(22)の数式を正しい行番号で再セット
   var formulas = [];
@@ -826,21 +841,22 @@ function showUploadSidebar() {
     '  var files=Array.from(document.getElementById("f").files);' +
     '  if(!files.length){document.getElementById("msg").innerText="ファイルを選択してください";return;}' +
     '  document.querySelector("button").disabled=true;' +
-    '  document.getElementById("msg").innerText="読み込み中... しばらく閉じないでください";' +
-    '  var sent=0,done=0,total=files.length;' +
+    '  document.getElementById("msg").innerText="読み込み中...";' +
+    '  var queued=0,done=0,total=files.length;' +
     '  files.forEach(function(file){' +
-    '    if(file.size>20*1024*1024){sent++;done++;check();return;}' +
+    '    if(file.size>20*1024*1024){queued++;done++;check();return;}' +
     '    var r=new FileReader();' +
     '    r.onload=function(){' +
     '      var b64=r.result.split(",")[1];' +
+    '      queued++;' +
     '      google.script.run' +
-    '        .withSuccessHandler(function(){done++;if(done===total)document.getElementById("msg").innerText="✅ "+total+"件 完了！";})' +
-    '        .withFailureHandler(function(e){done++;document.getElementById("msg").innerText="エラー："+e.message;})' +
-    '        .uploadFileToRow(' + row + ',file.name,b64,file.type);' +
-    '      sent++;check();' +
-    '    };r.readAsDataURL(file);' +
+    '        .withSuccessHandler(function(){done++;check();})' +
+    '        .withFailureHandler(function(err){done++;document.getElementById("msg").innerText="エラー："+err.message;})' +
+    '        .queueFileUpload(' + row + ',file.name,b64,file.type);' +
+    '    };' +
+    '    r.readAsDataURL(file);' +
     '  });' +
-    '  function check(){if(sent===total)document.getElementById("msg").innerText="送信完了。処理中です。このウィンドウを閉じても大丈夫です。";}' +
+    '  function check(){if(done===total)document.getElementById("msg").innerText="✅ "+total+"件 バックグラウンドでアップロード中。1〜2分後にSSを確認してください。";}' +
     '}' +
     '<\/script></body></html>';
 
@@ -892,6 +908,24 @@ function onEdit(e) {
     if (sheetName === '運行' && row > 1 && col === 22) {
       range.setFormula('=IF(AND(U'+row+'="",T'+row+'=""),"",U'+row+'-T'+row+')');
       ss.toast('合計高速は自動計算列です', '⛔ 保護', 3);
+      return;
+    }
+
+    // ── 3-1-2b: 運行シート Y列(25)連絡(端末)・Z列(26)データ(端末) 保護 ────
+    // 削除・上書きされても元の値に戻す
+    if (sheetName === '運行' && row > 1 && (col === 25 || col === 26)) {
+      if (col === 25) {
+        var oldV25 = (e.oldValue !== undefined) ? String(e.oldValue) : '';
+        range.setValue(oldV25);
+      } else {
+        var restoreUrls = getTerminalUrls_(sheet, row);
+        if (restoreUrls.length > 0) {
+          setTerminalUrls_(sheet, row, restoreUrls);
+        } else {
+          range.clearContent();
+        }
+      }
+      ss.toast((col === 25 ? '連絡(端末)' : 'データ(端末)') + 'はアプリからのみ変更できます', '⛔ 保護', 4);
       return;
     }
 
@@ -979,19 +1013,6 @@ function onEditUnkou_(sheet, range) {
       }
     }
     dateCell.setNumberFormat('yyyy/MM/dd');
-    var editedCol = range.getColumn();
-    // Y列(25)連絡(端末)・Z列(26)データ(端末)：削除・複数セル貼り付けはOK、手入力はブロック
-    // GAS側書き込み（saveTermNoticeByDriver 等）はシンプルトリガー非発火のため影響なし
-    if (editedCol === 25 || editedCol === 26) {
-      var isEmptyEdit = (e.value === undefined || String(e.value || '').trim() === '');
-      var isPasteEdit = (range.getNumColumns() > 1 || range.getNumRows() > 1);
-      if (!isEmptyEdit && !isPasteEdit) {
-        var colLabel = editedCol === 25 ? '連絡(端末)' : 'データ(端末)';
-        range.setValue(e.oldValue !== undefined ? e.oldValue : '');
-        SpreadsheetApp.getActiveSpreadsheet().toast(colLabel + 'はアプリからのみ入力できます（削除・貼り付けはOK）', '⛔ 保護', 4);
-      }
-      continue;
-    }
     // F列(6)：車番を入力→自車専属マスタと部分一致で他項目を自動補完
     if (editedCol === 6 && range.getNumColumns() === 1) {
       var inputCar = String(sheet.getRange(row, 6).getValue()).trim();
@@ -3901,6 +3922,11 @@ function applySumEditableBorders_(sumSheet, startRow, numRows) {
   if (!sumSheet || numRows < 1 || startRow <= 1) return;
   var editCols = [23, 25, 27, 30, 35]; // W=距離, Y=ガソリン代, AA=支払い, AD=備考, AI=その他手当
   for (var c = 0; c < editCols.length; c++) {
+    // 先に右隣の左枠をクリア（後でeditColの右枠が最後に書かれて勝つ）
+    sumSheet.getRange(startRow, editCols[c] + 1, numRows, 1)
+      .setBorder(null, false, null, null, null, null);
+    sumSheet.getRange(1, editCols[c] + 1, 1, 1)
+      .setBorder(null, false, null, null, null, null);
     sumSheet.getRange(startRow, editCols[c], numRows, 1)
       .setBorder(true, true, true, true, null, true, '#ffd600', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   }
@@ -3923,11 +3949,20 @@ function setupSheetProtection() {
       sumSheet.getRange('AD2:AD2000'),
       sumSheet.getRange('AI2:AI2000')
     ]);
+    // 1行目の黄色枠滲み（editCols+1の左枠）をクリア
+    [24, 26, 28, 31, 36].forEach(function(bc) {
+      sumSheet.getRange(1, bc).setBorder(null, false, null, null, null, null);
+    });
   }
   var unkouSheet = ss.getSheetByName('運行');
   if (unkouSheet) {
     unkouSheet.setFrozenColumns(1);
     unkouSheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p){p.remove();});
+    // Y列(連絡端末)・Z列(データ端末)：シートレベルで保護（手動入力をGoogleが直接ブロック）
+    // GASスクリプトはオーナー権限で実行するため書き込み可
+    var termProtect = unkouSheet.getRange('Y2:Z').protect().setDescription('端末列保護');
+    termProtect.removeEditors(termProtect.getEditors());
+    if (termProtect.canDomainEdit()) termProtect.setDomainEdit(false);
   }
   if (sumSheet && sumSheet.getLastRow() >= 2) {
     var spLr = sumSheet.getLastRow();
@@ -4072,6 +4107,7 @@ function setTerminalUrls_(sheet, rowNum, urls) {
     b.setLinkUrl(runs[j].start, runs[j].end, runs[j].url);
   }
   cell.setRichTextValue(b.build());
+  cell.setNote(urls.join('\n'));
 }
 
 
@@ -4364,22 +4400,22 @@ function openFileUploadDialog() {
     '  var files=Array.from(document.getElementById("f").files);' +
     '  if(!files.length){alert("ファイルを選択してください");return;}' +
     '  document.getElementById("upbtn").disabled=true;' +
-    '  document.getElementById("msg").innerText="読み込み中... しばらく閉じないでください";' +
-    '  var sent=0,done=0,total=files.length;' +
+    '  document.getElementById("msg").innerText="読み込み中...";' +
+    '  var queued=0,done=0,total=files.length;' +
     '  files.forEach(function(file){' +
-    '    if(file.size>10*1024*1024){sent++;done++;check();return;}' +
+    '    if(file.size>10*1024*1024){queued++;done++;check();return;}' +
     '    var r=new FileReader();' +
     '    r.onload=function(){' +
     '      var b64=r.result.split(",")[1];' +
+    '      queued++;' +
     '      google.script.run' +
-    '        .withSuccessHandler(function(){done++;if(done===total){document.getElementById("msg").innerText="✅ 完了！";setTimeout(google.script.host.close,1000);}})' +
-    '        .withFailureHandler(function(e){done++;document.getElementById("msg").innerText="エラー："+e.message;})' +
-    '        .uploadFileToRow(' + row + ',file.name,b64,file.type);' +
-    '      sent++;check();' +
+    '        .withSuccessHandler(function(){done++;check();})' +
+    '        .withFailureHandler(function(err){done++;document.getElementById("msg").innerText="エラー："+err.message;})' +
+    '        .queueFileUpload(' + row + ',file.name,b64,file.type);' +
     '    };' +
     '    r.readAsDataURL(file);' +
     '  });' +
-    '  function check(){if(sent===total)document.getElementById("msg").innerText="送信完了。処理中です。このウィンドウを閉じても大丈夫です。";}' +
+    '  function check(){if(done===total){document.getElementById("msg").innerText="✅ バックグラウンドでアップロード中。1〜2分後にSSを確認してください。";setTimeout(google.script.host.close,2500);}}' +
     '}' +
     '<\/script>' +
     '</body></html>';
@@ -4410,6 +4446,67 @@ function uploadFileToRow(rowNum, fileName, base64Data, mimeType) {
     setAdminDataRichTextMulti_(sheet, rowNum, deduped);
   }
   return { ok: true };
+}
+
+
+// ================================================================
+//  9-2d: アップロードキュー登録（queueFileUpload）  【大A / 中9 / 小9-2d】
+//  base64をDriveの一時ファイルに保存し、時間トリガーで後処理させる
+// ================================================================
+function queueFileUpload(rowNum, fileName, base64Data, mimeType) {
+  var folder = getOrCreateFolder_('_upload_queue_');
+  var queueId = 'uq_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+  var tempFile = folder.createFile(Utilities.newBlob(base64Data, 'text/plain', queueId + '.txt'));
+  PropertiesService.getScriptProperties().setProperty(queueId, JSON.stringify({
+    tempFileId: tempFile.getId(), rowNum: rowNum, fileName: fileName, mimeType: mimeType
+  }));
+  var existing = ScriptApp.getProjectTriggers().filter(function(t) {
+    return t.getHandlerFunction() === 'processUploadQueue';
+  });
+  if (existing.length === 0) {
+    ScriptApp.newTrigger('processUploadQueue').timeBased().after(90000).create();
+  }
+  return { queued: true };
+}
+
+
+// ================================================================
+//  9-2e: アップロードキュー処理（processUploadQueue）  【大A / 中9 / 小9-2e】
+//  時間トリガーから呼ばれ、キューに積まれたファイルを実際にアップロードする
+// ================================================================
+function processUploadQueue() {
+  var props = PropertiesService.getScriptProperties();
+  var allProps = props.getProperties();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  var folder = getOrCreateFolder_('運行データ');
+  for (var key in allProps) {
+    if (key.indexOf('uq_') !== 0) continue;
+    var data;
+    try { data = JSON.parse(allProps[key]); } catch (e2) { props.deleteProperty(key); continue; }
+    try {
+      var tempFile = DriveApp.getFileById(data.tempFileId);
+      var base64Str = tempFile.getBlob().getDataAsString();
+      var decoded = Utilities.base64Decode(base64Str);
+      var blob = Utilities.newBlob(decoded, data.mimeType, data.fileName);
+      var file = folder.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      var url = file.getUrl();
+      if (sheet) {
+        var existing2 = getAdminDataUrl_(sheet, data.rowNum).split(',').filter(function(u) { return u.match(/^https?:\/\//); });
+        existing2.push(url);
+        var deduped = existing2.filter(function(u, i, arr) { return arr.indexOf(u) === i; });
+        setAdminDataRichTextMulti_(sheet, data.rowNum, deduped);
+      }
+      tempFile.setTrashed(true);
+    } catch (e3) {}
+    props.deleteProperty(key);
+  }
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'processUploadQueue') {
+      try { ScriptApp.deleteTrigger(t); } catch (e4) {}
+    }
+  });
 }
 
 

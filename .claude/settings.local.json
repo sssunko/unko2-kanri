@@ -28,7 +28,9 @@
       "Bash(Select-String -Path \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\" -Pattern \"sendEmail|GmailApp|同意|agreeContract|会社登録\")",
       "Bash(Select-Object LineNumber, Line)",
       "Bash(Format-Table -Wrap)",
-      "Bash(Out-String -Width 150)"
+      "Bash(Out-String -Width 150)",
+      "Bash(deploy.bat)",
+      "PowerShell($rc = Get-Content \"$env:USERPROFILE\\\\.clasprc.json\" | ConvertFrom-Json; $rc.tokens.default)"
     ]
   }
 }
