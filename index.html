@@ -285,6 +285,11 @@
     .li-inp { background:transparent; color:white; border:none; width:100%; padding:2px 4px; font-size:13px; box-sizing:border-box; -moz-appearance:textfield; appearance:textfield; }
     .li-inp:focus { outline:none; background:rgba(187,134,252,0.08); border-radius:4px; }
     .li-inp::-webkit-inner-spin-button,.li-inp::-webkit-outer-spin-button { -webkit-appearance:none; appearance:none; }
+    .li-inp::-webkit-calendar-picker-indicator { display:none; }
+    .li-inp[type="time"]::-webkit-datetime-edit-fields-wrapper { padding:0; }
+    .li-inp[type="time"] { -webkit-appearance:none; appearance:none; }
+    .li-inp[type="time"].time-empty::-webkit-datetime-edit { color:transparent; }
+    .li-inp[type="time"].time-empty:focus::-webkit-datetime-edit { color:white; }
     .edit-btns { display:flex; gap:10px; margin-top:16px; }
     .edit-btn { flex:1; padding:14px; border-radius:12px; font-size:16px; font-weight:900; color:white; text-align:center; }
     .eb-close { background:#37474f; } .eb-save { background:#1565c0; } .eb-delete { background:#d32f2f; }
@@ -1917,6 +1922,13 @@ function renderTable() {
 
   html += '</tbody></table></div>';
   document.getElementById('listBody').innerHTML = html;
+  initTimeInputs_();
+}
+function initTimeInputs_() {
+  document.querySelectorAll('.li-inp[type="time"]').forEach(function(inp) {
+    inp.classList.toggle('time-empty', !inp.value);
+    inp.addEventListener('input', function() { this.classList.toggle('time-empty', !this.value); });
+  });
 }
 
 
