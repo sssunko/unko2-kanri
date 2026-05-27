@@ -608,6 +608,17 @@ function sortSummaryByDate_(companySsId) {
 
 
 // ================================================================
+//  1-10: 運行＋集計表を両方日付順並び替え（sortBothSheetsByDate）  【大B / 中1 / 小1-10】
+//  メニューボタンおよびonEditの日付変更時に呼び出す
+// ================================================================
+function sortBothSheetsByDate() {
+  sortUnkouByDate_();
+  sortSummaryByDate_();
+  SpreadsheetApp.getActiveSpreadsheet().toast('日付順に並び替えました', '🔃 完了', 3);
+}
+
+
+// ================================================================
 //  2-1: メニュー設定（onOpen）  【大C / 中2 / 小2-1】
 //  スプレッドシート上部に「メニュー」を表示する（客先配布用）
 //  項目：ホーム画面を表示 / 集計表再生成 / シート再生成 /
@@ -636,7 +647,7 @@ function onOpen() {
       .addItem('集計表再生成', 'generateSummary')
       .addItem('シート再生成', 'expandAndRefreshSheets')
       .addItem('💴 経費自動入力', 'autoFillExpense')
-      .addItem('🔃 日付順並び替え', 'sortUnkouByDate_')
+      .addItem('🔃 日付順並び替え', 'sortBothSheetsByDate')
       .addSeparator()
       .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
       .addItem('📖 使い方シート作成', 'createUsageSheet')
@@ -658,7 +669,7 @@ function onOpen() {
       .addItem('集計表再生成', 'generateSummary')
       .addItem('シート再生成', 'expandAndRefreshSheets')
       .addItem('💴 経費自動入力', 'autoFillExpense')
-      .addItem('🔃 日付順並び替え', 'sortUnkouByDate_')
+      .addItem('🔃 日付順並び替え', 'sortBothSheetsByDate')
       .addSeparator()
       .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
       .addItem('📖 使い方シート作成', 'createUsageSheet');
@@ -674,7 +685,7 @@ function onOpen() {
       .addItem('集計表再生成', 'generateSummary')
       .addItem('シート再生成', 'expandAndRefreshSheets')
       .addItem('💴 経費自動入力', 'autoFillExpense')
-      .addItem('🔃 日付順並び替え', 'sortUnkouByDate_')
+      .addItem('🔃 日付順並び替え', 'sortBothSheetsByDate')
       .addSeparator()
       .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
       .addItem('📖 使い方シート作成', 'createUsageSheet')
@@ -1081,6 +1092,12 @@ function onEditUnkou_(sheet, range) {
   applyMoneyFormat_(sheet, startRow, numRows, 'unkou');
   applyDateTimeFormat_(sheet, startRow, numRows);
   cleanAllOrphanSummary_();
+  // 日付列(J=col10)が編集された場合は両シートを自動ソート
+  var editedColU = range.getColumn();
+  if (editedColU === 10) {
+    sortUnkouByDate_();
+    sortSummaryByDate_();
+  }
 }
 
 
@@ -1095,6 +1112,25 @@ function onEditMasterVehicle_(sheet, range) {
   var startRow = range.getRow();
   var numRows  = range.getNumRows();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var editedStartCol = range.getColumn();
+  var editedEndCol   = editedStartCol + range.getNumColumns() - 1;
+  var lastCol = Math.max(sheet.getLastColumn(), 17);
+
+  // ── 先に全行の背景色を一括設定（タイムアウトで途中で終わっても色だけは確実に反映） ──
+  if (numRows > 0 && startRow > 1) {
+    var statusVals = sheet.getRange(startRow, 2, numRows, 1).getValues();
+    for (var ci = 0; ci < numRows; ci++) {
+      var crow = startRow + ci;
+      if (crow <= 1) continue;
+      var cStatus = String(statusVals[ci][0] || '').trim();
+      var cRange  = sheet.getRange(crow, 1, 1, lastCol);
+      if      (cStatus === '運行') cRange.setBackground('#ffcdd2');
+      else if (cStatus === '待機') cRange.setBackground('#fff9c4');
+      else if (cStatus === '故障') cRange.setBackground('#c8e6c9');
+      else                         cRange.setBackground(null);
+    }
+  }
+
   // 設定シートからトン数→燃費マップを取得（正規化: 全角数字→半角, 大文字小文字統一, 't'有無両対応）
   var settingSheet = ss.getSheetByName('設定');
   var fuelMap = {};
@@ -1133,9 +1169,6 @@ function onEditMasterVehicle_(sheet, range) {
       var fuel = fuelMap[tonsNorm] || fuelMap[numPart+'t'] || fuelMap[numPart] || '';
       if (fuel !== '' && fuel !== undefined) sheet.getRange(row, 12).setValue(fuel);
     }
-    // 編集列を特定
-    var editedStartCol = range.getColumn();
-    var editedEndCol   = editedStartCol + range.getNumColumns() - 1;
 
     // 行データ読み取り（N=14=仮日数, O=15=給料, P=16=%, Q=17=高速を引く）
     var mRow = sheet.getRange(row, 1, 1, 17).getValues()[0];
@@ -1180,16 +1213,7 @@ function onEditMasterVehicle_(sheet, range) {
       }
     }
 
-    // 運行状態に応じた行背景色
-    var status = String(sheet.getRange(row, 2).getValue()).trim();
-    var lastCol = sheet.getLastColumn() || 17;
-    var rowRange = sheet.getRange(row, 1, 1, lastCol);
-    if (status === '運行')      rowRange.setBackground('#ffcdd2');
-    else if (status === '待機') rowRange.setBackground('#fff9c4');
-    else if (status === '故障') rowRange.setBackground('#c8e6c9');
-    else                        rowRange.setBackground(null);
-
-    // 高速を引く(Q=17)グレー化: %のみ入力時→白、それ以外→グレー（行色設定の後に上書き）
+    // 高速を引く(Q=17)グレー化（背景色は既に一括設定済み、Q列のみ上書き）
     var isQGray = (mKari !== '' || mKyuryo !== '' || mPct === '');
     sheet.getRange(row, 17).setBackground(isQGray ? '#e0e0e0' : null);
 
@@ -1671,6 +1695,8 @@ function generateSummary() {
   if (sumSheet.getLastRow() >= 1) {
     sumSheet.getRange(1, 1, sumSheet.getLastRow(), sumSheet.getLastColumn()).createFilter();
   }
+  // ヘッダー行（1行目）の枠線を確実にクリア（データ行の黄色枠が残らないように）
+  sumSheet.getRange(1, 1, 1, Math.max(sumSheet.getLastColumn(), 37)).setBorder(false, false, false, false, false, false);
 }
 
 
@@ -3872,7 +3898,7 @@ function applySheetColors_(ss) {
 }
 
 function applySumEditableBorders_(sumSheet, startRow, numRows) {
-  if (!sumSheet || numRows < 1) return;
+  if (!sumSheet || numRows < 1 || startRow <= 1) return;
   var editCols = [23, 25, 27, 30, 35]; // W=距離, Y=ガソリン代, AA=支払い, AD=備考, AI=その他手当
   for (var c = 0; c < editCols.length; c++) {
     sumSheet.getRange(startRow, editCols[c], numRows, 1)
@@ -4823,7 +4849,7 @@ function createUsageSheet() {
   item('📅 月生成', '翌月分の運行予定（プレースホルダー）を一括作成します。\n毎月25日〜月末頃に押してください。\n積地が空の行は黄色で表示されます（配車漏れ警告）。', '#c8e6c9');
   item('📦 前月分アーカイブ', '前月のデータを別ファイルに保存して運行シートをスッキリさせます。\n月生成時に自動実行されますが、手動でも使えます。', '#c8e6c9');
   item('💴 経費自動入力', '自車専属マスタで行を選択して実行します。\nトン数に応じた経費の平均値をQ列以降に自動入力します。', '#c8e6c9');
-  item('🔃 日付順並び替え', '運行シートのデータを日付順に並び替えます。', '#c8e6c9');
+  item('🔃 日付順並び替え', '運行シートと集計表を両方日付順に並び替えます。', '#c8e6c9');
   item('📷 写真・ファイル取込', '選択した行にPC上の写真・ファイルを直接添付します。', '#c8e6c9');
   item('📖 使い方シート作成', 'この使い方シートを再作成します。', '#c8e6c9');
   spacer();
