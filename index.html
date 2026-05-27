@@ -990,8 +990,8 @@ function goBack() {
       google.script.run.clearTimeCell(runId, li, 18, COMPANY_SS_ID);
       saveState(); showDropScreen(); return;
     }
-    google.script.run.clearTimeCell(runId, lastPickIndex, 17, COMPANY_SS_ID);
-    phase='restEnd'; saveState(); showScreen('step4','休憩終了'); return;
+    google.script.run.clearInspTime(runId, 'after', COMPANY_SS_ID);
+    phase='inspAfter'; inspAfterDone=new Array(inspAfterItems.length).fill(false); saveState(); showInspScreen('after'); return;
   }
   goHome();
 }
@@ -1364,6 +1364,8 @@ function inspBack() {
       else { showScreen('step1','行程入力'); initRouteInput(); }
     }
   } else {
+    var tIdx = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
+    google.script.run.clearTimeCell(runId, tIdx, 17, COMPANY_SS_ID);
     phase='restEnd'; saveState(); showScreen('step4','休憩終了');
   }
 }

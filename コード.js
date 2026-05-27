@@ -814,19 +814,22 @@ function showUploadSidebar() {
     'function upload(){' +
     '  var files=Array.from(document.getElementById("f").files);' +
     '  if(!files.length){document.getElementById("msg").innerText="ファイルを選択してください";return;}' +
-    '  document.getElementById("msg").innerText="アップロード中... 0/"+files.length;' +
-    '  var done=0;' +
+    '  document.querySelector("button").disabled=true;' +
+    '  document.getElementById("msg").innerText="読み込み中... しばらく閉じないでください";' +
+    '  var sent=0,done=0,total=files.length;' +
     '  files.forEach(function(file){' +
-    '    if(file.size>20*1024*1024){done++;document.getElementById("msg").innerText=done+"/"+files.length+" 完了";return;}' +
+    '    if(file.size>20*1024*1024){sent++;done++;check();return;}' +
     '    var r=new FileReader();' +
     '    r.onload=function(){' +
     '      var b64=r.result.split(",")[1];' +
     '      google.script.run' +
-    '        .withSuccessHandler(function(){done++;document.getElementById("msg").innerText=done===files.length?"✅ 完了！":done+"/"+files.length+" 完了";})' +
+    '        .withSuccessHandler(function(){done++;if(done===total)document.getElementById("msg").innerText="✅ "+total+"件 完了！";})' +
     '        .withFailureHandler(function(e){done++;document.getElementById("msg").innerText="エラー："+e.message;})' +
     '        .uploadFileToRow(' + row + ',file.name,b64,file.type);' +
+    '      sent++;check();' +
     '    };r.readAsDataURL(file);' +
     '  });' +
+    '  function check(){if(sent===total)document.getElementById("msg").innerText="送信完了。処理中です。このウィンドウを閉じても大丈夫です。";}' +
     '}' +
     '<\/script></body></html>';
 
@@ -3329,6 +3332,31 @@ function setInspectionComplete_(id, type, companySsId) {
 
 
 // ================================================================
+//  7-9: 点呼時刻クリア（clearInspTime）  【大A / 中7 / 小7-9】
+//  戻るボタン用：IDで点呼前/後の完了時刻をクリアして集計表を同期する
+// ================================================================
+function clearInspTime(id, type, companySsId) {
+  var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet || !id) return;
+  var lastCol = sheet.getLastColumn();
+  if (lastCol < 1) return;
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var colName = (type === 'before') ? '点呼前完了' : '点呼後完了';
+  var colIdx  = headers.indexOf(colName);
+  if (colIdx < 0) return;
+  var allRows = sheet.getDataRange().getValues();
+  for (var i = 1; i < allRows.length; i++) {
+    if (String(allRows[i][0]||'').trim() === String(id).trim()) {
+      sheet.getRange(i + 1, colIdx + 1).clearContent();
+      break;
+    }
+  }
+  if (id) delaySyncSummary_(id);
+}
+
+
+// ================================================================
 //  8-1: 行程データ更新（updateRouteData）  【大A / 中8 / 小8-1】
 //  戻るボタン用：IDで行を動的検索してL列（積地）・M列（降地）を更新し集計表を同期する
 // ================================================================
@@ -4303,27 +4331,29 @@ function openFileUploadDialog() {
     '<p style="margin-bottom:12px;">行 <b>' + row + '</b>（ID: ' + id + '）にアップロード</p>' +
     '<input type="file" id="f" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"' +
     ' style="color:#e0e0e0;margin-bottom:12px;display:block;"><br>' +
-    '<button onclick="upload()" style="padding:10px 24px;background:#1565c0;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;">アップロード</button>' +
+    '<button id="upbtn" onclick="upload()" style="padding:10px 24px;background:#1565c0;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;">アップロード</button>' +
     '<p id="msg" style="margin-top:12px;color:#aaa;"></p>' +
     '<script>' +
     'function upload(){' +
     '  var files=Array.from(document.getElementById("f").files);' +
     '  if(!files.length){alert("ファイルを選択してください");return;}' +
-    '  document.getElementById("msg").innerText="アップロード中...";' +
-    '  var done=0;' +
+    '  document.getElementById("upbtn").disabled=true;' +
+    '  document.getElementById("msg").innerText="読み込み中... しばらく閉じないでください";' +
+    '  var sent=0,done=0,total=files.length;' +
     '  files.forEach(function(file){' +
-    '    if(file.size>10*1024*1024){done++;check();return;}' +
+    '    if(file.size>10*1024*1024){sent++;done++;check();return;}' +
     '    var r=new FileReader();' +
     '    r.onload=function(){' +
     '      var b64=r.result.split(",")[1];' +
     '      google.script.run' +
-    '        .withSuccessHandler(function(){done++;check();})' +
-    '        .withFailureHandler(function(e){document.getElementById("msg").innerText="エラー："+e.message;done++;check();})' +
+    '        .withSuccessHandler(function(){done++;if(done===total){document.getElementById("msg").innerText="✅ 完了！";setTimeout(google.script.host.close,1000);}})' +
+    '        .withFailureHandler(function(e){done++;document.getElementById("msg").innerText="エラー："+e.message;})' +
     '        .uploadFileToRow(' + row + ',file.name,b64,file.type);' +
+    '      sent++;check();' +
     '    };' +
     '    r.readAsDataURL(file);' +
     '  });' +
-    '  function check(){if(done===files.length){document.getElementById("msg").innerText="完了！";setTimeout(google.script.host.close,800);}}' +
+    '  function check(){if(sent===total)document.getElementById("msg").innerText="送信完了。処理中です。このウィンドウを閉じても大丈夫です。";}' +
     '}' +
     '<\/script>' +
     '</body></html>';
@@ -4449,13 +4479,16 @@ function getMyNotices(companySsId, email) {
 function getRoutesById(id) {
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
-  if (!sheet) return { routes:[], progress:'' };
+  if (!sheet) return { routes:[], progress:'', firstGap:null };
   var all = sheet.getDataRange().getValues();
+  var uHdr = all.length > 0 ? all[0].map(function(h){return String(h||'').trim();}) : [];
+  var inspAIdx = uHdr.indexOf('点呼後完了');
   var routes = [];
   var allGuideDone=true, anyGuideDone=false;
   var allPickDone=true, anyPickDone=false;
   var hasRestS=false, hasRestE=false;
   var allDropDone=true, anyDropDone=false;
+  var hasInspAfter=false;
   for (var i = 1; i < all.length; i++) {
     if (String(all[i][0]||'').trim() !== String(id).trim()) continue;
     var gDone = !!all[i][13], pDone = !!all[i][14], dDone = !!all[i][17];
@@ -4470,9 +4503,10 @@ function getRoutesById(id) {
     if (all[i][16]) hasRestE = true;
     if (!dDone) allDropDone = false;
     if (dDone)  anyDropDone = true;
+    if (inspAIdx >= 0 && all[i][inspAIdx]) hasInspAfter = true;
   }
   var progress = 'guide';
-  if      (allDropDone && routes.length>0) progress = 'complete';
+  if      (allDropDone && routes.length>0) progress = hasInspAfter ? 'complete' : 'inspAfter';
   else if (anyDropDone)  progress = 'drop';
   else if (hasRestE)     progress = 'drop';
   else if (hasRestS)     progress = 'restEnd';
@@ -4485,6 +4519,7 @@ function getRoutesById(id) {
   else if (!anyPickDone && (hasRestS||hasRestE||anyDropDone)) firstGap = 'pick';
   else if (!hasRestS && (hasRestE||anyDropDone)) firstGap = 'restStart';
   else if (!hasRestE && anyDropDone) firstGap = 'restEnd';
+  if (!firstGap && allDropDone && routes.length>0 && !hasInspAfter) firstGap = 'inspAfter';
   return { routes:routes, progress:progress, firstGap:firstGap };
 }
 
