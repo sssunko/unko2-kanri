@@ -282,6 +282,9 @@
     .edit-val { font-size:14px; color:#e0e0e0; flex:1; word-break:break-all; }
     .edit-val-ro { flex:1; padding:8px; background:#191919; color:#999; border:1px solid #2c2c2c; border-radius:8px; font-size:14px; box-sizing:border-box; word-break:break-all; min-height:38px; }
     .edit-input { flex:1; padding:8px; background:#2c2c2c; color:white; border:1px solid #444; border-radius:8px; font-size:14px; box-sizing:border-box; }
+    .li-inp { background:transparent; color:white; border:none; width:100%; padding:2px 4px; font-size:13px; box-sizing:border-box; -moz-appearance:textfield; appearance:textfield; }
+    .li-inp:focus { outline:none; background:rgba(187,134,252,0.08); border-radius:4px; }
+    .li-inp::-webkit-inner-spin-button,.li-inp::-webkit-outer-spin-button { -webkit-appearance:none; appearance:none; }
     .edit-btns { display:flex; gap:10px; margin-top:16px; }
     .edit-btn { flex:1; padding:14px; border-radius:12px; font-size:16px; font-weight:900; color:white; text-align:center; }
     .eb-close { background:#37474f; } .eb-save { background:#1565c0; } .eb-delete { background:#d32f2f; }
@@ -1858,18 +1861,20 @@ function renderTable() {
     var pickCellSt  = pickHoliday ? ''  // 行全体に背景色あり・セル個別は設定不要
                     : isUnassigned ? 'background:#fff9c4;color:#5d4037;font-weight:700;'
                     : '';
+    function eHtml(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    var eid = eHtml(r.id);
     html += '<td style="padding:8px;">'+r.dateDisp+'</td>';
     html += '<td style="padding:8px;">'+r.car+'</td>';
-    html += '<td style="padding:8px;'+pickCellSt+'">'+(isUnassigned ? '未配車' : r.pick)+'</td>';
-    html += '<td style="padding:8px;">'+r.drop+'</td>';
-    html += '<td style="padding:8px;">'+(r.guideTime||'')+'</td>';
-    html += '<td style="padding:8px;'+pickCellBg+'">'+r.pickTime+'</td>';
-    html += '<td style="padding:8px;'+restSCellBg+'">'+r.restStart+'</td>';
-    html += '<td style="padding:8px;'+restECellBg+'">'+r.restEnd+'</td>';
-    html += '<td style="padding:8px;'+dropCellBg+'">'+r.dropTime+'</td>';
-    html += '<td style="padding:8px;'+moneyStyle(sales)+'">'+moneyDisp(sales)+'</td>';
-    html += '<td style="padding:8px;'+moneyStyle(tollReq)+'">'+moneyDisp(tollReq)+'</td>';
-    html += '<td style="padding:8px;'+moneyStyle(tollReal)+'">'+moneyDisp(tollReal)+'</td>';
+    html += '<td style="padding:4px 6px;min-width:90px;'+pickCellSt+'"><input class="li-inp" id="li_pick_'+eid+'" value="'+(isUnassigned?'':eHtml(r.pick))+'" placeholder="'+(isUnassigned?'未配車':'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:90px;"><input class="li-inp" id="li_drop_'+eid+'" value="'+eHtml(r.drop)+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;"><input class="li-inp" type="time" id="li_guideTime_'+eid+'" value="'+(r.guideTime||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;'+pickCellBg+'"><input class="li-inp" type="time" id="li_pickTime_'+eid+'" value="'+(r.pickTime||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;'+restSCellBg+'"><input class="li-inp" type="time" id="li_restStart_'+eid+'" value="'+(r.restStart||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;'+restECellBg+'"><input class="li-inp" type="time" id="li_restEnd_'+eid+'" value="'+(r.restEnd||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;'+dropCellBg+'"><input class="li-inp" type="time" id="li_dropTime_'+eid+'" value="'+(r.dropTime||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_sales_'+eid+'" value="'+(sales?sales.toLocaleString():'')+'" style="width:70px;text-align:right;'+(sales<0?'color:#ff5252;':'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_tollReq_'+eid+'" value="'+(tollReq?tollReq.toLocaleString():'')+'" style="width:60px;text-align:right;" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_tollReal_'+eid+'" value="'+(tollReal?tollReal.toLocaleString():'')+'" style="width:60px;text-align:right;" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:8px;'+moneyStyle(tollTotal)+'">'+moneyDisp(tollTotal)+'</td>';
     html += '<td style="padding:8px;'+moneyStyle(pay)+'">'+moneyDisp(pay)+'</td>';
     var expense = Math.round(r.expense || 0);
@@ -1877,9 +1882,9 @@ function renderTable() {
     var yukyu = Math.round(r.yukyu || 0);
     html += '<td style="padding:8px;'+(yukyu>0?'color:#ffb74d;font-weight:700;':'color:#555;')+'">'+( yukyu>0 ? yukyu.toLocaleString() : '—')+'</td>';
     var other = Math.round(r.other || 0);
-    html += '<td style="padding:8px;'+(other>0?'color:#80cbc4;font-weight:700;':'color:#555;')+'">'+( other>0 ? other.toLocaleString() : '—')+'</td>';
-    html += '<td style="padding:8px;color:'+(r.inspBefore?'#a5d6a7':'#555')+';">'+(r.inspBefore||'—')+'</td>';
-    html += '<td style="padding:8px;color:'+(r.inspAfter ?'#a5d6a7':'#555')+';">'+(r.inspAfter ||'—')+'</td>';
+    html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_other_'+eid+'" value="'+(other?other.toLocaleString():'')+'" style="width:60px;text-align:right;'+(other>0?'color:#80cbc4;':'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;"><input class="li-inp" type="time" id="li_inspBefore_'+eid+'" value="'+(r.inspBefore||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;"><input class="li-inp" type="time" id="li_inspAfter_'+eid+'" value="'+(r.inspAfter||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:8px;"><div style="display:flex;gap:4px;">';
 
     if (r.isComplete) {
@@ -1910,6 +1915,53 @@ function renderTable() {
 
   html += '</tbody></table></div>';
   document.getElementById('listBody').innerHTML = html;
+}
+
+
+// ============================================================
+//  C-18n: 一覧インライン自動保存
+// ============================================================
+var autoSaveTimers = {};
+function scheduleAutoSave(id) {
+  if (autoSaveTimers[id]) clearTimeout(autoSaveTimers[id]);
+  autoSaveTimers[id] = setTimeout(function() {
+    delete autoSaveTimers[id];
+    saveListRowAuto(id);
+  }, 1500);
+}
+function saveListRowAuto(id) {
+  var pickEl       = document.getElementById('li_pick_'       + id);
+  if (!pickEl) return;
+  var dropEl       = document.getElementById('li_drop_'       + id);
+  var guideTimeEl  = document.getElementById('li_guideTime_'  + id);
+  var pickTimeEl   = document.getElementById('li_pickTime_'   + id);
+  var restStartEl  = document.getElementById('li_restStart_'  + id);
+  var restEndEl    = document.getElementById('li_restEnd_'    + id);
+  var dropTimeEl   = document.getElementById('li_dropTime_'   + id);
+  var salesEl      = document.getElementById('li_sales_'      + id);
+  var tollReqEl    = document.getElementById('li_tollReq_'    + id);
+  var tollRealEl   = document.getElementById('li_tollReal_'   + id);
+  var otherEl      = document.getElementById('li_other_'      + id);
+  var inspBEl      = document.getElementById('li_inspBefore_' + id);
+  var inspAEl      = document.getElementById('li_inspAfter_'  + id);
+  var obj = { id: id };
+  if (pickEl)      obj.pick       = pickEl.value;
+  if (dropEl)      obj.drop       = dropEl.value;
+  if (guideTimeEl) obj.guideTime  = guideTimeEl.value;
+  if (pickTimeEl)  obj.pickTime   = pickTimeEl.value;
+  if (restStartEl) obj.restStart  = restStartEl.value;
+  if (restEndEl)   obj.restEnd    = restEndEl.value;
+  if (dropTimeEl)  obj.dropTime   = dropTimeEl.value;
+  if (salesEl)     obj.sales      = salesEl.value.replace(/,/g,'');
+  if (tollReqEl)   obj.tollReq    = tollReqEl.value.replace(/,/g,'');
+  if (tollRealEl)  obj.tollReal   = tollRealEl.value.replace(/,/g,'');
+  if (otherEl)     obj.other      = otherEl.value.replace(/,/g,'');
+  if (inspBEl)     obj.inspBefore = inspBEl.value;
+  if (inspAEl)     obj.inspAfter  = inspAEl.value;
+  google.script.run
+    .withSuccessHandler(function() { loadList(); })
+    .withFailureHandler(function(e) { console.error('自動保存エラー: ' + e.message); })
+    .saveEditData(obj, COMPANY_SS_ID);
 }
 
 // ============================================================
@@ -2156,16 +2208,18 @@ function openEditModal(id) {
       var v=(val===null||val===undefined)?'':val;
       return '<div class="edit-row"><div class="edit-label">'+label+'</div><input class="edit-input" id="ed_'+name+'" type="'+type+'" value="'+v+'"></div>';
     }
-    h+=ro('ID',d.id)+ro('区分',d.kubun)+ro('会社名',d.company);
-    h+=ed('トン数','tons',d.tons)+ed('車種','type',d.type)+ed('看板名','kanban',d.kanban)+ed('車番','car',d.car)+ed('乗務員名','name',d.name)+ed('携帯番号','tel',d.tel,'tel');
-    h+=ed('日付','date',d.date,'date')+ed('荷主名','client',d.client)+ed('積地','pick',d.pick)+ed('降地','drop',d.drop);
+    h+=ed('ID','id',d.id)+ed('区分','kubun',d.kubun)+ed('会社名','company',d.company);
+    h+=ed('トン数','tons',d.tons)+ed('車種','type',d.type)+ed('看板名','kanban',d.kanban)+ed('車番','car',d.car)+ed('乗務員名','name',d.name)+ed('携帯番号','tel',d.tel);
+    h+=ed('日付','date',d.date)+ed('荷主名','client',d.client)+ed('積地','pick',d.pick)+ed('降地','drop',d.drop);
     h+=ed('誘導時刻','guideTime',d.guideTime,'time')+ed('積完時刻','pickTime',d.pickTime,'time')+ed('休憩開始','restStart',d.restStart,'time')+ed('休憩終了','restEnd',d.restEnd,'time')+ed('降完時刻','dropTime',d.dropTime,'time');
-    h+=ro('売上', d.sales!==''&&d.sales!==null ? Math.trunc(Number(d.sales)).toLocaleString() : '');
-    h+=ed('請求高速','tollReq',d.tollReq!==''&&d.tollReq!==null ? d.tollReq : '','number')+ed('実費高速','tollReal',d.tollReal!==''&&d.tollReal!==null ? d.tollReal : '','number');
-    h+=ro('高速計', d.tollTotal!==''&&d.tollTotal!==null ? Math.trunc(Number(d.tollTotal)).toLocaleString() : '');
-    h+=ro('支払', d.pay!==''&&d.pay!==null ? Math.trunc(Number(d.pay)).toLocaleString() : '');
-    h+=ro('有休手当', (d.yukyu !== '' && d.yukyu !== null && d.yukyu !== undefined && d.yukyu !== 0) ? '¥'+Math.trunc(Number(d.yukyu)).toLocaleString() : '—');
-    h+=ro('その他手当', (d.other !== '' && d.other !== null && d.other !== undefined && d.other !== 0) ? '¥'+Math.trunc(Number(d.other)).toLocaleString() : '—');
+    h+=ed('売上','sales',d.sales!==''&&d.sales!==null?Math.trunc(Number(d.sales)).toLocaleString():'');
+    h+=ed('請求高速','tollReq',d.tollReq!==''&&d.tollReq!==null?Math.trunc(Number(d.tollReq)).toLocaleString():'');
+    h+=ed('実費高速','tollReal',d.tollReal!==''&&d.tollReal!==null?Math.trunc(Number(d.tollReal)).toLocaleString():'');
+    h+=ro('高速計（自動）', d.tollTotal!==''&&d.tollTotal!==null ? Math.trunc(Number(d.tollTotal)).toLocaleString() : '');
+    h+=ro('支払（自動）', d.pay!==''&&d.pay!==null ? Math.trunc(Number(d.pay)).toLocaleString() : '');
+    h+=ro('有休手当（自動）', (d.yukyu!==''&&d.yukyu!==null&&d.yukyu!==undefined&&d.yukyu!==0)?'¥'+Math.trunc(Number(d.yukyu)).toLocaleString():'—');
+    h+=ed('その他手当','other',(d.other!==''&&d.other!==null&&d.other!==undefined&&d.other!==0)?Math.trunc(Number(d.other)).toLocaleString():'');
+    h+=ed('点呼前完了','inspBefore',d.inspBefore||'','time')+ed('点呼後完了','inspAfter',d.inspAfter||'','time');
     h+=ro('連絡事項',d.notice||'なし');
     var adminUrls=(d.dataUrl||'').split(',').map(function(u){return u.trim();}).filter(function(u){return u;});
     h+='<div class="edit-row"><div class="edit-label">データ</div><div class="edit-val">';
@@ -2205,8 +2259,12 @@ function openEditModal(id) {
 }
 function closeEditModal(){ document.getElementById('editOverlay').classList.remove('show'); }
 function saveEditModal(){
+  var idEl=document.getElementById('ed_id');
   var obj={
-    id:editId,
+    origId:editId,
+    id:idEl?idEl.value:editId,
+    kubun:document.getElementById('ed_kubun').value,
+    company:document.getElementById('ed_company').value,
     tons:document.getElementById('ed_tons').value,
     type:document.getElementById('ed_type').value,
     kanban:document.getElementById('ed_kanban').value,
@@ -2222,13 +2280,19 @@ function saveEditModal(){
     restStart:document.getElementById('ed_restStart').value,
     restEnd:document.getElementById('ed_restEnd').value,
     dropTime:document.getElementById('ed_dropTime').value,
-    tollReq:document.getElementById('ed_tollReq').value,
-    tollReal:document.getElementById('ed_tollReal').value,
+    sales:document.getElementById('ed_sales').value.replace(/,/g,''),
+    tollReq:document.getElementById('ed_tollReq').value.replace(/,/g,''),
+    tollReal:document.getElementById('ed_tollReal').value.replace(/,/g,''),
+    other:document.getElementById('ed_other').value.replace(/,/g,''),
+    inspBefore:document.getElementById('ed_inspBefore').value,
+    inspAfter:document.getElementById('ed_inspAfter').value,
     termNotice:document.getElementById('ed_termNotice').value
   };
   closeEditModal();
-  loadList();
-  google.script.run.saveEditData(obj, COMPANY_SS_ID);
+  google.script.run
+    .withSuccessHandler(function(){ loadList(); })
+    .withFailureHandler(function(e){ alert('保存エラー: '+e.message); })
+    .saveEditData(obj, COMPANY_SS_ID);
 }
 function deleteEditModal(){
   if(!confirm('この運行データを削除しますか？')) return;
@@ -2303,7 +2367,7 @@ function startRunFromList(id) {
   }
   google.script.run.withSuccessHandler(function(data) {
     if (!data||!data.routes||data.routes.length===0){alert('行程がありません');return;}
-    if (data.progress==='complete') return;
+    if (data.progress==='complete' && !data.firstGap) return;
     picks=data.routes.map(function(r){return r.pick;});
     drops=data.routes.map(function(r){return r.drop;});
     runRows=data.routes.map(function(r){return r.row;}); runId=id;
@@ -2316,7 +2380,7 @@ function startRunFromList(id) {
     for(var i=0;i<pickDone.length;i++){if(pickDone[i]){pickHistory.push(i);lastPickIndex=i;}}
     for(var i=0;i<dropDone.length;i++){if(dropDone[i]) dropHistory.push(i);}
     // 一覧から起動時は常に点呼前チェックを経由する
-    _inspNextPhase = data.progress;
+    _inspNextPhase = data.firstGap || data.progress;
     phase='inspBefore'; inspBeforeDone=new Array(inspBeforeItems.length).fill(false); saveState();
     showInspScreen('before');
   }).withFailureHandler(function(){alert('通信エラー');}).getRoutesById(id, COMPANY_SS_ID);

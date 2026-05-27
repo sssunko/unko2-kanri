@@ -5,7 +5,30 @@
       "Bash(clasp deploy *)",
       "Bash(where clasp *)",
       "Bash(cmd /c deploy.bat)",
-      "PowerShell(& cmd.exe /c \"c:\\\\gas\\\\unko2-kanri\\\\deploy.bat\" 2>&1)"
+      "PowerShell(& cmd.exe /c \"c:\\\\gas\\\\unko2-kanri\\\\deploy.bat\" 2>&1)",
+      "Bash(wc -l \"/mnt/c/gas/unko2-kanri/コード.js\" 2>/dev/null || echo \"not found\")",
+      "Read(//mnt/c/gas/unko2-kanri/**)",
+      "Bash(Get-Content \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\")",
+      "Bash(Measure-Object -Line)",
+      "PowerShell(\\(Get-Content \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\" | Measure-Object -Line\\).Lines; \\(Get-Content \"c:\\\\gas\\\\unko2-kanri\\\\index.html\" | Measure-Object -Line\\).Lines)",
+      "Bash(git -C \"c:/gas/unko2-kanri\" log --oneline -20)",
+      "Bash(git -C \"c:/gas/unko2-kanri\" diff b5046d0 HEAD -- index.html)",
+      "Bash(git -C \"c:/gas/unko2-kanri\" diff b5046d0 HEAD -- コード.js)",
+      "Bash(git -C \"c:/gas/unko2-kanri\" show 97b44a9 --name-only)",
+      "Bash(git -C \"c:/gas/unko2-kanri\" diff 97b44a9 HEAD -- コード.js)",
+      "Bash(git -C \"c:/gas/unko2-kanri\" status)",
+      "Bash(git -C \"c:/gas/unko2-kanri\" show 97b44a9:コード.js)",
+      "Bash(git -C \"c:/gas/unko2-kanri\" show b5046d0:コード.js)",
+      "Bash(grep -v \"^//\")",
+      "Bash(git stash *)",
+      "Bash(node -e ' *)",
+      "Bash(powershell -command \"Get-Content 'C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\49efa927-ed0d-4e50-9155-33a04c054254.jsonl' | Select-String '品名になんで色' -Context 2,2\")",
+      "Bash(python3 -c ' *)",
+      "PowerShell(Get-ChildItem \"c:\\\\gas\\\\unko2-kanri\" | Where-Object { $_.Name -ne \".git\" } | Select-Object Name, Length, LastWriteTime)",
+      "Bash(Select-String -Path \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\" -Pattern \"sendEmail|GmailApp|同意|agreeContract|会社登録\")",
+      "Bash(Select-Object LineNumber, Line)",
+      "Bash(Format-Table -Wrap)",
+      "Bash(Out-String -Width 150)"
     ]
   }
 }
