@@ -30,7 +30,9 @@
       "Bash(Format-Table -Wrap)",
       "Bash(Out-String -Width 150)",
       "Bash(deploy.bat)",
-      "PowerShell($rc = Get-Content \"$env:USERPROFILE\\\\.clasprc.json\" | ConvertFrom-Json; $rc.tokens.default)"
+      "PowerShell($rc = Get-Content \"$env:USERPROFILE\\\\.clasprc.json\" | ConvertFrom-Json; $rc.tokens.default)",
+      "Bash(awk -F: '$2 > 463')",
+      "Bash(awk 'NR>=463 && /^function / && NR>463 {print NR; exit}' \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\")"
     ]
   }
 }
