@@ -470,11 +470,11 @@ function applyHolidayRowColors_() {
   if (sheet && sheet.getLastRow() >= 2) {
     var lr      = sheet.getLastRow();
     var lastCol = Math.max(sheet.getLastColumn(), 12);
-    var vals    = sheet.getRange(2, 10, lr - 1, 3).getValues();
+    var vals    = sheet.getRange(2, 1, lr - 1, 12).getValues(); // A〜L列を読む（A=ID, L=積地）
     var curBgs  = sheet.getRange(2, 1, lr - 1, lastCol).getBackgrounds();
     var bgs2D   = vals.map(function(r, idx) {
-      var dateV = r[0];
-      var pickV = String(r[2] || '');
+      var idV   = String(r[0] || '').trim();
+      var pickV = String(r[11] || ''); // L列=積地
       if (pickV.indexOf('有休') !== -1) return new Array(lastCol).fill('#e0e0e0');
       if (pickV.indexOf('休み') !== -1) return new Array(lastCol).fill('#9e9e9e');
       // 通常行: 既存背景を保護し、有休/休み色だけクリア
@@ -482,10 +482,8 @@ function applyHolidayRowColors_() {
       for (var ci = 0; ci < rowArr.length; ci++) {
         if (rowArr[ci] === '#e0e0e0' || rowArr[ci] === '#9e9e9e') rowArr[ci] = null;
       }
-      if (pickV === '' && dateV instanceof Date) {
-        var d = new Date(dateV); d.setHours(0, 0, 0, 0);
-        if (d >= today) rowArr[11] = '#fff9c4'; // L列(col12)のみ黄色
-        else if (rowArr[11] === '#fff9c4') rowArr[11] = null; // 過去日は黄色解除
+      if (pickV === '' && idV !== '') {
+        rowArr[11] = '#fff9c4'; // IDがあって積地空→常に黄色
       } else if (pickV !== '' && rowArr[11] === '#fff9c4') {
         rowArr[11] = null; // 積地入力あり→黄色解除
       }
@@ -499,10 +497,11 @@ function applyHolidayRowColors_() {
   if (sumSheet && sumSheet.getLastRow() >= 2) {
     var slr      = sumSheet.getLastRow();
     var sLastCol = Math.max(sumSheet.getLastColumn(), 12);
-    var svals    = sumSheet.getRange(2, 10, slr - 1, 3).getValues();
+    var svals    = sumSheet.getRange(2, 1, slr - 1, 12).getValues(); // A〜L列
     var sCurBgs  = sumSheet.getRange(2, 1, slr - 1, sLastCol).getBackgrounds();
     var sbgs2D   = svals.map(function(r, idx) {
-      var pickV = String(r[2] || '');
+      var sIdV  = String(r[0] || '').trim();
+      var pickV = String(r[11] || ''); // L列=積地
       if (pickV.indexOf('有休') !== -1) return new Array(sLastCol).fill('#e0e0e0');
       if (pickV.indexOf('休み') !== -1) return new Array(sLastCol).fill('#9e9e9e');
       // 通常行: 既存背景を保護し、有休/休み色だけクリア
@@ -510,12 +509,9 @@ function applyHolidayRowColors_() {
       for (var ci = 0; ci < rowArr.length; ci++) {
         if (rowArr[ci] === '#e0e0e0' || rowArr[ci] === '#9e9e9e') rowArr[ci] = null;
       }
-      var dateV = r[0];
-      if (r[2] === '' && dateV instanceof Date) {
-        var d = new Date(dateV); d.setHours(0, 0, 0, 0);
-        if (d >= today) rowArr[11] = '#fff9c4';
-        else if (rowArr[11] === '#fff9c4') rowArr[11] = null;
-      } else if (r[2] !== '' && rowArr[11] === '#fff9c4') {
+      if (pickV === '' && sIdV !== '') {
+        rowArr[11] = '#fff9c4'; // IDがあって積地空→黄色
+      } else if (pickV !== '' && rowArr[11] === '#fff9c4') {
         rowArr[11] = null;
       }
       return rowArr;
@@ -599,16 +595,17 @@ function sortUnkouByDate_(companySsId) {
   var numRows = lastRow - 1; // ヘッダー除く行数
   var totalCols = Math.max(sheet.getLastColumn(), 28); // 点呼列(27,28)等も含めて全列処理
 
-  // 全データを値として一括取得（数式は値に変換される）
-  var data = sheet.getRange(2, 1, numRows, totalCols).getValues();
+  // 全データを値・背景色として一括取得（背景もソート対象にして色がデータと一緒に動く）
+  var data   = sheet.getRange(2, 1, numRows, totalCols).getValues();
+  var curBgs = sheet.getRange(2, 1, numRows, totalCols).getBackgrounds();
 
   // リッチテキストが入る列（col24=管理データ, col26=データ端末）を別途取得してリンクを保持
   var rtv24 = sheet.getRange(2, 24, numRows, 1).getRichTextValues();
   var rtv26 = sheet.getRange(2, 26, numRows, 1).getRichTextValues();
 
-  // ソート前インデックス付きで保持
+  // ソート前インデックス付きで保持（背景色も一緒に持つ）
   var indexed = data.map(function(row, idx) {
-    return { row: row, rtv24: rtv24[idx][0], rtv26: rtv26[idx][0] };
+    return { row: row, rtv24: rtv24[idx][0], rtv26: rtv26[idx][0], bg: curBgs[idx] };
   });
 
   // J列(index[9]=日付)昇順 → G列(index[6]=乗務員名)昇順 でソート
@@ -626,6 +623,10 @@ function sortUnkouByDate_(companySsId) {
     return row;
   });
   sheet.getRange(2, 1, numRows, totalCols).setValues(writeData);
+
+  // 背景色もソート後の順序で復元（色がデータと一緒に移動する）
+  var sortedBgs = indexed.map(function(item) { return item.bg; });
+  sheet.getRange(2, 1, numRows, totalCols).setBackgrounds(sortedBgs);
 
   // リッチテキストをソート後の順序で復元（リンクを維持）
   var newRtv24 = indexed.map(function(item) { return [item.rtv24]; });
@@ -663,15 +664,17 @@ function sortSummaryByDate_(companySsId) {
   var colCount = sheet.getLastColumn();
   var cols = Math.max(colCount, 37);
   var data = sheet.getRange(2, 1, numRows, cols).getValues();
-  data.sort(function(a, b) {
-    var da = (a[9] instanceof Date) ? a[9].getTime() : 0;
-    var db = (b[9] instanceof Date) ? b[9].getTime() : 0;
+  var bgs  = sheet.getRange(2, 1, numRows, cols).getBackgrounds();
+  var indexed = data.map(function(row, idx) { return { row: row, bg: bgs[idx] }; });
+  indexed.sort(function(a, b) {
+    var da = (a.row[9] instanceof Date) ? a.row[9].getTime() : 0;
+    var db = (b.row[9] instanceof Date) ? b.row[9].getTime() : 0;
     if (da !== db) return da - db;
-    return String(a[6] || '').localeCompare(String(b[6] || ''));
+    return String(a.row[6] || '').localeCompare(String(b.row[6] || ''));
   });
   // 値を計算して書き戻す（数式廃止でフィルター後もズレない）
-  var writeData = data.map(function(r) {
-    var row = r.slice();
+  var writeData = indexed.map(function(item) {
+    var row = item.row.slice();
     var tollReq = Number(row[19])||0, tollReal = Number(row[20])||0;
     row[21] = (tollReq === 0 && tollReal === 0) ? '' : tollReal - tollReq;  // V
     row[25] = row[22] ? Math.round(Number(row[22])/(Number(row[23])||3)*(Number(row[24])||0)) : '';  // Z
@@ -681,6 +684,9 @@ function sortSummaryByDate_(companySsId) {
     return row;
   });
   sheet.getRange(2, 1, numRows, cols).setValues(writeData);
+  // 背景色もソート後の順序で書き戻す（色がデータと一緒に移動する）
+  var sortedBgs = indexed.map(function(item) { return item.bg; });
+  sheet.getRange(2, 1, numRows, cols).setBackgrounds(sortedBgs);
   sheet.getRange(2, 10, numRows, 1).setNumberFormat('yyyy/MM/dd');
   applyMoneyFormat_(sheet, 2, numRows, 'summary');
   applyDateTimeFormat_(sheet, 2, numRows);
@@ -1055,6 +1061,7 @@ function onEdit(e) {
 function onEditUnkou_(sheet, range) {
   var startRow = range.getRow();
   var numRows = range.getNumRows();
+  var editedCol = range.getColumn();
   if (startRow <= 1) return;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var master = ss.getSheetByName('自車専属マスタ');
@@ -1078,87 +1085,81 @@ function onEditUnkou_(sheet, range) {
   SpreadsheetApp.flush();
   idLock.releaseLock();
 
+  var lastColU = Math.max(sheet.getLastColumn(), 22);
   for (var i = 0; i < numRows; i++) {
     var row = startRow + i;
     if (row <= 1) continue;
-    // A列(1)のIDを取得（採番はScriptLock内で完了済み）
-    var idCell = sheet.getRange(row, 1);
-    var currentId = idCell.getValue();
+    // 行データを1回で一括読み込み（個別getValue廃止）
+    var rowData = sheet.getRange(row, 1, 1, lastColU).getValues()[0];
+    var currentId = String(rowData[0] || '').trim();
+    var dateVal   = rowData[9]; // J列(10)=日付 0-indexed:9
+
     // J列(10)の日付：時刻部分が 0:00:00 なら現在時刻を付与（日付のみ入力に対応）
-    var dateCell = sheet.getRange(row, 10);
-    var dateVal = dateCell.getValue();
     if (dateVal instanceof Date) {
-      var h = dateVal.getHours();
-      var m = dateVal.getMinutes();
-      var s = dateVal.getSeconds();
-      if (h === 0 && m === 0 && s === 0) {
+      if (dateVal.getHours() === 0 && dateVal.getMinutes() === 0 && dateVal.getSeconds() === 0) {
         var now = new Date();
-        var merged = new Date(
-          dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDate(),
-          now.getHours(), now.getMinutes(), now.getSeconds()
-        );
-        dateCell.setValue(merged);
+        var merged = new Date(dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDate(),
+                              now.getHours(), now.getMinutes(), now.getSeconds());
+        sheet.getRange(row, 10).setValue(merged);
+        rowData[9] = merged;
       }
     }
-    dateCell.setNumberFormat('yyyy/MM/dd');
-    // F列(6)：車番を入力→自車専属マスタと部分一致で他項目を自動補完
+    sheet.getRange(row, 10).setNumberFormat('yyyy/MM/dd');
+
+    // F列(6)：車番を入力→自車専属マスタと部分一致で8列一括補完
     if (editedCol === 6 && range.getNumColumns() === 1) {
-      var inputCar = String(sheet.getRange(row, 6).getValue()).trim();
+      var inputCar = String(rowData[5] || '').trim(); // F列 0-indexed:5
       if (inputCar && mData.length > 1) {
-        // B〜I列（F=col6を除く）にすでに値があれば補完しない（先入力優先）
-        var bToI = sheet.getRange(row, 2, 1, 8).getValues()[0];
+        // B〜I列（F=index4を除く）に既存値があれば補完しない
         var hasPreInput = false;
-        for (var ci = 0; ci < bToI.length; ci++) {
-          if (ci === 4) continue; // index4=F列(col6)はスキップ
-          if (String(bToI[ci] || '').trim() !== '') { hasPreInput = true; break; }
+        for (var ci = 0; ci < 8; ci++) {
+          if (ci === 4) continue; // F列スキップ
+          if (String(rowData[1 + ci] || '').trim() !== '') { hasPreInput = true; break; }
         }
         if (!hasPreInput) {
           for (var m2 = 1; m2 < mData.length; m2++) {
             var masterCar = String(mData[m2][7] || '').trim();
             if (masterCar === inputCar || masterCar.indexOf(inputCar) !== -1 || inputCar.indexOf(masterCar) !== -1) {
-              sheet.getRange(row, 2).setValue(mData[m2][2]);
-              sheet.getRange(row, 3).setValue(mData[m2][3]);
-              sheet.getRange(row, 4).setValue(mData[m2][5]);
-              sheet.getRange(row, 5).setValue(mData[m2][6]);
-              sheet.getRange(row, 6).setValue(masterCar);
-              sheet.getRange(row, 7).setValue(mData[m2][8]);
-              sheet.getRange(row, 8).setValue(mData[m2][9]);
-              sheet.getRange(row, 9).setValue(mData[m2][4]);
+              // B〜I列を1回のsetValuesで一括書き込み（8個→1回）
+              sheet.getRange(row, 2, 1, 8).setValues([[
+                mData[m2][2], mData[m2][3], mData[m2][5], mData[m2][6],
+                masterCar, mData[m2][8], mData[m2][9], mData[m2][4]
+              ]]);
               break;
             }
           }
         }
       }
     }
+
     // N/O/P/Q/R列（誘導・積完・休憩・降完時刻）：全角文字・日付なし時刻を正規化して合成
     if ([14, 15, 16, 17, 18].indexOf(editedCol) !== -1) {
       var timeCell = sheet.getRange(row, editedCol);
       var tv = timeCell.getValue();
-      var baseDateObj = (sheet.getRange(row, 10).getValue() instanceof Date) ? sheet.getRange(row, 10).getValue() : null;
-      var merged = null;
+      var baseDateObj = (rowData[9] instanceof Date) ? rowData[9] : null;
+      var mergedT = null;
       if (typeof tv === 'string' && tv.trim() !== '') {
         var s = tv.trim().replace(/[：]/g, ':').replace(/[　]/g, ' ');
         var m1 = s.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
         if (m1) {
           var yr = baseDateObj ? baseDateObj.getFullYear() : new Date().getFullYear();
-          merged = new Date(yr, parseInt(m1[1]) - 1, parseInt(m1[2]), parseInt(m1[3]), parseInt(m1[4]), 0);
+          mergedT = new Date(yr, parseInt(m1[1]) - 1, parseInt(m1[2]), parseInt(m1[3]), parseInt(m1[4]), 0);
         } else {
-          var m2 = s.match(/^(\d{1,2}):(\d{2})$/);
-          if (m2) {
+          var m2t = s.match(/^(\d{1,2}):(\d{2})$/);
+          if (m2t) {
             var base2 = baseDateObj || new Date();
-            merged = new Date(base2.getFullYear(), base2.getMonth(), base2.getDate(),
-                              parseInt(m2[1]), parseInt(m2[2]), 0);
+            mergedT = new Date(base2.getFullYear(), base2.getMonth(), base2.getDate(),
+                               parseInt(m2t[1]), parseInt(m2t[2]), 0);
           }
         }
       } else if (tv instanceof Date && tv.getFullYear() < 1902) {
         var base3 = baseDateObj || new Date();
-        merged = new Date(base3.getFullYear(), base3.getMonth(), base3.getDate(),
-                          tv.getHours(), tv.getMinutes(), tv.getSeconds());
+        mergedT = new Date(base3.getFullYear(), base3.getMonth(), base3.getDate(),
+                           tv.getHours(), tv.getMinutes(), tv.getSeconds());
       }
-      if (merged && !isNaN(merged.getTime())) {
-        timeCell.setValue(merged);
+      if (mergedT && !isNaN(mergedT.getTime())) {
+        timeCell.setValue(mergedT);
         timeCell.setNumberFormat('M/d HH:mm');
-        // C: 単一セル編集時のみ順序チェック（後ろが埋まって前が空はNG）
         if (range.getNumRows() === 1 && range.getNumColumns() === 1) {
           var rowTimes = sheet.getRange(row, 14, 1, 5).getValues()[0];
           var gv2=rowTimes[0], pv2=rowTimes[1], rsv2=rowTimes[2], rev2=rowTimes[3];
@@ -1175,35 +1176,31 @@ function onEditUnkou_(sheet, range) {
         }
       }
     }
-    // 積地(L=col12)の背景色: 有休→行全体薄グレー、休み→行全体暗グレー、空+未来日→L列のみ黄色
-    var pvK   = String(sheet.getRange(row, 12).getValue() || '');
-    var dateV = sheet.getRange(row, 10).getValue();
-    var lastColU = Math.max(sheet.getLastColumn(), 12);
+
+    // 積地(L=col12)の背景色を即座に設定
+    var pvK = String(rowData[11] || ''); // L列 0-indexed:11
     if (pvK.indexOf('有休') !== -1) {
       sheet.getRange(row, 1, 1, lastColU).setBackground('#e0e0e0');
     } else if (pvK.indexOf('休み') !== -1) {
       sheet.getRange(row, 1, 1, lastColU).setBackground('#9e9e9e');
     } else {
       sheet.getRange(row, 1, 1, lastColU).setBackground(null);
-      if (pvK === '' && dateV instanceof Date) {
-        var todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
-        var dateMid  = new Date(dateV); dateMid.setHours(0, 0, 0, 0);
-        if (dateMid >= todayMid) sheet.getRange(row, 12).setBackground('#fff9c4');
+      if (pvK === '' && currentId) {
+        sheet.getRange(row, 12).setBackground('#fff9c4');
       }
     }
-    var tollCell = sheet.getRange(row, 22);
-    if (!tollCell.getFormula()) {
-      tollCell.setFormula('=IF(AND(U' + row + '="",T' + row + '=""),"",U' + row + '-T' + row + ')');
+
+    // V列(22)の合計高速数式
+    if (!sheet.getRange(row, 22).getFormula()) {
+      sheet.getRange(row, 22).setFormula('=IF(AND(U' + row + '="",T' + row + '=""),"",U' + row + '-T' + row + ')');
     }
-    var newId = sheet.getRange(row, 1).getValue();
-    if (newId) syncSummaryForId_(newId);
+    if (currentId) syncSummaryForId_(currentId);
   }
   applyMoneyFormat_(sheet, startRow, numRows, 'unkou');
   applyDateTimeFormat_(sheet, startRow, numRows);
   cleanAllOrphanSummary_();
-  // 日付列(J=col10)が編集された場合は両シートを自動ソート
-  var editedColU = range.getColumn();
-  if (editedColU === 10) {
+  // 日付列(J=col10)が編集された場合は両シートをソート（色はsortUnkouByDate_内で一緒に移動）
+  if (editedCol === 10) {
     sortUnkouByDate_();
     sortSummaryByDate_();
   }
@@ -2208,7 +2205,7 @@ function fillMissingIdsAndCars() {
   var lastRow = sheet.getLastRow();
   var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
 
-  // ScriptLockでID採番を排他制御（並列アクセス時のV-番号重複を根絶）
+  // ① ID一括採番（ロック内でメモリ更新→A列を一括書き込み）
   var fillLock = LockService.getScriptLock();
   try { fillLock.waitLock(15000); } catch(e) {
     SpreadsheetApp.getUi().alert('ロック取得失敗。しばらく後に再試行してください。');
@@ -2224,17 +2221,19 @@ function fillMissingIdsAndCars() {
     }
     if (!fhd) continue;
     data[fi][0] = 'V-' + String(nextIdNum).padStart(4, '0');
-    sheet.getRange(fi + 2, 1).setValue(data[fi][0]);
     nextIdNum++;
     idCount++;
   }
-  SpreadsheetApp.flush();
+  // A列を一括書き込み（ロック保持中）
+  if (idCount > 0) {
+    sheet.getRange(2, 1, data.length, 1).setValues(data.map(function(r) { return [r[0]]; }));
+    SpreadsheetApp.flush();
+  }
   fillLock.releaseLock();
 
+  // ② 車番・各フィールド補完（メモリ更新→12列一括書き込み）
   var carCount = 0, syncIds = [];
-
   for (var i = 0; i < data.length; i++) {
-    var row = i + 2;
     var id  = String(data[i][0] || '').trim();
     var hasData = false;
     for (var c = 1; c <= 10; c++) {
@@ -2252,22 +2251,25 @@ function fillMissingIdsAndCars() {
         var matchByCar  = carNo && mCar === carNo;
         var matchByName = name  && mName === name;
         if (matchByCar || matchByName) {
-          if (!carNo)  { sheet.getRange(row, 6).setValue(mCar);  data[i][5] = mCar;  carCount++; }
-          if (!name)   { sheet.getRange(row, 7).setValue(mName); data[i][6] = mName; carCount++; }
-          // 区分・会社名・トン数・車種・携帯・看板も補完（空の場合のみ）
-          var fields = [[1,2],[2,3],[3,4],[4,5],[7,8],[8,9]]; // [masterIdx, sheetCol]
-          for (var fi = 0; fi < fields.length; fi++) {
-            var mi = fields[fi][0], sc = fields[fi][1];
+          if (!carNo) { data[i][5] = mCar;  carCount++; }
+          if (!name)  { data[i][6] = mName; carCount++; }
+          // 区分/会社名/トン数/車種/携帯/看板名をメモリ上で補完
+          var fields = [[2,2],[3,3],[5,4],[6,5],[9,8],[4,9]]; // [masterIdx, sheetCol]
+          for (var fj = 0; fj < fields.length; fj++) {
+            var mi = fields[fj][0], sc = fields[fj][1];
             if (!String(data[i][sc-1]||'').trim() && String(mAll[m][mi]||'').trim()) {
-              sheet.getRange(row, sc).setValue(mAll[m][mi]);
+              data[i][sc-1] = mAll[m][mi];
             }
           }
           break;
         }
       }
     }
-
     if (id) syncIds.push(id);
+  }
+  // 12列を一括書き込み
+  if (carCount > 0) {
+    sheet.getRange(2, 1, data.length, 12).setValues(data);
   }
 
   // ID重複排除して集計表を再同期
@@ -2475,6 +2477,7 @@ function expandAndRefreshSheets() {
   // 設定シートに業務前点検・業務後点検データがなければデフォルトを挿入
   ensureSettingItems_(ss);
 
+  applyHolidayRowColors_();
   SpreadsheetApp.getUi().alert('シート再生成が完了しました。');
 }
 
