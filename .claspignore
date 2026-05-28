@@ -1,3 +1,7 @@
 client-template/**
 .git/**
 node_modules/**
+stub_for_motoSS/**
+stub_for_clientSS/**
+stub_motoSS.js
+stub_clientSS.js
