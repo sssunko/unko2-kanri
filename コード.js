@@ -737,7 +737,6 @@ function onOpen() {
       .addItem('🆔 ID・車番一括補完', 'fillMissingIdsAndCars')
       .addSeparator()
       .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
-      .addItem('📅 日時入力', 'showDateTimePicker')
       .addItem('📖 使い方シート作成', 'createUsageSheet')
       .addSeparator()
       .addItem('シート保護設定', 'setupSheetProtection')
@@ -761,7 +760,6 @@ function onOpen() {
       .addItem('🆔 ID・車番一括補完', 'fillMissingIdsAndCars')
       .addSeparator()
       .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
-      .addItem('📅 日時入力', 'showDateTimePicker')
       .addItem('📖 使い方シート作成', 'createUsageSheet');
   } else {
     // 元SS: 会社管理フルメニュー（修正用SS関連は非表示）
@@ -779,7 +777,6 @@ function onOpen() {
       .addItem('🆔 ID・車番一括補完', 'fillMissingIdsAndCars')
       .addSeparator()
       .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
-      .addItem('📅 日時入力', 'showDateTimePicker')
       .addItem('📖 使い方シート作成', 'createUsageSheet')
       .addSeparator()
       .addItem('シート保護設定', 'setupSheetProtection')
@@ -1119,6 +1116,8 @@ function onEditUnkou_(sheet, range) {
         if (!hasPreInput) {
           for (var m2 = 1; m2 < mData.length; m2++) {
             var masterCar = String(mData[m2][7] || '').trim();
+            var masterStatus = String(mData[m2][1] || '').trim();
+            if (masterStatus === '故障' || masterStatus === '待機') continue;
             if (masterCar === inputCar || masterCar.indexOf(inputCar) !== -1 || inputCar.indexOf(masterCar) !== -1) {
               // B〜I列を1回のsetValuesで一括書き込み（8個→1回）
               sheet.getRange(row, 2, 1, 8).setValues([[
@@ -1177,28 +1176,27 @@ function onEditUnkou_(sheet, range) {
       }
     }
 
-    // 積地(L=col12)の背景色を即座に設定
+    // 積地(L=col12)の背景色を即座に設定（単一setBackgroundsで確実に反映）
     var pvK = String(rowData[11] || ''); // L列 0-indexed:11
+    var rowBgNew = new Array(lastColU).fill(null);
     if (pvK.indexOf('有休') !== -1) {
-      sheet.getRange(row, 1, 1, lastColU).setBackground('#e0e0e0');
+      rowBgNew = new Array(lastColU).fill('#e0e0e0');
     } else if (pvK.indexOf('休み') !== -1) {
-      sheet.getRange(row, 1, 1, lastColU).setBackground('#9e9e9e');
-    } else {
-      sheet.getRange(row, 1, 1, lastColU).setBackground(null);
-      if (pvK === '' && currentId) {
-        sheet.getRange(row, 12).setBackground('#fff9c4');
-      }
+      rowBgNew = new Array(lastColU).fill('#9e9e9e');
+    } else if (pvK === '' && currentId) {
+      rowBgNew[11] = '#fff9c4'; // L列のみ黄色
     }
+    sheet.getRange(row, 1, 1, lastColU).setBackgrounds([rowBgNew]);
 
     // V列(22)の合計高速数式
     if (!sheet.getRange(row, 22).getFormula()) {
       sheet.getRange(row, 22).setFormula('=IF(AND(U' + row + '="",T' + row + '=""),"",U' + row + '-T' + row + ')');
     }
+    SpreadsheetApp.flush();
     if (currentId) syncSummaryForId_(currentId);
   }
   applyMoneyFormat_(sheet, startRow, numRows, 'unkou');
   applyDateTimeFormat_(sheet, startRow, numRows);
-  cleanAllOrphanSummary_();
   // 日付列(J=col10)が編集された場合は両シートをソート（色はsortUnkouByDate_内で一緒に移動）
   if (editedCol === 10) {
     sortUnkouByDate_();
@@ -2246,6 +2244,8 @@ function fillMissingIdsAndCars() {
     var name  = String(data[i][6] || '').trim();
     if ((!carNo || !name) && mAll.length > 1) {
       for (var m = 1; m < mAll.length; m++) {
+        var mStatus = String(mAll[m][1] || '').trim();
+        if (mStatus === '故障' || mStatus === '待機') continue;
         var mCar  = String(mAll[m][7] || '').trim();
         var mName = String(mAll[m][8] || '').trim();
         var matchByCar  = carNo && mCar === carNo;
@@ -4176,6 +4176,7 @@ function saveEditData(obj) {
     }
   }
   delaySyncSummary_(obj.id);
+  try { applyHolidayRowColors_(); } catch(e) {}
 }
 
 
@@ -6218,15 +6219,6 @@ function installedOnEdit_(e) {
     var sheetName = sheet.getName();
     var row       = range.getRow();
     var col       = range.getColumn();
-
-    // ── 運行シート 時刻列(N-R = 14-18) 編集 → 日時ピッカーを自動表示 ──────
-    // インストール型トリガーはUI操作可（showModalDialogが使える）
-    if (sheetName === '運行' && row > 1 && col >= 14 && col <= 18 && range.getNumColumns() === 1) {
-      range.clearContent();
-      range.setNumberFormat('M/d HH:mm');
-      showDateTimePicker();
-      return;
-    }
 
     // ── 自車専属マスタ or 設定シート編集時：再計算範囲ポップアップ ──────
     if (sheetName === '自車専属マスタ' || sheetName === '設定') {

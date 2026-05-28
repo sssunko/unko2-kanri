@@ -1870,15 +1870,19 @@ function renderTable() {
                     : '';
     function eHtml(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
     var eid = eHtml(r.id);
+    var rDateObj = r.date ? new Date(r.date+'T00:00:00') : null;
+    var rMD = rDateObj ? ((rDateObj.getMonth()+1)+'/'+rDateObj.getDate()) : '';
+    function tDisp(t){ return (t&&rMD) ? rMD+' '+t : (t||''); }
+    var rDate = eHtml(r.date||'');
     html += '<td style="padding:8px;">'+r.dateDisp+'</td>';
     html += '<td style="padding:8px;">'+r.car+'</td>';
     html += '<td style="padding:4px 6px;min-width:90px;'+pickCellSt+'"><input class="li-inp" id="li_pick_'+eid+'" value="'+(isUnassigned?'':eHtml(r.pick))+'" placeholder="'+(isUnassigned?'未配車':'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:4px 6px;min-width:90px;"><input class="li-inp" id="li_drop_'+eid+'" value="'+eHtml(r.drop)+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;"><input class="li-inp" type="time" id="li_guideTime_'+eid+'" value="'+(r.guideTime||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;'+pickCellBg+'"><input class="li-inp" type="time" id="li_pickTime_'+eid+'" value="'+(r.pickTime||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;'+restSCellBg+'"><input class="li-inp" type="time" id="li_restStart_'+eid+'" value="'+(r.restStart||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;'+restECellBg+'"><input class="li-inp" type="time" id="li_restEnd_'+eid+'" value="'+(r.restEnd||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;'+dropCellBg+'"><input class="li-inp" type="time" id="li_dropTime_'+eid+'" value="'+(r.dropTime||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;"><input class="li-inp" type="text" id="li_guideTime_'+eid+'" value="'+eHtml(tDisp(r.guideTime))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;'+pickCellBg+'"><input class="li-inp" type="text" id="li_pickTime_'+eid+'" value="'+eHtml(tDisp(r.pickTime))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;'+restSCellBg+'"><input class="li-inp" type="text" id="li_restStart_'+eid+'" value="'+eHtml(tDisp(r.restStart))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;'+restECellBg+'"><input class="li-inp" type="text" id="li_restEnd_'+eid+'" value="'+eHtml(tDisp(r.restEnd))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;'+dropCellBg+'"><input class="li-inp" type="text" id="li_dropTime_'+eid+'" value="'+eHtml(tDisp(r.dropTime))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_sales_'+eid+'" value="'+(sales?sales.toLocaleString():'')+'" style="width:70px;text-align:right;'+(sales<0?'color:#ff5252;':'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_tollReq_'+eid+'" value="'+(tollReq?tollReq.toLocaleString():'')+'" style="width:60px;text-align:right;" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_tollReal_'+eid+'" value="'+(tollReal?tollReal.toLocaleString():'')+'" style="width:60px;text-align:right;" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
@@ -1890,8 +1894,8 @@ function renderTable() {
     html += '<td style="padding:8px;'+(yukyu>0?'color:#ffb74d;font-weight:700;':'color:#555;')+'">'+( yukyu>0 ? yukyu.toLocaleString() : '—')+'</td>';
     var other = Math.round(r.other || 0);
     html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_other_'+eid+'" value="'+(other?other.toLocaleString():'')+'" style="width:60px;text-align:right;'+(other>0?'color:#80cbc4;':'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;"><input class="li-inp" type="time" id="li_inspBefore_'+eid+'" value="'+(r.inspBefore||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;"><input class="li-inp" type="time" id="li_inspAfter_'+eid+'" value="'+(r.inspAfter||'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;"><input class="li-inp" type="text" id="li_inspBefore_'+eid+'" value="'+eHtml(tDisp(r.inspBefore))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;"><input class="li-inp" type="text" id="li_inspAfter_'+eid+'" value="'+eHtml(tDisp(r.inspAfter))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:8px;"><div style="display:flex;gap:4px;">';
 
     if (r.isComplete) {
@@ -1925,10 +1929,53 @@ function renderTable() {
   initTimeInputs_();
 }
 function initTimeInputs_() {
-  document.querySelectorAll('.li-inp[type="time"]').forEach(function(inp) {
-    inp.classList.toggle('time-empty', !inp.value);
-    inp.addEventListener('input', function() { this.classList.toggle('time-empty', !this.value); });
-  });
+  // type="text"に変更済み。onblur="normalizeTimeInp(this)"でインライン処理するため不要。
+}
+function extractHmm_(v) {
+  if (!v) return '';
+  var m = String(v).match(/(\d{1,2}):(\d{2})(?!\d)/);
+  if (!m) return '';
+  return ('0'+m[1]).slice(-2)+':'+m[2];
+}
+function parseTimeInput_(raw, dateStr) {
+  if (!raw || !raw.trim()) return '';
+  var s = raw.trim();
+  s = s.replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFF10+48); });
+  s = s.replace(/[：]/g,':').replace(/[／]/g,'/').replace(/[　]/g,' ').trim();
+  var month, day, hour, minute;
+  // 丸数字が日に使われている場合（例: 5/⑩9:00）
+  var mCirc = s.match(/^(\d{1,2})\/([①-⑳])\s*(\d{1,2}):(\d{2})$/);
+  if (mCirc) {
+    month=parseInt(mCirc[1]); day=mCirc[2].charCodeAt(0)-0x245F;
+    hour=parseInt(mCirc[3]); minute=parseInt(mCirc[4]);
+  } else {
+    s = s.replace(/[①-⑳]/g, function(c){ return String(c.charCodeAt(0)-0x245F); });
+    var mFull = s.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
+    var mTime = s.match(/^(\d{1,2}):(\d{2})$/);
+    var mHour = s.match(/^(\d{1,2})$/);
+    if (mFull) {
+      month=parseInt(mFull[1]); day=parseInt(mFull[2]);
+      hour=parseInt(mFull[3]); minute=parseInt(mFull[4]);
+    } else if (mTime) {
+      var base = dateStr ? new Date(dateStr+'T00:00:00') : new Date();
+      month=base.getMonth()+1; day=base.getDate();
+      hour=parseInt(mTime[1]); minute=parseInt(mTime[2]);
+    } else if (mHour) {
+      var base2 = dateStr ? new Date(dateStr+'T00:00:00') : new Date();
+      month=base2.getMonth()+1; day=base2.getDate();
+      hour=parseInt(mHour[1]); minute=0;
+    } else { return ''; }
+  }
+  if (isNaN(hour)||hour>23||isNaN(minute)||minute>59) return '';
+  return month+'/'+day+' '+('0'+hour).slice(-2)+':'+('0'+minute).slice(-2);
+}
+function normalizeTimeInp(el) {
+  var norm = parseTimeInput_(el.value, el.dataset.date||'');
+  if (norm !== el.value) {
+    el.value = norm;
+    var eid = el.dataset.eid||'';
+    if (eid) scheduleAutoSave(eid);
+  }
 }
 
 
@@ -1961,17 +2008,17 @@ function saveListRowAuto(id) {
   var obj = { id: id };
   if (pickEl)      obj.pick       = pickEl.value;
   if (dropEl)      obj.drop       = dropEl.value;
-  if (guideTimeEl) obj.guideTime  = guideTimeEl.value;
-  if (pickTimeEl)  obj.pickTime   = pickTimeEl.value;
-  if (restStartEl) obj.restStart  = restStartEl.value;
-  if (restEndEl)   obj.restEnd    = restEndEl.value;
-  if (dropTimeEl)  obj.dropTime   = dropTimeEl.value;
+  if (guideTimeEl) obj.guideTime  = extractHmm_(guideTimeEl.value);
+  if (pickTimeEl)  obj.pickTime   = extractHmm_(pickTimeEl.value);
+  if (restStartEl) obj.restStart  = extractHmm_(restStartEl.value);
+  if (restEndEl)   obj.restEnd    = extractHmm_(restEndEl.value);
+  if (dropTimeEl)  obj.dropTime   = extractHmm_(dropTimeEl.value);
   if (salesEl)     obj.sales      = salesEl.value.replace(/,/g,'');
   if (tollReqEl)   obj.tollReq    = tollReqEl.value.replace(/,/g,'');
   if (tollRealEl)  obj.tollReal   = tollRealEl.value.replace(/,/g,'');
   if (otherEl)     obj.other      = otherEl.value.replace(/,/g,'');
-  if (inspBEl)     obj.inspBefore = inspBEl.value;
-  if (inspAEl)     obj.inspAfter  = inspAEl.value;
+  if (inspBEl)     obj.inspBefore = extractHmm_(inspBEl.value);
+  if (inspAEl)     obj.inspAfter  = extractHmm_(inspAEl.value);
   google.script.run
     .withSuccessHandler(function() { loadList(); })
     .withFailureHandler(function(e) { console.error('自動保存エラー: ' + e.message); })
