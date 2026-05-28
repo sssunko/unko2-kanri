@@ -761,7 +761,7 @@ function doGet(e) {
 
   // 本番デプロイのURLのみ保存（テンプレートSS等からのアクセスで上書きされないよう限定）
   try {
-    var PROD_DEPLOY_ID = 'AKfycbw5MLHFep_jOQEdAg4_wX8LMGPX7wVL41XbmygqVV794LkZu6Xv-XcRLNAHYqg9bd0fyw';
+    var PROD_DEPLOY_ID = 'AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU';
     var svcUrl = ScriptApp.getService().getUrl();
     if (svcUrl && svcUrl.indexOf(PROD_DEPLOY_ID) !== -1) {
       PropertiesService.getScriptProperties().setProperty('webAppUrl', svcUrl);
@@ -5284,7 +5284,12 @@ function createUsageSheet() {
 //  onEditCompanyRegister_（F/G列入力時）または triggerDistributionMail から呼び出す。
 // ================================================================
 function sendDistributionMail_(companyName, adminEmail, ssUrl, appUrl, row, sheet) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // 乗務員リストは③各客SSのマスタから取得する
+  var clientSsMatch = ssUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  var clientSs = null;
+  if (clientSsMatch) {
+    try { clientSs = SpreadsheetApp.openById(clientSsMatch[1]); } catch(e) {}
+  }
   var adminSent = 0, driverSent = 0;
 
   // ── 管理者向けメール ──────────────────────────────────
@@ -5313,8 +5318,8 @@ function sendDistributionMail_(companyName, adminEmail, ssUrl, appUrl, row, shee
     adminSent++;
   } catch(e) {}
 
-  // ── 乗務員向けメール（自車専属マスタ J列の全アドレスに個別送信）──
-  var master = ss.getSheetByName('自車専属マスタ');
+  // ── 乗務員向けメール（③各客SSの自車専属マスタ J列の全アドレスに個別送信）──
+  var master = clientSs ? clientSs.getSheetByName('自車専属マスタ') : null;
   if (master && master.getLastRow() >= 2) {
     var masterData = master.getRange(2, 1, master.getLastRow() - 1, 10).getValues();
     for (var i = 0; i < masterData.length; i++) {
@@ -5415,7 +5420,7 @@ function triggerDistributionMail() {
 //  ③ それでも取得できない場合のみ空文字を返す（メニューからの手動設定は不要）。
 // ================================================================
 function getWebAppBaseUrl_() {
-  var PROD_DEPLOY_ID = 'AKfycbw5MLHFep_jOQEdAg4_wX8LMGPX7wVL41XbmygqVV794LkZu6Xv-XcRLNAHYqg9bd0fyw';
+  var PROD_DEPLOY_ID = 'AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU';
   var PROD_URL = 'https://script.google.com/macros/s/' + PROD_DEPLOY_ID + '/exec';
   var props = PropertiesService.getScriptProperties();
   var stored = props.getProperty('webAppUrl') || '';
@@ -5489,6 +5494,9 @@ function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
   var marker = newSs.getSheetByName('__COMPANY_SS__') || newSs.insertSheet('__COMPANY_SS__');
   marker.getRange(1, 1).setValue(companyName);
   if (!marker.isSheetHidden()) marker.hideSheet();
+
+  // 全シートにヘッダー・テストデータ・設定データを初期化する
+  initClientSSSheets_(newSs, companyName);
 
   return { ssId: newSs.getId(), ssUrl: newSs.getUrl() };
 }
@@ -5736,7 +5744,7 @@ function processNewCompany_(companyName, adminEmail) {
   var folderUrl = folderResult.folderUrl;
   var folderId  = folderResult.folderId;
 
-  // ② 元SSコピーで客SS作成（GASコード付き → 客用メニューが自動表示される）
+  // ② ②客用SSをコピーして③各客SS作成（スタブコードのみ・心臓部コードは含まれない）
   var ssResult = createCompanySpreadsheet_(companyName, adminEmail, folderId);
   var ssUrl    = ssResult.ssUrl;
   var ssId     = ssResult.ssId;
