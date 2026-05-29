@@ -5927,7 +5927,7 @@ function createLibraryVersion_(description) {
 //  12-3c-2: スタブのライブラリバージョン更新（updateStubVersion_）  【大B / 中12】
 //  Script API でスタブの appsscript.json 内ライブラリバージョンを書き換える
 // ================================================================
-function updateStubVersion_(stubScriptId, versionNumber) {
+function updateStubVersion_(stubScriptId, versionNumber, useDevMode) {
   try {
     var token = ScriptApp.getOAuthToken();
     var libId = ScriptApp.getScriptId();
@@ -5945,7 +5945,8 @@ function updateStubVersion_(stubScriptId, versionNumber) {
       var libs = (manifest.dependencies && manifest.dependencies.libraries) || [];
       for (var j = 0; j < libs.length; j++) {
         if (libs[j].libraryId === libId) {
-          libs[j].developmentMode = true;
+          libs[j].version = String(versionNumber);
+          libs[j].developmentMode = useDevMode ? true : false;
           updated = true;
         }
       }
@@ -7014,7 +7015,7 @@ function syncToAllClientSS() {
           regSheet.getRange(i + 2, 7).setValue(deployResult.webAppUrl); // G列にURL更新
         }
       } else if (clientScriptId && approvedVersion) {
-        updateStubVersion_(clientScriptId, approvedVersion);
+        updateStubVersion_(clientScriptId, approvedVersion, true);
       }
 
       successCount++;
