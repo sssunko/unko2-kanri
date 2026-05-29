@@ -5,11 +5,25 @@
 ## システム概要
 - Google Apps Script (GAS) V8 + SpreadsheetApp + PropertiesService
 - ローカルファイル: c:\gas\unko2-kanri\コード.js / index.html
-- デプロイ: npx clasp push → @HEAD deployment
-- @HEAD URL: AKfycbyLMaSBm9jVKhZJu5IbNWgcwbuqmAok8XG5bjxUwJTX
-- バージョン上限200件のため番号付きバージョン作成不可（@HEADのみ使用）
-- 元SS（本番）← 修正用SS（開発）で修正してpush → 各客SSに自動反映
-- 客SSはコードなし・スタブのみ・ssIdでURL分離済み
+- デプロイ: clasp deploy -i {ID} -d "番号_内容" で上書き更新のみ
+
+---
+
+## SS・スクリプト・デプロイID一覧
+
+| 役割 | SS ID | WebApp デプロイID |
+|------|-------|-----------------|
+| ①修正用SS | .clasp.json参照 | AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU |
+| ②客用SS | 1NBtosd_MN8KcboV_4OXTrY8WqcE3TJwpxdA_nASmTOo | AKfycbxP6x0cdhr8WzUaP-u_XlspPwY9EGvh8D3qleTVeOKRxawZFmV6rabbbR1ROHYzTvhD |
+| ③各客SS | 会社登録シートF列 | 会社登録シートG列 |
+
+---
+
+## アーキテクチャ（3層構成）
+①修正用SS（ライブラリ UnkouLib）→②客用SS（テスト）→③各客SS（本番）
+- 各SSは独自WebApp URL（ssId不要・完全独立）
+- ライブラリ固定バージョン現在260
+- pushしても②③は自動で変わらない（手動反映必須）
 
 ---
 
@@ -20,6 +34,40 @@
 - 必要なセクションだけ特定してから読め
 - 分割例: Read lines 1-150 → Read lines 151-300 → 順番に読む
 - 「1M context required」エラーが出たら即停止してユーザーに報告しろ
+
+## チャット引き継ぎルール（必須）
+
+- 1チャットで扱うタスクは1個だけ
+- コード修正が完了してdeployしたら、次のタスクは新チャットで始めろ
+- 新チャット開始時は必ずこのCLAUDE.mdを読んでからタスク確認しろ
+- 「API Error: Usage credits required for 1M context」が出る前に引き継ぎ文を書いてユーザーに渡せ
+- コンテキストが重くなってきたと感じたら（Read回数が5回超えたら）即座に引き継ぎ文を出せ
+
+### 引き継ぎ文のフォーマット
+状況報告と次チャットへの指示をこの形式で出せ：
+
+---次チャットへの引き継ぎ---
+【完了したこと】
+- （何をどう直したか1行で）
+
+【次チャットでやること】
+CLAUDE.mdを読め。タスク：（内容）。
+関連コードは コード.js の（行数）行目あたり。
+（注意事項があれば）
+---ここまで---
+
+---
+
+## デプロイ手順
+
+### ①修正用SSへのデプロイ
+ = "AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU"
+clasp push --force
+clasp deploy -i  -d "番号_内容"
+
+### ②客用SSへのスタブpush
+cd stub_for_clientSS
+clasp push --force
 
 ---
 
@@ -32,7 +80,7 @@
 4. 不明点は聞け
 5. 毎回このタスク一覧を出して状況確認してから作業開始
 6. 毎回履歴（コード・git log）見て確認してから作業しろ
-7. npx clasp push まで自分でやれ。ユーザーはF5押すだけ
+7. clasp push まで自分でやれ。ユーザーはF5押すだけ
 
 ### 説明ルール
 - コードで話すな。依頼内容に沿って日本語で話せ
@@ -44,14 +92,42 @@
 - 処理はSSに送り裏で処理 → SSから値で返す（アプリを絶対重くするな）
 - アプリはSSから値で受け取って表示するだけ
 
+### SS紐づけ大原則
+- companySsId を受け取る関数は必ず getTargetSS_(companySsId) で取得
+- SpreadsheetApp.getActiveSpreadsheet() をAPIとして呼ばれる関数で使うな
+- 反映ボタンはシート構成・書式のみ。データ行は絶対消さない
+
 ### デプロイルール
-- デプロイ名は「番号_依頼内容（簡潔）」で命名する
-- 例: 237_積地色自動反映 / 238_430ルール色自動化
+- デプロイ名は「番号_依頼内容（簡潔）」で命名
+- 例: 270_行追加時刻9時固定バグ修正
 
 ---
 
 ## 最初にやること（新チャット開始時）
 
 1. このCLAUDE.mdを最初から最後まで読む
-2. 下記タスクリストの「今」の項目だけを抽出してユーザーに見せる
+2. 下記タスクリストの「今」の項目だけ抽出してユーザーに見せる
 3. ユーザーにOKもらってから作業開始（コード全部読むのは必要になった時だけ）
+
+---
+
+## タスクリスト
+
+| # | 内容 | 状態 |
+|---|------|------|
+| 1 | 集計表の自動反映修正 | 済 |
+| 2 | 運行再開ボタンの判定修正 | 済 |
+| 3 | 各SS独自WebApp化 | 済 |
+| 4 | HANDOVER.md更新 | 済 |
+| 5 | 請求書生成が動かない修正 | 今 |
+| 6 | 支払確認書：絞り込みにC列会社名・車番・乗務員名追加、表示はNo・日付・積地降地（セル分け）・支払額・高速代 | 次 |
+| 7 | 経費自動入力ボタン実装 | 未 |
+| 8 | 説明書作成 | 未 |
+
+---
+
+## 次チャット用テンプレート（コピペして使え）
+
+### タスク5完了後→タスク6チャット開始文
+CLAUDE.mdを読め。今やること：支払確認書の絞り込みにC列会社名・車番・乗務員名を追加。表示項目はNo・日付・積地・降地（セル分け）・支払額・高速代。1個ずつ確認しながら進めろ。
+

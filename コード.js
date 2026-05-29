@@ -741,6 +741,9 @@ function onOpen() {
     .addItem('📧 配布メール送信', 'triggerDistributionMail')
     .addItem('📝 申し込みフォーム作成', 'createSignupForm')
     .addSeparator()
+    .addItem('📄 請求書生成', 'showInvoiceDialog')
+    .addItem('📄 支払確認書生成', 'showPaymentDialog')
+    .addSeparator()
     .addItem('📤 テスト客SSに反映', 'syncToTemplateSS');
   menu.addToUi();
 
@@ -1140,6 +1143,19 @@ function onEditUnkou_(sheet, range, ss) {
       rowBgNew[11] = '#fff9c4'; // L列のみ黄色
     }
     sheet.getRange(row, 1, 1, lastColU).setBackgrounds([rowBgNew]);
+
+    // T列(20)=請求高速 を入力したとき U列(21)=実費高速 が空なら自動コピー（オレンジ色）
+    if (editedCol === 20 && (rowData[20] === '' || rowData[20] === null)) {
+      if (rowData[19] !== '' && rowData[19] !== null) {
+        var uAutoCell = sheet.getRange(row, 21);
+        uAutoCell.setValue(rowData[19]);
+        uAutoCell.setFontColor('#E65100');
+      }
+    }
+    // U列(21)=実費高速 を手入力したとき黒字に戻す
+    if (editedCol === 21) {
+      sheet.getRange(row, 21).setFontColor(null);
+    }
 
     // V列(22)の合計高速数式
     if (!sheet.getRange(row, 22).getFormula()) {
@@ -5653,7 +5669,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var menu=SpreadsheetApp.getUi().createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翔月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var menu=SpreadsheetApp.getUi().createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
@@ -5703,7 +5719,11 @@ function getClientStubSource_() {
     "function agreeContract(a,b,c,d){return UnkouLib.agreeContract(a,b,c,d);}",
     "function queueFileUpload(a,b,c,d){return UnkouLib.queueFileUpload(a,b,c,d);}",
     "function recordAction(a,b,c,d,e){return UnkouLib.recordAction(a,b,c,d,e);}",
-    "function clearInspTime(a,b,c){return UnkouLib.clearInspTime(a,b,c);}"
+    "function clearInspTime(a,b,c){return UnkouLib.clearInspTime(a,b,c);}",
+    "function showInvoiceDialog(){return UnkouLib.showInvoiceDialog();}",
+    "function generateInvoiceSheet(a,b,c,d){return UnkouLib.generateInvoiceSheet(a,b,c,d);}",
+    "function showPaymentDialog(){return UnkouLib.showPaymentDialog();}",
+    "function generatePaymentSheet(a,b,c,d,e){return UnkouLib.generatePaymentSheet(a,b,c,d,e);}"
   ].join('\n');
 }
 
@@ -5911,7 +5931,19 @@ function updateStubVersion_(stubScriptId, versionNumber) {
       files[i].source = JSON.stringify(manifest, null, 2);
       break;
     }
-    if (!updated) return false;
+    // スタブコード（SERVER_JS）も最新版に差し替え（ライブラリバージョン更新の成否に関わらず常に実行）
+    var stubSource = getClientStubSource_();
+    var codeFound = false;
+    for (var k = 0; k < files.length; k++) {
+      if (files[k].type === 'SERVER_JS') {
+        files[k].source = stubSource;
+        codeFound = true;
+        break;
+      }
+    }
+    if (!codeFound) {
+      files.push({ name: 'コード', type: 'SERVER_JS', source: stubSource });
+    }
     var putResp = UrlFetchApp.fetch(
       'https://script.googleapis.com/v1/projects/' + stubScriptId + '/content',
       {
@@ -5932,6 +5964,311 @@ function updateStubVersion_(stubScriptId, versionNumber) {
 //  ① 新しいライブラリバージョンを作成 → ②のスタブを固定バージョンに更新
 //     （押すまでコード変更が②に波及しない。押して初めて反映）
 //  ② ②のシート構成・テストデータ・設定を全て最新化
+// ================================================================
+// ================================================================
+//  13-1: 請求書生成ダイアログ（showInvoiceDialog）
+// ================================================================
+function showInvoiceDialog() {
+  var ss   = SpreadsheetApp.getActiveSpreadsheet();
+  var mSh  = ss.getSheetByName('マスタ');
+  var cos  = [];
+  if (mSh && mSh.getLastRow() >= 2) {
+    mSh.getRange(2, 2, mSh.getLastRow()-1, 1).getValues()
+      .forEach(function(r){ if(r[0]) cos.push(String(r[0])); });
+  }
+  var today    = new Date();
+  var firstDay = Utilities.formatDate(new Date(today.getFullYear(), today.getMonth(), 1),     'Asia/Tokyo', 'yyyy-MM-dd');
+  var lastDay  = Utilities.formatDate(new Date(today.getFullYear(), today.getMonth()+1, 0),   'Asia/Tokyo', 'yyyy-MM-dd');
+  var opts = cos.map(function(c){ return '<option>'+c+'</option>'; }).join('');
+  var html = '<html><body style="font-family:sans-serif;padding:16px;font-size:13px;">'
+    +'<table style="border-collapse:collapse;width:100%">'
+    +'<tr><td style="padding:6px">宛先（荷主）</td><td><select id="co" style="width:200px">'+opts+'</select></td></tr>'
+    +'<tr><td style="padding:6px">期間</td><td><input type="date" id="f" value="'+firstDay+'" style="width:130px"> 〜 <input type="date" id="t" value="'+lastDay+'" style="width:130px"></td></tr>'
+    +'<tr><td style="padding:6px">消費税率(%)</td><td><input type="number" id="tax" value="10" style="width:60px"></td></tr>'
+    +'</table>'
+    +'<br><button onclick="g()" style="background:#1565c0;color:#fff;padding:8px 24px;border:none;border-radius:6px;cursor:pointer;font-size:13px">生成</button>'
+    +'<span id="m" style="margin-left:10px;color:#888"></span>'
+    +'<script>function g(){document.getElementById("m").innerText="生成中...";'
+    +'google.script.run.withSuccessHandler(function(){document.getElementById("m").innerText="完了";setTimeout(function(){google.script.host.close();},800);})'
+    +'.withFailureHandler(function(e){document.getElementById("m").innerText="エラー: "+(e.message||e);document.getElementById("m").style.color="red";})'
+    +'.generateInvoiceSheet(document.getElementById("co").value,document.getElementById("f").value,document.getElementById("t").value,Number(document.getElementById("tax").value));}'
+    +'</script></body></html>';
+  SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(620).setHeight(260), '請求書生成');
+}
+
+
+// ================================================================
+//  13-2: 支払確認書生成ダイアログ（showPaymentDialog）
+// ================================================================
+function showPaymentDialog() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sumSh = ss.getSheetByName('集計表');
+  var companies = [], cars = [], names = [];
+  if (sumSh && sumSh.getLastRow() >= 2) {
+    var sv = sumSh.getRange(2, 1, sumSh.getLastRow()-1, 7).getValues();
+    sv.forEach(function(r) {
+      var co = String(r[2]||'').trim(), ca = String(r[5]||'').trim(), nm = String(r[6]||'').trim();
+      if (co && companies.indexOf(co) === -1) companies.push(co);
+      if (ca && cars.indexOf(ca) === -1) cars.push(ca);
+      if (nm && names.indexOf(nm) === -1) names.push(nm);
+    });
+  }
+  var today    = new Date();
+  var firstDay = Utilities.formatDate(new Date(today.getFullYear(), today.getMonth(), 1),   'Asia/Tokyo', 'yyyy-MM-dd');
+  var lastDay  = Utilities.formatDate(new Date(today.getFullYear(), today.getMonth()+1, 0), 'Asia/Tokyo', 'yyyy-MM-dd');
+  function mkOpts(arr){ return '<option value="">(全て)</option>'+arr.map(function(v){ return '<option>'+v+'</option>'; }).join(''); }
+  var html = '<html><body style="font-family:sans-serif;padding:16px;font-size:13px;">'
+    +'<table style="border-collapse:collapse;width:100%">'
+    +'<tr><td style="padding:6px">会社名</td><td><select id="co" style="width:200px">'+mkOpts(companies)+'</select></td></tr>'
+    +'<tr><td style="padding:6px">車番</td><td><select id="ca" style="width:200px">'+mkOpts(cars)+'</select></td></tr>'
+    +'<tr><td style="padding:6px">乗務員名</td><td><select id="nm" style="width:200px">'+mkOpts(names)+'</select></td></tr>'
+    +'<tr><td style="padding:6px">期間</td><td><input type="date" id="f" value="'+firstDay+'" style="width:130px"> 〜 <input type="date" id="t" value="'+lastDay+'" style="width:130px"></td></tr>'
+    +'</table>'
+    +'<br><button onclick="g()" style="background:#1b5e20;color:#fff;padding:8px 24px;border:none;border-radius:6px;cursor:pointer;font-size:13px">生成</button>'
+    +'<span id="m" style="margin-left:10px;color:#888"></span>'
+    +'<script>function g(){document.getElementById("m").innerText="生成中...";'
+    +'google.script.run'
+    +'.withSuccessHandler(function(){document.getElementById("m").innerText="完了";setTimeout(function(){google.script.host.close();},800);})'
+    +'.withFailureHandler(function(e){document.getElementById("m").innerText="エラー: "+(e.message||e);document.getElementById("m").style.color="red";})'
+    +'.generatePaymentSheet(document.getElementById("co").value,document.getElementById("ca").value,document.getElementById("nm").value,document.getElementById("f").value,document.getElementById("t").value);}'
+    +'</script></body></html>';
+  SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(620).setHeight(280), '支払確認書生成');
+}
+
+
+// ================================================================
+//  13-3: 書類用連番採番（getNextDocNum_）
+// ================================================================
+function getNextDocNum_(type) {
+  var props = PropertiesService.getScriptProperties();
+  var ym    = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMM');
+  var key   = 'docnum_' + type + '_' + ym;
+  var n     = Number(props.getProperty(key) || 0) + 1;
+  props.setProperty(key, String(n));
+  return ym + '-' + String(n).padStart(4, '0');
+}
+
+
+// ================================================================
+//  13-4: 請求書シート生成（generateInvoiceSheet）
+// ================================================================
+function generateInvoiceSheet(company, dateFrom, dateTo, taxRate) {
+  var ss       = SpreadsheetApp.getActiveSpreadsheet();
+  var sumSh    = ss.getSheetByName('集計表');
+  if (!sumSh || sumSh.getLastRow() < 2) { ss.toast('集計表にデータがありません', '⚠️', 4); return; }
+
+  // 期間フィルタ
+  var from = new Date(dateFrom + 'T00:00:00');
+  var to   = new Date(dateTo   + 'T23:59:59');
+
+  // 集計表読み込み・絞り込み（荷主 + 日付）
+  var rows = sumSh.getRange(2, 1, sumSh.getLastRow()-1, 37).getValues();
+  var items = rows.filter(function(r) {
+    var d = r[9]; if (!(d instanceof Date)) return false;
+    var client = String(r[10]||'').trim();
+    return client.indexOf(company.trim()) !== -1 && d >= from && d <= to
+      && String(r[11]||'').trim() !== '' // 積地あり（実稼働行のみ）
+      && String(r[11]||'').indexOf('有休') === -1 && String(r[11]||'').indexOf('休み') === -1;
+  }).sort(function(a,b){ return a[9]-b[9]; });
+
+  // 荷主FAX
+  var mSh   = ss.getSheetByName('マスタ'), faxNo = '';
+  if (mSh && mSh.getLastRow() >= 2) {
+    var mVals = mSh.getRange(2,1,mSh.getLastRow()-1,6).getValues();
+    for (var mi=0;mi<mVals.length;mi++){
+      if (String(mVals[mi][1]||'').trim()===company.trim()){ faxNo=String(mVals[mi][3]||''); break; }
+    }
+  }
+
+  // マスタシートのO列(15)・P列(16)からインボイス情報を取得（記載あれば適格請求書形式）
+  var invoiceRegNum = '', invoiceName = '';
+  var mInvSh = ss.getSheetByName('マスタ');
+  if (mInvSh) {
+    if (!mInvSh.getRange(1, 15).getValue()) {
+      mInvSh.getRange(1, 15).setValue('インボイス登録番号').setFontWeight('bold');
+      mInvSh.getRange(1, 16).setValue('インボイス発行者名（自社名）').setFontWeight('bold');
+    }
+    if (mInvSh.getLastRow() >= 2) {
+      var invRows = mInvSh.getRange(2, 15, mInvSh.getLastRow()-1, 2).getValues();
+      for (var ir = 0; ir < invRows.length; ir++) {
+        var regNum = String(invRows[ir][0]||'').trim();
+        var issuer = String(invRows[ir][1]||'').trim();
+        if (regNum && issuer) { invoiceRegNum = regNum; invoiceName = issuer; break; }
+      }
+    }
+  }
+  var hasInvoice = invoiceRegNum !== '' && invoiceName !== '';
+
+  // 書類シート準備
+  var sh = ss.getSheetByName('請求書') || ss.insertSheet('請求書');
+  sh.clear(); sh.clearFormats(); sh.clearNotes();
+  [40,70,130,130,70,80,80].forEach(function(w,i){ sh.setColumnWidth(i+1,w); });
+
+  var today   = new Date();
+  var docNum  = 'R-' + getNextDocNum_('inv');
+  var issued  = Utilities.formatDate(today,'Asia/Tokyo','yyyy年MM月dd日');
+  var pFrom   = Utilities.formatDate(from,'Asia/Tokyo','yyyy年M月d日');
+  var pTo     = Utilities.formatDate(to,  'Asia/Tokyo','yyyy年M月d日');
+  var tax     = Number(taxRate)||10;
+
+  var totalSales = 0, totalToll = 0;
+  items.forEach(function(r){ totalSales+=Number(r[18])||0; totalToll+=Number(r[19])||0; });
+  var taxAmt   = Math.round(totalSales*tax/100);
+  var grandTotal = totalSales + totalToll + taxAmt;
+
+  var R = 1;
+  function cell(r,c){ return sh.getRange(r,c); }
+  function merge(r,c,nr,nc){ return sh.getRange(r,c,nr,nc).merge(); }
+
+  // タイトル
+  merge(R,1,1,7).setValue('請　求　書').setFontSize(18).setFontWeight('bold').setHorizontalAlignment('center');
+  R++;
+  if (hasInvoice) {
+    merge(R,1,1,4).setValue(invoiceName).setFontWeight('bold');
+    R++;
+    merge(R,1,1,4).setValue('登録番号: '+invoiceRegNum).setFontColor('#555');
+    R++;
+  }
+  if (faxNo) {
+    cell(R,6).setValue('FAX').setHorizontalAlignment('right').setFontColor('#555');
+    cell(R,7).setValue(faxNo);
+    R++;
+  }
+  R++;
+  // 宛先
+  merge(R,1,1,4).setValue(company+' 御中').setFontSize(14).setFontWeight('bold');
+  R++;
+  merge(R,1,1,7).setValue('期間：'+pFrom+' 〜 '+pTo).setFontColor('#444');
+  R+=2;
+  // ご請求金額ボックス
+  merge(R,1,1,7).setValue('ご請求金額：¥'+grandTotal.toLocaleString()+'（税込）')
+    .setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center')
+    .setBackground('#e3f2fd').setFontColor('#0d47a1')
+    .setBorder(true,true,true,true,null,null,'#1565c0',SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  R+=2;
+  // テーブルヘッダー
+  sh.getRange(R,1,1,7).setValues([['No.','日付','積地','降地','車番','売上','高速代']])
+    .setBackground('#1565c0').setFontColor('#fff').setFontWeight('bold').setHorizontalAlignment('center');
+  R++;
+  // 明細
+  items.forEach(function(r,i){
+    var dStr = Utilities.formatDate(r[9],'Asia/Tokyo','M/d');
+    var bg   = i%2===0 ? null : '#f5f5f5';
+    sh.getRange(R,1,1,7).setValues([[i+1,dStr,String(r[11]||''),String(r[12]||''),String(r[5]||''),Number(r[18])||0,Number(r[19])||0]]);
+    sh.getRange(R,1,1,7).setBackground(bg).setHorizontalAlignment('left');
+    sh.getRange(R,6,1,2).setNumberFormat('#,##0');
+    R++;
+  });
+  // 集計行
+  R++;
+  merge(R,3,1,3).setValue('売上合計').setHorizontalAlignment('right').setFontWeight('bold');
+  merge(R,6,1,2).setValue(totalSales).setNumberFormat('#,##0').setHorizontalAlignment('right').setFontWeight('bold');
+  R++;
+  merge(R,3,1,3).setValue('高速代合計').setHorizontalAlignment('right').setFontColor('#555');
+  merge(R,6,1,2).setValue(totalToll).setNumberFormat('#,##0').setHorizontalAlignment('right').setFontColor('#555');
+  R++;
+  merge(R,3,1,3).setValue('消費税（'+tax+'%）').setHorizontalAlignment('right').setFontColor('#555');
+  merge(R,6,1,2).setValue(taxAmt).setNumberFormat('#,##0').setHorizontalAlignment('right').setFontColor('#555');
+  R++;
+  sh.getRange(R,3,1,5).setBackground('#e8f5e9').setBorder(true,true,true,true,null,null,'#2e7d32',SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  merge(R,3,1,3).setValue('合計').setHorizontalAlignment('right').setFontWeight('bold').setFontSize(12);
+  merge(R,6,1,2).setValue(grandTotal).setNumberFormat('#,##0').setHorizontalAlignment('right').setFontWeight('bold').setFontSize(12);
+  R+=2;
+  merge(R,1,1,7).setValue('※ご請求に関するお問い合わせはご連絡ください。').setFontColor('#999').setFontSize(9);
+
+  sh.setHiddenGridlines(true);
+  ss.setActiveSheet(sh);
+  ss.toast('請求書を生成しました（'+items.length+'件）', '完了', 4);
+}
+
+
+// ================================================================
+//  13-5: 支払確認書シート生成（generatePaymentSheet）
+// ================================================================
+function generatePaymentSheet(company, carNo, driverName, dateFrom, dateTo) {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sumSh = ss.getSheetByName('集計表');
+  if (!sumSh || sumSh.getLastRow() < 2) { ss.toast('集計表にデータがありません', '⚠️', 4); return; }
+
+  var from = new Date(dateFrom+'T00:00:00');
+  var to   = new Date(dateTo  +'T23:59:59');
+
+  var rows = sumSh.getRange(2, 1, sumSh.getLastRow()-1, 37).getValues();
+  var items = rows.filter(function(r){
+    var d = r[9]; if(!(d instanceof Date)) return false;
+    if (d < from || d > to) return false;
+    if (company    && String(r[2]||'').trim() !== company.trim())    return false;
+    if (carNo      && String(r[5]||'').trim() !== carNo.trim())      return false;
+    if (driverName && String(r[6]||'').trim() !== driverName.trim()) return false;
+    if (!String(r[11]||'').trim()) return false;
+    if (String(r[11]||'').indexOf('有休') !== -1) return false;
+    if (String(r[11]||'').indexOf('休み') !== -1) return false;
+    return true;
+  }).sort(function(a,b){ return a[9]-b[9]; });
+
+  var sh = ss.getSheetByName('支払確認書') || ss.insertSheet('支払確認書');
+  sh.clear(); sh.clearFormats(); sh.clearNotes();
+  [40,70,120,120,100,70,80,80].forEach(function(w,i){ sh.setColumnWidth(i+1,w); });
+
+  var today  = new Date();
+  var docNum = 'S-' + getNextDocNum_('pay');
+  var issued = Utilities.formatDate(today,'Asia/Tokyo','yyyy年MM月dd日');
+  var pFrom  = Utilities.formatDate(from,'Asia/Tokyo','yyyy年M月d日');
+  var pTo    = Utilities.formatDate(to,  'Asia/Tokyo','yyyy年M月d日');
+
+  var totalPay = 0, totalToll = 0;
+  items.forEach(function(r){ totalPay+=Number(r[26])||0; totalToll+=Number(r[20])||0; });
+  var grandTotal = totalPay + totalToll;
+
+  var titleName = driverName || carNo || company || '全乗務員';
+  var carNos = [];
+  items.forEach(function(r){ var c = String(r[5]||'').trim(); if(c && carNos.indexOf(c)===-1) carNos.push(c); });
+
+  var R = 1;
+  function merge(r,c,nr,nc){ return sh.getRange(r,c,nr,nc).merge(); }
+  function cell(r,c){ return sh.getRange(r,c); }
+
+  merge(R,1,1,8).setValue('支　払　確　認　書').setFontSize(18).setFontWeight('bold').setHorizontalAlignment('center');
+  R+=2;
+  merge(R,1,1,6).setValue(titleName+' 様').setFontSize(14).setFontWeight('bold');
+  R++;
+  if (company) { merge(R,1,1,6).setValue('会社名：'+company).setFontColor('#444'); R++; }
+  if (carNos.length > 0) { merge(R,1,1,6).setValue('車番：'+carNos.join(' / ')).setFontColor('#444'); R++; }
+  merge(R,1,1,8).setValue('期間：'+pFrom+' 〜 '+pTo).setFontColor('#444');
+  R+=2;
+  merge(R,1,1,8).setValue('お支払金額：¥'+grandTotal.toLocaleString())
+    .setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center')
+    .setBackground('#e8f5e9').setFontColor('#1b5e20')
+    .setBorder(true,true,true,true,null,null,'#2e7d32',SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  R+=2;
+  sh.getRange(R,1,1,8).setValues([['No.','日付','積地','降地','看板名','車番','支払い','実費高速']])
+    .setBackground('#1b5e20').setFontColor('#fff').setFontWeight('bold').setHorizontalAlignment('center');
+  R++;
+  items.forEach(function(r,i){
+    var dStr = Utilities.formatDate(r[9],'Asia/Tokyo','M/d');
+    var bg   = i%2===0 ? null : '#f5f5f5';
+    sh.getRange(R,1,1,8).setValues([[i+1,dStr,String(r[11]||''),String(r[12]||''),String(r[8]||''),String(r[5]||''),Number(r[26])||0,Number(r[20])||0]]);
+    sh.getRange(R,1,1,8).setBackground(bg).setHorizontalAlignment('left');
+    sh.getRange(R,7,1,2).setNumberFormat('#,##0');
+    R++;
+  });
+  R++;
+  merge(R,4,1,3).setValue('支払合計').setHorizontalAlignment('right').setFontWeight('bold');
+  merge(R,7,1,2).setValue(totalPay).setNumberFormat('#,##0').setHorizontalAlignment('right').setFontWeight('bold');
+  R++;
+  merge(R,4,1,3).setValue('実費高速計').setHorizontalAlignment('right').setFontColor('#555');
+  merge(R,7,1,2).setValue(totalToll).setNumberFormat('#,##0').setHorizontalAlignment('right').setFontColor('#555');
+  R++;
+  sh.getRange(R,4,1,5).setBackground('#e3f2fd').setBorder(true,true,true,true,null,null,'#1565c0',SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  merge(R,4,1,3).setValue('合計').setHorizontalAlignment('right').setFontWeight('bold').setFontSize(12);
+  merge(R,7,1,2).setValue(grandTotal).setNumberFormat('#,##0').setHorizontalAlignment('right').setFontWeight('bold').setFontSize(12);
+
+  sh.setHiddenGridlines(true);
+  ss.setActiveSheet(sh);
+  ss.toast('支払確認書を生成しました（'+items.length+'件）', '完了', 4);
+}
+
+
 // ================================================================
 function syncToTemplateSS() {
   var props = PropertiesService.getScriptProperties();
@@ -6616,6 +6953,10 @@ function syncToAllClientSS() {
     var match = ssUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
     if (!match) continue;
     var clientSsId = match[1];
+    // K列にない場合はPropertiesServiceから取得（createCompanySpreadsheet_で保存済み）
+    if (!clientScriptId) {
+      clientScriptId = PropertiesService.getScriptProperties().getProperty('scriptId_' + clientSsId) || '';
+    }
 
     try {
       var clientSs = SpreadsheetApp.openById(clientSsId);

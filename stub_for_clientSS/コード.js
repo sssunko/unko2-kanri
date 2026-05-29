@@ -20,7 +20,10 @@ function onOpen() {
     .addItem('🆔 ID・車番一括補完', 'fillMissingIdsAndCars')
     .addSeparator()
     .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
-    .addItem('📖 使い方シート作成', 'createUsageSheet');
+    .addItem('📖 使い方シート作成', 'createUsageSheet')
+    .addSeparator()
+    .addItem('📄 請求書生成', 'showInvoiceDialog')
+    .addItem('📄 支払確認書生成', 'showPaymentDialog');
 
   if (isTemplate) {
     menu.addSeparator().addItem('📤 各客に反映', 'syncToAllClientSS');
@@ -81,3 +84,7 @@ function markAsRead(a)               { return UnkouLib.markAsRead(a); }
 function getReadNotices()            { return UnkouLib.getReadNotices(); }
 function agreeContract(a,b,c,d)      { return UnkouLib.agreeContract(a,b,c,d); }
 function queueFileUpload(a,b,c,d)    { return UnkouLib.queueFileUpload(a,b,c,d); }
+function showInvoiceDialog()               { return UnkouLib.showInvoiceDialog(); }
+function generateInvoiceSheet(a,b,c,d)     { return UnkouLib.generateInvoiceSheet(a,b,c,d); }
+function showPaymentDialog()               { return UnkouLib.showPaymentDialog(); }
+function generatePaymentSheet(a,b,c,d,e)   { return UnkouLib.generatePaymentSheet(a,b,c,d,e); }
