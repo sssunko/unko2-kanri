@@ -5593,9 +5593,11 @@ function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
   // ③のスクリプトIDを取得して WebApp を自動デプロイ
   var newScriptId = getNewSsScriptId_(newSs.getId());
   props.setProperty('scriptId_' + newSs.getId(), newScriptId || '');
-  var webAppUrl = deployClientWebApp_(newSs.getId(), companyName, newScriptId);
+  var deployResult = deployClientWebApp_(newSs.getId(), companyName, newScriptId);
+  var webAppUrl = deployResult ? deployResult.webAppUrl : '';
+  var finalScriptId = (deployResult && deployResult.scriptId) ? deployResult.scriptId : (newScriptId || '');
 
-  return { ssId: newSs.getId(), ssUrl: newSs.getUrl(), scriptId: newScriptId || '', webAppUrl: webAppUrl || '' };
+  return { ssId: newSs.getId(), ssUrl: newSs.getUrl(), scriptId: finalScriptId, webAppUrl: webAppUrl || '' };
 }
 
 
@@ -5603,7 +5605,7 @@ function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
 //  12-3a: 各客SS用 WebApp を自動デプロイ（deployClientWebApp_）
 //  Apps Script API でスクリプトにスタブコードを書き込み WebApp をデプロイして URL を返す
 // ================================================================
-function deployClientWebApp_(ssId, companyName, existingScriptId) {
+function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
   try {
     var token   = ScriptApp.getOAuthToken();
     var hdrs    = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
@@ -5623,12 +5625,15 @@ function deployClientWebApp_(ssId, companyName, existingScriptId) {
     }
 
     // マニフェスト（appsscript.json）
-    var libVer = PropertiesService.getScriptProperties().getProperty('pinnedLibVersion') || '276';
+    var libVer = libVersion ? String(libVersion)
+      : (PropertiesService.getScriptProperties().getProperty('approvedLibVersion')
+      || PropertiesService.getScriptProperties().getProperty('pinnedLibVersion')
+      || '308');
     var manifest = JSON.stringify({
       timeZone: 'Asia/Tokyo',
       dependencies: { libraries: [{ userSymbol: 'UnkouLib',
         libraryId: '1n79omnAcdsEojMRyjnj9-Ic9pIl1-7Nt_HB7Avy0NVFizOSeqt0guqyZ',
-        version: libVer, developmentMode: false }] },
+        version: libVer, developmentMode: true }] },
       webapp: { executeAs: 'USER_DEPLOYING', access: 'ANYONE_ANONYMOUS' },
       oauthScopes: [
         'https://www.googleapis.com/auth/spreadsheets',
@@ -5660,8 +5665,9 @@ function deployClientWebApp_(ssId, companyName, existingScriptId) {
     var drData = JSON.parse(dr.getContentText());
     if (!drData.deploymentId) return null;
 
+    var webAppUrl = 'https://script.google.com/macros/s/' + drData.deploymentId + '/exec';
     PropertiesService.getScriptProperties().setProperty('scriptId_' + ssId, scriptId);
-    return 'https://script.google.com/macros/s/' + drData.deploymentId + '/exec';
+    return { scriptId: scriptId, webAppUrl: webAppUrl };
   } catch(e) { return null; }
 }
 
@@ -5669,7 +5675,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var menu=SpreadsheetApp.getUi().createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var menu=SpreadsheetApp.getUi().createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
@@ -5885,16 +5891,32 @@ function initClientSSSheets_(ss, companyName) {
 // ================================================================
 function createLibraryVersion_(description) {
   try {
-    var token = ScriptApp.getOAuthToken();
-    var resp = UrlFetchApp.fetch(
-      'https://script.googleapis.com/v1/projects/' + ScriptApp.getScriptId() + '/versions',
-      {
-        method: 'post',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        payload: JSON.stringify({ description: description || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm') }),
-        muteHttpExceptions: true
+    var token   = ScriptApp.getOAuthToken();
+    var scriptId = ScriptApp.getScriptId();
+    var hdrs    = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+    var apiBase = 'https://script.googleapis.com/v1/projects/' + scriptId;
+
+    // 古いバージョンを自動削除（190個超えたら最古のものを削除）
+    try {
+      var listResp = UrlFetchApp.fetch(apiBase + '/versions?pageSize=200', { headers: hdrs, muteHttpExceptions: true });
+      var versions = JSON.parse(listResp.getContentText()).versions || [];
+      if (versions.length >= 190) {
+        // 番号の小さい順（古い順）にソートして古いものから削除
+        versions.sort(function(a, b) { return a.versionNumber - b.versionNumber; });
+        var toDelete = versions.slice(0, versions.length - 185); // 185個残して古いもの全削除
+        toDelete.forEach(function(v) {
+          UrlFetchApp.fetch(apiBase + '/versions/' + v.versionNumber,
+            { method: 'delete', headers: hdrs, muteHttpExceptions: true });
+        });
       }
-    );
+    } catch(e2) {}
+
+    var resp = UrlFetchApp.fetch(apiBase + '/versions', {
+      method: 'post',
+      headers: hdrs,
+      payload: JSON.stringify({ description: description || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm') }),
+      muteHttpExceptions: true
+    });
     var data = JSON.parse(resp.getContentText());
     return data.versionNumber || null;
   } catch(e) { return null; }
@@ -5923,8 +5945,7 @@ function updateStubVersion_(stubScriptId, versionNumber) {
       var libs = (manifest.dependencies && manifest.dependencies.libraries) || [];
       for (var j = 0; j < libs.length; j++) {
         if (libs[j].libraryId === libId) {
-          libs[j].version = String(versionNumber);
-          libs[j].developmentMode = false;
+          libs[j].developmentMode = true;
           updated = true;
         }
       }
@@ -6278,10 +6299,21 @@ function syncToTemplateSS() {
   var tgtSs    = SpreadsheetApp.openById(templateSsId);
   DriveApp.getFileById(tgtSs.getId()).setName('客用');
 
-  // ① 新バージョン作成 → ②スタブを固定バージョンに更新（押すまで反映しない）
-  var newVersion = createLibraryVersion_(
-    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm') + ' テスト客SS反映'
-  );
+  // ① バージョン作成（60分以内に作成済みなら再利用してバージョン消費を節約）
+  var lastVerTime = Number(props.getProperty('lastLibVersionTime') || 0);
+  var lastVerNum  = Number(props.getProperty('lastLibVersionNum')  || 0);
+  var newVersion;
+  if (lastVerNum > 0 && (Date.now() - lastVerTime) < 60 * 60 * 1000) {
+    newVersion = lastVerNum;
+  } else {
+    newVersion = createLibraryVersion_(
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm') + ' テスト客SS反映'
+    );
+    if (newVersion) {
+      props.setProperty('lastLibVersionTime', String(Date.now()));
+      props.setProperty('lastLibVersionNum',  String(newVersion));
+    }
+  }
   if (newVersion) {
     updateStubVersion_(TEMPLATE_SCRIPT_ID, newVersion);
     props.setProperty('approvedLibVersion', String(newVersion));
@@ -6953,10 +6985,6 @@ function syncToAllClientSS() {
     var match = ssUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
     if (!match) continue;
     var clientSsId = match[1];
-    // K列にない場合はPropertiesServiceから取得（createCompanySpreadsheet_で保存済み）
-    if (!clientScriptId) {
-      clientScriptId = PropertiesService.getScriptProperties().getProperty('scriptId_' + clientSsId) || '';
-    }
 
     try {
       var clientSs = SpreadsheetApp.openById(clientSsId);
@@ -6977,8 +7005,15 @@ function syncToAllClientSS() {
       }
       ensureSettingItems_(clientSs);
 
-      // スクリプトIDが登録済みなら承認バージョンに更新（コード変更の反映）
-      if (clientScriptId && approvedVersion) {
+      // scriptIDが登録済みならスタブ更新。なければ新規WebAppデプロイで登録
+      if (!clientScriptId && approvedVersion) {
+        var deployResult = deployClientWebApp_(clientSsId, companyName, null, approvedVersion);
+        if (deployResult && deployResult.scriptId) {
+          clientScriptId = deployResult.scriptId;
+          regSheet.getRange(i + 2, 11).setValue(clientScriptId);      // K列に保存
+          regSheet.getRange(i + 2, 7).setValue(deployResult.webAppUrl); // G列にURL更新
+        }
+      } else if (clientScriptId && approvedVersion) {
         updateStubVersion_(clientScriptId, approvedVersion);
       }
 

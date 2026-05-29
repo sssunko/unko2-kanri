@@ -13,6 +13,9 @@ function onOpen() {
     .addItem('📅 翌月分生成（前月アーカイブ）', 'generateNextMonth')
     .addItem('📦 前月分アーカイブ', 'archiveOldMonth')
     .addSeparator()
+    .addItem('📄 請求書生成', 'showInvoiceDialog')
+    .addItem('📄 支払確認書生成', 'showPaymentDialog')
+    .addSeparator()
     .addItem('集計表再生成', 'generateSummary')
     .addItem('シート再生成', 'expandAndRefreshSheets')
     .addItem('💴 経費自動入力', 'autoFillExpense')
@@ -20,10 +23,7 @@ function onOpen() {
     .addItem('🆔 ID・車番一括補完', 'fillMissingIdsAndCars')
     .addSeparator()
     .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
-    .addItem('📖 使い方シート作成', 'createUsageSheet')
-    .addSeparator()
-    .addItem('📄 請求書生成', 'showInvoiceDialog')
-    .addItem('📄 支払確認書生成', 'showPaymentDialog');
+    .addItem('📖 使い方シート作成', 'createUsageSheet');
 
   if (isTemplate) {
     menu.addSeparator().addItem('📤 各客に反映', 'syncToAllClientSS');
