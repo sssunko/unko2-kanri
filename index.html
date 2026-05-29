@@ -1870,19 +1870,17 @@ function renderTable() {
                     : '';
     function eHtml(v){return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
     var eid = eHtml(r.id);
-    var rDateObj = r.date ? new Date(r.date+'T00:00:00') : null;
-    var rMD = rDateObj ? ((rDateObj.getMonth()+1)+'/'+rDateObj.getDate()) : '';
-    function tDisp(t){ return (t&&rMD) ? rMD+' '+t : (t||''); }
+    function tDisp(t){ return t||''; }
     var rDate = eHtml(r.date||'');
     html += '<td style="padding:8px;">'+r.dateDisp+'</td>';
     html += '<td style="padding:8px;">'+r.car+'</td>';
     html += '<td style="padding:4px 6px;min-width:90px;'+pickCellSt+'"><input class="li-inp" id="li_pick_'+eid+'" value="'+(isUnassigned?'':eHtml(r.pick))+'" placeholder="'+(isUnassigned?'未配車':'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:4px 6px;min-width:90px;"><input class="li-inp" id="li_drop_'+eid+'" value="'+eHtml(r.drop)+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;min-width:78px;"><input class="li-inp" type="text" id="li_guideTime_'+eid+'" value="'+eHtml(tDisp(r.guideTime))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;min-width:78px;'+pickCellBg+'"><input class="li-inp" type="text" id="li_pickTime_'+eid+'" value="'+eHtml(tDisp(r.pickTime))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;min-width:78px;'+restSCellBg+'"><input class="li-inp" type="text" id="li_restStart_'+eid+'" value="'+eHtml(tDisp(r.restStart))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;min-width:78px;'+restECellBg+'"><input class="li-inp" type="text" id="li_restEnd_'+eid+'" value="'+eHtml(tDisp(r.restEnd))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;min-width:78px;'+dropCellBg+'"><input class="li-inp" type="text" id="li_dropTime_'+eid+'" value="'+eHtml(tDisp(r.dropTime))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;"><input class="li-inp" type="text" id="li_guideTime_'+eid+'" value="'+eHtml(tDisp(r.guideTime))+'" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;'+pickCellBg+'"><input class="li-inp" type="text" id="li_pickTime_'+eid+'" value="'+eHtml(tDisp(r.pickTime))+'" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;'+restSCellBg+'"><input class="li-inp" type="text" id="li_restStart_'+eid+'" value="'+eHtml(tDisp(r.restStart))+'" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;'+restECellBg+'"><input class="li-inp" type="text" id="li_restEnd_'+eid+'" value="'+eHtml(tDisp(r.restEnd))+'" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;'+dropCellBg+'"><input class="li-inp" type="text" id="li_dropTime_'+eid+'" value="'+eHtml(tDisp(r.dropTime))+'" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_sales_'+eid+'" value="'+(sales?sales.toLocaleString():'')+'" style="width:70px;text-align:right;'+(sales<0?'color:#ff5252;':'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_tollReq_'+eid+'" value="'+(tollReq?tollReq.toLocaleString():'')+'" style="width:60px;text-align:right;" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_tollReal_'+eid+'" value="'+(tollReal?tollReal.toLocaleString():'')+'" style="width:60px;text-align:right;" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
@@ -1894,8 +1892,8 @@ function renderTable() {
     html += '<td style="padding:8px;'+(yukyu>0?'color:#ffb74d;font-weight:700;':'color:#555;')+'">'+( yukyu>0 ? yukyu.toLocaleString() : '—')+'</td>';
     var other = Math.round(r.other || 0);
     html += '<td style="padding:4px 6px;"><input class="li-inp" id="li_other_'+eid+'" value="'+(other?other.toLocaleString():'')+'" style="width:60px;text-align:right;'+(other>0?'color:#80cbc4;':'')+'" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;min-width:78px;"><input class="li-inp" type="text" id="li_inspBefore_'+eid+'" value="'+eHtml(tDisp(r.inspBefore))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
-    html += '<td style="padding:4px 6px;min-width:78px;"><input class="li-inp" type="text" id="li_inspAfter_'+eid+'" value="'+eHtml(tDisp(r.inspAfter))+'" placeholder="HH:MM" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;"><input class="li-inp" type="text" id="li_inspBefore_'+eid+'" value="'+eHtml(tDisp(r.inspBefore))+'" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
+    html += '<td style="padding:4px 6px;min-width:78px;"><input class="li-inp" type="text" id="li_inspAfter_'+eid+'" value="'+eHtml(tDisp(r.inspAfter))+'" data-eid="'+eid+'" data-date="'+rDate+'" onblur="normalizeTimeInp(this)" oninput="scheduleAutoSave(\''+eid+'\')"></td>';
     html += '<td style="padding:8px;"><div style="display:flex;gap:4px;">';
 
     if (r.isComplete) {

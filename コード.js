@@ -858,22 +858,26 @@ function showUploadSidebar() {
     '  var files=Array.from(document.getElementById("f").files);' +
     '  if(!files.length){document.getElementById("msg").innerText="ファイルを選択してください";return;}' +
     '  document.querySelector("button").disabled=true;' +
-    '  document.getElementById("msg").innerText="読み込み中...";' +
-    '  var queued=0,done=0,total=files.length;' +
+    '  document.getElementById("msg").innerText="アップロード中...";' +
+    '  var done=0,total=files.length,urls=[];' +
     '  files.forEach(function(file){' +
-    '    if(file.size>20*1024*1024){queued++;done++;check();return;}' +
+    '    if(file.size>20*1024*1024){done++;check("（20MB超のためスキップ）");return;}' +
     '    var r=new FileReader();' +
     '    r.onload=function(){' +
     '      var b64=r.result.split(",")[1];' +
-    '      queued++;' +
     '      google.script.run' +
-    '        .withSuccessHandler(function(){done++;check();})' +
-    '        .withFailureHandler(function(err){done++;document.getElementById("msg").innerText="エラー："+err.message;})' +
-    '        .queueFileUpload(' + row + ',file.name,b64,file.type);' +
+    '        .withSuccessHandler(function(res){done++;if(res&&res.url)urls.push(res.url);check("");})' +
+    '        .withFailureHandler(function(err){done++;check("エラー："+err.message);})' +
+    '        .uploadFileToRow(' + row + ',file.name,b64,file.type);' +
     '    };' +
     '    r.readAsDataURL(file);' +
     '  });' +
-    '  function check(){if(done===total)document.getElementById("msg").innerText="✅ "+total+"件 バックグラウンドでアップロード中。1〜2分後にSSを確認してください。";}' +
+    '  function check(note){' +
+    '    if(done<total)return;' +
+    '    var msg="✅ "+done+"件 完了。SSのW列にリンクが追加されました。"+note;' +
+    '    document.getElementById("msg").innerText=msg;' +
+    '    document.querySelector("button").disabled=false;' +
+    '  }' +
     '}' +
     '<\/script></body></html>';
 
@@ -2030,7 +2034,8 @@ function syncSummaryForId_(targetId) {
   }
   // AC(29)=利益 を値で書き込む（支払い確定後に計算）
   var vSN = typeof vSyncVal==='number' ? vSyncVal : 0;
-  var zSN = typeof zSyncVal==='number' ? zSyncVal : 0;
+  var zSN = (Number(keepDistance) > 0 && Number(fuel) > 0 && Number(keepGas) > 0)
+    ? Math.round(Number(keepDistance) / Number(fuel) * Number(keepGas)) : 0;
   var resolvedPaySync = finalPaySync !== null ? finalPaySync : (Number(keepPay)||0);
   var salesSync = Number(g.sales)||0;
   var acSyncVal = (!salesSync&&!vSN&&!zSN&&!resolvedPaySync&&!expenseVal) ? '' : salesSync-(vSN+zSN+resolvedPaySync+(Number(expenseVal)||0));
@@ -3067,16 +3072,29 @@ function archiveMonthData_(ss, year, month, companyName) {
     }
   }
 
-  // 元データから対象行を削除（行番号を降順にして下から削除）
-  var unkouNums = unkouRows.map(function(r) { return r.rowNum; }).sort(function(a, b) { return b - a; });
-  for (var d = 0; d < unkouNums.length; d++) { unkouSheet.deleteRow(unkouNums[d]); }
+  // 元データから対象行を一括削除（連続行をまとめて deleteRows でタイムアウト回避）
+  SpreadsheetApp.flush();
+  deleteRowsGrouped_(unkouSheet, unkouRows.map(function(r) { return r.rowNum; }));
 
   if (sumRows.length > 0) {
-    var sumNums = sumRows.map(function(r) { return r.rowNum; }).sort(function(a, b) { return b - a; });
-    for (var e = 0; e < sumNums.length; e++) { sumSheet.deleteRow(sumNums[e]); }
+    deleteRowsGrouped_(sumSheet, sumRows.map(function(r) { return r.rowNum; }));
   }
 
   return { fileName: fileName, archived: unkouRows.length };
+}
+
+
+// 連続する行番号をまとめて deleteRows で一括削除（高速・タイムアウト対策）
+function deleteRowsGrouped_(sheet, rowNums) {
+  var nums = rowNums.slice().sort(function(a, b) { return b - a; }); // 降順
+  var i = 0;
+  while (i < nums.length) {
+    var top = nums[i];
+    var count = 1;
+    while (i + count < nums.length && nums[i + count] === top - count) { count++; }
+    sheet.deleteRows(top - count + 1, count);
+    i += count;
+  }
 }
 
 
@@ -3303,7 +3321,7 @@ function clearRunState() {
 function getTodayRoutes(email, companySsId) {
   var savedEmail = email || '';
   if (!savedEmail) return [];
-  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var master = ss.getSheetByName('自車専属マスタ');
   if (!master) return [];
   var mAll = master.getDataRange().getValues();
@@ -3407,8 +3425,11 @@ function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, emai
     var sheet = ss.getSheetByName('運行');
     if (!sheet) throw new Error('運行シートがありません');
 
-    // 日付: 端末から渡された場合はその日付を使用（省略時は現在時刻）
-    var now  = dateStr ? new Date(dateStr) : new Date();
+    // 日付: 端末から渡された場合はその日付＋現在時刻を合成（new Date(dateStr)はUTC0時=JST9時になるバグ回避）
+    var cur  = new Date();
+    var now  = dateStr
+      ? (function() { var b = new Date(dateStr); return new Date(b.getFullYear(), b.getMonth(), b.getDate(), cur.getHours(), cur.getMinutes(), cur.getSeconds()); })()
+      : cur;
     var nowY = now.getFullYear(), nowM = now.getMonth(), nowD = now.getDate();
 
     // 今日の未割当プレースホルダーを探す（同ドライバー・同日・積地空）
@@ -3532,6 +3553,7 @@ function setGuideComplete(id, routeIndex, companySsId) {
   var cell = sheet.getRange(row, 14);
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
+  SpreadsheetApp.flush();
   if (id) delaySyncSummary_(id);
 }
 
@@ -3548,6 +3570,7 @@ function setPickComplete(id, routeIndex, companySsId) {
   var cell = sheet.getRange(row, 15);
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
+  SpreadsheetApp.flush();
   if (id) delaySyncSummary_(id);
 }
 
@@ -3567,6 +3590,7 @@ function setRest(id, routeIndex, type, companySsId) {
     cell.setValue(new Date());
     cell.setNumberFormat('M/d HH:mm');
   }
+  SpreadsheetApp.flush();
   if (id) delaySyncSummary_(id);
 }
 
@@ -3583,6 +3607,7 @@ function setDropComplete(id, routeIndex, companySsId) {
   var cell = sheet.getRange(row, 18);
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
+  SpreadsheetApp.flush();
   if (id) delaySyncSummary_(id);
 }
 
@@ -3628,6 +3653,8 @@ function setInspectionComplete_(id, type, companySsId) {
       break;
     }
   }
+  SpreadsheetApp.flush();
+  if (id) delaySyncSummary_(id);
 }
 
 
@@ -3652,6 +3679,7 @@ function clearInspTime(id, type, companySsId) {
       break;
     }
   }
+  SpreadsheetApp.flush();
   if (id) delaySyncSummary_(id);
 }
 
@@ -3897,7 +3925,7 @@ function getListData(year, month, companySsId, email) {
       inspBefore:g.inspBefore, inspAfter:g.inspAfter,
       notice:g.notice, dataUrl:g.dataUrl, hasNotice:g.hasNotice,
       isComplete: !!(g.guideTime && g.pickTime && g.restStart && g.restEnd && g.dropTime && g.inspBefore && g.inspAfter),
-      isNew:      !g.guideTime && !g.pickTime && !g.restStart && !g.restEnd && !g.dropTime
+      isNew:      !g.guideTime && !g.pickTime && !g.restStart && !g.restEnd && !g.dropTime && !g.inspBefore && !g.inspAfter
     });
     totalSales += g.sales; totalToll += g.tollTotal; totalPay += g.pay;
     totalYukyu += g.yukyu || 0;
@@ -3918,8 +3946,8 @@ function getListData(year, month, companySsId, email) {
 //  ・W列(23)のURL：getAdminDataUrl_（リッチテキスト→URLカンマ区切り）
 //  ・Y列(25)のURL：getTerminalUrls_（リッチテキスト→URL配列.join(',')）
 // ================================================================
-function getEditData(id) {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+function getEditData(id, companySsId) {
+  var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return null;
 
@@ -4020,8 +4048,8 @@ function getEditData(id) {
 //  ・売上/高速は同一IDに複数行ある場合、先頭行のみ書き込み（重複防止）
 //  ・書き込み後にdelaySyncSummary_を呼んで集計表を同期する
 // ================================================================
-function saveEditData(obj) {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+function saveEditData(obj, companySsId) {
+  var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
   var all = sheet.getDataRange().getValues();
@@ -4576,8 +4604,8 @@ function replaceTerminalFile(id, oldUrl, fileName, base64Data, mimeType) {
 //  8-7: 運行データ削除（deleteRunById）  【大A / 中8 / 小8-7】
 //  指定IDに一致する運行シートの全行を削除し集計表を同期する
 // ================================================================
-function deleteRunById(id) {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+function deleteRunById(id, companySsId) {
+  var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
   var all     = sheet.getDataRange().getValues();
@@ -4704,8 +4732,9 @@ function uploadFileToRow(rowNum, fileName, base64Data, mimeType) {
     // 重複URLを除去（同じファイルが2度登録されないように）
     var deduped = existing.filter(function(u, i, arr) { return arr.indexOf(u) === i; });
     setAdminDataRichTextMulti_(sheet, rowNum, deduped);
+    SpreadsheetApp.flush();
   }
-  return { ok: true };
+  return { ok: true, url: url };
 }
 
 
@@ -4859,8 +4888,8 @@ function getMyNotices(companySsId, email) {
 //  指定IDの全行程と進捗状態を返す
 //  progress: pick / restStart / restEnd / drop / complete
 // ================================================================
-function getRoutesById(id) {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+function getRoutesById(id, companySsId) {
+  var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return { routes:[], progress:'', firstGap:null };
   var all = sheet.getDataRange().getValues();
@@ -5464,6 +5493,25 @@ function setWebAppUrl() {
 
 
 // ================================================================
+//  12-3d: 新規SSのバインドスクリプトID取得（getNewSsScriptId_）  【大B / 中12】
+//  DriveApp でSSの子ファイルからApps Scriptを検索してスクリプトIDを返す
+// ================================================================
+function getNewSsScriptId_(ssId) {
+  try {
+    var token = ScriptApp.getOAuthToken();
+    var q = encodeURIComponent('mimeType="application/vnd.google-apps.script" and "' + ssId + '" in parents');
+    var resp = UrlFetchApp.fetch(
+      'https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)',
+      { headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true }
+    );
+    if (resp.getResponseCode() !== 200) return null;
+    var data = JSON.parse(resp.getContentText());
+    return (data.files && data.files.length > 0) ? data.files[0].id : null;
+  } catch(e) { return null; }
+}
+
+
+// ================================================================
 //  12-3: 会社専用スプレッドシートを作成（createCompanySpreadsheet_）  【大B / 中12 / 小12-3】
 //  ②客用SS（スタブコード入り）をコピーして各客SSを作る。
 //  コピー元は Script Properties の clientTemplateSsId。未設定ならハードコードIDを使用。
@@ -5498,7 +5546,137 @@ function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
   // 全シートにヘッダー・テストデータ・設定データを初期化する
   initClientSSSheets_(newSs, companyName);
 
-  return { ssId: newSs.getId(), ssUrl: newSs.getUrl() };
+  // ③のスクリプトIDを取得して WebApp を自動デプロイ
+  var newScriptId = getNewSsScriptId_(newSs.getId());
+  props.setProperty('scriptId_' + newSs.getId(), newScriptId || '');
+  var webAppUrl = deployClientWebApp_(newSs.getId(), companyName, newScriptId);
+
+  return { ssId: newSs.getId(), ssUrl: newSs.getUrl(), scriptId: newScriptId || '', webAppUrl: webAppUrl || '' };
+}
+
+
+// ================================================================
+//  12-3a: 各客SS用 WebApp を自動デプロイ（deployClientWebApp_）
+//  Apps Script API でスクリプトにスタブコードを書き込み WebApp をデプロイして URL を返す
+// ================================================================
+function deployClientWebApp_(ssId, companyName, existingScriptId) {
+  try {
+    var token   = ScriptApp.getOAuthToken();
+    var hdrs    = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+    var apiBase = 'https://script.googleapis.com/v1/projects';
+
+    // スクリプトID確定（引数で渡された既存ID → なければ新規作成）
+    var scriptId = existingScriptId || null;
+    if (!scriptId) {
+      var cr = UrlFetchApp.fetch(apiBase, {
+        method: 'POST', headers: hdrs,
+        payload: JSON.stringify({ title: companyName + '運行管理', parentId: ssId }),
+        muteHttpExceptions: true
+      });
+      var crData = JSON.parse(cr.getContentText());
+      scriptId = crData.scriptId;
+      if (!scriptId) return null;
+    }
+
+    // マニフェスト（appsscript.json）
+    var libVer = PropertiesService.getScriptProperties().getProperty('pinnedLibVersion') || '260';
+    var manifest = JSON.stringify({
+      timeZone: 'Asia/Tokyo',
+      dependencies: { libraries: [{ userSymbol: 'UnkouLib',
+        libraryId: '1n79omnAcdsEojMRyjnj9-Ic9pIl1-7Nt_HB7Avy0NVFizOSeqt0guqyZ',
+        version: libVer, developmentMode: false }] },
+      webapp: { executeAs: 'USER_DEPLOYING', access: 'ANYONE_ANONYMOUS' },
+      oauthScopes: [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/script.external_request',
+        'https://www.googleapis.com/auth/script.scriptapp',
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/script.container.ui'
+      ],
+      exceptionLogging: 'STACKDRIVER', runtimeVersion: 'V8'
+    });
+
+    // スタブコード書き込み
+    UrlFetchApp.fetch(apiBase + '/' + scriptId + '/content', {
+      method: 'PUT', headers: hdrs,
+      payload: JSON.stringify({ files: [
+        { name: 'appsscript', type: 'JSON',      source: manifest },
+        { name: 'コード',      type: 'SERVER_JS', source: getClientStubSource_() }
+      ]}),
+      muteHttpExceptions: true
+    });
+
+    // WebApp デプロイ作成
+    var dr = UrlFetchApp.fetch(apiBase + '/' + scriptId + '/deployments', {
+      method: 'POST', headers: hdrs,
+      payload: JSON.stringify({ description: companyName + '_WebApp', manifestFileName: 'appsscript' }),
+      muteHttpExceptions: true
+    });
+    var drData = JSON.parse(dr.getContentText());
+    if (!drData.deploymentId) return null;
+
+    PropertiesService.getScriptProperties().setProperty('scriptId_' + ssId, scriptId);
+    return 'https://script.google.com/macros/s/' + drData.deploymentId + '/exec';
+  } catch(e) { return null; }
+}
+
+
+// スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
+function getClientStubSource_() {
+  return [
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var menu=SpreadsheetApp.getUi().createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翔月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
+    "function doGet(e){return UnkouLib.doGet(e);}",
+    "function onEdit(e){return UnkouLib.onEdit(e);}",
+    "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
+    "function showSidebar(){return UnkouLib.showSidebar();}",
+    "function showUploadSidebar(){return UnkouLib.showUploadSidebar();}",
+    "function generateCurrentMonth(){return UnkouLib.generateCurrentMonth();}",
+    "function generateNextMonth(){return UnkouLib.generateNextMonth();}",
+    "function archiveOldMonth(){return UnkouLib.archiveOldMonth();}",
+    "function generateSummary(){return UnkouLib.generateSummary();}",
+    "function expandAndRefreshSheets(){return UnkouLib.expandAndRefreshSheets();}",
+    "function autoFillExpense(){return UnkouLib.autoFillExpense();}",
+    "function sortBothSheetsByDate(){return UnkouLib.sortBothSheetsByDate();}",
+    "function fillMissingIdsAndCars(){return UnkouLib.fillMissingIdsAndCars();}",
+    "function createUsageSheet(){return UnkouLib.createUsageSheet();}",
+    "function installTriggers(){return UnkouLib.installTriggers();}",
+    "function setRecalcChoice(a){return UnkouLib.setRecalcChoice(a);}",
+    "function syncToAllClientSS(){return UnkouLib.syncToAllClientSS();}",
+    "function storeCompanySsId(a){return UnkouLib.storeCompanySsId(a);}",
+    "function getInitialData(){return UnkouLib.getInitialData();}",
+    "function linkAddress(a){return UnkouLib.linkAddress(a);}",
+    "function unlinkAddress(){return UnkouLib.unlinkAddress();}",
+    "function saveRunState(a){return UnkouLib.saveRunState(a);}",
+    "function loadRunState(){return UnkouLib.loadRunState();}",
+    "function clearRunState(){return UnkouLib.clearRunState();}",
+    "function getTodayRoutes(){return UnkouLib.getTodayRoutes();}",
+    "function createParentRows(a,b,c,d,e,f){return UnkouLib.createParentRows(a,b,c,d,e,f);}",
+    "function setPickComplete(a,b,c){return UnkouLib.setPickComplete(a,b,c);}",
+    "function setRest(a,b,c,d){return UnkouLib.setRest(a,b,c,d);}",
+    "function setDropComplete(a,b,c){return UnkouLib.setDropComplete(a,b,c);}",
+    "function updateRouteData(a,b,c,d){return UnkouLib.updateRouteData(a,b,c,d);}",
+    "function deleteRunRows(a,b){return UnkouLib.deleteRunRows(a,b);}",
+    "function clearTimeCell(a,b,c){return UnkouLib.clearTimeCell(a,b,c);}",
+    "function getListData(a,b){return UnkouLib.getListData(a,b);}",
+    "function getEditData(a,b){return UnkouLib.getEditData(a,b);}",
+    "function saveEditData(a,b){return UnkouLib.saveEditData(a,b);}",
+    "function appendTerminalFile(a,b,c,d){return UnkouLib.appendTerminalFile(a,b,c,d);}",
+    "function deleteRunById(a,b){return UnkouLib.deleteRunById(a,b);}",
+    "function saveNotice(a,b,c){return UnkouLib.saveNotice(a,b,c);}",
+    "function uploadFileToRow(a,b,c,d){return UnkouLib.uploadFileToRow(a,b,c,d);}",
+    "function saveTerminalNotice(a,b,c){return UnkouLib.saveTerminalNotice(a,b,c);}",
+    "function uploadTerminalFile(a,b,c,d){return UnkouLib.uploadTerminalFile(a,b,c,d);}",
+    "function getMyNotices(a){return UnkouLib.getMyNotices(a);}",
+    "function getRoutesById(a,b){return UnkouLib.getRoutesById(a,b);}",
+    "function getNoticeByRow(a,b){return UnkouLib.getNoticeByRow(a,b);}",
+    "function markAsRead(a,b){return UnkouLib.markAsRead(a,b);}",
+    "function getReadNotices(a){return UnkouLib.getReadNotices(a);}",
+    "function agreeContract(a,b,c,d){return UnkouLib.agreeContract(a,b,c,d);}",
+    "function queueFileUpload(a,b,c,d){return UnkouLib.queueFileUpload(a,b,c,d);}",
+    "function recordAction(a,b,c,d,e){return UnkouLib.recordAction(a,b,c,d,e);}",
+    "function clearInspTime(a,b,c){return UnkouLib.clearInspTime(a,b,c);}"
+  ].join('\n');
 }
 
 
@@ -5653,27 +5831,104 @@ function initClientSSSheets_(ss, companyName) {
 
 
 // ================================================================
-//  12-3c: ①修正用SS→②客用SSにヘッダー・設定を反映（syncToTemplateSS）
-//  メニュー「📤 テスト客SSに反映」から実行。データ行は一切消さない。
-//  ①のSSIDを②の __TEMPLATE_SS__ シートに書き込む（syncToAllClientSS が参照するため）
+//  12-3c-1: ライブラリバージョン作成（createLibraryVersion_）  【大B / 中12】
+//  Script API でライブラリの新バージョンを作成して番号を返す
+// ================================================================
+function createLibraryVersion_(description) {
+  try {
+    var token = ScriptApp.getOAuthToken();
+    var resp = UrlFetchApp.fetch(
+      'https://script.googleapis.com/v1/projects/' + ScriptApp.getScriptId() + '/versions',
+      {
+        method: 'post',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        payload: JSON.stringify({ description: description || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm') }),
+        muteHttpExceptions: true
+      }
+    );
+    var data = JSON.parse(resp.getContentText());
+    return data.versionNumber || null;
+  } catch(e) { return null; }
+}
+
+
+// ================================================================
+//  12-3c-2: スタブのライブラリバージョン更新（updateStubVersion_）  【大B / 中12】
+//  Script API でスタブの appsscript.json 内ライブラリバージョンを書き換える
+// ================================================================
+function updateStubVersion_(stubScriptId, versionNumber) {
+  try {
+    var token = ScriptApp.getOAuthToken();
+    var libId = ScriptApp.getScriptId();
+    var getResp = UrlFetchApp.fetch(
+      'https://script.googleapis.com/v1/projects/' + stubScriptId + '/content',
+      { headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true }
+    );
+    if (getResp.getResponseCode() !== 200) return false;
+    var content = JSON.parse(getResp.getContentText());
+    var files = content.files || [];
+    var updated = false;
+    for (var i = 0; i < files.length; i++) {
+      if (files[i].name !== 'appsscript') continue;
+      var manifest = JSON.parse(files[i].source);
+      var libs = (manifest.dependencies && manifest.dependencies.libraries) || [];
+      for (var j = 0; j < libs.length; j++) {
+        if (libs[j].libraryId === libId) {
+          libs[j].version = String(versionNumber);
+          libs[j].developmentMode = false;
+          updated = true;
+        }
+      }
+      files[i].source = JSON.stringify(manifest, null, 2);
+      break;
+    }
+    if (!updated) return false;
+    var putResp = UrlFetchApp.fetch(
+      'https://script.googleapis.com/v1/projects/' + stubScriptId + '/content',
+      {
+        method: 'put',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        payload: JSON.stringify({ files: files }),
+        muteHttpExceptions: true
+      }
+    );
+    return putResp.getResponseCode() === 200;
+  } catch(e) { return false; }
+}
+
+
+// ================================================================
+//  12-3c: ①修正用SS→②客用SSに反映（syncToTemplateSS）
+//  メニュー「📤 テスト客SSに反映」から実行。
+//  ① 新しいライブラリバージョンを作成 → ②のスタブを固定バージョンに更新
+//     （押すまでコード変更が②に波及しない。押して初めて反映）
+//  ② ②のシート構成・テストデータ・設定を全て最新化
 // ================================================================
 function syncToTemplateSS() {
   var props = PropertiesService.getScriptProperties();
+  var TEMPLATE_SCRIPT_ID = '19CfyUPhldzSccj05xo-sn4Xh78fCHAHDVJtGyKdDGQkO1D4wZWFEnZCT';
   var templateSsId = props.getProperty('clientTemplateSsId') || '1NBtosd_MN8KcboV_4OXTrY8WqcE3TJwpxdA_nASmTOo';
-  var masterSs  = SpreadsheetApp.getActiveSpreadsheet();
-  var tgtSs     = SpreadsheetApp.openById(templateSsId);
+  var masterSs = SpreadsheetApp.getActiveSpreadsheet();
+  var tgtSs    = SpreadsheetApp.openById(templateSsId);
   DriveApp.getFileById(tgtSs.getId()).setName('客用');
-  var businessSheets = ['運行', '集計表', '自車専属マスタ', '自車専属運行', 'マスタ', '設定'];
 
-  // 業務シートのヘッダー行（1行目）の値・書式を最新化。データ行は触らない。
+  // ① 新バージョン作成 → ②スタブを固定バージョンに更新（押すまで反映しない）
+  var newVersion = createLibraryVersion_(
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm') + ' テスト客SS反映'
+  );
+  if (newVersion) {
+    updateStubVersion_(TEMPLATE_SCRIPT_ID, newVersion);
+    props.setProperty('approvedLibVersion', String(newVersion));
+  }
+
+  // ② ヘッダー行（1行目）の値・書式のみ最新化。データ行は絶対触らない。
+  var businessSheets = ['運行', '集計表', '自車専属マスタ', '自車専属運行', 'マスタ', '設定'];
   for (var si = 0; si < businessSheets.length; si++) {
     var sheetName = businessSheets[si];
     var srcSheet  = masterSs.getSheetByName(sheetName);
     if (!srcSheet || srcSheet.getLastColumn() === 0) continue;
-
     var tgtSheet = tgtSs.getSheetByName(sheetName);
     if (!tgtSheet) tgtSheet = tgtSs.insertSheet(sheetName);
-
     var srcCols = srcSheet.getLastColumn();
     tgtSheet.getRange(1, 1, 1, srcCols).setValues(srcSheet.getRange(1, 1, 1, srcCols).getValues());
     tgtSheet.getRange(1, 1, 1, srcCols).setBackgrounds(srcSheet.getRange(1, 1, 1, srcCols).getBackgrounds());
@@ -5682,31 +5937,28 @@ function syncToTemplateSS() {
     tgtSheet.setFrozenRows(1);
   }
 
-  // __TEMPLATE_SS__ マーカーを設置（②の目印・B1に①のSSIDを記録）
+  // __COMPANY_SS__ を削除して __TEMPLATE_SS__ マーカーに切り替え
+  var companyMarker = tgtSs.getSheetByName('__COMPANY_SS__');
+  if (companyMarker && tgtSs.getSheets().length > 1) {
+    try { tgtSs.deleteSheet(companyMarker); } catch(e) {}
+  }
   var tmplMarker = tgtSs.getSheetByName('__TEMPLATE_SS__') || tgtSs.insertSheet('__TEMPLATE_SS__');
   tmplMarker.getRange(1, 1).setValue('客用テスト');
   tmplMarker.getRange(1, 2).setValue(masterSs.getId());
+  if (newVersion) tmplMarker.getRange(1, 3).setValue(newVersion);
   if (!tmplMarker.isSheetHidden()) tmplMarker.hideSheet();
 
-  // __COMPANY_SS__ が残っていれば削除（②は TEMPLATE マーカーのみ使う）
-  var oldMarker = tgtSs.getSheetByName('__COMPANY_SS__');
-  if (oldMarker && tgtSs.getSheets().length > 1) {
-    try { tgtSs.deleteSheet(oldMarker); } catch(e) {}
-  }
-
-  // 設定シートに点検項目がなければデフォルトを挿入（あれば何もしない）
-  ensureSettingItems_(tgtSs);
-
-  // ②のシート保護をすべて削除（客が別ユーザーで使うため）
+  // 保護をすべて削除
   tgtSs.getSheets().forEach(function(s) {
     s.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p) { p.remove(); });
     s.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p) { p.remove(); });
   });
 
-  // clientTemplateSsId を Script Properties に保存
   props.setProperty('clientTemplateSsId', tgtSs.getId());
 
-  try { SpreadsheetApp.getUi().alert('テスト客SSへの反映が完了しました。'); } catch(e) {}
+  var msg = 'テスト客SSへの反映が完了しました。';
+  if (newVersion) msg += '\nライブラリバージョン: ' + newVersion;
+  try { SpreadsheetApp.getUi().alert(msg); } catch(e) {}
 }
 
 
@@ -5737,6 +5989,7 @@ function processNewCompany_(companyName, adminEmail) {
     var hdrColCount = regSheet.getLastColumn();
     if (hdrColCount < 9)  regSheet.getRange(1, 9).setValue('契約書URL');
     if (hdrColCount < 10) regSheet.getRange(1, 10).setValue('同意時刻');
+    if (hdrColCount < 11) regSheet.getRange(1, 11).setValue('スクリプトID');
   }
 
   // ① 共有フォルダを作成（メール送信なし）
@@ -5745,13 +5998,13 @@ function processNewCompany_(companyName, adminEmail) {
   var folderId  = folderResult.folderId;
 
   // ② ②客用SSをコピーして③各客SS作成（スタブコードのみ・心臓部コードは含まれない）
-  var ssResult = createCompanySpreadsheet_(companyName, adminEmail, folderId);
-  var ssUrl    = ssResult.ssUrl;
-  var ssId     = ssResult.ssId;
+  var ssResult   = createCompanySpreadsheet_(companyName, adminEmail, folderId);
+  var ssUrl      = ssResult.ssUrl;
+  var ssId       = ssResult.ssId;
+  var clientScriptId = ssResult.scriptId || '';
 
-  // ③ アプリURL = ベースURL?ssId=会社のSS_ID
-  var webAppUrl = getWebAppBaseUrl_();
-  var appUrl    = webAppUrl ? (webAppUrl + '?ssId=' + ssId) : '[WebアプリURL未設定]';
+  // ③ アプリURL = 会社SS独自のWebAppURL（ssId不要・独立URL）
+  var appUrl = ssResult.webAppUrl || (getWebAppBaseUrl_() + '?ssId=' + ssId);
 
   // ④ 会社登録シートの行番号を特定
   var targetRow = -1;
@@ -5762,14 +6015,22 @@ function processNewCompany_(companyName, adminEmail) {
     }
   }
 
-  // ④ 契約書URL生成
+  // ④ 契約書URL = 会社SS独自WebAppURL + page=contract（ssId不要）
   var contractUrl = '[WebアプリURL未設定]';
-  if (webAppUrl) {
-    contractUrl = webAppUrl + '?page=contract' +
-      '&ssId='       + encodeURIComponent(ssId) +
+  if (ssResult.webAppUrl) {
+    contractUrl = ssResult.webAppUrl + '?page=contract' +
       '&company='    + encodeURIComponent(companyName) +
       '&adminEmail=' + encodeURIComponent(adminEmail) +
       (targetRow > 0 ? '&row=' + targetRow : '');
+  } else {
+    var baseUrl = getWebAppBaseUrl_();
+    if (baseUrl) {
+      contractUrl = baseUrl + '?page=contract' +
+        '&ssId='       + encodeURIComponent(ssId) +
+        '&company='    + encodeURIComponent(companyName) +
+        '&adminEmail=' + encodeURIComponent(adminEmail) +
+        (targetRow > 0 ? '&row=' + targetRow : '');
+    }
   }
 
   // ⑤ 会社登録シートに記録
@@ -5780,6 +6041,7 @@ function processNewCompany_(companyName, adminEmail) {
     regSheet.getRange(targetRow, 6).setValue(ssUrl);
     regSheet.getRange(targetRow, 7).setValue(appUrl);
     regSheet.getRange(targetRow, 9).setValue(contractUrl);
+    if (clientScriptId) regSheet.getRange(targetRow, 11).setValue(clientScriptId);
   }
 
   // ⑥ 管理Gmail宛に「契約書確認のお願い」メールを送信
@@ -6305,17 +6567,21 @@ function syncToAllClientSS() {
     return;
   }
 
+  // ②の承認バージョンを取得（__TEMPLATE_SS__ C1に記録されている）
+  var approvedVersion = tmplMarker.getRange(1, 3).getValue() || null;
+
   var businessSheets = ['運行', '集計表', '自車専属マスタ', '自車専属運行', 'マスタ', '設定'];
-  var rows = regSheet.getRange(2, 1, regSheet.getLastRow() - 1, 7).getValues();
+  var lastCol = regSheet.getLastColumn();
+  var rows = regSheet.getRange(2, 1, regSheet.getLastRow() - 1, Math.max(lastCol, 11)).getValues();
   var successCount = 0;
   var errorNames   = [];
 
   for (var i = 0; i < rows.length; i++) {
-    var companyName = String(rows[i][0]).trim();
-    var ssUrl       = String(rows[i][5]).trim(); // F列（SS URL）
+    var companyName  = String(rows[i][0]).trim();
+    var ssUrl        = String(rows[i][5]).trim();  // F列: SS URL
+    var clientScriptId = rows[i][10] ? String(rows[i][10]).trim() : ''; // K列: スクリプトID
     if (!companyName || !ssUrl) continue;
 
-    // SS URLからIDを抽出
     var match = ssUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
     if (!match) continue;
     var clientSsId = match[1];
@@ -6323,15 +6589,13 @@ function syncToAllClientSS() {
     try {
       var clientSs = SpreadsheetApp.openById(clientSsId);
 
-      // 業務シートのヘッダー行を①から反映（データ行は触らない）
+      // ヘッダー行を①から反映（データ行は触らない）
       for (var si = 0; si < businessSheets.length; si++) {
         var sheetName = businessSheets[si];
         var srcSheet  = masterSs.getSheetByName(sheetName);
         if (!srcSheet || srcSheet.getLastColumn() === 0) continue;
-
         var tgtSheet = clientSs.getSheetByName(sheetName);
         if (!tgtSheet) tgtSheet = clientSs.insertSheet(sheetName);
-
         var srcCols = srcSheet.getLastColumn();
         tgtSheet.getRange(1, 1, 1, srcCols).setValues(srcSheet.getRange(1, 1, 1, srcCols).getValues());
         tgtSheet.getRange(1, 1, 1, srcCols).setBackgrounds(srcSheet.getRange(1, 1, 1, srcCols).getBackgrounds());
@@ -6339,8 +6603,13 @@ function syncToAllClientSS() {
         tgtSheet.getRange(1, 1, 1, srcCols).setFontWeights(srcSheet.getRange(1, 1, 1, srcCols).getFontWeights());
         tgtSheet.setFrozenRows(1);
       }
-
       ensureSettingItems_(clientSs);
+
+      // スクリプトIDが登録済みなら承認バージョンに更新（コード変更の反映）
+      if (clientScriptId && approvedVersion) {
+        updateStubVersion_(clientScriptId, approvedVersion);
+      }
+
       successCount++;
     } catch(e) {
       errorNames.push(companyName);
@@ -6348,6 +6617,7 @@ function syncToAllClientSS() {
   }
 
   var msg = successCount + '社への反映が完了しました。';
+  if (approvedVersion) msg += '\nコードバージョン: ' + approvedVersion;
   if (errorNames.length > 0) msg += '\n失敗: ' + errorNames.join(', ');
   try { SpreadsheetApp.getUi().alert(msg); } catch(e) {}
 }
