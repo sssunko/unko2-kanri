@@ -50,7 +50,8 @@
       "PowerShell($env:PATH = \"$env:APPDATA\\\\npm;\" + $env:PATH; Set-Location \"c:\\\\gas\\\\unko2-kanri\\\\stub_for_clientSS\"; clasp push --force 2>&1; Write-Host \"Exit: $LASTEXITCODE\")",
       "PowerShell($env:PATH = \"$env:APPDATA\\\\npm;\" + $env:PATH; clasp list 2>&1 | Select-Object -First 20)",
       "PowerShell($env:PATH = \"$env:APPDATA\\\\npm;\" + $env:PATH; Set-Location \"c:\\\\gas\\\\unko2-kanri\\\\stub_for_clientSS\"; clasp create --type sheets --title \"運行管理_客用テスト\" 2>&1)",
-      "PowerShell(Get-Content \"$env:TEMP\\\\gas_client_tmp\\\\.clasp.json\")"
+      "PowerShell(Get-Content \"$env:TEMP\\\\gas_client_tmp\\\\.clasp.json\")",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

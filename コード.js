@@ -390,7 +390,7 @@ function getOrCreateFolder_(name) {
 //  1-3: 集計表遅延同期ラッパー  【大B / 中1 / 小1-3】
 //  syncSummaryForId_をtry-catchで安全に呼び出す
 // ================================================================
-function delaySyncSummary_(id) { try { syncSummaryForId_(id); } catch(e) {} }
+function delaySyncSummary_(id, ss) { try { syncSummaryForId_(id, ss); } catch(e) {} }
 
 
 // ================================================================
@@ -442,10 +442,16 @@ function applyDateTimeFormat_(sheet, startRow, numRows) {
   if (numRows <= 0) return;
   var fmt = 'M/d HH:mm';
   var cols = [14, 15, 16, 17, 18];
-  if (sheet.getName() === '集計表' && sheet.getLastColumn() >= 36) {
-    cols = cols.concat([36, 37]);
-  }
   var lastCol = sheet.getLastColumn();
+  if (sheet.getName() === '集計表' && lastCol >= 36) {
+    cols = cols.concat([36, 37]);
+  } else if (sheet.getName() === '運行' && lastCol > 0) {
+    // 点呼前後列は末尾に動的追加されるため列番号をヘッダーから検索
+    var hdrs = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var bi = hdrs.indexOf('点呼前完了'), ai = hdrs.indexOf('点呼後完了');
+    if (bi >= 0) cols.push(bi + 1);
+    if (ai >= 0) cols.push(ai + 1);
+  }
   for (var i = 0; i < cols.length; i++) {
     if (cols[i] <= lastCol) sheet.getRange(startRow, cols[i], numRows, 1).setNumberFormat(fmt);
   }
@@ -900,7 +906,7 @@ function onEdit(e) {
     var sheetName = sheet.getName();
     var col       = range.getColumn();
     var row       = range.getRow();
-    var ss        = SpreadsheetApp.getActiveSpreadsheet();
+    var ss        = sheet.getParent();
 
     // ── 3-1-1: 集計表 編集ブロック ──────────────────────────────────
     // 距離(V=22)・ガソリン代(X=24)・支払い(Z=26)・備考(AB=28)以外の列は直接編集を禁止する
@@ -916,14 +922,14 @@ function onEdit(e) {
       if (blocked) {
         var bRowId = sheet.getRange(row, 1).getValue();
         if (bRowId) {
-          delaySyncSummary_(bRowId); // IDあり→再同期で正しい値・書式に戻す
+          delaySyncSummary_(bRowId, ss); // IDあり→再同期で正しい値・書式に戻す
         } else if (numR === 1 && numC === 1) {
           range.setValue(e.oldValue !== undefined ? e.oldValue : '');
         }
         ss.toast('この列は編集できません', '⛔ 保護', 3);
       } else {
         var rowId = sheet.getRange(row, 1).getValue();
-        if (rowId) delaySyncSummary_(rowId);
+        if (rowId) delaySyncSummary_(rowId, ss);
       }
       return;
     }
@@ -983,13 +989,13 @@ function onEdit(e) {
     }
 
     // ── 3-1-4: シート別振り分け ──────────────────────────────────────
-    if (sheetName === '自車専属マスタ') { onEditMasterVehicle_(sheet, range); return; }
+    if (sheetName === '自車専属マスタ') { onEditMasterVehicle_(sheet, range, ss); return; }
     if (sheetName === 'マスタ')         { onEditMasterCustomer_(sheet, range); return; }
     // 会社登録シートの処理はインストール型トリガー（installedOnEdit_）が担当する
     // シンプルトリガーはドライブ/メール/トリガー作成などの認証付き操作が不可のため
     if (sheetName === '会社登録') return;
     if (sheetName !== '運行') return;
-    onEditUnkou_(sheet, range);
+    onEditUnkou_(sheet, range, ss);
   } catch (err) {}
 }
 
@@ -1002,12 +1008,12 @@ function onEdit(e) {
 //  ・T列（合計高速）の数式を自動セット
 //  ・集計表を同期し、孤立IDを削除
 // ================================================================
-function onEditUnkou_(sheet, range) {
+function onEditUnkou_(sheet, range, ss) {
   var startRow = range.getRow();
   var numRows = range.getNumRows();
   var editedCol = range.getColumn();
   if (startRow <= 1) return;
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) ss = sheet.getParent();
   var master = ss.getSheetByName('自車専属マスタ');
   var mData = master ? master.getDataRange().getValues() : [];
   // ScriptLockでID採番を排他制御（並列アクセス時のV-番号重複を根絶）
@@ -1140,7 +1146,7 @@ function onEditUnkou_(sheet, range) {
       sheet.getRange(row, 22).setFormula('=IF(AND(U' + row + '="",T' + row + '=""),"",U' + row + '-T' + row + ')');
     }
     SpreadsheetApp.flush();
-    if (currentId) syncSummaryForId_(currentId);
+    if (currentId) syncSummaryForId_(currentId, ss);
   }
   applyMoneyFormat_(sheet, startRow, numRows, 'unkou');
   applyDateTimeFormat_(sheet, startRow, numRows);
@@ -1159,10 +1165,10 @@ function onEditUnkou_(sheet, range) {
 //    運行→薄赤, 待機→薄黄, 故障→薄緑, その他→なし
 //  ・自車専属運行シートを自動更新
 // ================================================================
-function onEditMasterVehicle_(sheet, range) {
+function onEditMasterVehicle_(sheet, range, ss) {
   var startRow = range.getRow();
   var numRows  = range.getNumRows();
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) ss = sheet.getParent();
   var editedStartCol = range.getColumn();
   var editedEndCol   = editedStartCol + range.getNumColumns() - 1;
   var lastCol = Math.max(sheet.getLastColumn(), 17);
@@ -1270,7 +1276,7 @@ function onEditMasterVehicle_(sheet, range) {
           }
         }
         for (var ti = 0; ti < targetIds.length; ti++) {
-          try { syncSummaryForId_(targetIds[ti]); } catch(e) {}
+          try { syncSummaryForId_(targetIds[ti], ss); } catch(e) {}
         }
       }
     }
@@ -1824,8 +1830,8 @@ function convertLegacyAdminDataUrls_() {
 //  ・時刻色付け・利益マイナス赤を再適用
 //  ・数式（T列・X列・Z列）を再セット
 // ================================================================
-function syncSummaryForId_(targetId) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+function syncSummaryForId_(targetId, ss) {
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   var unkouSheet = ss.getSheetByName('運行');
   if (!unkouSheet) return;
   var sumSheet = ss.getSheetByName('集計表');
@@ -3554,7 +3560,7 @@ function setGuideComplete(id, routeIndex, companySsId) {
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id);
+  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -3571,7 +3577,7 @@ function setPickComplete(id, routeIndex, companySsId) {
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id);
+  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -3591,7 +3597,7 @@ function setRest(id, routeIndex, type, companySsId) {
     cell.setNumberFormat('M/d HH:mm');
   }
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id);
+  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -3608,7 +3614,7 @@ function setDropComplete(id, routeIndex, companySsId) {
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id);
+  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -3654,7 +3660,7 @@ function setInspectionComplete_(id, type, companySsId) {
     }
   }
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id);
+  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -3680,7 +3686,7 @@ function clearInspTime(id, type, companySsId) {
     }
   }
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id);
+  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -3702,7 +3708,7 @@ function updateRouteData(id, picks, drops, companySsId) {
       ri++;
     }
   }
-  if (id) delaySyncSummary_(id);
+  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -3722,7 +3728,7 @@ function deleteRunRows(id, companySsId) {
   }
   del.sort(function(a, b) { return b - a; });
   for (var j = 0; j < del.length; j++) sheet.deleteRow(del[j]);
-  if (id) delaySyncSummary_(id);
+  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -3736,7 +3742,7 @@ function clearTimeCell(id, routeIndex, col, companySsId) {
   var row = findRowByIdAndIndex_(sheet, id, routeIndex);
   if (row < 0) return;
   sheet.getRange(row, col).clearContent();
-  if (id) delaySyncSummary_(id);
+  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -4201,6 +4207,20 @@ function applySheetColors_(ss) {
     }
     // T列(col20=請求高速)ヘッダーは編集可のため保護色をリセット（データ行はapplyHolidayRowColors_に委ねる）
     unkouSheet.getRange(1, 20).setBackground(null).setFontColor(null).setFontWeight('normal');
+    // 点呼前後列：ロックなし・入力可のため白にする
+    var uLastCol = unkouSheet.getLastColumn();
+    if (uLastCol > 0) {
+      var uHdrs = unkouSheet.getRange(1, 1, 1, uLastCol).getValues()[0];
+      var ubIdx = uHdrs.indexOf('点呼前完了'), uaIdx = uHdrs.indexOf('点呼後完了');
+      if (ubIdx >= 0) {
+        unkouSheet.getRange(1, ubIdx + 1).setBackground(null).setFontColor(null).setFontWeight('normal');
+        if (unkouLastRow > 1) unkouSheet.getRange(2, ubIdx + 1, unkouLastRow - 1, 1).setBackground(null);
+      }
+      if (uaIdx >= 0) {
+        unkouSheet.getRange(1, uaIdx + 1).setBackground(null).setFontColor(null).setFontWeight('normal');
+        if (unkouLastRow > 1) unkouSheet.getRange(2, uaIdx + 1, unkouLastRow - 1, 1).setBackground(null);
+      }
+    }
   }
   // 有休/休み行の着色を再適用（保護色設定で上書きされないよう最後に実行）
   applyHolidayRowColors_();
@@ -4615,7 +4635,7 @@ function deleteRunById(id, companySsId) {
   }
   delRows.sort(function(a,b){ return b-a; });
   for (var i = 0; i < delRows.length; i++) sheet.deleteRow(delRows[i]);
-  delaySyncSummary_(id);
+  delaySyncSummary_(id, ss);
 }
 
 
@@ -5543,8 +5563,16 @@ function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
   marker.getRange(1, 1).setValue(companyName);
   if (!marker.isSheetHidden()) marker.hideSheet();
 
-  // 全シートにヘッダー・テストデータ・設定データを初期化する
-  initClientSSSheets_(newSs, companyName);
+  // 不要シートを削除（管理者専用シートが引き継がれていた場合）
+  var validNames = ['運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定','__COMPANY_SS__'];
+  newSs.getSheets().forEach(function(s) {
+    if (validNames.indexOf(s.getName()) === -1 && newSs.getSheets().length > 1) {
+      try { newSs.deleteSheet(s); } catch(e) {}
+    }
+  });
+
+  // 点検項目が未設定なら初期値をセット（業務前点検・業務後点検）
+  ensureSettingItems_(newSs);
 
   // ③のスクリプトIDを取得して WebApp を自動デプロイ
   var newScriptId = getNewSsScriptId_(newSs.getId());
@@ -5579,7 +5607,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId) {
     }
 
     // マニフェスト（appsscript.json）
-    var libVer = PropertiesService.getScriptProperties().getProperty('pinnedLibVersion') || '260';
+    var libVer = PropertiesService.getScriptProperties().getProperty('pinnedLibVersion') || '276';
     var manifest = JSON.stringify({
       timeZone: 'Asia/Tokyo',
       dependencies: { libraries: [{ userSymbol: 'UnkouLib',
@@ -5827,6 +5855,7 @@ function initClientSSSheets_(ss, companyName) {
   }
 
   applySheetColors_(ss);
+  ensureSettingItems_(ss);
 }
 
 
@@ -5953,6 +5982,8 @@ function syncToTemplateSS() {
     s.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p) { p.remove(); });
     s.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p) { p.remove(); });
   });
+
+  ensureSettingItems_(tgtSs);
 
   props.setProperty('clientTemplateSsId', tgtSs.getId());
 
