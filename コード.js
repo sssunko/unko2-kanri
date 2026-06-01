@@ -820,6 +820,24 @@ function getTargetSS_(ssId) {
   return SpreadsheetApp.getActiveSpreadsheet();
 }
 
+// ================================================================
+//  2-2b: ドライバー認証（validateDriverEmail_）
+//  自車専属マスタのJ列にメールアドレスが存在するか検証する
+//  部外者アクセスは例外をスローして即遮断
+// ================================================================
+function validateDriverEmail_(email, companySsId) {
+  if (!email || String(email).trim() === '') throw new Error('認証エラー：メールアドレスがありません');
+  var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+  var master = ss.getSheetByName('自車専属マスタ');
+  if (!master || master.getLastRow() < 2) throw new Error('認証エラー：マスタが存在しません');
+  var emails = master.getRange(2, 11, master.getLastRow() - 1, 1).getValues();
+  var normalized = String(email).trim().toLowerCase();
+  for (var i = 0; i < emails.length; i++) {
+    if (String(emails[i][0] || '').trim().toLowerCase() === normalized) return true;
+  }
+  throw new Error('認証エラー：未登録のアクセスです');
+}
+
 
 // ================================================================
 //  2-3: サイドバー表示（showSidebar）  【大C / 中2 / 小2-3】
@@ -1787,11 +1805,6 @@ function generateSummary() {
   if (prevLR_ > outRows.length) {
     sumSheet.getRange(outRows.length + 1, 1, prevLR_ - outRows.length, prevLC_).clearFormat();
   }
-
-  // 月締めロックフラグをクリア（集計表再生成が完了したのでリセット）
-  var lockProps_ = PropertiesService.getScriptProperties();
-  lockProps_.deleteProperty('recalcFromDate');
-  lockProps_.deleteProperty('recalcFromDateSet');
 
   convertLegacyAdminDataUrls_();
   applyHolidayRowColors_();
@@ -3280,7 +3293,8 @@ function unlinkAddress(companySsId) {
 //  picks/drops/rows/pickDone/dropDone/phase/lastPickRow/
 //  pickHistory/dropHistoryの9項目をsetPropertiesで一括保存
 // ================================================================
-function saveRunState(state) {
+function saveRunState(state, email, companySsId) {
+  validateDriverEmail_(email, companySsId);
   var p = PropertiesService.getUserProperties();
   p.setProperties({
     'picks':          JSON.stringify(state.picks          || []),
@@ -3328,7 +3342,8 @@ function loadRunState() {
 //  linkedEmail（紐づけ）とreadNotices（既読管理）は消さない
 //  運行進捗の9項目だけ削除する
 // ================================================================
-function clearRunState() {
+function clearRunState(email, companySsId) {
+  validateDriverEmail_(email, companySsId);
   var p    = PropertiesService.getUserProperties();
   var keys = ['picks','drops','rows','runId','guideDone','pickDone','dropDone','phase','lastPickIndex','guideHistory','pickHistory','dropHistory'];
   for (var i = 0; i < keys.length; i++) { p.deleteProperty(keys[i]); }
@@ -3407,6 +3422,7 @@ function findRowByIdAndIndex_(sheet, id, routeIndex) {
 //    → 複数行程の場合は先頭行をプレースホルダー更新、追加行程は末尾に新規追加（同ID）
 // ================================================================
 function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   // 端末のメールアドレスを確認（未連携なら運行開始不可）
   var savedEmail = email || '';
   if (!savedEmail) throw new Error('紐づけされていません');
@@ -3639,8 +3655,9 @@ function setDropComplete(id, routeIndex, companySsId) {
 //  saveRunState と setXxxComplete を1回のサーバー呼び出しでまとめて実行する
 //  actionType: 'guide' / 'pick' / 'restStart' / 'restEnd' / 'drop'
 // ================================================================
-function recordAction(actionType, id, routeIndex, stateObj, companySsId) {
-  saveRunState(stateObj);
+function recordAction(actionType, id, routeIndex, stateObj, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
+  saveRunState(stateObj, email, companySsId);
   if      (actionType === 'guide')      setGuideComplete(id, routeIndex, companySsId);
   else if (actionType === 'pick')       setPickComplete(id, routeIndex, companySsId);
   else if (actionType === 'restStart')  setRest(id, routeIndex, 'start', companySsId);
@@ -3684,7 +3701,8 @@ function setInspectionComplete_(id, type, companySsId) {
 //  7-9: 点呼時刻クリア（clearInspTime）  【大A / 中7 / 小7-9】
 //  戻るボタン用：IDで点呼前/後の完了時刻をクリアして集計表を同期する
 // ================================================================
-function clearInspTime(id, type, companySsId) {
+function clearInspTime(id, type, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet || !id) return;
@@ -3732,7 +3750,8 @@ function updateRouteData(id, picks, drops, companySsId) {
 //  8-2: 運行シート行削除（deleteRunRows）  【大A / 中8 / 小8-2】
 //  戻るボタン用：IDで全行を動的検索して降順に削除し集計表を同期する
 // ================================================================
-function deleteRunRows(id, companySsId) {
+function deleteRunRows(id, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   if (!id) return;
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
@@ -3752,7 +3771,8 @@ function deleteRunRows(id, companySsId) {
 //  8-3: 時刻セルクリア（clearTimeCell）  【大A / 中8 / 小8-3】
 //  戻るボタン用：IDとルートインデックスで行を動的検索して指定列をクリアし集計表を同期する
 // ================================================================
-function clearTimeCell(id, routeIndex, col, companySsId) {
+function clearTimeCell(id, routeIndex, col, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   var row = findRowByIdAndIndex_(sheet, id, routeIndex);
@@ -3968,7 +3988,8 @@ function getListData(year, month, companySsId, email) {
 //  ・W列(23)のURL：getAdminDataUrl_（リッチテキスト→URLカンマ区切り）
 //  ・Y列(25)のURL：getTerminalUrls_（リッチテキスト→URL配列.join(',')）
 // ================================================================
-function getEditData(id, companySsId) {
+function getEditData(id, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return null;
@@ -4070,7 +4091,11 @@ function getEditData(id, companySsId) {
 //  ・売上/高速は同一IDに複数行ある場合、先頭行のみ書き込み（重複防止）
 //  ・書き込み後にdelaySyncSummary_を呼んで集計表を同期する
 // ================================================================
-function saveEditData(obj, companySsId) {
+function saveEditData(obj, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
+  var lock = LockService.getScriptLock();
+  lock.tryLock(30000);
+  try {
   var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
@@ -4170,6 +4195,9 @@ function saveEditData(obj, companySsId) {
   }
   delaySyncSummary_(obj.id);
   try { applyHolidayRowColors_(); } catch(e) {}
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 
@@ -4511,25 +4539,33 @@ function getAdminDataUrl_(sheet, rowNum) {
 //  8-6c: 端末ファイル追加（appendTerminalFile）  【大A / 中8 / 小8-6c】
 //  ファイルをDriveに保存しcol25のリッチテキストURLに追記する
 // ================================================================
-function appendTerminalFile(id, fileName, base64Data, mimeType) {
-  var folder  = getOrCreateFolder_('端末データ');
-  var decoded = Utilities.base64Decode(base64Data);
-  var blob    = Utilities.newBlob(decoded, mimeType, fileName);
-  var file    = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  var url   = file.getUrl();
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
-  if (!sheet) return;
-  var all = sheet.getDataRange().getValues();
-  for (var i = 1; i < all.length; i++) {
-    if (String(all[i][0]||'').trim() === String(id).trim()) {
-      var urls = getTerminalUrls_(sheet, i + 1);
-      urls.push(url);
-      setTerminalUrls_(sheet, i + 1, urls);
-      break;
+function appendTerminalFile(id, fileName, base64Data, mimeType, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
+  var lock = LockService.getScriptLock();
+  lock.tryLock(30000);
+  try {
+    var folder  = getOrCreateFolder_('端末データ');
+    var decoded = Utilities.base64Decode(base64Data);
+    var blob    = Utilities.newBlob(decoded, mimeType, fileName);
+    var file    = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var url   = file.getUrl();
+    var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('運行');
+    if (!sheet) return { ok: false };
+    var all = sheet.getDataRange().getValues();
+    for (var i = 1; i < all.length; i++) {
+      if (String(all[i][0]||'').trim() === String(id).trim()) {
+        var urls = getTerminalUrls_(sheet, i + 1);
+        urls.push(url);
+        setTerminalUrls_(sheet, i + 1, urls);
+        break;
+      }
     }
+    return { ok: true, url: url };
+  } finally {
+    lock.releaseLock();
   }
-  return { ok: true, url: url };
 }
 
 
@@ -4640,7 +4676,8 @@ function replaceTerminalFile(id, oldUrl, fileName, base64Data, mimeType) {
 //  8-7: 運行データ削除（deleteRunById）  【大A / 中8 / 小8-7】
 //  指定IDに一致する運行シートの全行を削除し集計表を同期する
 // ================================================================
-function deleteRunById(id, companySsId) {
+function deleteRunById(id, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
@@ -4839,8 +4876,9 @@ function processUploadQueue() {
 //  9-3: 端末からの連絡保存（saveTerminalNotice）  【大A / 中9 / 小9-3】
 //  指定IDの運行シートW列（23列目）にテキストを書き込む
 // ================================================================
-function saveTerminalNotice(id, text) {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+function saveTerminalNotice(id, text, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
+  var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
   var all = sheet.getDataRange().getValues();
@@ -4877,6 +4915,7 @@ function uploadTerminalFile(id, fileName, base64Data, mimeType) {
 //  返却値：{ id, date, notice, dataUrls[], dataUrl } の配列（最新順・最大20件）
 // ================================================================
 function getMyNotices(companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   var savedEmail = email || '';
   if (!savedEmail) return [];
   var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
@@ -4924,7 +4963,8 @@ function getMyNotices(companySsId, email) {
 //  指定IDの全行程と進捗状態を返す
 //  progress: pick / restStart / restEnd / drop / complete
 // ================================================================
-function getRoutesById(id, companySsId) {
+function getRoutesById(id, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return { routes:[], progress:'', firstGap:null };
@@ -4976,7 +5016,8 @@ function getRoutesById(id, companySsId) {
 //  10-2b: 行番号指定で連絡事項取得（getNoticeByRow）  【大A / 中10 / 小10-2b】
 //  誘導画面に管理側の連絡事項・データURLを表示するために使う
 // ================================================================
-function getNoticeByRow(id, companySsId) {
+function getNoticeByRow(id, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet || !id) return { notice:'', dataUrls:[], dataUrl:'' };
@@ -5694,38 +5735,38 @@ function getClientStubSource_() {
     "function setRecalcChoice(a){return UnkouLib.setRecalcChoice(a);}",
     "function syncToAllClientSS(){return UnkouLib.syncToAllClientSS();}",
     "function storeCompanySsId(a){return UnkouLib.storeCompanySsId(a);}",
-    "function getInitialData(){return UnkouLib.getInitialData();}",
-    "function linkAddress(a){return UnkouLib.linkAddress(a);}",
-    "function unlinkAddress(){return UnkouLib.unlinkAddress();}",
-    "function saveRunState(a){return UnkouLib.saveRunState(a);}",
+    "function getInitialData(a,b){return UnkouLib.getInitialData(a,b);}",
+    "function linkAddress(a,b){return UnkouLib.linkAddress(a,b);}",
+    "function unlinkAddress(a){return UnkouLib.unlinkAddress(a);}",
+    "function saveRunState(a,b,c){return UnkouLib.saveRunState(a,b,c);}",
     "function loadRunState(){return UnkouLib.loadRunState();}",
-    "function clearRunState(){return UnkouLib.clearRunState();}",
+    "function clearRunState(a,b){return UnkouLib.clearRunState(a,b);}",
     "function getTodayRoutes(){return UnkouLib.getTodayRoutes();}",
     "function createParentRows(a,b,c,d,e,f){return UnkouLib.createParentRows(a,b,c,d,e,f);}",
     "function setPickComplete(a,b,c){return UnkouLib.setPickComplete(a,b,c);}",
     "function setRest(a,b,c,d){return UnkouLib.setRest(a,b,c,d);}",
     "function setDropComplete(a,b,c){return UnkouLib.setDropComplete(a,b,c);}",
     "function updateRouteData(a,b,c,d){return UnkouLib.updateRouteData(a,b,c,d);}",
-    "function deleteRunRows(a,b){return UnkouLib.deleteRunRows(a,b);}",
-    "function clearTimeCell(a,b,c){return UnkouLib.clearTimeCell(a,b,c);}",
-    "function getListData(a,b){return UnkouLib.getListData(a,b);}",
-    "function getEditData(a,b){return UnkouLib.getEditData(a,b);}",
-    "function saveEditData(a,b){return UnkouLib.saveEditData(a,b);}",
-    "function appendTerminalFile(a,b,c,d){return UnkouLib.appendTerminalFile(a,b,c,d);}",
-    "function deleteRunById(a,b){return UnkouLib.deleteRunById(a,b);}",
+    "function deleteRunRows(a,b,c){return UnkouLib.deleteRunRows(a,b,c);}",
+    "function clearTimeCell(a,b,c,d,e){return UnkouLib.clearTimeCell(a,b,c,d,e);}",
+    "function getListData(a,b,c,d){return UnkouLib.getListData(a,b,c,d);}",
+    "function getEditData(a,b,c){return UnkouLib.getEditData(a,b,c);}",
+    "function saveEditData(a,b,c){return UnkouLib.saveEditData(a,b,c);}",
+    "function appendTerminalFile(a,b,c,d,e,f){return UnkouLib.appendTerminalFile(a,b,c,d,e,f);}",
+    "function deleteRunById(a,b,c){return UnkouLib.deleteRunById(a,b,c);}",
     "function saveNotice(a,b,c){return UnkouLib.saveNotice(a,b,c);}",
     "function uploadFileToRow(a,b,c,d){return UnkouLib.uploadFileToRow(a,b,c,d);}",
-    "function saveTerminalNotice(a,b,c){return UnkouLib.saveTerminalNotice(a,b,c);}",
+    "function saveTerminalNotice(a,b,c,d){return UnkouLib.saveTerminalNotice(a,b,c,d);}",
     "function uploadTerminalFile(a,b,c,d){return UnkouLib.uploadTerminalFile(a,b,c,d);}",
-    "function getMyNotices(a){return UnkouLib.getMyNotices(a);}",
-    "function getRoutesById(a,b){return UnkouLib.getRoutesById(a,b);}",
-    "function getNoticeByRow(a,b){return UnkouLib.getNoticeByRow(a,b);}",
+    "function getMyNotices(a,b){return UnkouLib.getMyNotices(a,b);}",
+    "function getRoutesById(a,b,c){return UnkouLib.getRoutesById(a,b,c);}",
+    "function getNoticeByRow(a,b,c){return UnkouLib.getNoticeByRow(a,b,c);}",
     "function markAsRead(a,b){return UnkouLib.markAsRead(a,b);}",
     "function getReadNotices(a){return UnkouLib.getReadNotices(a);}",
     "function agreeContract(a,b,c,d){return UnkouLib.agreeContract(a,b,c,d);}",
     "function queueFileUpload(a,b,c,d){return UnkouLib.queueFileUpload(a,b,c,d);}",
-    "function recordAction(a,b,c,d,e){return UnkouLib.recordAction(a,b,c,d,e);}",
-    "function clearInspTime(a,b,c){return UnkouLib.clearInspTime(a,b,c);}",
+    "function recordAction(a,b,c,d,e,f){return UnkouLib.recordAction(a,b,c,d,e,f);}",
+    "function clearInspTime(a,b,c,d){return UnkouLib.clearInspTime(a,b,c,d);}",
     "function showInvoiceDialog(){return UnkouLib.showInvoiceDialog();}",
     "function generateInvoiceSheet(a,b,c,d){return UnkouLib.generateInvoiceSheet(a,b,c,d);}",
     "function showPaymentDialog(){return UnkouLib.showPaymentDialog();}",
