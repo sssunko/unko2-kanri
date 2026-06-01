@@ -60,7 +60,7 @@ function unlinkAddress(a)                 { return UnkouLib.unlinkAddress(a); }
 function saveRunState(a,b,c)              { return UnkouLib.saveRunState(a,b,c); }
 function loadRunState()                   { return UnkouLib.loadRunState(); }
 function clearRunState(a,b)               { return UnkouLib.clearRunState(a,b); }
-function getTodayRoutes()                 { return UnkouLib.getTodayRoutes(); }
+function getTodayRoutes(a,b)              { return UnkouLib.getTodayRoutes(a,b); }
 function createParentRows(a,b,c,d,e,f)   { return UnkouLib.createParentRows(a,b,c,d,e,f); }
 function setPickComplete(a,b,c)           { return UnkouLib.setPickComplete(a,b,c); }
 function setRest(a,b,c,d)                { return UnkouLib.setRest(a,b,c,d); }
