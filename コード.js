@@ -732,6 +732,13 @@ function onOpen() {
     .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
     .addItem('📖 使い方シート作成', 'createUsageSheet')
     .addSeparator()
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('📥 データ読み込み（CSV）')
+      .addItem('運行シート', 'showCsvImportDialogUnkou')
+      .addItem('自車専属マスタ', 'showCsvImportDialogMaster')
+      .addItem('マスタ（取引先）', 'showCsvImportDialogCust')
+      .addSeparator()
+      .addItem('🗑 空インポート行を削除', 'deleteBlankImportRows'))
+    .addSeparator()
     .addItem('シート保護設定', 'setupSheetProtection')
     .addSeparator()
     .addItem('🔧 初期設定', 'installTriggers')
@@ -2175,19 +2182,34 @@ function ensureSettingItems_(ss) {
   if (aCol === -1) { aCol = lastCol; settingSheet.getRange(1, aCol + 1).setValue('業務後点検'); }
   var sLastRow = settingSheet.getLastRow();
   var existB = sLastRow >= 2 ? settingSheet.getRange(2, bCol + 1, sLastRow - 1, 1).getValues().map(function(r){ return String(r[0]||'').trim(); }).filter(function(v){ return v; }) : [];
+
   if (existB.length === 0) {
     var defaultBefore = [
-      'ブレーキの効き・燃料残量の確認', 'タイヤの空気圧', 'エンジンオイル',
-      '冷却水量', 'バッテリー液量', 'ウォッシャー液量', '灯火類（ランプ）の点灯・点滅',
-      'ワイパーの拭き取り状態', '後写鏡の調整', 'シートベルト装着確認', '点呼の実施確認'
+      'ブレーキの効き・踏みしろ（エア・液漏れ含む）',
+      'タイヤの空気圧・溝の深さ・亀裂や損傷',
+      'ホイールナットの緩み・脱落の確認',
+      'エンジンオイル・冷却水・ベルト類の確認',
+      'バッテリー液・ウォッシャー液の確認',
+      '灯火類（ランプ・ウィンカー）の点灯・汚れ',
+      'ワイパーの動作・払拭状態',
+      'エンジンのかかり具合・異音の確認',
+      'ミラーの調整・シートベルトの装着',
+      '乗務前点呼・アルコールチェックの実施'
     ];
     for (var di = 0; di < defaultBefore.length; di++) {
       settingSheet.getRange(di + 2, bCol + 1).setValue(defaultBefore[di]);
     }
   }
   var existA = sLastRow >= 2 ? settingSheet.getRange(2, aCol + 1, sLastRow - 1, 1).getValues().map(function(r){ return String(r[0]||'').trim(); }).filter(function(v){ return v; }) : [];
+
   if (existA.length === 0) {
-    var defaultAfter = ['車体・タイヤの異常確認', '事故・ヒヤリハットの有無', '運行記録の確認'];
+    var defaultAfter = [
+      '車両・積載物の異常の有無（タイヤ・車体等）',
+      '事故・ヒヤリハットの有無',
+      '道路状況・運行状況の異常の有無',
+      '翌乗務員への引き継ぎ事項の有無',
+      '運行記録（日報）の提出・乗務後点呼の実施'
+    ];
     for (var dj = 0; dj < defaultAfter.length; dj++) {
       settingSheet.getRange(dj + 2, aCol + 1).setValue(defaultAfter[dj]);
     }
@@ -5905,31 +5927,31 @@ function initClientSSSheets_(ss, companyName) {
   ]]);
 
   settingSheet.getRange(2, 1, 25, 6).setValues([
-    ['1t',  6.5, '有休', 8000, 'ブレーキの効き！燃料残量の確認', '車体・タイヤの異常確認'],
-    ['2t',  6.5, '',    '',   'タイヤの空気圧',                '車体・タイヤの異常確認'],
-    ['3t',  4.5, '',    '',   'エンジンオイル！',              '事故・ヒヤリハットの有無'],
-    ['4t',  4.5, '',    '',   '冷却水量',                     '運行記録の確認'],
-    ['5t',  3.5, '',    '',   'バッテリー液量',                ''],
-    ['6t',  3.5, '',    '',   'ウォッシャー液量',              ''],
-    ['7t',  3.5, '',    '',   '灯火類（ランプ）の点灯・点滅',  ''],
-    ['8t',  3.5, '',    '',   'ワイパーの拭き取り状態',        ''],
-    ['9t',  2.5, '',    '',   '後写鏡の調整',                  ''],
-    ['10t', 2.5, '',    '',   'シートベルト装着確認',           ''],
-    ['11t', 2.5, '',    '',   '点呼の実施確認',                ''],
-    ['12t', 2.5, '',    '',   '',                              ''],
-    ['13t', 2.5, '',    '',   '',                              ''],
-    ['14t', 2.5, '',    '',   '',                              ''],
-    ['15t', 2.5, '',    '',   '',                              ''],
-    ['16t', 2.5, '',    '',   '',                              ''],
-    ['17t', 2.5, '',    '',   '',                              ''],
-    ['18t', 2.5, '',    '',   '',                              ''],
-    ['19t', 2.5, '',    '',   '',                              ''],
-    ['20t', 2.5, '',    '',   '',                              ''],
-    ['21t', 2.5, '',    '',   '',                              ''],
-    ['22t', 2.5, '',    '',   '',                              ''],
-    ['23t', 2.5, '',    '',   '',                              ''],
-    ['24t', 2.5, '',    '',   '',                              ''],
-    ['25t', 2.5, '',    '',   '',                              '']
+    ['1t',  6.5, '有休', 8000, 'ブレーキの効き・踏みしろ（エア・液漏れ含む）', '車両・積載物の異常の有無（タイヤ・車体等）'],
+    ['2t',  6.5, '',    '',   'タイヤの空気圧・溝の深さ・亀裂や損傷',         '事故・ヒヤリハットの有無'],
+    ['3t',  4.5, '',    '',   'ホイールナットの緩み・脱落の確認',             '道路状況・運行状況の異常の有無'],
+    ['4t',  4.5, '',    '',   'エンジンオイル・冷却水・ベルト類の確認',       '翌乗務員への引き継ぎ事項の有無'],
+    ['5t',  3.5, '',    '',   'バッテリー液・ウォッシャー液の確認',           '運行記録（日報）の提出・乗務後点呼の実施'],
+    ['6t',  3.5, '',    '',   '灯火類（ランプ・ウィンカー）の点灯・汚れ',     ''],
+    ['7t',  3.5, '',    '',   'ワイパーの動作・払拭状態',                     ''],
+    ['8t',  3.5, '',    '',   'エンジンのかかり具合・異音の確認',             ''],
+    ['9t',  2.5, '',    '',   'ミラーの調整・シートベルトの装着',             ''],
+    ['10t', 2.5, '',    '',   '乗務前点呼・アルコールチェックの実施',         ''],
+    ['11t', 2.5, '',    '',   '',                                             ''],
+    ['12t', 2.5, '',    '',   '',                                             ''],
+    ['13t', 2.5, '',    '',   '',                                             ''],
+    ['14t', 2.5, '',    '',   '',                                             ''],
+    ['15t', 2.5, '',    '',   '',                                             ''],
+    ['16t', 2.5, '',    '',   '',                                             ''],
+    ['17t', 2.5, '',    '',   '',                                             ''],
+    ['18t', 2.5, '',    '',   '',                                             ''],
+    ['19t', 2.5, '',    '',   '',                                             ''],
+    ['20t', 2.5, '',    '',   '',                                             ''],
+    ['21t', 2.5, '',    '',   '',                                             ''],
+    ['22t', 2.5, '',    '',   '',                                             ''],
+    ['23t', 2.5, '',    '',   '',                                             ''],
+    ['24t', 2.5, '',    '',   '',                                             ''],
+    ['25t', 2.5, '',    '',   '',                                             '']
   ]);
 
   // __COMPANY_SS__ マーカー（非表示）→ onOpen で客用メニュー表示のトリガー
@@ -7146,4 +7168,428 @@ function syncToAllClientSS() {
 function checkScopeAuth() {
   var token = ScriptApp.getOAuthToken();
   Logger.log('スコープ承認OK: ' + token.substring(0, 20) + '...');
+}
+
+
+// ================================================================
+// ■ グループ13：CSV・Excelデータ一括読込
+// ================================================================
+//
+//   13-1  : showCsvImportDialogUnkou()
+//             運行シート用の一括読込ダイアログを開く（メニュー項目）
+//   13-1b : showCsvImportDialogMaster()
+//             自車専属マスタ用の一括読込ダイアログを開く
+//   13-1c : showCsvImportDialogCust()
+//             マスタ（取引先）用の一括読込ダイアログを開く
+//   13-2  : showCsvImportDialog_(sheetType)
+//             種別を受け取りcsvImport.htmlをモーダルで表示する共通処理
+//             現在のSSのIDをテンプレートに埋め込み誤SS登録を防止する
+//   13-3  : getImportDictionary(sheetType, companySsId)
+//             設定シートH列の辞書データを読み込んで返す（HTML→GAS API）
+//             辞書未作成なら initImportDictionary_ でデフォルトを自動生成する
+//   13-4  : importBulkRows(sheetType, mappedRows, companySsId)
+//             マッピング済み行データを対象シートに一括登録する（HTML→GAS API）
+//             IDはすべてシステム採番（V-/S-/M-）、LockServiceで排他制御
+//   13-5  : buildSheetRow_(sheetType, id, fieldMap, ss)
+//             fieldIdマップから各シートの列構成に合わせた配列を返す内部補助
+//             運行シートは車番/乗務員名で自車専属マスタを引いて区分等を自動補完
+//   13-6  : initImportDictionary_(ss)
+//             設定シートH列に辞書ヘッダーとデフォルトエントリを自動生成する
+//             H1が既に「【辞書】種別」なら即返却（2重初期化防止）
+//   13-7  : parseImportDate_(v)
+//             SheetJSシリアル値・ISO文字列・Dateを受け取りDate型に変換する補助
+//   13-8  : toImportNum_(v)
+//             インポート値を数値変換。空・変換不可は空文字を返す補助
+//
+// ================================================================
+
+
+// ================================================================
+//  13-1: CSV/Excel一括読込ダイアログ表示（運行）  【大C / 中13 / 小13-1】
+// ================================================================
+function showCsvImportDialogUnkou() { showCsvImportDialog_('unkou'); }
+
+
+// ================================================================
+//  13-1b: CSV/Excel一括読込ダイアログ表示（自車専属マスタ）  【大C / 中13 / 小13-1b】
+// ================================================================
+function showCsvImportDialogMaster() { showCsvImportDialog_('master'); }
+
+
+// ================================================================
+//  13-1c: CSV/Excel一括読込ダイアログ表示（マスタ取引先）  【大C / 中13 / 小13-1c】
+// ================================================================
+function showCsvImportDialogCust() { showCsvImportDialog_('cust'); }
+
+
+// ================================================================
+//  13-2: インポートダイアログ共通表示（showCsvImportDialog_）  【大C / 中13 / 小13-2】
+//  sheetTypeを受け取りcsvImport.htmlをモーダルダイアログとして表示する
+//  現在のSSのIDをテンプレートに渡してサーバー側が正しいSSを開けるようにする
+// ================================================================
+function showCsvImportDialog_(sheetType) {
+  var titles = { unkou: '運行シート', master: '自車専属マスタ', cust: 'マスタ（取引先）' };
+  var title  = '📥 データ読み込み ─ ' + (titles[sheetType] || sheetType);
+  var tmpl   = HtmlService.createTemplateFromFile('csvImport');
+  tmpl.sheetType    = sheetType;
+  tmpl.currentSsId  = SpreadsheetApp.getActiveSpreadsheet().getId();
+  var html = tmpl.evaluate().setWidth(880).setHeight(640);
+  SpreadsheetApp.getUi().showModalDialog(html, title);
+}
+
+
+// ================================================================
+//  13-3: 辞書データ取得（getImportDictionary）  【大A / 中13 / 小13-3】
+//  設定シートH〜K列に保存された辞書を返す（HTML側 google.script.run から呼ぶ）
+//  辞書が未作成なら initImportDictionary_ でデフォルトエントリを自動生成する
+// ================================================================
+function getImportDictionary(sheetType, companySsId) {
+  var ss = getTargetSS_(companySsId);
+  initImportDictionary_(ss);
+  var setting = ss.getSheetByName('設定');
+  if (!setting) return [];
+  var lr = setting.getLastRow();
+  var lc = setting.getLastColumn();
+  if (lr < 2 || lc < 8) return [];
+  var numCols = Math.max(lc - 7, 4);
+  var rows    = setting.getRange(2, 8, lr - 1, numCols).getValues();
+  var result  = [];
+  for (var i = 0; i < rows.length; i++) {
+    var type     = String(rows[i][0] || '').trim();
+    if (type !== sheetType) continue;
+    var fieldId  = String(rows[i][1] || '').trim();
+    var dispName = String(rows[i][2] || '').trim();
+    var aliasStr = String(rows[i][3] || '').trim();
+    if (!fieldId) continue;
+    var aliases = aliasStr
+      ? aliasStr.split(',').map(function(a) { return a.trim(); }).filter(Boolean)
+      : [];
+    result.push({ fieldId: fieldId, dispName: dispName, aliases: aliases });
+  }
+  return result;
+}
+
+
+// ================================================================
+//  13-4: データ一括登録（importBulkRows）  【大A / 中13 / 小13-4】
+//  HTMLから受け取ったマッピング済み行データを対象シートに一括登録する
+//  IDはすべてシステム採番（V-/S-/M-）、LockServiceで排他制御して重複防止
+//  重複判定なし：運送業の2回戦（同人同所）を正しく扱うためすべて新規追加
+// ================================================================
+function importBulkRows(sheetType, mappedRows, companySsId) {
+  if (!mappedRows || mappedRows.length === 0) return { ok: 0 };
+  var ss         = getTargetSS_(companySsId);
+  var sheetNames = { unkou: '運行', master: '自車専属マスタ', cust: 'マスタ' };
+  var prefixes   = { unkou: 'V',   master: 'S',              cust: 'M'    };
+  var sheetName  = sheetNames[sheetType];
+  var prefix     = prefixes[sheetType];
+  if (!sheetName) throw new Error('不明なシート種別: ' + sheetType);
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) throw new Error(sheetName + 'シートが見つかりません');
+
+  var lock = LockService.getScriptLock();
+  try { lock.waitLock(15000); } catch(e) {
+    throw new Error('ロック取得タイムアウト。再度お試しください。');
+  }
+  try {
+    var nextNum   = getNextIdNum_(sheet, prefix);
+    var writeRows = [];
+    for (var i = 0; i < mappedRows.length; i++) {
+      var id = prefix + '-' + ('0000' + (nextNum + i)).slice(-4);
+      writeRows.push(buildSheetRow_(sheetType, id, mappedRows[i], ss));
+    }
+    var startRow = Math.max(sheet.getLastRow() + 1, 2);
+    var numCols  = writeRows[0].length;
+    sheet.getRange(startRow, 1, writeRows.length, numCols).setValues(writeRows);
+
+    if (sheetType === 'unkou') {
+      sheet.getRange(startRow, 10, writeRows.length, 1).setNumberFormat('yyyy/MM/dd');
+      applyMoneyFormat_(sheet, startRow, writeRows.length, 'unkou');
+      var formulas = [];
+      for (var r = 0; r < writeRows.length; r++) {
+        var rn = startRow + r;
+        formulas.push(['=IF(AND(U' + rn + '="",T' + rn + '=""),"",U' + rn + '-T' + rn + ')']);
+      }
+      sheet.getRange(startRow, 22, writeRows.length, 1).setFormulas(formulas);
+      // 集計表を即時同期（インポートした全IDを更新）
+      for (var i = 0; i < writeRows.length; i++) {
+        delaySyncSummary_(writeRows[i][0], ss);
+      }
+      // 支払いが含まれる場合は集計表のAA列(col27)に直接書き込む
+      var paymentMap = {};
+      for (var i = 0; i < mappedRows.length; i++) {
+        var pay = toImportNum_(mappedRows[i]['payment']);
+        if (pay !== '' && pay > 0) paymentMap[writeRows[i][0]] = pay;
+      }
+      if (Object.keys(paymentMap).length > 0) {
+        var sumSheet = ss.getSheetByName('集計表');
+        if (sumSheet && sumSheet.getLastRow() >= 2) {
+          var sumIds = sumSheet.getRange(2, 1, sumSheet.getLastRow() - 1, 1).getValues();
+          for (var si = 0; si < sumIds.length; si++) {
+            var sid = String(sumIds[si][0] || '').trim();
+            if (paymentMap[sid] !== undefined) {
+              sumSheet.getRange(si + 2, 27).setValue(paymentMap[sid]); // AA列=支払い
+            }
+          }
+        }
+      }
+    }
+    return { ok: writeRows.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+
+// ================================================================
+//  13-5: シート行データ構築（buildSheetRow_）  【大B / 中13 / 小13-5】
+//  fieldIdとその値のマップを受け取り各シートの列順に合わせた配列を返す
+//  運行シートは車番または乗務員名で自車専属マスタを検索し区分・会社名等を補完する
+// ================================================================
+function buildSheetRow_(sheetType, id, fieldMap, ss) {
+
+  if (sheetType === 'unkou') {
+    var car    = String(fieldMap['car']    || '').trim();
+    var driver = String(fieldMap['driver'] || '').trim();
+    var division = '', company = '', ton = '', carType = '', phone = '';
+    if (car || driver) {
+      var master = ss.getSheetByName('自車専属マスタ');
+      if (master && master.getLastRow() >= 2) {
+        var mData = master.getRange(2, 1, master.getLastRow() - 1, 11).getValues();
+        for (var m = 0; m < mData.length; m++) {
+          var mCar    = String(mData[m][7]  || '').trim(); // H列(8): 車番
+          var mDriver = String(mData[m][8]  || '').trim(); // I列(9): 乗務員名
+          if ((car && mCar === car) || (driver && mDriver === driver)) {
+            division = String(mData[m][2] || '');          // C列(3): 区分
+            company  = String(mData[m][3] || '');          // D列(4): 会社名
+            ton      = String(mData[m][5] || '');          // F列(6): トン数
+            carType  = String(mData[m][6] || '');          // G列(7): 車種
+            phone    = String(mData[m][9]  || '');         // J列(10): 携帯番号
+            if (!driver) driver = mDriver;
+            if (!car)    car    = mCar;
+            break;
+          }
+        }
+      }
+    }
+    var dateVal = parseImportDate_(fieldMap['date']);
+    // 運行シート 28列（unkouHeader参照）
+    return [
+      id,                                                  //  1: ID
+      division || String(fieldMap['division'] || ''),      //  2: 区分
+      company  || String(fieldMap['company']  || ''),      //  3: 会社名
+      ton      || String(fieldMap['ton']      || ''),      //  4: トン数
+      carType  || String(fieldMap['carType']  || ''),      //  5: 車種
+      car,                                                 //  6: 車番
+      driver,                                              //  7: 乗務員名
+      phone    || String(fieldMap['phone']    || ''),      //  8: 携帯番号
+      String(fieldMap['signboard'] || ''),                 //  9: 看板名
+      dateVal || '',                                       // 10: 日付
+      String(fieldMap['client']    || ''),                 // 11: 荷主
+      String(fieldMap['pickPlace'] || ''),                 // 12: 積地
+      String(fieldMap['dropPlace'] || ''),                 // 13: 降地
+      '', '', '', '', '',                                  // 14-18: 時刻（空）
+      toImportNum_(fieldMap['sales']),                     // 19: 売上
+      toImportNum_(fieldMap['tollReq']),                   // 20: 請求高速
+      toImportNum_(fieldMap['tollReal']),                  // 21: 実費高速
+      '',                                                  // 22: 合計高速（数式で後セット）
+      String(fieldMap['memo'] || ''),                      // 23: 備考
+      '', '', '', '', ''                                   // 24-28: 管理データ等（空）
+    ];
+  }
+
+  if (sheetType === 'master') {
+    // 自車専属マスタ 32列（masterHeader参照）
+    return [
+      id,                                                  //  1: 車両ID
+      '待機',                                              //  2: 運行状態（デフォルト）
+      String(fieldMap['division']  || ''),                 //  3: 区分
+      String(fieldMap['company']   || ''),                 //  4: 会社名
+      String(fieldMap['signboard'] || ''),                 //  5: 看板名
+      String(fieldMap['ton']       || ''),                 //  6: トン数
+      String(fieldMap['carType']   || ''),                 //  7: 車種
+      String(fieldMap['car']       || ''),                 //  8: 車番
+      String(fieldMap['driver']    || ''),                 //  9: 乗務員名
+      String(fieldMap['phone']     || ''),                 // 10: 携帯番号
+      String(fieldMap['email']     || ''),                 // 11: アドレス
+      String(fieldMap['fuel']      || ''),                 // 12: 燃費
+      String(fieldMap['memo']      || ''),                 // 13: 備考
+      '', '', '',                                          // 14-16: 仮日数・給料・%
+      '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '' // 17-32: 各種費用
+    ];
+  }
+
+  if (sheetType === 'cust') {
+    // マスタ（取引先）17列（custHeader参照）
+    return [
+      id,                                                  //  1: マスタID
+      String(fieldMap['company'] || ''),                   //  2: 会社名
+      String(fieldMap['tel']     || ''),                   //  3: 電話
+      String(fieldMap['fax']     || ''),                   //  4: FAX
+      String(fieldMap['zip']     || ''),                   //  5: 郵便番号
+      String(fieldMap['address'] || ''),                   //  6: 住所
+      String(fieldMap['rep']     || ''),                   //  7: 代表者
+      String(fieldMap['contact'] || ''),                   //  8: 配車担当
+      '', '', '', '', '',                                  //  9-13: 銀行等
+      String(fieldMap['memo']    || ''),                   // 14: 備考
+      '', '', ''                                           // 15-17: インボイス等
+    ];
+  }
+  return [id];
+}
+
+
+// ================================================================
+//  13-6: 辞書初期化（initImportDictionary_）  【大B / 中13 / 小13-6】
+// ================================================================
+function initImportDictionary_(ss) {
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
+  var setting = ss.getSheetByName('設定');
+  if (!setting) return;
+
+  // ★修正：列数が足りない場合は、先に列を追加してエラーを防ぐ
+  var neededCols = 11;
+  if (setting.getMaxColumns() < neededCols) {
+    setting.insertColumnsAfter(setting.getMaxColumns(), neededCols - setting.getMaxColumns());
+  }
+
+  // v3: 支払い追加のため再初期化
+  if (String(setting.getRange(1, 8).getValue()).trim() === '【辞書v3】種別') return;
+
+  var defaults = [
+    ['unkou', 'division',  '区分',          '区分,自車区分,車両区分'],
+    ['unkou', 'company',   '会社名',        '会社名,所属,協力会社,事業者名,法人名,会社'],
+    ['unkou', 'ton',       'トン数',        'トン数,t数,積載,クラス,積載量'],
+    ['unkou', 'carType',   '車種',          '車種,形状,ボディ,車体形状'],
+    ['unkou', 'car',       '車番',          '車番,号車,車両番号,車両,ナンバー,登録番号'],
+    ['unkou', 'driver',    '乗務員名',      '乗務員,ドライバー,乗務員名,運転手,氏名,担当者'],
+    ['unkou', 'phone',     '携帯番号',      '携帯番号,連絡先,電話番号,スマホ,TEL,携帯'],
+    ['unkou', 'signboard', '看板名',        '看板名,看板,取引先名,ブランド名,荷主略称'],
+    ['unkou', 'date',      '日付',          '日付,月日,運行日,配車日,作業日,納期,輸送日'],
+    ['unkou', 'client',    '荷主名',        '荷主,荷主名,依頼主,発注元,委託元'],
+    ['unkou', 'pickPlace', '積地',          '積地,発地,積込先,出発地,引取場所,メーカー,集荷先,仕入先'],
+    ['unkou', 'dropPlace', '降地',          '降地,着地,納品先,到着地,配送先,現場,納入先,配達先'],
+    ['unkou', 'sales',     '売上',          '売上,運賃,金額,請求額,単価,受注金額,請求金額,支払運賃'],
+    ['unkou', 'tollReq',   '請求高速',      '請求高速,請求高速代,高速請求,高速代（請求）,高速請求代,請求(高速)'],
+    ['unkou', 'tollReal',  '実費高速',      '実費高速,実費高速代,高速実費,高速代（実費）,高速実費代,実費(高速)'],
+    ['unkou', 'payment',   '支払い',        '支払い,支払,支払額,給与,手取り,運転手支払'],
+    ['unkou', 'memo',      '備考',          '備考,メモ,特記,注意事項'],
+    ['master', 'company',  '会社名',        '会社名,所属,協力会社,事業者名,法人名'],
+    ['master', 'ton',      'トン数',        'トン数,t数,積載,クラス,積載量'],
+    ['master', 'carType',  '車種',          '車種,形状,ボディ,車体形状'],
+    ['master', 'car',      '車番',          '車番,登録番号,ナンバー,車両番号,プレート'],
+    ['master', 'driver',   '乗務員名',      '乗務員名,氏名,ドライバー,運転手,担当者'],
+    ['master', 'phone',    '携帯番号',      '携帯番号,連絡先,電話番号,スマホ,TEL'],
+    ['master', 'email',    'メールアドレス','メール,メールアドレス,mail,email,アドレス'],
+    ['master', 'division', '区分',          '区分,自車区分,所属区分'],
+    ['master', 'fuel',     '燃費',          '燃費,燃料消費率'],
+    ['master', 'memo',     '備考',          '備考,メモ'],
+    ['cust', 'company',    '会社名',        '会社名,荷主名,取引先,顧客名,得意先,荷主,客先'],
+    ['cust', 'tel',        '電話',          '電話,TEL,連絡先,電話番号,代表電話'],
+    ['cust', 'fax',        'FAX',           'FAX,ファックス,FAX番号'],
+    ['cust', 'zip',        '郵便番号',      '郵便番号,〒,zip'],
+    ['cust', 'address',    '住所',          '住所,所在地,住所1,本社住所,所在'],
+    ['cust', 'rep',        '代表者',        '代表者,代表,社長,責任者'],
+    ['cust', 'contact',    '配車担当',      '配車担当,担当者,担当,配車係'],
+    ['cust', 'memo',       '備考',          '備考,メモ,特記']
+  ];
+
+  var neededRows = defaults.length + 1;
+  if (setting.getMaxRows() < neededRows) {
+    setting.insertRowsAfter(setting.getMaxRows(), neededRows - setting.getMaxRows());
+  }
+  setting.getRange(1, 8, 1, 4).setValues([['【辞書v3】種別', 'フィールドID', '表示名', 'エイリアス（カンマ区切り・自由に追加可）']]);
+  setting.getRange(1, 8, 1, 4).setFontWeight('bold').setBackground('#e3f2fd');
+  setting.getRange(2, 8, defaults.length, 4).setValues(defaults);
+}
+
+
+// ================================================================
+//  13-7: インポート用日付変換（parseImportDate_）  【大B / 中13 / 小13-7】
+//  SheetJSシリアル値・ISO文字列・DateオブジェクトをDate型に変換する
+//  変換不可な値はnullを返す
+// ================================================================
+function parseImportDate_(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  var n = Number(v);
+  if (!isNaN(n) && n > 40000) {
+    return new Date(Math.round((n - 25569) * 86400 * 1000));
+  }
+  var d = new Date(String(v));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+
+// ================================================================
+//  13-8: インポート数値変換補助（toImportNum_）  【大B / 中13 / 小13-8】
+//  数値に変換できれば数値を、空・変換不可なら空文字を返す
+// ================================================================
+function toImportNum_(v) {
+  if (v === null || v === undefined || v === '') return '';
+  var n = Number(v);
+  return isNaN(n) ? '' : n;
+}
+
+
+// ================================================================
+//  13-0: 空インポート行一括削除（deleteBlankImportRows）  【大C / 中13 / 小13-0】
+//  運行シートにIDだけあって日付・車番・売上が全部空の行を削除する
+//  テスト失敗時の一括クリアに使う（メニューから実行）
+// ================================================================
+function deleteBlankImportRows() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet || sheet.getLastRow() < 2) { ss.toast('削除対象なし', '✅', 3); return; }
+  var lr   = sheet.getLastRow();
+  var data = sheet.getRange(2, 1, lr - 1, 22).getValues();
+  var dels = [];
+  for (var i = data.length - 1; i >= 0; i--) {
+    var id    = String(data[i][0]  || '').trim();
+    var car   = String(data[i][5]  || '').trim();   // F列: 車番
+    var date  = String(data[i][9]  || '').trim();   // J列: 日付
+    var pick  = String(data[i][11] || '').trim();   // L列: 積地
+    var sales = String(data[i][18] || '').trim();   // S列: 売上
+    if (/^[VSM]-\d+$/.test(id) && !car && !date && !pick && !sales) {
+      dels.push(i + 2);
+    }
+  }
+  if (dels.length === 0) { ss.toast('削除対象の空行なし', '✅', 3); return; }
+  dels.forEach(function(r) { sheet.deleteRow(r); });
+  ss.toast(dels.length + '行の空インポート行を削除しました', '🗑', 4);
+}
+
+
+// ================================================================
+//  13-9: 辞書エイリアス自動保存（saveImportAliases）  【大A / 中13 / 小13-9】
+//  手動マッピングで使われたExcel列名を設定シートの辞書に自動追記する
+//  次回インポート時に同じExcelを使うと自動マッピングされるようになる
+//  既に同じ内容（大文字小文字・空白無視）が登録済みの場合はスキップする
+// ================================================================
+function saveImportAliases(sheetType, newMappings, companySsId) {
+  if (!newMappings || newMappings.length === 0) return;
+  var ss      = getTargetSS_(companySsId);
+  var setting = ss.getSheetByName('設定');
+  if (!setting || setting.getLastRow() < 2) return;
+  var lr   = setting.getLastRow();
+  var rows = setting.getRange(2, 8, lr - 1, 4).getValues();
+  for (var m = 0; m < newMappings.length; m++) {
+    var nm       = newMappings[m];
+    var newAlias = String(nm.alias || '').trim();
+    if (!newAlias) continue;
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0] || '').trim() !== sheetType)  continue;
+      if (String(rows[i][1] || '').trim() !== nm.fieldId) continue;
+      var aliasStr = String(rows[i][3] || '').trim();
+      var aliases  = aliasStr ? aliasStr.split(',').map(function(a) { return a.trim(); }) : [];
+      var already  = aliases.some(function(a) {
+        return a.toLowerCase().replace(/\s/g, '') === newAlias.toLowerCase().replace(/\s/g, '');
+      });
+      if (!already) {
+        aliases.push(newAlias);
+        setting.getRange(i + 2, 11, 1, 1).setValue(aliases.join(','));
+      }
+      break;
+    }
+  }
 }

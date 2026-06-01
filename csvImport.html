@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>データ読み込み</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI','Meiryo',sans-serif; background:#121212; color:#e0e0e0; padding:16px; font-size:13px; }
+h2 { color:#bb86fc; margin-bottom:12px; font-size:15px; }
+.sec { background:#1e1e1e; border-radius:8px; padding:14px; margin-bottom:10px; }
+.sec-ttl { color:#bb86fc; font-weight:bold; margin-bottom:10px; font-size:13px; }
+input[type=file] { color:#e0e0e0; width:100%; padding:8px; background:#2a2a2a; border:1px solid #444; border-radius:6px; cursor:pointer; }
+.btn { padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; font-size:13px; }
+.btn-ok { background:#1565c0; color:#fff; }
+.btn-ok:hover:not(:disabled) { background:#1976d2; }
+.btn-ok:disabled { background:#333; color:#666; cursor:not-allowed; }
+.btn-ng { background:#333; color:#ccc; }
+#bar { padding:8px 12px; border-radius:6px; margin-bottom:10px; font-size:12px; display:none; }
+#bar.info { background:#1a237e; color:#90caf9; display:block; }
+#bar.error { background:#4a1010; color:#ef9a9a; display:block; }
+#bar.success { background:#1b5e20; color:#a5d6a7; display:block; }
+.hidden { display:none; }
+.sheet-btns { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.sbtn { padding:6px 14px; border:1px solid #555; border-radius:20px; background:#2a2a2a; color:#ccc; cursor:pointer; font-size:12px; }
+.sbtn.active { border-color:#bb86fc; color:#fff; background:#4a148c; font-weight:bold; }
+.map-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:10px; margin-bottom:12px; }
+.map-item { background:#2a2a2a; padding:8px 12px; border-radius:6px; border:1px solid #444; display:flex; justify-content:space-between; align-items:center; }
+.map-item label { font-weight:bold; color:#bb86fc; width:80px; flex-shrink:0; }
+.map-item select { flex-grow:1; width:100%; padding:6px; background:#121212; color:#fff; border:1px solid #555; border-radius:4px; font-size:12px; }
+.preview-wrap { max-height:300px; overflow-y:auto; border:1px solid #333; border-radius:6px; }
+table.prev { width:100%; border-collapse:collapse; font-size:11px; }
+table.prev th { background:#2a2a2a; color:#bb86fc; padding:6px; border:1px solid #444; position:sticky; top:0; white-space:nowrap; text-align:left; }
+table.prev td { padding:5px 6px; border:1px solid #2c2c2c; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+table.prev tr:nth-child(even) td { background:#1a1a1a; }
+table.prev tr.err td { background:rgba(211,47,47,0.1) !important; color:#ff5252; }
+.footer { display:flex; gap:10px; justify-content:flex-end; margin-top:12px; }
+</style>
+</head>
+<body>
+<h2>📥 データ一括読込（ライブプレビュー版） ─ <?= sheetType === 'unkou' ? '運行シート' : sheetType === 'master' ? '自車専属マスタ' : 'マスタ' ?></h2>
+<div id="bar"></div>
+
+<div class="sec" id="s1">
+  <div class="sec-ttl">① ファイルを選択</div>
+  <label for="fi" style="display:block;margin-bottom:6px;font-size:12px;color:#aaa;">Excel (.xlsx/.xls) または CSV (.csv)</label>
+  <input type="file" id="fi" accept=".xlsx,.xls,.csv">
+</div>
+
+<div class="sec hidden" id="s1b">
+  <div class="sec-ttl">② 読み込むシートを選択</div>
+  <div class="sheet-btns" id="sbArea"></div>
+</div>
+
+<div class="sec hidden" id="s2">
+  <div class="sec-ttl">③ 列の紐づけ（ズレていたら直してください）</div>
+  <p style="font-size:11px; color:#aaa; margin-bottom:10px;">※ドロップダウンを変えると、下のプレビューが即座に切り替わります。</p>
+  <div class="map-grid" id="mapGrid"></div>
+
+  <div class="sec-ttl" style="margin-top:16px;">④ プレビュー確認</div>
+  <div class="preview-wrap"><table class="prev" id="prevT"></table></div>
+  <div id="rowCnt" style="margin-top:8px; font-size:12px; color:#aaa;"></div>
+</div>
+
+<div class="footer hidden" id="ft">
+  <button type="button" class="btn btn-ng" onclick="resetAll()">やり直す</button>
+  <button type="button" class="btn btn-ok" id="btnOk" onclick="doImport()">この内容で登録</button>
+</div>
+
+<script>
+var ST = '<?= sheetType ?>';
+var SSID = '<?= currentSsId ?>';
+var wb = null, dict = [], rawJson = [], headerRow = 0, firstDataRow = 0, parsedRows = [], extractedYM = null;
+var fields = [];
+
+function bar(msg, t) { var e=document.getElementById('bar'); e.className=t||'info'; e.innerText=msg; e.style.display='block'; }
+function clrBar() { document.getElementById('bar').style.display = 'none'; }
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function nrm(s) { return String(s||'').toLowerCase().replace(/[\s　]/g,''); }
+
+// ① ファイル読込
+document.getElementById('fi').addEventListener('change', function(e) {
+  var f = e.target.files[0]; if(!f) return;
+  bar('Excelを読み込み中...','info'); hide('s1b'); hide('s2'); hide('ft');
+  var r = new FileReader();
+  r.onload = function(ev) {
+    try {
+      wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array', cellDates:false, raw:true});
+      if (wb.SheetNames.length > 1) {
+        document.getElementById('sbArea').innerHTML = wb.SheetNames.map(function(n,i) {
+          return '<button type="button" class="sbtn" onclick="selSh(\''+esc(n)+'\',this)">'+esc(n)+'</button>';
+        }).join('');
+        show('s1b'); clrBar();
+        // 数字が含まれるシート名を自動選択
+        var idx = -1;
+        wb.SheetNames.forEach(function(n,i){ if(idx<0 && /[0-9]/.test(n)) idx=i; });
+        document.querySelectorAll('.sbtn')[idx>=0?idx:0].click();
+      } else {
+        selSh(wb.SheetNames[0], null);
+      }
+    } catch(err) { bar('読込エラー: '+err.message, 'error'); }
+  };
+  r.onerror = function(){ bar('ファイル読み込み失敗', 'error'); };
+  r.readAsArrayBuffer(f);
+});
+
+// ② シート選択
+function selSh(name, btn) {
+  if (btn) { document.querySelectorAll('.sbtn').forEach(function(b){b.classList.remove('active');}); btn.classList.add('active'); }
+  try {
+    var ws = wb.Sheets[name];
+    rawJson = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+  } catch(err) { bar('シート解析エラー: '+err.message, 'error'); return; }
+  if (rawJson.length < 2) { bar('データが空です', 'error'); return; }
+
+  extractedYM = findYM(rawJson, name);
+  headerRow   = findHeaderRow(rawJson);
+  firstDataRow = headerRow + 1;
+  while(firstDataRow < rawJson.length && !rawJson[firstDataRow].some(function(c){return String(c).trim();})) firstDataRow++;
+
+  bar('辞書と照合中...','info');
+  google.script.run
+    .withSuccessHandler(function(d){ dict = d||[]; buildMappingUI(); })
+    .withFailureHandler(function(e){ bar('辞書取得エラー: '+e.message, 'error'); })
+    .getImportDictionary(ST, SSID);
+}
+
+// ヘッダー行を特定（最もセル数が多い行）
+function findHeaderRow(json) {
+  var best = 0, max = 0;
+  for(var i=0; i<Math.min(10, json.length); i++) {
+    var c = json[i].filter(function(x){return String(x).trim();}).length;
+    if(c > max) { max = c; best = i; }
+  }
+  return best;
+}
+
+// シート名や上部から年月・日を抽出
+function findYM(json, shName) {
+  var res = { y: new Date().getFullYear(), m: new Date().getMonth()+1, d: '' };
+
+  // シート名から日を抽出（例: "27日", "5"）
+  var dMatch = shName.match(/^(\d+)日?$/);
+  if (dMatch) res.d = parseInt(dMatch[1], 10);
+
+  var txts = [shName];
+  for(var i=0; i<Math.min(5, json.length); i++) {
+    (json[i]||[]).forEach(function(x){ txts.push(String(x||'')); });
+  }
+  for(var ti=0; ti<txts.length; ti++) {
+    var s = txts[ti];
+    var m1 = s.match(/令和\s*(\d+)\s*年\s*(\d+)\s*月/);
+    if(m1){ res.y=2018+parseInt(m1[1]); res.m=parseInt(m1[2]); break; }
+    var m2 = s.match(/(20\d\d)\s*年\s*(\d+)\s*月/);
+    if(m2){ res.y=parseInt(m2[1]); res.m=parseInt(m2[2]); break; }
+    var m3 = s.match(/(20\d\d)[\/\-](\d{1,2})/);
+    if(m3){ res.y=parseInt(m3[1]); res.m=parseInt(m3[2]); break; }
+  }
+  return res;
+}
+
+// ③ マッピングUI構築
+function buildMappingUI() {
+  // 運行シート列順 + 支払い（集計表に直接書き込み）
+  var priority = ['division','company','ton','carType','car','driver','phone','signboard','date','client','pickPlace','dropPlace','sales','tollReq','tollReal','payment'];
+  fields = priority.map(function(fid){ return dict.find(function(e){return e.fieldId===fid;}); }).filter(Boolean);
+  dict.forEach(function(e){ if(priority.indexOf(e.fieldId)<0) fields.push(e); });
+
+  var hdrs      = rawJson[headerRow] || [];
+  var firstData = rawJson[firstDataRow] || [];
+
+  var colOptions = '<option value="-1">-- 選択しない --</option><option value="AUTO">💡 シート上部から自動抽出</option>';
+  for(var c=0; c<Math.max(hdrs.length, firstData.length); c++) {
+    var letter = c < 26 ? String.fromCharCode(65+c) : String.fromCharCode(64+Math.floor(c/26))+String.fromCharCode(65+(c%26));
+    var hText  = String(hdrs[c]||'').replace(/\n/g,' ').substring(0,15);
+    var dText  = String(firstData[c]||'').replace(/\n/g,' ').substring(0,12);
+    var label  = '列'+letter+(hText?' ['+hText+']':'')+(dText?' 例:'+dText:'');
+    colOptions += '<option value="'+c+'">'+esc(label)+'</option>';
+  }
+
+  // デフォルト値を計算する関数
+  function getDefVal(fid) {
+    var dv = '-1';
+    var dEntry = dict.find(function(e){return e.fieldId===fid;});
+    if(dEntry) {
+      for(var c=0; c<hdrs.length; c++) {
+        var hn = nrm(hdrs[c]);
+        if(hn && dEntry.aliases.some(function(a){ return nrm(a)===hn || (nrm(a).length>1 && hn.indexOf(nrm(a))!==-1); })) {
+          dv = c; break;
+        }
+      }
+    }
+    if(fid==='pickPlace' && dv==='-1') {
+      for(var c=0; c<firstData.length; c++) { if(/[〜～]/.test(String(firstData[c]||''))){ dv=c; break; } }
+    }
+    if(fid==='dropPlace' && dv==='-1') {
+      for(var c=0; c<firstData.length; c++) { if(/[〜～]/.test(String(firstData[c]||''))){ dv=c; break; } }
+    }
+    if((fid==='date'||fid==='car'||fid==='driver') && dv==='-1') dv='AUTO';
+    return dv;
+  }
+
+  var html = '';
+  fields.forEach(function(f) {
+    html += '<div class="map-item"><label>'+esc(f.dispName)+'</label>'
+          + '<select id="sel_'+f.fieldId+'" onchange="updatePreview()">'+colOptions+'</select></div>';
+  });
+  document.getElementById('mapGrid').innerHTML = html;
+
+  // まずデフォルト値をセット
+  fields.forEach(function(f){
+    var sel = document.getElementById('sel_'+f.fieldId);
+    var dv  = getDefVal(f.fieldId);
+    var exists = Array.from(sel.options).some(function(o){return o.value==String(dv);});
+    sel.value = exists ? String(dv) : '-1';
+  });
+
+  // 前回の設定があれば上書き復元（同じ列構成なら自動反映）
+  var saved = loadSavedMapping();
+  if(saved) {
+    fields.forEach(function(f){
+      if(saved[f.fieldId] === undefined) return;
+      var sel = document.getElementById('sel_'+f.fieldId);
+      var exists = Array.from(sel.options).some(function(o){return o.value==String(saved[f.fieldId]);});
+      if(exists) sel.value = String(saved[f.fieldId]);
+    });
+  }
+
+  show('s2'); show('ft'); clrBar();
+  updatePreview();
+}
+
+// ── マッピング保存・復元（localStorage）──────────────
+function getMappingKey() {
+  // ヘッダー行の最初の8列（正規化済み）をキーにする
+  var hdrs = (rawJson[headerRow]||[]).filter(function(h){return String(h).trim();})
+             .slice(0, 8).map(nrm).join(',');
+  return 'importMap_' + ST + '_' + hdrs;
+}
+function saveMappingToLocal() {
+  try {
+    var key = getMappingKey();
+    var map = {};
+    fields.forEach(function(f){ map[f.fieldId] = document.getElementById('sel_'+f.fieldId).value; });
+    localStorage.setItem(key, JSON.stringify(map));
+  } catch(e) {}
+}
+function loadSavedMapping() {
+  try {
+    var saved = localStorage.getItem(getMappingKey());
+    return saved ? JSON.parse(saved) : null;
+  } catch(e) { return null; }
+}
+
+// ④ プレビューのリアルタイム更新
+function updatePreview() {
+  var map = {};
+  fields.forEach(function(f){ map[f.fieldId] = document.getElementById('sel_'+f.fieldId).value; });
+
+  // AUTOコンテキスト（ヘッダー上部から抽出）
+  var autoCtx = { date: '', car: '', driver: '' };
+  if(extractedYM) {
+    autoCtx.date = extractedYM.d ? extractedYM.y+'/'+extractedYM.m+'/'+extractedYM.d
+                                 : extractedYM.y+'/'+extractedYM.m+'/';
+  }
+  for(var i=0; i<headerRow; i++) {
+    (rawJson[i]||[]).forEach(function(c){
+      var s=String(c||'');
+      var md=s.match(/(?:氏名|ドライバー|乗務員)\s*[：:]?\s*([^\s,，]{2,})/); if(md) autoCtx.driver=md[1].replace(/様|殿/g,'').trim();
+      var mc=s.match(/(?:車番|車両|号車)\s*[：:]?\s*([^\s,，]{2,})/);       if(mc) autoCtx.car=mc[1].trim();
+    });
+  }
+
+  parsedRows = [];
+  var errCount = 0, skipCount = 0;
+
+  for(var ri=firstDataRow; ri<rawJson.length; ri++) {
+    var row = rawJson[ri]||[];
+    if(!row.some(function(c){return String(c).trim();})) continue;
+
+    var obj = {};
+    fields.forEach(function(f){
+      var v = map[f.fieldId];
+      if(v==='AUTO')    obj[f.fieldId] = autoCtx[f.fieldId]||'';
+      else if(v!=='-1') obj[f.fieldId] = String(row[parseInt(v)]!==undefined?row[parseInt(v)]:'').trim();
+      else              obj[f.fieldId] = '';
+    });
+
+    // 日付処理（数字 → 年月/日 補完）
+    if(map.date!=='AUTO' && obj.date) {
+      var dStr  = obj.date.split('(')[0].split('（')[0].trim();
+      var pureN = parseInt(dStr.replace(/[^0-9]/g,''), 10);
+      if(!isNaN(pureN) && pureN>=1 && pureN<=31 && dStr.indexOf('/')<0 && dStr.indexOf('-')<0 && extractedYM) {
+        obj.date = extractedYM.y+'/'+extractedYM.m+'/'+pureN;
+      } else {
+        obj.date = dStr;
+      }
+    }
+
+    // テキスト項目の「0」を空欄扱い
+    ['driver','car','pickPlace','dropPlace','client','division','carType','ton','phone','memo'].forEach(function(fid){
+      if(obj[fid]==='0' || obj[fid]===0) obj[fid]='';
+    });
+
+    // 「13w」「１３Ｗ」→ トン数=13t / 車種=W に自動分割（全角→半角変換込み）
+    function normHalf(s) {
+      return String(s||'').replace(/[！-～]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); });
+    }
+    var tonRaw  = normHalf(obj.ton  || '');
+    var typeRaw = normHalf(obj.carType || '');
+    var tcSrc   = tonRaw || typeRaw;
+    if(tcSrc) {
+      var tcm = tcSrc.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]*)/i);
+      if(tcm) {
+        if(obj.ton     !== undefined) obj.ton     = tcm[1] ? tcm[1]+'t' : '';
+        if(obj.carType !== undefined) obj.carType = tcm[2] ? tcm[2].toUpperCase() : '';
+      }
+    }
+
+    // 積地・降地が同じ列なら「〜」で分割
+    if(map.pickPlace===map.dropPlace && map.pickPlace!=='-1' && map.pickPlace!=='AUTO') {
+      var rv  = String(row[parseInt(map.pickPlace)]||'').trim();
+      var pts = rv.split(/\s*[〜～]\s*/);
+      if(pts.length>=2) { obj.pickPlace=pts[0].trim(); obj.dropPlace=pts.slice(1).join('〜').trim(); }
+    } else if(obj.pickPlace && /[〜～]/.test(obj.pickPlace)) {
+      var pts2=obj.pickPlace.split(/\s*[〜～]\s*/);
+      obj.pickPlace=pts2[0].trim();
+      if(!obj.dropPlace) obj.dropPlace=pts2.slice(1).join('〜').trim();
+    }
+
+    var hasSales = parseFloat((obj.sales||'').replace(/,/g,''))>0;
+
+    // 全フィールドを結合して合計・利益・小計などのラベル行をスキップ
+    var allStr = fields.map(function(f){return String(obj[f.fieldId]||'');}).join(' ');
+    if(/合計|利益|小計|合\s*計|総計|経費/.test(allStr) && !obj.pickPlace && !obj.dropPlace) { skipCount++; continue; }
+
+    // 積地・降地・売上が全て空の行は意味なし→スキップ（乗務員名があっても除外）
+    var hasRoute = obj.pickPlace || obj.dropPlace;
+    if(!hasRoute && !hasSales) { skipCount++; continue; }
+
+    if(/休み|有休|休暇|公休/.test(obj.pickPlace)&&!hasSales){ skipCount++; continue; }
+    if(!obj.date&&!hasRoute&&!hasSales) continue;
+
+    if(obj.date && obj.date.indexOf('?')<0) {
+      var pd=new Date(obj.date); if(isNaN(pd.getTime())){ obj._err=true; errCount++; }
+    }
+    parsedRows.push(obj);
+  }
+
+  var showFids = fields.map(function(f){return f.fieldId;}).filter(function(f){return f!=='memo'&&f!=='tollReal';});
+  var thead='<tr><th>#</th>'+showFids.map(function(f){
+    var en=fields.find(function(x){return x.fieldId===f;});
+    return '<th>'+(en?esc(en.dispName):f)+'</th>';
+  }).join('')+'</tr>';
+  var tbody=parsedRows.map(function(r,i){
+    var cls=r._err?' class="err"':'';
+    return '<tr'+cls+'><td style="color:#888">'+(i+1)+'</td>'
+      +showFids.map(function(f){return '<td title="'+esc(r[f]||'')+'">'+esc(r[f]||'')+'</td>';}).join('')+'</tr>';
+  }).join('');
+  document.getElementById('prevT').innerHTML='<thead>'+thead+'</thead><tbody>'+tbody+'</tbody>';
+  document.getElementById('rowCnt').innerHTML='抽出: <b>'+parsedRows.length+'</b> 行　エラー: <span style="color:#ff5252">'+errCount+'</span> 行　スキップ: '+skipCount+' 行';
+  document.getElementById('btnOk').disabled=(parsedRows.length===0||errCount===parsedRows.length);
+}
+
+// ⑤ 登録実行
+function doImport() {
+  var validRows = parsedRows.filter(function(r){return !r._err;});
+  if(validRows.length===0) return;
+  document.getElementById('btnOk').disabled=true;
+  bar('スプレッドシートに書き込み中（'+validRows.length+'件）...','info');
+  // 今回の設定を保存（次回同じファイル構成で自動復元）
+  saveMappingToLocal();
+
+  var newAliases=[];
+  fields.forEach(function(f){
+    var colIdx=document.getElementById('sel_'+f.fieldId).value;
+    if(colIdx==='-1'||colIdx==='AUTO') return;
+    var hdrStr=String((rawJson[headerRow]||[])[parseInt(colIdx)]||'').replace(/\n/g,'').trim();
+    if(!hdrStr) return;
+    var entry=dict.find(function(e){return e.fieldId===f.fieldId;});
+    if(entry&&!entry.aliases.some(function(a){return nrm(a)===nrm(hdrStr);})) newAliases.push({fieldId:f.fieldId,alias:hdrStr});
+  });
+
+  function runImp() {
+    google.script.run
+      .withSuccessHandler(function(res){
+        bar('✅ '+res.ok+'件 登録完了！','success');
+        document.getElementById('btnOk').disabled=false;
+        hide('s1'); hide('s1b'); hide('s2'); hide('ft');
+      })
+      .withFailureHandler(function(err){
+        bar('❌ エラー: '+err.message,'error');
+        document.getElementById('btnOk').disabled=false;
+      })
+      .importBulkRows(ST, validRows, SSID);
+  }
+
+  if(newAliases.length>0) {
+    google.script.run.withSuccessHandler(runImp).withFailureHandler(runImp).saveImportAliases(ST,newAliases,SSID);
+  } else { runImp(); }
+}
+
+function resetAll() {
+  document.getElementById('fi').value='';
+  wb=null; dict=[]; rawJson=[]; parsedRows=[]; extractedYM=null;
+  hide('s1b'); hide('s2'); hide('ft'); clrBar(); show('s1');
+}
+</script>
+</body>
+</html>

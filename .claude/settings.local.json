@@ -53,7 +53,10 @@
       "PowerShell(Get-Content \"$env:TEMP\\\\gas_client_tmp\\\\.clasp.json\")",
       "Bash(git commit -m ' *)",
       "Bash(clasp delete-version *)",
-      "Bash(clasp --help)"
+      "Bash(clasp --help)",
+      "PowerShell(\\(Get-Content \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\" | Measure-Object -Line\\).Lines)",
+      "Bash(git -C \"c:\\\\gas\\\\unko2-kanri\" diff --stat HEAD)",
+      "Bash(git -C \"c:\\\\gas\\\\unko2-kanri\" diff HEAD -- \"コード.js\")"
     ]
   }
 }
