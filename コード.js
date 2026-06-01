@@ -2022,17 +2022,34 @@ function syncSummaryForId_(targetId, ss) {
     inspBeforeTime, inspAfterTime  // AJ=点呼前完了, AK=点呼後完了
   ];
 
-  if (sumRow > 0) {
-    sumSheet.getRange(sumRow, 1, 1, 37).setValues([rowData]);
-  } else {
-    sumRow = sumSheet.getLastRow()+1;
-    if (sumRow === 1) {
-      var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考','仮日数','給料','％','有休手当','その他手当','点呼前完了','点呼後完了'];
-      sumSheet.getRange(1, 1, 1, 37).setValues([hdr]);
-      sumSheet.setFrozenRows(1);
-      sumRow = 2;
+  // LockServiceで並行実行による集計表重複挿入を防止
+  var sumInsLock = LockService.getScriptLock();
+  try { sumInsLock.waitLock(15000); } catch(e) {}
+  try {
+    // ロック取得後に再度同IDが存在しないか確認（並行実行で先に挿入された場合の対策）
+    if (sumRow === 0 && sumSheet.getLastRow() >= 2) {
+      var recheckIds = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 1).getValues();
+      for (var rc = 0; rc < recheckIds.length; rc++) {
+        if (String(recheckIds[rc][0]).trim() === String(targetId).trim()) {
+          sumRow = rc + 2;
+          break;
+        }
+      }
     }
-    sumSheet.getRange(sumRow, 1, 1, 37).setValues([rowData]);
+    if (sumRow > 0) {
+      sumSheet.getRange(sumRow, 1, 1, 37).setValues([rowData]);
+    } else {
+      sumRow = sumSheet.getLastRow()+1;
+      if (sumRow === 1) {
+        var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考','仮日数','給料','％','有休手当','その他手当','点呼前完了','点呼後完了'];
+        sumSheet.getRange(1, 1, 1, 37).setValues([hdr]);
+        sumSheet.setFrozenRows(1);
+        sumRow = 2;
+      }
+      sumSheet.getRange(sumRow, 1, 1, 37).setValues([rowData]);
+    }
+  } finally {
+    sumInsLock.releaseLock();
   }
 
   var vSyncVal = (g.tollReq === 0 && g.tollReal === 0) ? '' : (Number(g.tollReal)||0)-(Number(g.tollReq)||0);
@@ -2123,6 +2140,17 @@ function syncSummaryForId_(targetId, ss) {
   if (!sfExisting || sumSheet.getLastColumn() > sfExisting.getRange().getLastColumn()) {
     if (sfExisting) sfExisting.remove();
     sumSheet.getRange(1, 1, sumSheet.getLastRow(), sumSheet.getLastColumn()).createFilter();
+  }
+
+  // 同じIDの重複行が残っていれば削除（上から2行目以降を後ろから走査して消す）
+  var dupLast = sumSheet.getLastRow();
+  if (dupLast >= 3) {
+    var dupIds = sumSheet.getRange(2, 1, dupLast - 1, 1).getValues();
+    for (var di = dupIds.length - 1; di >= 0; di--) {
+      if (String(dupIds[di][0]).trim() === String(targetId).trim() && (di + 2) !== sumRow) {
+        sumSheet.deleteRow(di + 2);
+      }
+    }
   }
 }
 
@@ -2459,6 +2487,14 @@ function expandAndRefreshSheets() {
 
   // 設定シートに業務前点検・業務後点検データがなければデフォルトを挿入
   ensureSettingItems_(ss);
+
+  // 自車専属マスタ B列（運行状態）に 運行・故障・待機 のドロップダウンを設定
+  if (masterSheet && masterSheet.getMaxRows() > 1) {
+    var dropRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['運行','故障','待機'], true)
+      .setAllowInvalid(false).build();
+    masterSheet.getRange(2, 2, masterSheet.getMaxRows() - 1, 1).setDataValidation(dropRule);
+  }
 
   applyHolidayRowColors_();
   SpreadsheetApp.getUi().alert('シート再生成が完了しました。');
@@ -5628,6 +5664,9 @@ function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
     }
   });
 
+  // 全シートをテストデータ初期状態にリセット（②のデータが混入しないよう必須）
+  initClientSSSheets_(newSs, companyName);
+
   // 点検項目が未設定なら初期値をセット（業務前点検・業務後点検）
   ensureSettingItems_(newSs);
 
@@ -5805,7 +5844,7 @@ function initClientSSSheets_(ss, companyName) {
     '車両ID','運行状態','区分','会社名','看板名','トン数','車種','車番',
     '乗務員名','携帯番号','アドレス','燃費','備考','仮日数','給料','％'
   ];
-  var custHeader    = ['マスタID','会社名','電話','FAX','郵便番号','住所','代表者','配車担当','銀行名','支店名','種別','番号','名義','備考'];
+  var custHeader    = ['マスタID','会社名','電話','FAX','郵便番号','住所','代表者','配車担当','銀行名','支店名','種別','番号','名義','備考','インボイス登録番号','インボイス発行者名（自社名）'];
   var settingHeader = ['トン数','基準燃費','有休設定','有休金額','業務前点検','業務後点検'];
 
   function resetSheet(name, header) {
@@ -5827,28 +5866,43 @@ function initClientSSSheets_(ss, companyName) {
   var custSheet    = resetSheet('マスタ',        custHeader);
   var settingSheet = resetSheet('設定',          settingHeader);
 
-  // テストデータ（各シート1行目）
+  // テストデータ（各シート）
   unkouSheet.getRange(2, 1, 1, 28).setValues([[
     'V-0001','自車','テスト商事','4t','平車','品川1234','山田太郎','090-0000-0000','テスト看板',new Date(),
-    'テスト荷主','テスト積地','テスト降地','','','','','',
-    50000,0,0,0,'','','','','',''
+    'テスト荷主','テスト積地','テスト降地','09:00','10:00','12:00','13:00','15:00',
+    50000,1000,1000,2000,'テスト備考','','','','',''
   ]]);
   unkouSheet.getRange(2, 10).setNumberFormat('yyyy/MM/dd');
 
   sumSheet.getRange(2, 1, 1, 37).setValues([[
     'V-0001','自車','テスト商事','4t','平車','品川1234','山田太郎','090-0000-0000','テスト看板',
-    new Date(),'テスト荷主','テスト積地','テスト降地','','','','','',
-    50000,0,0,0,0,6.5,0,0,0,0,50000,'',25,200000,75,'','','',''
+    new Date(),'テスト荷主','テスト積地','テスト降地','09:00','10:00','12:00','13:00','15:00',
+    50000,1000,1000,2000,100,6.5,1538,1538,0,1538,50462,'テスト備考',25,200000,'','0','','',''
   ]]);
   sumSheet.getRange(2, 10).setNumberFormat('yyyy/MM/dd');
 
-  masterSheet.getRange(2, 1, 1, 32).setValues([[
-    'S-0001','運行','自車','テスト商事','テスト看板','4t','平車','品川1234','山田太郎','090-0000-0000',
-    'test@example.com',6.5,'',25,200000,75,'',
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-  ]]);
+  // 給料行・%行を別々に作成（給料と%はどちらか一方のみ有効）
+  masterSheet.getRange(2, 1, 2, 32).setValues([
+    ['S-0001','運行','自車','テスト商事','テスト看板（給料）','4t','平車','品川1234','山田太郎','090-0000-0000',
+     'test1@example.com',6.5,'テスト備考',25,200000,'','〇',
+     30000,15000,5000,10000,8000,5000,5000,3000,5000,3000,2000,2000,1000,1000,5000],
+    ['S-0002','待機','自車','テスト商事','テスト看板（％）','4t','平車','品川5678','鈴木花子','090-1111-1111',
+     'test2@example.com',6.5,'テスト備考（%）',25,'',75,'',
+     30000,15000,5000,10000,8000,5000,5000,3000,5000,3000,2000,2000,1000,1000,5000]
+  ]);
+  // 自車専属マスタ B列（運行状態）に 運行・故障・待機 のドロップダウンを設定
+  var statusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['運行','故障','待機'], true)
+    .setAllowInvalid(false)
+    .build();
+  masterSheet.getRange(2, 2, masterSheet.getMaxRows() - 1, 1).setDataValidation(statusRule);
 
-  custSheet.getRange(2, 1, 1, 14).setValues([['M-0001','テスト荷主','03-0000-0000','','','','担当太郎','','','','','','','']]);
+  custSheet.getRange(2, 1, 1, 16).setValues([[
+    'M-0001','テスト荷主','03-0000-0000','03-1111-1111','100-0001',
+    '東京都テスト市テスト1-1-1','テスト代表','テスト配車担当',
+    'テスト銀行','テスト支店','普通','1234567','テスト商事',
+    'テスト備考','T1234567890123','テスト商事'
+  ]]);
 
   settingSheet.getRange(2, 1, 25, 6).setValues([
     ['1t',  6.5, '有休', 8000, 'ブレーキの効き！燃料残量の確認', '車体・タイヤの異常確認'],
@@ -7047,6 +7101,23 @@ function syncToAllClientSS() {
       }
       ensureSettingItems_(clientSs);
 
+      // 自車専属マスタ B列（運行状態）にドロップダウンを適用
+      var mSheet = clientSs.getSheetByName('自車専属マスタ');
+      if (mSheet && mSheet.getMaxRows() > 1) {
+        var sv = SpreadsheetApp.newDataValidation()
+          .requireValueInList(['運行','故障','待機'], true)
+          .setAllowInvalid(false).build();
+        mSheet.getRange(2, 2, mSheet.getMaxRows() - 1, 1).setDataValidation(sv);
+      }
+
+      // 不要シートを削除（マスタ点検項目など）
+      var validClientSheets = ['運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定','__COMPANY_SS__'];
+      clientSs.getSheets().forEach(function(s) {
+        if (validClientSheets.indexOf(s.getName()) === -1 && clientSs.getSheets().length > 1) {
+          try { clientSs.deleteSheet(s); } catch(e) {}
+        }
+      });
+
       // scriptIDが登録済みならスタブ更新。なければ新規WebAppデプロイで登録
       if (!clientScriptId && approvedVersion) {
         var deployResult = deployClientWebApp_(clientSsId, companyName, null, approvedVersion);
@@ -7055,8 +7126,9 @@ function syncToAllClientSS() {
           regSheet.getRange(i + 2, 11).setValue(clientScriptId);      // K列に保存
           regSheet.getRange(i + 2, 7).setValue(deployResult.webAppUrl); // G列にURL更新
         }
-      } else if (clientScriptId && approvedVersion) {
-        updateStubVersion_(clientScriptId, approvedVersion, true);
+      } else if (clientScriptId) {
+        // approvedVersionの有無にかかわらず常にスタブ関数とライブラリバージョンを最新化
+        updateStubVersion_(clientScriptId, approvedVersion || '', true);
       }
 
       successCount++;
