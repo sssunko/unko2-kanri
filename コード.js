@@ -2677,8 +2677,8 @@ function autoFillExpense() {
 //              片方欠け → 欠けているセルを赤警告
 //  ・パターンC: 条件なし → Y列が空なら赤警告（手入力値は保持）
 // ================================================================
-function calculatePaymentAmount() {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+function calculatePaymentAmount(companySsId) {
+  var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('集計表');
   if (!sheet) return;
   var lastRow = sheet.getLastRow();
@@ -7333,6 +7333,10 @@ function importBulkRows(sheetType, mappedRows, companySsId) {
           }
         }
       }
+      // 日付ソート・利益計算（手動入力と同じ状態にする）
+      sortUnkouByDate_(companySsId);
+      sortSummaryByDate_(companySsId);
+      calculatePaymentAmount(companySsId);
     }
     return { ok: writeRows.length };
   } finally {

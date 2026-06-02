@@ -56,7 +56,15 @@
       "Bash(clasp --help)",
       "PowerShell(\\(Get-Content \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\" | Measure-Object -Line\\).Lines)",
       "Bash(git -C \"c:\\\\gas\\\\unko2-kanri\" diff --stat HEAD)",
-      "Bash(git -C \"c:\\\\gas\\\\unko2-kanri\" diff HEAD -- \"コード.js\")"
+      "Bash(git -C \"c:\\\\gas\\\\unko2-kanri\" diff HEAD -- \"コード.js\")",
+      "Bash(ls \"c:\\\\gas\\\\unko2-kanri\\\\\")",
+      "Read(//c/gas/**)",
+      "Bash(git -C \"c:/gas/unko2-kanri\" log --oneline -5)",
+      "PowerShell($env:PATH = \"$env:APPDATA\\\\npm;\" + $env:PATH; Set-Location \"c:\\\\gas\\\\unko2-kanri\"; clasp versions 2>&1 | Measure-Object -Line)",
+      "PowerShell($env:PATH = \"$env:APPDATA\\\\npm;\" + $env:PATH; Set-Location \"c:\\\\gas\\\\unko2-kanri\"; clasp deploy -i \"AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU\" -d \"283_マッピング自動復元localStorage\" 2>&1)",
+      "PowerShell($env:PATH = \"$env:APPDATA\\\\npm;\" + $env:PATH; Set-Location \"c:\\\\gas\\\\unko2-kanri\"; clasp deploy -i \"AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU\" -d \"285_シート複数選択対応\" 2>&1)",
+      "PowerShell($env:PATH = \"$env:APPDATA\\\\npm;\" + $env:PATH; Set-Location \"c:\\\\gas\\\\unko2-kanri\"; clasp push --force 2>&1; clasp deploy -i \"AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU\" -d \"286_列ヘッダー日付抽出・N/A除外・合計行排除強化\" 2>&1)",
+      "Bash(git -C \"c:/gas/unko2-kanri\" diff HEAD -- \"csvImport.html\" \"コード.js\")"
     ]
   }
 }

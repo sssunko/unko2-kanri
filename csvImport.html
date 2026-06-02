@@ -49,7 +49,7 @@ table.prev tr.err td { background:rgba(211,47,47,0.1) !important; color:#ff5252;
 </div>
 
 <div class="sec hidden" id="s1b">
-  <div class="sec-ttl">② 読み込むシートを選択</div>
+  <div class="sec-ttl">② 読み込むシートを選択　<span style="font-size:11px;color:#aaa;font-weight:normal;">（複数選択可）</span></div>
   <div class="sheet-btns" id="sbArea"></div>
 </div>
 
@@ -71,7 +71,7 @@ table.prev tr.err td { background:rgba(211,47,47,0.1) !important; color:#ff5252;
 <script>
 var ST = '<?= sheetType ?>';
 var SSID = '<?= currentSsId ?>';
-var wb = null, dict = [], rawJson = [], headerRow = 0, firstDataRow = 0, parsedRows = [], extractedYM = null;
+var wb = null, dict = [], rawJson = [], headerRow = 0, firstDataRow = 0, parsedRows = [], extractedYM = null, rowYMMap = [];
 var fields = [];
 
 function bar(msg, t) { var e=document.getElementById('bar'); e.className=t||'info'; e.innerText=msg; e.style.display='block'; }
@@ -91,7 +91,7 @@ document.getElementById('fi').addEventListener('change', function(e) {
       wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array', cellDates:false, raw:true});
       if (wb.SheetNames.length > 1) {
         document.getElementById('sbArea').innerHTML = wb.SheetNames.map(function(n,i) {
-          return '<button type="button" class="sbtn" onclick="selSh(\''+esc(n)+'\',this)">'+esc(n)+'</button>';
+          return '<button type="button" class="sbtn" data-sheet="'+esc(n)+'" onclick="toggleSh(this)">'+esc(n)+'</button>';
         }).join('');
         show('s1b'); clrBar();
         // 数字が含まれるシート名を自動選択
@@ -107,21 +107,38 @@ document.getElementById('fi').addEventListener('change', function(e) {
   r.readAsArrayBuffer(f);
 });
 
-// ② シート選択
-function selSh(name, btn) {
-  if (btn) { document.querySelectorAll('.sbtn').forEach(function(b){b.classList.remove('active');}); btn.classList.add('active'); }
+// ② シート選択（複数選択可）
+function toggleSh(btn) {
+  btn.classList.toggle('active');
+  loadSelectedSheets();
+}
+function loadSelectedSheets() {
+  var activeBtns = Array.from(document.querySelectorAll('.sbtn.active'));
+  if (activeBtns.length === 0) { hide('s2'); hide('ft'); return; }
+  var names = activeBtns.map(function(b){ return b.dataset.sheet; });
+  var mergedRows = [], mergedYMs = [], firstHeader = 0;
   try {
-    var ws = wb.Sheets[name];
-    rawJson = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+    names.forEach(function(name, idx) {
+      var ws = wb.Sheets[name];
+      var shJson = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+      var ym = findYM(shJson, name);
+      var hRow = findHeaderRow(shJson);
+      if (idx === 0) {
+        firstHeader = hRow; extractedYM = ym;
+        for (var r = 0; r < shJson.length; r++) { mergedRows.push(shJson[r]); mergedYMs.push(ym); }
+      } else {
+        var fdr = hRow + 1;
+        while (fdr < shJson.length && !shJson[fdr].some(function(c){return String(c).trim();})) fdr++;
+        for (var r = fdr; r < shJson.length; r++) { mergedRows.push(shJson[r]); mergedYMs.push(ym); }
+      }
+    });
   } catch(err) { bar('シート解析エラー: '+err.message, 'error'); return; }
-  if (rawJson.length < 2) { bar('データが空です', 'error'); return; }
-
-  extractedYM = findYM(rawJson, name);
-  headerRow   = findHeaderRow(rawJson);
+  if (mergedRows.length < 2) { bar('データが空です', 'error'); return; }
+  rawJson = mergedRows; rowYMMap = mergedYMs;
+  headerRow = firstHeader;
   firstDataRow = headerRow + 1;
-  while(firstDataRow < rawJson.length && !rawJson[firstDataRow].some(function(c){return String(c).trim();})) firstDataRow++;
-
-  bar('辞書と照合中...','info');
+  while (firstDataRow < rawJson.length && !rawJson[firstDataRow].some(function(c){return String(c).trim();})) firstDataRow++;
+  bar('辞書と照合中... ('+names.length+'シート)', 'info');
   google.script.run
     .withSuccessHandler(function(d){ dict = d||[]; buildMappingUI(); })
     .withFailureHandler(function(e){ bar('辞書取得エラー: '+e.message, 'error'); })
@@ -274,6 +291,19 @@ function updatePreview() {
     });
   }
 
+  // 列ヘッダーから日付を先読み（C列上部に「3月31日」等がある場合に対応）
+  var colHeaderDate = {};
+  for (var rh = 0; rh <= headerRow; rh++) {
+    (rawJson[rh]||[]).forEach(function(cell, ci) {
+      if (colHeaderDate[ci]) return;
+      var s = String(cell||'').trim();
+      var dm4 = s.match(/(\d{4})[\/\-年](\d{1,2})[\/\-月](\d{1,2})/);
+      if (dm4) { colHeaderDate[ci] = dm4[1]+'/'+parseInt(dm4[2])+'/'+parseInt(dm4[3]); return; }
+      var dm2 = s.match(/(\d{1,2})月(\d{1,2})日/);
+      if (dm2) { colHeaderDate[ci] = (extractedYM?extractedYM.y:new Date().getFullYear())+'/'+parseInt(dm2[1])+'/'+parseInt(dm2[2]); }
+    });
+  }
+
   parsedRows = [];
   var errCount = 0, skipCount = 0;
 
@@ -281,23 +311,36 @@ function updatePreview() {
     var row = rawJson[ri]||[];
     if(!row.some(function(c){return String(c).trim();})) continue;
 
+    var rowYM = rowYMMap[ri] || extractedYM;
     var obj = {};
     fields.forEach(function(f){
       var v = map[f.fieldId];
-      if(v==='AUTO')    obj[f.fieldId] = autoCtx[f.fieldId]||'';
+      if(v==='AUTO') {
+        if(f.fieldId==='date' && rowYM && rowYM.d) obj[f.fieldId] = rowYM.y+'/'+rowYM.m+'/'+rowYM.d;
+        else obj[f.fieldId] = autoCtx[f.fieldId]||'';
+      }
       else if(v!=='-1') obj[f.fieldId] = String(row[parseInt(v)]!==undefined?row[parseInt(v)]:'').trim();
       else              obj[f.fieldId] = '';
     });
+
+    // #N/A → 空欄（Excelの数式エラーセルを無効化）
+    Object.keys(obj).forEach(function(k){ if(obj[k]==='#N/A') obj[k]=''; });
 
     // 日付処理（数字 → 年月/日 補完）
     if(map.date!=='AUTO' && obj.date) {
       var dStr  = obj.date.split('(')[0].split('（')[0].trim();
       var pureN = parseInt(dStr.replace(/[^0-9]/g,''), 10);
-      if(!isNaN(pureN) && pureN>=1 && pureN<=31 && dStr.indexOf('/')<0 && dStr.indexOf('-')<0 && extractedYM) {
-        obj.date = extractedYM.y+'/'+extractedYM.m+'/'+pureN;
+      if(!isNaN(pureN) && pureN>=1 && pureN<=31 && dStr.indexOf('/')<0 && dStr.indexOf('-')<0 && rowYM) {
+        obj.date = rowYM.y+'/'+rowYM.m+'/'+pureN;
       } else {
         obj.date = dStr;
       }
+    }
+    // 日付が未取得 → 選択列のヘッダーまたはシート情報から補完
+    if(!obj.date && map.date!=='-1') {
+      var dci = (map.date==='AUTO') ? -1 : parseInt(map.date);
+      if(dci>=0 && colHeaderDate[dci]) obj.date = colHeaderDate[dci];
+      else if(rowYM && rowYM.d) obj.date = rowYM.y+'/'+rowYM.m+'/'+rowYM.d;
     }
 
     // テキスト項目の「0」を空欄扱い
@@ -333,9 +376,10 @@ function updatePreview() {
 
     var hasSales = parseFloat((obj.sales||'').replace(/,/g,''))>0;
 
-    // 全フィールドを結合して合計・利益・小計などのラベル行をスキップ
+    // 全フィールドを結合して合計・利益・小計などのラベル行をスキップ（生データも含む）
     var allStr = fields.map(function(f){return String(obj[f.fieldId]||'');}).join(' ');
-    if(/合計|利益|小計|合\s*計|総計|経費/.test(allStr) && !obj.pickPlace && !obj.dropPlace) { skipCount++; continue; }
+    var rawStr = row.map(function(c){return String(c||'');}).join(' ');
+    if(/合計|利益|小計|合\s*計|総計|経費/.test(allStr+' '+rawStr) && !obj.pickPlace && !obj.dropPlace) { skipCount++; continue; }
 
     // 積地・降地・売上が全て空の行は意味なし→スキップ（乗務員名があっても除外）
     var hasRoute = obj.pickPlace || obj.dropPlace;
