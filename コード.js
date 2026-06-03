@@ -723,6 +723,7 @@ function onOpen() {
     .addItem('📅 翌月分生成（前月アーカイブ）', 'generateNextMonth')
     .addItem('📦 前月分アーカイブ', 'archiveOldMonth')
     .addSeparator()
+    .addItem('🔄 メニュー再生成（F5でOK）', 'reloadMenu')
     .addItem('集計表再生成', 'generateSummary')
     .addItem('シート再生成', 'expandAndRefreshSheets')
     .addItem('💴 経費自動入力', 'autoFillExpense')
@@ -756,7 +757,8 @@ function onOpen() {
     .addSeparator()
     .addItem('🔗 チェックした行を配車確定', 'matchAndConfirmDispatch')
     .addSeparator()
-    .addItem('📤 テスト客SSに反映', 'syncToTemplateSS');
+    .addItem('📤 テスト客SS（②）に反映', 'syncToTemplateSS')
+    .addItem('📤 全客SS（③）に反映',     'syncToAllClientSS');
   menu.addToUi();
 
   try {
@@ -766,6 +768,16 @@ function onOpen() {
   } catch(ex) {}
   convertLegacyAdminDataUrls_();
   applyHolidayRowColors_();
+}
+
+
+// ================================================================
+//  2-1b: メニュー再生成（reloadMenu）  【大C / 中2】
+//  スタブ更新後にメニューを即時反映させる。onOpenを再実行するだけ。
+// ================================================================
+function reloadMenu() {
+  onOpen();
+  SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3);
 }
 
 
@@ -4996,8 +5008,9 @@ function deleteRunById(id, companySsId, email) {
 //  9-1: 連絡事項保存（saveNotice）  【大A / 中9 / 小9-1】
 //  指定IDの運行シートU列（21列目）にテキストを書き込む
 // ================================================================
-function saveNotice(id, text) {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+function saveNotice(id, text, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
+  var ss    = getTargetSS_(companySsId);
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
   var all = sheet.getDataRange().getValues();
@@ -5884,7 +5897,7 @@ function getNewSsScriptId_(ssId) {
     var token = ScriptApp.getOAuthToken();
     var q = encodeURIComponent('mimeType="application/vnd.google-apps.script" and "' + ssId + '" in parents');
     var resp = UrlFetchApp.fetch(
-      'https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)',
+      'https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true',
       { headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true }
     );
     if (resp.getResponseCode() !== 200) return null;
@@ -5971,7 +5984,10 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
       });
       var crData = JSON.parse(cr.getContentText());
       scriptId = crData.scriptId;
-      if (!scriptId) return null;
+      if (!scriptId) {
+        var crErr = (crData.error && crData.error.message) ? crData.error.message.slice(0, 100) : cr.getContentText().slice(0, 100);
+        return { error: 'projects.create ' + cr.getResponseCode() + ': ' + crErr };
+      }
     }
 
     // マニフェスト（appsscript.json）
@@ -6025,10 +6041,11 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var menu=SpreadsheetApp.getUi().createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('🔄 メニュー再生成','reloadMenu').addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
+    "function reloadMenu(){onOpen();SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました','🔄',3);}",
     "function showSidebar(){return UnkouLib.showSidebar();}",
     "function showUploadSidebar(){return UnkouLib.showUploadSidebar();}",
     "function generateCurrentMonth(){return UnkouLib.generateCurrentMonth();}",
@@ -6063,7 +6080,7 @@ function getClientStubSource_() {
     "function saveEditData(a,b,c){return UnkouLib.saveEditData(a,b,c);}",
     "function appendTerminalFile(a,b,c,d,e,f){return UnkouLib.appendTerminalFile(a,b,c,d,e,f);}",
     "function deleteRunById(a,b,c){return UnkouLib.deleteRunById(a,b,c);}",
-    "function saveNotice(a,b,c){return UnkouLib.saveNotice(a,b,c);}",
+    "function saveNotice(a,b,c,d){return UnkouLib.saveNotice(a,b,c,d);}",
     "function uploadFileToRow(a,b,c,d){return UnkouLib.uploadFileToRow(a,b,c,d);}",
     "function saveTerminalNotice(a,b,c,d){return UnkouLib.saveTerminalNotice(a,b,c,d);}",
     "function uploadTerminalFile(a,b,c,d){return UnkouLib.uploadTerminalFile(a,b,c,d);}",
@@ -6080,7 +6097,18 @@ function getClientStubSource_() {
     "function generateInvoiceSheet(a,b,c,d){return UnkouLib.generateInvoiceSheet(a,b,c,d);}",
     "function showPaymentDialog(){return UnkouLib.showPaymentDialog();}",
     "function generatePaymentSheet(a,b,c,d,e){return UnkouLib.generatePaymentSheet(a,b,c,d,e);}",
-    "function matchAndConfirmDispatch(){return UnkouLib.matchAndConfirmDispatch();}"
+    "function matchAndConfirmDispatch(){return UnkouLib.matchAndConfirmDispatch();}",
+    "function showCsvImportDialogUnkou(){return UnkouLib.showCsvImportDialogUnkou();}",
+    "function showCsvImportDialogMaster(){return UnkouLib.showCsvImportDialogMaster();}",
+    "function showCsvImportDialogCust(){return UnkouLib.showCsvImportDialogCust();}",
+    "function deleteBlankImportRows(){return UnkouLib.deleteBlankImportRows();}",
+    "function getImportDictionary(a,b){return UnkouLib.getImportDictionary(a,b);}",
+    "function importBulkRows(a,b,c){return UnkouLib.importBulkRows(a,b,c);}",
+    "function saveImportAliases(a,b,c){return UnkouLib.saveImportAliases(a,b,c);}",
+    "function showHatchuDocDialog(){return UnkouLib.showHatchuDocDialog();}",
+    "function showShabanDocDialog(){return UnkouLib.showShabanDocDialog();}",
+    "function sendDocumentEmail(a,b,c){return UnkouLib.sendDocumentEmail(a,b,c);}",
+    "function markDocumentIssued(a,b){return UnkouLib.markDocumentIssued(a,b);}"
   ].join('\n');
 }
 
@@ -6301,10 +6329,11 @@ function updateStubVersion_(stubScriptId, versionNumber, useDevMode) {
       'https://script.googleapis.com/v1/projects/' + stubScriptId + '/content',
       { headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true }
     );
-    if (getResp.getResponseCode() !== 200) return false;
+    if (getResp.getResponseCode() !== 200) {
+      return { ok: false, error: 'GET ' + getResp.getResponseCode() + ': ' + getResp.getContentText().slice(0, 200) };
+    }
     var content = JSON.parse(getResp.getContentText());
     var files = content.files || [];
-    var updated = false;
     for (var i = 0; i < files.length; i++) {
       if (files[i].name !== 'appsscript') continue;
       var manifest = JSON.parse(files[i].source);
@@ -6312,14 +6341,13 @@ function updateStubVersion_(stubScriptId, versionNumber, useDevMode) {
       for (var j = 0; j < libs.length; j++) {
         if (libs[j].libraryId === libId) {
           libs[j].version = String(versionNumber);
-          libs[j].developmentMode = useDevMode ? true : false;
-          updated = true;
+          libs[j].developmentMode = false; // 常にfalse固定
         }
       }
       files[i].source = JSON.stringify(manifest, null, 2);
       break;
     }
-    // スタブコード（SERVER_JS）も最新版に差し替え（ライブラリバージョン更新の成否に関わらず常に実行）
+    // スタブコード（SERVER_JS）も最新版に差し替え
     var stubSource = getClientStubSource_();
     var codeFound = false;
     for (var k = 0; k < files.length; k++) {
@@ -6341,8 +6369,13 @@ function updateStubVersion_(stubScriptId, versionNumber, useDevMode) {
         muteHttpExceptions: true
       }
     );
-    return putResp.getResponseCode() === 200;
-  } catch(e) { return false; }
+    if (putResp.getResponseCode() !== 200) {
+      return { ok: false, error: 'PUT ' + putResp.getResponseCode() + ': ' + putResp.getContentText().slice(0, 200) };
+    }
+    return { ok: true, error: '' };
+  } catch(e) {
+    return { ok: false, error: e.message || String(e) };
+  }
 }
 
 
@@ -6682,8 +6715,13 @@ function syncToTemplateSS() {
     }
   }
   if (newVersion) {
-    updateStubVersion_(TEMPLATE_SCRIPT_ID, newVersion);
-    props.setProperty('approvedLibVersion', String(newVersion));
+    var tmplStubResult = updateStubVersion_(TEMPLATE_SCRIPT_ID, newVersion);
+    if (tmplStubResult && tmplStubResult.ok) {
+      props.setProperty('approvedLibVersion', String(newVersion));
+    } else {
+      try { SpreadsheetApp.getUi().alert('②客用SSへのスタブ更新に失敗しました。\n' + (tmplStubResult ? tmplStubResult.error : '不明')); } catch(e) {}
+      return;
+    }
   }
 
   // ② ヘッダー行（1行目）の値・書式のみ最新化。データ行は絶対触らない。
@@ -7315,27 +7353,49 @@ function showMyScriptId() {
 function syncToAllClientSS() {
   var activeSs = SpreadsheetApp.getActiveSpreadsheet();
 
-  // ①修正用SSのIDを②の __TEMPLATE_SS__ から取得
-  var tmplMarker = activeSs.getSheetByName('__TEMPLATE_SS__');
-  if (!tmplMarker) {
-    try { SpreadsheetApp.getUi().alert('このSSは②客用SSではありません。'); } catch(e) {}
-    return;
-  }
-  var masterSsId = tmplMarker.getRange(1, 2).getValue();
-  if (!masterSsId) {
-    try { SpreadsheetApp.getUi().alert('①修正用SSのIDが未設定です。①で「テスト客SSに反映」を先に実行してください。'); } catch(e) {}
-    return;
+  // ①修正用SSから直接呼ばれた場合と②客用SSから呼ばれた場合の両方に対応する。
+  // ②客用SSには __TEMPLATE_SS__ シートがあり、そこに①修正用SSのIDが記録されている。
+  // ①修正用SSには __TEMPLATE_SS__ シートがないため、自分自身が修正用SSとして振る舞う。
+  var tmplMarker    = activeSs.getSheetByName('__TEMPLATE_SS__');
+  var masterSs, masterSsId, approvedVersion;
+
+  if (tmplMarker) {
+    // ② 客用SSから実行: __TEMPLATE_SS__ のB1から①修正用SSのIDを取得
+    masterSsId = tmplMarker.getRange(1, 2).getValue();
+    if (!masterSsId) {
+      try { SpreadsheetApp.getUi().alert('①修正用SSのIDが未設定です。①で「テスト客SSに反映」を先に実行してください。'); } catch(e) {}
+      return;
+    }
+    masterSs       = SpreadsheetApp.openById(masterSsId);
+    approvedVersion = tmplMarker.getRange(1, 3).getValue() || null;
+  } else {
+    // ① 修正用SSから直接実行: 自分自身が修正用SS
+    masterSs        = activeSs;
+    masterSsId      = activeSs.getId();
+    approvedVersion = PropertiesService.getScriptProperties().getProperty('approvedLibVersion') || null;
   }
 
-  var masterSs  = SpreadsheetApp.openById(masterSsId);
-  var regSheet  = masterSs.getSheetByName('会社登録');
+  // approvedVersionが取れない場合のフォールバック（lastLibVersionNum → 設定なければ自動作成）
+  if (!approvedVersion) {
+    var props2 = PropertiesService.getScriptProperties();
+    approvedVersion = props2.getProperty('lastLibVersionNum') || null;
+    if (!approvedVersion) {
+      // バージョンが一切なければここで新規作成して保存
+      var newVer = createLibraryVersion_('syncToAllClientSS自動作成');
+      if (newVer) {
+        approvedVersion = String(newVer);
+        props2.setProperty('approvedLibVersion', approvedVersion);
+        props2.setProperty('lastLibVersionNum',  approvedVersion);
+        if (tmplMarker) tmplMarker.getRange(1, 3).setValue(approvedVersion);
+      }
+    }
+  }
+
+  var regSheet = masterSs.getSheetByName('会社登録');
   if (!regSheet || regSheet.getLastRow() < 2) {
     try { SpreadsheetApp.getUi().alert('会社登録シートにデータがありません。'); } catch(e) {}
     return;
   }
-
-  // ②の承認バージョンを取得（__TEMPLATE_SS__ C1に記録されている）
-  var approvedVersion = tmplMarker.getRange(1, 3).getValue() || null;
 
   var businessSheets = ['運行', '集計表', '自車専属マスタ', '自車専属運行', 'マスタ', '設定'];
   var lastCol = regSheet.getLastColumn();
@@ -7382,41 +7442,105 @@ function syncToAllClientSS() {
       }
 
       // 不要シートを削除（マスタ点検項目など）
-      var validClientSheets = ['運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定','__COMPANY_SS__'];
+      // 情報・自社設定は新機能シートのため保持する
+      var validClientSheets = [
+        '運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定',
+        '情報','自社設定','__COMPANY_SS__'
+      ];
       clientSs.getSheets().forEach(function(s) {
         if (validClientSheets.indexOf(s.getName()) === -1 && clientSs.getSheets().length > 1) {
           try { clientSs.deleteSheet(s); } catch(e) {}
         }
       });
 
-      // scriptIDが登録済みならスタブ更新。なければ新規WebAppデプロイで登録
-      if (!clientScriptId && approvedVersion) {
-        var deployResult = deployClientWebApp_(clientSsId, companyName, null, approvedVersion);
-        if (deployResult && deployResult.scriptId) {
-          clientScriptId = deployResult.scriptId;
-          regSheet.getRange(i + 2, 11).setValue(clientScriptId);      // K列に保存
-          regSheet.getRange(i + 2, 7).setValue(deployResult.webAppUrl); // G列にURL更新
-        }
-      } else if (clientScriptId) {
-        // approvedVersionの有無にかかわらず常にスタブ関数とライブラリバージョンを最新化
-        updateStubVersion_(clientScriptId, approvedVersion || '', true);
+      // K列にスクリプトIDがなければDrive APIで自動検索してK列に保存
+      if (!clientScriptId) {
+        clientScriptId = getNewSsScriptId_(clientSsId) || '';
+        if (clientScriptId) regSheet.getRange(i + 2, 11).setValue(clientScriptId);
       }
 
-      successCount++;
+      var stubOk = false;
+      if (clientScriptId) {
+        // スクリプトIDあり → スタブを最新化
+        var stubResult = updateStubVersion_(clientScriptId, approvedVersion || '', false);
+        stubOk = stubResult && stubResult.ok;
+        if (!stubOk) {
+          errorNames.push(companyName + '（API更新失敗: ' + (stubResult ? stubResult.error : '不明') + '）');
+        }
+      } else if (approvedVersion) {
+        // スクリプトIDがどうしても取れない場合のみ新規デプロイ
+        var deployResult = deployClientWebApp_(clientSsId, companyName, null, approvedVersion);
+        if (deployResult && deployResult.scriptId) {
+          regSheet.getRange(i + 2, 11).setValue(deployResult.scriptId);
+          regSheet.getRange(i + 2, 7).setValue(deployResult.webAppUrl);
+          stubOk = true;
+        } else {
+          var dErr = (deployResult && deployResult.error) ? deployResult.error : '詳細不明';
+          errorNames.push(companyName + '（スクリプトID取得失敗・API: ' + dErr + '）');
+        }
+      } else {
+        // スクリプトIDもapprovedVersionも取れない
+        errorNames.push(companyName + '（スクリプトID未登録・バージョン未設定。①で「テスト客SSに反映」を先に実行してください）');
+      }
+
+      if (stubOk) successCount++;
     } catch(e) {
-      errorNames.push(companyName);
+      errorNames.push(companyName + '（例外: ' + (e.message || String(e)) + '）');
     }
   }
 
   var msg = successCount + '社への反映が完了しました。';
   if (approvedVersion) msg += '\nコードバージョン: ' + approvedVersion;
   if (errorNames.length > 0) msg += '\n失敗: ' + errorNames.join(', ');
+  msg += '\n\n各客SSでF5を押すとメニューが更新されます。';
   try { SpreadsheetApp.getUi().alert(msg); } catch(e) {}
 }
 
 function checkScopeAuth() {
   var token = ScriptApp.getOAuthToken();
   Logger.log('スコープ承認OK: ' + token.substring(0, 20) + '...');
+}
+
+// ================================================================
+//  診断：各客SSのスクリプトID取得失敗原因を調べる（diagClientApi_）
+//  スクリプトエディタから直接実行 → アラートで結果表示
+// ================================================================
+function diagClientApi() {
+  var masterSs = SpreadsheetApp.getActiveSpreadsheet();
+  var regSheet = masterSs.getSheetByName('会社登録');
+  if (!regSheet || regSheet.getLastRow() < 2) {
+    Logger.log('会社登録シートにデータがありません');
+    return;
+  }
+  var token = ScriptApp.getOAuthToken();
+  var rows = regSheet.getRange(2, 1, Math.min(3, regSheet.getLastRow() - 1), 11).getValues();
+
+  for (var i = 0; i < rows.length; i++) {
+    var companyName = String(rows[i][0]).trim();
+    var ssUrl = String(rows[i][5]).trim();
+    if (!companyName || !ssUrl) continue;
+    var match = ssUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (!match) { Logger.log(companyName + ': URLパース失敗'); continue; }
+    var ssId = match[1];
+
+    // Drive API テスト
+    var q = encodeURIComponent('mimeType="application/vnd.google-apps.script" and "' + ssId + '" in parents');
+    var drResp = UrlFetchApp.fetch(
+      'https://www.googleapis.com/drive/v3/files?q=' + q + '&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true',
+      { headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true }
+    );
+    Logger.log('[' + companyName + '] Drive:' + drResp.getResponseCode() + ' ' + drResp.getContentText().slice(0, 200));
+
+    // Script API テスト（自分のプロジェクトが読めるか確認）
+    if (i === 0) {
+      var selfResp = UrlFetchApp.fetch(
+        'https://script.googleapis.com/v1/projects/' + ScriptApp.getScriptId(),
+        { headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true }
+      );
+      Logger.log('[ScriptAPI-self] ' + selfResp.getResponseCode() + ' ' + selfResp.getContentText().slice(0, 200));
+    }
+  }
+  Logger.log('diagClientApi 完了');
 }
 
 

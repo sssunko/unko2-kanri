@@ -67,7 +67,8 @@
       "Bash(git -C \"c:/gas/unko2-kanri\" diff HEAD -- \"csvImport.html\" \"コード.js\")",
       "Bash(git -C c:\\\\gas\\\\unko2-kanri log --oneline -10)",
       "Bash(grep -v \"function\\\\|//\\\\|setValue\\\\|setBackground\\\\|import\\\\|export\")",
-      "Bash(grep -v \"^.*//\\\\|荷主側\\\\|荷主様\")"
+      "Bash(grep -v \"^.*//\\\\|荷主側\\\\|荷主様\")",
+      "Bash(grep -v \"^.*//\\\\|^.*\\\\*\")"
     ]
   }
 }
