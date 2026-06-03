@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'メイリオ',Meiryo,'ＭＳ 明朝',serif;background:#f5f5f5;font-size:10pt;}
+.toolbar{background:#37474f;padding:10px 16px;display:flex;gap:10px;align-items:center;}
+.toolbar span{color:#cfd8dc;font-size:12px;margin-right:auto;}
+.tbtn{padding:7px 18px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;}
+.tbtn-print{background:#fff;color:#1565c0;}
+.tbtn-email{background:#1565c0;color:#fff;}
+.tbtn-fax{background:#6a1b9a;color:#fff;}
+.tbtn-print:hover{background:#e3f2fd;}
+.tbtn-email:hover{background:#1976d2;}
+.tbtn-fax:hover{background:#7b1fa2;}
+.tbtn-sent{background:#388e3c!important;color:#fff!important;cursor:default;}
+.page{background:#fff;width:720px;margin:12px auto;padding:20px 24px;border:1px solid #bbb;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+.doc-title{text-align:center;font-size:18pt;font-weight:bold;letter-spacing:.3em;border-bottom:2px solid #333;padding-bottom:6px;margin-bottom:12px;}
+.header-row{display:flex;justify-content:space-between;margin-bottom:14px;}
+.recipient .company{font-size:14pt;font-weight:bold;border-bottom:1.5px solid #333;display:inline-block;min-width:260px;padding-bottom:2px;margin-bottom:4px;}
+.recipient .attn{font-size:10pt;color:#555;margin-left:4px;}
+.sender-box{text-align:right;font-size:9pt;line-height:1.9;}
+.sender-box .s-name{font-size:11pt;font-weight:bold;}
+.section{margin-bottom:10px;}
+.sec-ttl{background:#455a64;color:#fff;padding:3px 10px;font-size:9.5pt;font-weight:bold;margin-bottom:0;}
+table.doc-tbl{width:100%;border-collapse:collapse;font-size:9.5pt;}
+table.doc-tbl th{background:#eceff1;border:1px solid #90a4ae;padding:5px 6px;text-align:center;font-weight:bold;white-space:nowrap;}
+table.doc-tbl td{border:1px solid #90a4ae;padding:5px 8px;vertical-align:middle;min-height:26px;}
+table.doc-tbl td[contenteditable]{cursor:text;outline:none;}
+table.doc-tbl td[contenteditable]:focus{background:#fffde7;}
+table.doc-tbl td.ctr{text-align:center;}
+table.doc-tbl td.num{text-align:right;}
+.footer-note{text-align:right;font-size:8pt;color:#888;margin-top:8px;}
+@media print{
+  .toolbar{display:none!important;}
+  body{background:#fff;}
+  .page{box-shadow:none;border:none;margin:0;padding:12px 16px;width:100%;}
+}
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <span id="doc-type-label">帳票</span>
+  <button type="button" class="tbtn tbtn-print" onclick="onPrint()">🖨️ 印刷 / PDF保存</button>
+  <button type="button" class="tbtn tbtn-email" id="btn-email" onclick="onEmailSend()">✉️ メール送信</button>
+  <button type="button" class="tbtn tbtn-fax"   id="btn-fax"   onclick="onFaxSend()">📠 FAX送信</button>
+</div>
+<div class="page" id="page"></div>
+
+<script>
+var DATA = <?!= docData ?>;
+var TYPE = '<?!= docType ?>';
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtMoney(v){
+  if(!v && v!==0) return '';
+  var n=parseFloat(String(v).replace(/[,¥￥\s]/g,''));
+  return isNaN(n)?String(v):'¥'+n.toLocaleString();
+}
+
+function ce(val){ return ' contenteditable="true" data-orig="'+esc(val)+'"'; }
+
+function buildDoc(d, isHatchu){
+  var title     = isHatchu ? '発　注　書' : '車　番　連　絡';
+  var recipient = isHatchu ? d.company    : d.client;
+  var kinGaku   = isHatchu ? fmtMoney(d.payment) : fmtMoney(d.sales);
+
+  // ヘッダー
+  var html = '<div class="doc-title">'+esc(title)+'</div>'
+    + '<div class="header-row">'
+    + '<div class="recipient">'
+    + '<div class="company" '+ce(recipient)+'>' + esc(recipient) + '</div>'
+    + '<span class="attn">　御　中</span>'
+    + '<div style="margin-top:8px;font-size:9pt;color:#555">下記の通りご連絡申し上げます。</div>'
+    + '</div>'
+    + '<div class="sender-box">'
+    + '<div>発行日：<span '+ce(d.today)+'>'+esc(d.today)+'</span></div>'
+    + '<div class="s-name" '+ce(d.selfName)+'>'+esc(d.selfName)+'</div>'
+    + (d.selfZip  ? '<div>〒<span '+ce(d.selfZip)+'>'+esc(d.selfZip)+'</span>　<span '+ce(d.selfAddr)+'>'+esc(d.selfAddr)+'</span></div>' : '')
+    + (d.selfTel  ? '<div>TEL：<span '+ce(d.selfTel)+'>'+esc(d.selfTel)+'</span>'+(d.selfFax?'　FAX：<span '+ce(d.selfFax)+'>'+esc(d.selfFax)+'</span>':'')+'</div>':'')
+    + (d.selfPerson ? '<div>担当：<span '+ce(d.selfPerson)+'>'+esc(d.selfPerson)+'</span></div>' : '')
+    + '</div>'
+    + '</div>';
+
+  // 1段目: 積日/曜日/積地/降日/曜日/降地
+  html += '<div class="section"><div class="sec-ttl">■ 運行情報</div>'
+    + '<table class="doc-tbl"><thead><tr>'
+    + '<th style="width:8%">積　日</th><th style="width:5%">曜日</th><th style="width:18%">積　込　地</th>'
+    + '<th style="width:8%">降　日</th><th style="width:5%">曜日</th><th style="width:18%">降ろし地</th>'
+    + '</tr></thead><tbody><tr>'
+    + '<td class="ctr"'+ce(d.dateStr)+'>'+esc(d.dateStr)+'</td>'
+    + '<td class="ctr"'+ce(d.wdStr)+'>'+esc(d.wdStr)+'</td>'
+    + '<td'+ce(d.pickPlace)+'>'+esc(d.pickPlace)+'</td>'
+    + '<td class="ctr" contenteditable="true" data-orig="'+esc(d.dropDateStr)+'">'+esc(d.dropDateStr)+'</td>'
+    + '<td class="ctr" contenteditable="true" data-orig="'+esc(d.dropWdStr)+'">'+esc(d.dropWdStr)+'</td>'
+    + '<td'+ce(d.dropPlace)+'>'+esc(d.dropPlace)+'</td>'
+    + '</tr></tbody></table></div>';
+
+  // 2段目: 金額/品名/トン数/車種/装備その他
+  html += '<div class="section"><div class="sec-ttl">■ 詳細情報</div>'
+    + '<table class="doc-tbl"><thead><tr>'
+    + '<th style="width:16%">金　額</th><th style="width:22%">品　名</th>'
+    + '<th>装備・その他</th>'
+    + '</tr></thead><tbody><tr>'
+    + '<td class="num"'+ce(kinGaku)+'>'+esc(kinGaku)+'</td>'
+    + '<td'+ce(d.client)+'>'+esc(d.client)+'</td>'
+    + '<td'+ce(d.sobiSonota||d.memo)+'>'+esc(d.sobiSonota||d.memo)+'</td>'
+    + '</tr></tbody></table></div>';
+
+  // 3段目: 看板名/車番/乗務員名/携帯番号
+  html += '<div class="section"><div class="sec-ttl">■ 車両・乗務員情報</div>'
+    + '<table class="doc-tbl"><thead><tr>'
+    + '<th style="width:8%">トン数</th><th style="width:9%">車　種</th>'
+    + '<th style="width:16%">看板名</th><th style="width:13%">車　番</th>'
+    + '<th style="width:16%">乗務員名</th><th>携帯番号</th>'
+    + '</tr></thead><tbody><tr>'
+    + '<td class="ctr"'+ce(d.ton)+'>'+esc(d.ton)+'</td>'
+    + '<td class="ctr"'+ce(d.carType)+'>'+esc(d.carType)+'</td>'
+    + '<td'+ce(d.signboard)+'>'+esc(d.signboard)+'</td>'
+    + '<td class="ctr"'+ce(d.car)+'>'+esc(d.car)+'</td>'
+    + '<td class="ctr"'+ce(d.driver)+'>'+esc(d.driver)+'</td>'
+    + '<td class="ctr"'+ce(d.phone)+'>'+esc(d.phone)+'</td>'
+    + '</tr></tbody></table></div>';
+
+  html += '<div class="footer-note">※ ご不明な点は担当者までご連絡ください。</div>';
+  return html;
+}
+
+function onPrint() {
+  window.print();
+  google.script.run.markDocumentIssued(DATA.id, TYPE);
+}
+
+function onEmailSend() {
+  if (!DATA.clientEmail) {
+    alert('メールアドレスが未登録です。\nマスタシートのQ列にメールアドレスを登録してください。');
+    return;
+  }
+  if (!confirm('この宛先に送信してもよろしいですか？\n\n宛先：' + DATA.clientEmail)) return;
+  var btn = document.getElementById('btn-email');
+  btn.disabled = true; btn.textContent = '送信中...';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok) {
+        alert(r.msg);
+        btn.textContent = '✅ 送信済み'; btn.className = 'tbtn tbtn-sent';
+      } else {
+        alert((r && r.msg) || '送信に失敗しました。');
+        btn.disabled = false; btn.textContent = '✉️ メール送信';
+      }
+    })
+    .withFailureHandler(function(e) {
+      alert('エラー: ' + e.message);
+      btn.disabled = false; btn.textContent = '✉️ メール送信';
+    })
+    .sendDocumentEmail(DATA, TYPE, 'email');
+}
+
+function onFaxSend() {
+  if (!DATA.clientFax) {
+    alert('FAX番号が未登録です。\nマスタシートのD列にFAX番号を登録してください。');
+    return;
+  }
+  if (!confirm('この宛先にFAX送信してもよろしいですか？\n\n宛先：' + DATA.clientFax)) return;
+  var btn = document.getElementById('btn-fax');
+  btn.disabled = true; btn.textContent = '送信中...';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok) {
+        alert(r.msg);
+        btn.textContent = '✅ 送信済み'; btn.className = 'tbtn tbtn-sent';
+      } else {
+        alert((r && r.msg) || '送信に失敗しました。');
+        btn.disabled = false; btn.textContent = '📠 FAX送信';
+      }
+    })
+    .withFailureHandler(function(e) {
+      alert('エラー: ' + e.message);
+      btn.disabled = false; btn.textContent = '📠 FAX送信';
+    })
+    .sendDocumentEmail(DATA, TYPE, 'fax');
+}
+
+(function(){
+  var isHatchu = (TYPE === 'hatchu');
+  document.getElementById('doc-type-label').textContent = isHatchu ? '発注書・指示書' : '車番連絡';
+  document.getElementById('page').innerHTML = buildDoc(DATA, isHatchu);
+})();
+</script>
+</body>
+</html>

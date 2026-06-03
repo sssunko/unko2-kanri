@@ -750,6 +750,9 @@ function onOpen() {
     .addSeparator()
     .addItem('📄 請求書生成', 'showInvoiceDialog')
     .addItem('📄 支払確認書生成', 'showPaymentDialog')
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('📋 帳票・送信メニュー')
+      .addItem('① 発注書・指示書を作成（協力会社・乗務員用）', 'showHatchuDocDialog')
+      .addItem('② 車番連絡を作成（荷主用）', 'showShabanDocDialog'))
     .addSeparator()
     .addItem('📤 テスト客SSに反映', 'syncToTemplateSS');
   menu.addToUi();
@@ -2472,7 +2475,27 @@ function expandAndRefreshSheets() {
     if (uHdrs.indexOf('点呼後完了') === -1) {
       unkouInspSheet.getRange(1, uNext).setValue('点呼後完了');
       unkouInspSheet.getRange(1, uNext).setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
+      uNext++;
     }
+    // 点呼後完了の右に帳票関連列を追加（なければ）
+    // ※ uNext は最新の「次に追加すべき列」を指している
+    uLastCol = unkouInspSheet.getLastColumn();
+    uRawHdrs = uLastCol > 0 ? unkouInspSheet.getRange(1, 1, 1, uLastCol).getValues()[0] : [];
+    uHdrs    = uRawHdrs.map(function(h){ return String(h||'').trim(); });
+    uNext    = uLastCol + 1;
+    var docCols = [
+      {name:'装備その他',  bg:'#4527a0', fg:'#ede7f6'},
+      {name:'発注書・指示書', bg:'#1a237e', fg:'#e8eaf6'},
+      {name:'車番連絡',    bg:'#1a237e', fg:'#e8eaf6'},
+      {name:'帳票備考',    bg:'#4e342e', fg:'#efebe9'}
+    ];
+    docCols.forEach(function(col){
+      if (uHdrs.indexOf(col.name) === -1) {
+        var c = unkouInspSheet.getRange(1, uNext);
+        c.setValue(col.name).setBackground(col.bg).setFontColor(col.fg).setFontWeight('bold');
+        uNext++;
+      }
+    });
   }
 
   // 集計表に点呼前完了・点呼後完了列を追加（なければ末尾に追加）
@@ -2488,6 +2511,16 @@ function expandAndRefreshSheets() {
     }
     if (siHdrs.indexOf('点呼後完了') === -1) {
       sumInspSheet.getRange(1, siNext).setValue('点呼後完了');
+    }
+  }
+
+  // 取引先マスタにメールアドレス列を追加（なければ末尾に自動追加）
+  var custSheetExp = ss.getSheetByName('マスタ');
+  if (custSheetExp) {
+    var cLastColExp = custSheetExp.getLastColumn();
+    var cHdrsExp = cLastColExp > 0 ? custSheetExp.getRange(1,1,1,cLastColExp).getValues()[0].map(function(h){return String(h||'').trim();}) : [];
+    if (cHdrsExp.indexOf('メールアドレス') === -1) {
+      custSheetExp.getRange(1, cLastColExp + 1).setValue('メールアドレス').setFontWeight('bold');
     }
   }
 
@@ -2517,6 +2550,8 @@ function expandAndRefreshSheets() {
       .setAllowInvalid(false).build();
     masterSheet.getRange(2, 2, masterSheet.getMaxRows() - 1, 1).setDataValidation(dropRule);
   }
+
+  ensureCompanySettingSheet_(ss);
 
   applyHolidayRowColors_();
   SpreadsheetApp.getUi().alert('シート再生成が完了しました。');
@@ -5872,7 +5907,7 @@ function initClientSSSheets_(ss, companyName) {
     '車両ID','運行状態','区分','会社名','看板名','トン数','車種','車番',
     '乗務員名','携帯番号','アドレス','燃費','備考','仮日数','給料','％'
   ];
-  var custHeader    = ['マスタID','会社名','電話','FAX','郵便番号','住所','代表者','配車担当','銀行名','支店名','種別','番号','名義','備考','インボイス登録番号','インボイス発行者名（自社名）'];
+  var custHeader    = ['マスタID','会社名','電話','FAX','郵便番号','住所','代表者','配車担当','銀行名','支店名','種別','番号','名義','備考','インボイス登録番号','インボイス発行者名（自社名）','メールアドレス'];
   var settingHeader = ['トン数','基準燃費','有休設定','有休金額','業務前点検','業務後点検'];
 
   function resetSheet(name, header) {
@@ -7602,4 +7637,319 @@ function saveImportAliases(sheetType, newMappings, companySsId) {
       break;
     }
   }
+}
+
+
+// ================================================================
+//  14-1: 自社設定シート自動生成（ensureCompanySettingSheet_）
+// ================================================================
+// ================================================================
+//  14-4: 帳票発行済マーク（markDocumentIssued）
+// ================================================================
+function markDocumentIssued(rowId, docType) {
+  if (!rowId) return;
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet || sheet.getLastRow() < 2) return;
+  var lastCol = sheet.getLastColumn();
+  var hdrs    = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h){ return String(h||'').trim(); });
+  var colName = (docType === 'hatchu') ? '発注書・指示書' : '車番連絡';
+  var colIdx  = hdrs.indexOf(colName); // 0-based
+  if (colIdx === -1) return;
+  var ids = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]||'').trim() === rowId) {
+      sheet.getRange(i + 2, colIdx + 1).setValue('済');
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        colName + ' を発行済にしました（ID: ' + rowId + '）', '✅', 3
+      );
+      return;
+    }
+  }
+}
+
+
+// ================================================================
+//  14-5: 帳票メール／FAX送信（sendDocumentEmail）
+// ================================================================
+function sendDocumentEmail(docData, docType, method) {
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var custSheet = ss.getSheetByName('マスタ');
+  if (!custSheet || custSheet.getLastRow() < 2) return { ok: false, msg: 'マスタシートが見つかりません。' };
+
+  var cLastCol = custSheet.getLastColumn();
+  var cHdrs = custSheet.getRange(1,1,1,cLastCol).getValues()[0].map(function(h){return String(h||'').trim();});
+  var cData = custSheet.getRange(2,1,custSheet.getLastRow()-1,cLastCol).getValues();
+  var nIdx     = cHdrs.indexOf('会社名');
+  var emailIdx = cHdrs.indexOf('メールアドレス');
+  var faxIdx   = cHdrs.indexOf('FAX');
+
+  var clientName = String(docData.client || '').trim();
+  if (!clientName) return { ok: false, msg: '荷主名が取得できません。' };
+
+  var custRow = null;
+  for (var i = 0; i < cData.length; i++) {
+    if (String(cData[i][nIdx]||'').trim() === clientName) { custRow = cData[i]; break; }
+  }
+  if (!custRow) return { ok: false, msg: '「' + clientName + '」がマスタに見つかりません。' };
+
+  if (method === 'email') {
+    var email = (emailIdx >= 0) ? String(custRow[emailIdx]||'').trim() : '';
+    if (!email) return { ok: false, msg: 'メールアドレスが未登録です。\nマスタシートのQ列に登録してください。' };
+    var docName = (docType === 'hatchu') ? '発注書・指示書' : '車番連絡';
+    var subject = docName + '【' + (docData.dateStr||'') + '】' + (docData.selfName||'');
+    var body = clientName + ' 御中\n\n下記の通りご連絡申し上げます。\n\n'
+      + '運行日：' + (docData.dateStr||'') + '（' + (docData.wdStr||'') + '）\n'
+      + '積　地：' + (docData.pickPlace||'') + '\n'
+      + '降　地：' + (docData.dropPlace||'') + '\n'
+      + '車　番：' + (docData.car||'') + '\n'
+      + '乗務員：' + (docData.driver||'') + '\n\n'
+      + (docData.selfName||'');
+    GmailApp.sendEmail(email, subject, body);
+    markDocumentIssued(docData.id, docType);
+    return { ok: true, msg: email + ' に送信しました。' };
+
+  } else if (method === 'fax') {
+    var fax = (faxIdx >= 0) ? String(custRow[faxIdx]||'').trim() : '';
+    if (!fax) return { ok: false, msg: 'FAX番号が未登録です。\nマスタシートのD列に登録してください。' };
+    Logger.log('[FAX送信予約] 宛先:' + fax + ' 書類:' + docType + ' ID:' + docData.id);
+    markDocumentIssued(docData.id, docType);
+    return { ok: true, msg: 'FAX送信を予約しました。（宛先：' + fax + '）' };
+  }
+
+  return { ok: false, msg: '不明な送信方法です。' };
+}
+
+
+function ensureCompanySettingSheet_(ss) {
+  var SHEET_NAME = '自社設定';
+  var items = ['会社名','郵便番号','住所','電話番号','FAX番号','担当者名','インボイス登録番号'];
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+  }
+  var lastRow = sheet.getLastRow();
+  var existingItems = lastRow > 0
+    ? sheet.getRange(1, 1, lastRow, 1).getValues().map(function(r){ return String(r[0]||'').trim(); })
+    : [];
+  for (var i = 0; i < items.length; i++) {
+    if (existingItems.indexOf(items[i]) === -1) {
+      var nextRow = sheet.getLastRow() + 1;
+      sheet.getRange(nextRow, 1).setValue(items[i]);
+    }
+  }
+  var numRows = Math.max(sheet.getLastRow(), items.length);
+  sheet.getRange(1, 1, numRows, 1)
+    .setBackground('#cfd8dc').setFontWeight('bold').setFontSize(11).setVerticalAlignment('middle');
+  sheet.getRange(1, 1, numRows, 2)
+    .setBorder(true, true, true, true, true, true, '#78909c', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.setColumnWidth(1, 190);
+  sheet.setColumnWidth(2, 340);
+  sheet.setRowHeights(1, numRows, 28);
+}
+
+
+// ================================================================
+//  14-2: 帳票ダイアログ表示
+// ================================================================
+function showHatchuDocDialog() {
+  var data = getDocumentData_('sum'); // 発注書・指示書: 集計表から（金額=支払い）
+  if (!data) return;
+  var tmpl = HtmlService.createTemplateFromFile('documentPreview');
+  tmpl.docType = 'hatchu';
+  tmpl.docData = JSON.stringify(data);
+  SpreadsheetApp.getUi().showModalDialog(
+    tmpl.evaluate().setWidth(780).setHeight(660), '発注書・指示書'
+  );
+}
+
+function showShabanDocDialog() {
+  var data = getDocumentData_('unkou'); // 車番連絡: 運行シートから（金額=売上）
+  if (!data) return;
+  var tmpl = HtmlService.createTemplateFromFile('documentPreview');
+  tmpl.docType = 'shaban';
+  tmpl.docData = JSON.stringify(data);
+  SpreadsheetApp.getUi().showModalDialog(
+    tmpl.evaluate().setWidth(780).setHeight(580), '車番連絡'
+  );
+}
+
+
+// ================================================================
+//  14-3: アクティブ行のデータ取得（getDocumentData_）
+// ================================================================
+function getDocumentData_(source) {
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var ui  = SpreadsheetApp.getUi();
+  var activeSheet = ss.getActiveSheet();
+  var activeCell  = activeSheet.getActiveRange();
+  var cellValue   = String(activeCell.getValue() || '').trim();
+
+  // 運行シートからデータ取得
+  var unkouSheet = ss.getSheetByName('運行');
+  if (!unkouSheet) { ui.alert('運行シートが見つかりません。'); return null; }
+  var uLastCol = unkouSheet.getLastColumn();
+  var uHdrs    = unkouSheet.getRange(1, 1, 1, uLastCol).getValues()[0].map(function(h){ return String(h||'').trim(); });
+  var uAll     = unkouSheet.getDataRange().getValues();
+
+  var rowData = null;
+  var rowId   = '';
+
+  // ① クリックしたセルの値がIDパターン（V-XXXX等）ならそれで検索
+  if (/^[VvSsMm]-\d+$/.test(cellValue)) {
+    rowId = cellValue;
+    for (var i = 1; i < uAll.length; i++) {
+      if (String(uAll[i][0]||'').trim() === rowId) { rowData = uAll[i]; break; }
+    }
+  }
+
+  // ② IDが取れなければ、アクティブ行のA列から取得（運行シート上の行選択にも対応）
+  if (!rowData) {
+    var activeRow = activeCell.getRow();
+    if (activeRow < 2) { ui.alert('運行シートのIDセルか、データ行を選択して実行してください。'); return null; }
+    if (activeSheet.getName() === '運行') {
+      rowData = uAll[activeRow - 1];
+      rowId   = rowData ? String(rowData[0]||'').trim() : '';
+    } else {
+      rowId = String(activeSheet.getRange(activeRow, 1).getValue() || '').trim();
+      if (/^[VvSsMm]-\d+$/.test(rowId)) {
+        for (var j = 1; j < uAll.length; j++) {
+          if (String(uAll[j][0]||'').trim() === rowId) { rowData = uAll[j]; break; }
+        }
+      }
+    }
+  }
+
+  if (!rowData || !rowId) { ui.alert('IDが取得できません。\nIDセル（V-0001等）をクリックしてから実行してください。'); return null; }
+
+  function uVal(name) {
+    var idx = uHdrs.indexOf(name);
+    return idx >= 0 ? rowData[idx] : '';
+  }
+
+  // 集計表フォールバック（運行シートのヘッダー旧形式対応）
+  var sumFallbackRow = null, sumFallbackHdrs = [];
+  (function(){
+    var sf = ss.getSheetByName('集計表');
+    if (!sf || sf.getLastRow() < 2) return;
+    sumFallbackHdrs = sf.getRange(1,1,1,sf.getLastColumn()).getValues()[0].map(function(h){return String(h||'').trim();});
+    var sfData = sf.getRange(2,1,sf.getLastRow()-1,sf.getLastColumn()).getValues();
+    for (var si2 = 0; si2 < sfData.length; si2++) {
+      if (String(sfData[si2][0]||'').trim() === rowId) { sumFallbackRow = sfData[si2]; break; }
+    }
+  })();
+  function sVal(name) {
+    if (!sumFallbackRow) return '';
+    var idx = sumFallbackHdrs.indexOf(name);
+    return idx >= 0 ? sumFallbackRow[idx] : '';
+  }
+  function anyVal() {
+    for (var ai = 0; ai < arguments.length; ai++) {
+      var v = uVal(arguments[ai]); if (v !== '' && v !== null && v !== undefined) return v;
+      v = sVal(arguments[ai]); if (v !== '' && v !== null && v !== undefined) return v;
+    }
+    return '';
+  }
+
+  // 日付フォーマット
+  var WD = ['日','月','火','水','木','金','土'];
+  var dateRaw = uVal('日付');
+  var dateStr = '', wdStr = '', dropDateStr = '', dropWdStr = '';
+  var baseDateObj = null;
+  if (dateRaw instanceof Date) {
+    baseDateObj = dateRaw;
+    dateStr = Utilities.formatDate(dateRaw, 'Asia/Tokyo', 'M/d');
+    wdStr   = WD[dateRaw.getDay()];
+  } else if (dateRaw) {
+    var d2 = new Date(dateRaw);
+    if (!isNaN(d2.getTime())) {
+      baseDateObj = d2;
+      dateStr = Utilities.formatDate(d2, 'Asia/Tokyo', 'M/d');
+      wdStr   = WD[d2.getDay()];
+    } else {
+      dateStr = String(dateRaw);
+    }
+  }
+  if (baseDateObj) {
+    var dropDate = new Date(baseDateObj.getFullYear(), baseDateObj.getMonth(), baseDateObj.getDate() + 1);
+    dropDateStr = Utilities.formatDate(dropDate, 'Asia/Tokyo', 'M/d');
+    dropWdStr   = WD[dropDate.getDay()];
+  }
+
+  // 自社設定シートから情報取得
+  var self = {};
+  var selfSheet = ss.getSheetByName('自社設定');
+  if (selfSheet && selfSheet.getLastRow() >= 1) {
+    selfSheet.getDataRange().getValues().forEach(function(r){
+      if (r[0]) self[String(r[0]).trim()] = String(r[1]||'').trim();
+    });
+  }
+
+  // 取引先マスタから荷主情報取得（'荷主'/'荷主名' 両ヘッダー対応）
+  var clientInfo = {};
+  var clientName = String(anyVal('荷主', '荷主名') || '').trim();
+  var custSheet = ss.getSheetByName('マスタ');
+  if (custSheet && custSheet.getLastRow() >= 2 && clientName) {
+    var cHdrs = custSheet.getRange(1,1,1,custSheet.getLastColumn()).getValues()[0].map(function(h){return String(h||'').trim();});
+    var cData = custSheet.getRange(2,1,custSheet.getLastRow()-1,custSheet.getLastColumn()).getValues();
+    var nIdx  = cHdrs.indexOf('会社名');
+    for (var ci = 0; ci < cData.length; ci++) {
+      if (String(cData[ci][nIdx]||'').trim() === clientName) {
+        cHdrs.forEach(function(h,idx){ clientInfo[h] = String(cData[ci][idx]||'').trim(); });
+        break;
+      }
+    }
+  }
+
+  // 発注書（source==='sum'）の場合、集計表から支払い金額を取得
+  var paymentFromSum = '';
+  if (source === 'sum') {
+    var sumSheet2 = ss.getSheetByName('集計表');
+    if (sumSheet2 && sumSheet2.getLastRow() >= 2) {
+      var sHdrs = sumSheet2.getRange(1,1,1,sumSheet2.getLastColumn()).getValues()[0].map(function(h){return String(h||'').trim();});
+      var sData = sumSheet2.getRange(2,1,sumSheet2.getLastRow()-1,sumSheet2.getLastColumn()).getValues();
+      var sPayIdx = sHdrs.indexOf('支払い');
+      if (sPayIdx >= 0) {
+        for (var si = 0; si < sData.length; si++) {
+          if (String(sData[si][0]||'').trim() === rowId) { paymentFromSum = String(sData[si][sPayIdx]||''); break; }
+        }
+      }
+    }
+  }
+
+  var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy年M月d日');
+
+  return {
+    id:          rowId,
+    dateStr:     dateStr,
+    wdStr:       wdStr,
+    dropDateStr: dropDateStr,
+    dropWdStr:   dropWdStr,
+    company:     String(anyVal('会社名')           || ''),
+    ton:         String(anyVal('トン数', 'トン')   || ''),
+    carType:     String(anyVal('車種')             || ''),
+    car:         String(anyVal('車番')             || ''),
+    driver:      String(anyVal('乗務員名', '乗務員')|| ''),
+    phone:       String(anyVal('携帯番号', '電話') || ''),
+    signboard:   String(anyVal('看板名', '看板')   || ''),
+    client:      clientName,
+    pickPlace:   String(anyVal('積地', '積込地')   || ''),
+    dropPlace:   String(anyVal('降地', '降ろし地') || ''),
+    sales:       String(anyVal('売上')             || ''),
+    payment:     source === 'sum' ? paymentFromSum : String(anyVal('支払い') || ''),
+    tollReq:     String(anyVal('請求(高速代)', '請求高速') || ''),
+    memo:        String(anyVal('備考')                    || ''),
+    sobiSonota:  String(anyVal('装備その他', '装備')      || ''),
+    clientTel:   clientInfo['電話']        || '',
+    clientAddr:  clientInfo['住所']        || '',
+    clientEmail: clientInfo['メールアドレス'] || '',
+    clientFax:   clientInfo['FAX']         || '',
+    today:       today,
+    selfName:    self['会社名']     || '',
+    selfZip:     self['郵便番号']   || '',
+    selfAddr:    self['住所']       || '',
+    selfTel:     self['電話番号']   || '',
+    selfFax:     self['FAX番号']    || '',
+    selfPerson:  self['担当者名']   || ''
+  };
 }
