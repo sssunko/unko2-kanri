@@ -57,6 +57,10 @@ table.prev tr.err td { background:rgba(211,47,47,0.1) !important; color:#ff5252;
   <div class="sec-ttl">③ 列の紐づけ（ズレていたら直してください）</div>
   <p style="font-size:11px; color:#aaa; margin-bottom:10px;">※ドロップダウンを変えると、下のプレビューが即座に切り替わります。</p>
   <div class="map-grid" id="mapGrid"></div>
+  <div style="display:flex;gap:8px;margin-bottom:12px;">
+    <button type="button" class="btn" style="background:#4a148c;color:#fff;font-size:12px;padding:7px 16px;" onclick="autoMapAll()">🔍 自動マッピング</button>
+    <button type="button" class="btn" style="background:#444;color:#ccc;font-size:12px;padding:7px 16px;" onclick="resetMapping()">🗑️ リセット</button>
+  </div>
 
   <div class="sec-ttl" style="margin-top:16px;">④ プレビュー確認</div>
   <div class="preview-wrap"><table class="prev" id="prevT"></table></div>
@@ -73,6 +77,27 @@ var ST = '<?= sheetType ?>';
 var SSID = '<?= currentSsId ?>';
 var wb = null, dict = [], rawJson = [], headerRow = 0, firstDataRow = 0, parsedRows = [], extractedYM = null, rowYMMap = [];
 var fields = [];
+var _getDefVal = null;
+
+// 運送業Excelでよく使われる列名のフォールバック辞書（サーバー辞書に無い場合に使用）
+var FALLBACK_ALIASES = {
+  division:  ['区分','運行区分','自社外注','種別','自社/外注','区','配車区分'],
+  company:   ['会社名','業者名','業者','社名','委託先','下請','下請け','外注先','傭車先','傭車','協力会社','運送会社'],
+  ton:       ['トン数','積載量','規格','車格','t数','トン','積載トン','車格トン'],
+  carType:   ['車種','車両種別','型式','車型','車輌種別','車両型式'],
+  car:       ['車番','車番号','ナンバー','号車','車両番号','車輌番号','プレート','登録番号','車No','車no','ナンバープレート'],
+  driver:    ['乗務員','乗務員名','ドライバー','ドライバー名','運転手','運転者','氏名','担当者','担当','乗務者','乗務','配送員','配達員','乗務員氏名'],
+  phone:     ['携帯番号','電話番号','TEL','tel','Tel','携帯','電話','連絡先','携帯電話','緊急連絡先','携帯No'],
+  signboard: ['看板名','看板','指示書名','案件名','荷印','荷印名','荷主看板'],
+  date:      ['日付','運行日','配送日','実施日','年月日','配車日','出発日','月日','作業日','運行日付','実施年月日'],
+  client:    ['荷主','荷主名','取引先','顧客名','顧客','お客様','客先','発注元','委託元','荷主先','荷主会社'],
+  pickPlace: ['積地','積込場所','積込先','発地','積込','出発地','仕出地','仕出','積み地','乗り場','集荷先','集荷','運行','発','起点'],
+  dropPlace: ['降地','荷卸場所','荷卸先','着地','荷卸','到着地','仕向地','仕向','降り地','配送先','納品先','納入先','着','終点'],
+  sales:     ['売上','運賃','貰い運賃','請求額','請求運賃','金額','収入','売上金額','売上額','請求金額','貰い','受取運賃'],
+  tollReq:   ['請求高速','高速請求','高速代請求','高速費用請求','高速(請求)','高速代','高速'],
+  tollReal:  ['実費高速','高速実費','高速費用','高速(実費)','高速代実費'],
+  payment:   ['支払い','支払','外注費','外注運賃','支払運賃','支払額','車払い','車にのみ','車払','傭車費','支払運賃額'],
+};
 
 function bar(msg, t) { var e=document.getElementById('bar'); e.className=t||'info'; e.innerText=msg; e.style.display='block'; }
 function clrBar() { document.getElementById('bar').style.display = 'none'; }
@@ -99,7 +124,8 @@ document.getElementById('fi').addEventListener('change', function(e) {
         wb.SheetNames.forEach(function(n,i){ if(idx<0 && /[0-9]/.test(n)) idx=i; });
         document.querySelectorAll('.sbtn')[idx>=0?idx:0].click();
       } else {
-        selSh(wb.SheetNames[0], null);
+        document.getElementById('sbArea').innerHTML = '<button type="button" class="sbtn active" data-sheet="'+esc(wb.SheetNames[0])+'">'+esc(wb.SheetNames[0])+'</button>';
+        loadSelectedSheets();
       }
     } catch(err) { bar('読込エラー: '+err.message, 'error'); }
   };
@@ -145,11 +171,21 @@ function loadSelectedSheets() {
     .getImportDictionary(ST, SSID);
 }
 
-// ヘッダー行を特定（最もセル数が多い行）
+// ヘッダー行を特定（キーワードスコア最大の行を選ぶ — タイトル行への誤検知を防ぐ）
 function findHeaderRow(json) {
+  var KWS = ['車番','乗務員','ドライバー','運転手','荷主','積地','降地','売上','氏名','運賃',
+             '名前','業者','携帯','電話','日付','看板','支払','貰い','高速','運行','会社'];
+  var bestScore = 0, bestRow = 0;
+  for(var i=0; i<Math.min(10, json.length); i++) {
+    var rowStr = (json[i]||[]).map(function(x){return String(x||'');}).join('');
+    var score = KWS.filter(function(k){ return rowStr.indexOf(k)!==-1; }).length;
+    if(score > bestScore) { bestScore = score; bestRow = i; }
+  }
+  if(bestScore > 0) return bestRow;
+  // キーワードが全く無ければ非空セル数最多にフォールバック
   var best = 0, max = 0;
   for(var i=0; i<Math.min(10, json.length); i++) {
-    var c = json[i].filter(function(x){return String(x).trim();}).length;
+    var c = (json[i]||[]).filter(function(x){return String(x).trim();}).length;
     if(c > max) { max = c; best = i; }
   }
   return best;
@@ -164,17 +200,35 @@ function findYM(json, shName) {
   if (dMatch) res.d = parseInt(dMatch[1], 10);
 
   var txts = [shName];
-  for(var i=0; i<Math.min(5, json.length); i++) {
-    (json[i]||[]).forEach(function(x){ txts.push(String(x||'')); });
+  for(var i=0; i<Math.min(10, json.length); i++) {
+    (json[i]||[]).forEach(function(x){
+      // Excelシリアル値（40000〜50000 = 2009〜2036年相当）を実日付文字列に変換して追加
+      var n = (typeof x === 'number') ? x : parseFloat(x);
+      if(!isNaN(n) && n >= 40000 && n <= 50000) {
+        var d = new Date((n - 25569) * 86400000);
+        txts.push(d.getUTCFullYear()+'年'+(d.getUTCMonth()+1)+'月'+d.getUTCDate()+'日');
+      }
+      txts.push(String(x||''));
+    });
   }
+  // 年付き年月パターンを優先検索
+  var foundYM = false;
   for(var ti=0; ti<txts.length; ti++) {
     var s = txts[ti];
     var m1 = s.match(/令和\s*(\d+)\s*年\s*(\d+)\s*月/);
-    if(m1){ res.y=2018+parseInt(m1[1]); res.m=parseInt(m1[2]); break; }
+    if(m1){ res.y=2018+parseInt(m1[1]); res.m=parseInt(m1[2]); foundYM=true; break; }
     var m2 = s.match(/(20\d\d)\s*年\s*(\d+)\s*月/);
-    if(m2){ res.y=parseInt(m2[1]); res.m=parseInt(m2[2]); break; }
+    if(m2){ res.y=parseInt(m2[1]); res.m=parseInt(m2[2]); foundYM=true; break; }
     var m3 = s.match(/(20\d\d)[\/\-](\d{1,2})/);
-    if(m3){ res.y=parseInt(m3[1]); res.m=parseInt(m3[2]); break; }
+    if(m3){ res.y=parseInt(m3[1]); res.m=parseInt(m3[2]); foundYM=true; break; }
+  }
+  // スペース・スラッシュ区切りにも対応した月日抽出（スキャン範囲10行）
+  if(!res.d) {
+    var mdRe = /(?:20\d\d[年\/\-]|令和\d+年)?\s*(\d{1,2})\s*[月\/\-]\s*(\d{1,2})\s*日?/;
+    for(var ti=0; ti<txts.length; ti++) {
+      var m4 = txts[ti].match(mdRe);
+      if(m4){ if(!foundYM) res.m=parseInt(m4[1]); res.d=parseInt(m4[2]); break; }
+    }
   }
   return res;
 }
@@ -186,39 +240,110 @@ function buildMappingUI() {
   fields = priority.map(function(fid){ return dict.find(function(e){return e.fieldId===fid;}); }).filter(Boolean);
   dict.forEach(function(e){ if(priority.indexOf(e.fieldId)<0) fields.push(e); });
 
-  var hdrs      = rawJson[headerRow] || [];
+  // 結合セルで空になる列に仮想列名を付与（エイリアス学習・キー生成を安定させる）
+  var hdrs = (rawJson[headerRow] || []).map(function(h, c) {
+    return String(h||'').replace(/\n/g,' ').trim() || ('【列'+c+'】');
+  });
   var firstData = rawJson[firstDataRow] || [];
 
   var colOptions = '<option value="-1">-- 選択しない --</option><option value="AUTO">💡 シート上部から自動抽出</option>';
   for(var c=0; c<Math.max(hdrs.length, firstData.length); c++) {
     var letter = c < 26 ? String.fromCharCode(65+c) : String.fromCharCode(64+Math.floor(c/26))+String.fromCharCode(65+(c%26));
-    var hText  = String(hdrs[c]||'').replace(/\n/g,' ').substring(0,15);
+    var hText  = (hdrs[c] || ('【列'+c+'】')).substring(0,15);
     var dText  = String(firstData[c]||'').replace(/\n/g,' ').substring(0,12);
-    var label  = '列'+letter+(hText?' ['+hText+']':'')+(dText?' 例:'+dText:'');
+    var label  = '列'+letter+' ['+hText+']'+(dText?' 例:'+dText:'');
     colOptions += '<option value="'+c+'">'+esc(label)+'</option>';
   }
 
   // デフォルト値を計算する関数
   function getDefVal(fid) {
     var dv = '-1';
-    var dEntry = dict.find(function(e){return e.fieldId===fid;});
+    var cleanAlias = function(a){ return !/^【列\d+】$/.test(String(a)); };
+    var dEntry = dict.find(function(e){ return e.fieldId===fid; });
+
+    // ① サーバー辞書（汚染エイリアス除外）完全一致
     if(dEntry) {
+      var aliases = dEntry.aliases.filter(cleanAlias);
       for(var c=0; c<hdrs.length; c++) {
-        var hn = nrm(hdrs[c]);
-        if(hn && dEntry.aliases.some(function(a){ return nrm(a)===hn || (nrm(a).length>1 && hn.indexOf(nrm(a))!==-1); })) {
-          dv = c; break;
+        var hn=nrm(hdrs[c]);
+        if(hn && aliases.some(function(a){ return nrm(a)===hn; })) { dv=c; break; }
+      }
+      // ② サーバー辞書 部分一致（「コード」「番号」末尾の列は除外）
+      if(dv==='-1') {
+        for(var c=0; c<hdrs.length; c++) {
+          var hn=nrm(hdrs[c]);
+          if(/コード$|番号$|no\.?$|code$/i.test(hdrs[c]||'')) continue; // コード系列は部分一致対象外
+          if(hn && aliases.some(function(a){ return nrm(a).length>1 && hn.indexOf(nrm(a))!==-1; })) { dv=c; break; }
         }
       }
     }
+    // ③ フォールバック辞書 完全一致
+    if(dv==='-1') {
+      var fa=FALLBACK_ALIASES[fid]||[];
+      for(var c=0; c<hdrs.length; c++) {
+        var hn=nrm(hdrs[c]);
+        if(hn && fa.some(function(a){ return nrm(a)===hn; })) { dv=c; break; }
+      }
+    }
+    // ④ フォールバック辞書 部分一致（「コード」「番号」末尾の列は除外）
+    if(dv==='-1') {
+      var fa=FALLBACK_ALIASES[fid]||[];
+      for(var c=0; c<hdrs.length; c++) {
+        var hn=nrm(hdrs[c]);
+        if(/コード$|番号$|no\.?$|code$/i.test(hdrs[c]||'')) continue;
+        if(hn && fa.some(function(a){ return nrm(a).length>1 && hn.indexOf(nrm(a))!==-1; })) { dv=c; break; }
+      }
+    }
+
+    // ⑤ データ値パターン検出（ヘッダーが空/未認識の列を値から判定）
+    // トン数・車種：「13w」「4W」「13平」のような数字＋車種文字
+    if((fid==='ton'||fid==='carType') && dv==='-1') {
+      for(var c=0; c<firstData.length; c++) {
+        var v=String(firstData[c]||'').replace(/[！-～]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0);}).trim();
+        if(/^\d+(?:\.\d+)?[a-zA-Z平ト]/.test(v)) { dv=c; break; }
+      }
+    }
+
+    // 積地・降地：市区町村を含む文字列（数字始まり・〜のみは除外）
+    if((fid==='pickPlace'||fid==='dropPlace') && dv==='-1') {
+      var addrRe=/[市区町村都道府県]/;
+      var addrCols=[];
+      for(var c=0; c<firstData.length; c++) {
+        var v=String(firstData[c]||'').trim();
+        if(addrRe.test(v) && !/^\d/.test(v) && v.replace(/[〜～\s]/g,'')) addrCols.push(c);
+      }
+      if(fid==='pickPlace' && addrCols.length>0) dv=addrCols[0];
+      if(fid==='dropPlace' && addrCols.length>1) dv=addrCols[1];
+    }
+
+    // 乗務員名：漢字・ひらがな 2〜4文字で会社名マーカーなし
+    if(fid==='driver' && dv==='-1') {
+      var nmRe=/^[一-鿿぀-ゟ゠-ヿ]{2,4}$/;
+      var cpRe=/[㈱㈲]|株式|有限|会社|本社|事務所/;
+      for(var c=0; c<firstData.length; c++) {
+        var v=String(firstData[c]||'').trim();
+        if(nmRe.test(v) && !cpRe.test(v)) { dv=c; break; }
+      }
+    }
+
+    // 〜を含む列（〜のみのセパレータ列は除外）
     if(fid==='pickPlace' && dv==='-1') {
-      for(var c=0; c<firstData.length; c++) { if(/[〜～]/.test(String(firstData[c]||''))){ dv=c; break; } }
+      for(var c=0; c<firstData.length; c++) {
+        var v=String(firstData[c]||'');
+        if(/[〜～]/.test(v) && v.replace(/[〜～\s]/g,'')) { dv=c; break; }
+      }
     }
     if(fid==='dropPlace' && dv==='-1') {
-      for(var c=0; c<firstData.length; c++) { if(/[〜～]/.test(String(firstData[c]||''))){ dv=c; break; } }
+      for(var c=0; c<firstData.length; c++) {
+        var v=String(firstData[c]||'');
+        if(/[〜～]/.test(v) && v.replace(/[〜～\s]/g,'')) { dv=c; break; }
+      }
     }
+
     if((fid==='date'||fid==='car'||fid==='driver') && dv==='-1') dv='AUTO';
     return dv;
   }
+  _getDefVal = getDefVal; // 自動マッピングボタンから呼べるようにグローバルへ退避
 
   var html = '';
   fields.forEach(function(f) {
@@ -234,6 +359,9 @@ function buildMappingUI() {
     var exists = Array.from(sel.options).some(function(o){return o.value==String(dv);});
     sel.value = exists ? String(dv) : '-1';
   });
+
+  // 旧バグキー（SSID単体）の残骸を強制消去
+  try { localStorage.removeItem('importMap_' + ST + '_' + SSID); } catch(e) {}
 
   // 前回の設定があれば上書き復元（同じ列構成なら自動反映）
   var saved = loadSavedMapping();
@@ -252,10 +380,14 @@ function buildMappingUI() {
 
 // ── マッピング保存・復元（localStorage）──────────────
 function getMappingKey() {
-  // ヘッダー行の最初の8列（正規化済み）をキーにする
-  var hdrs = (rawJson[headerRow]||[]).filter(function(h){return String(h).trim();})
-             .slice(0, 8).map(nrm).join(',');
-  return 'importMap_' + ST + '_' + hdrs;
+  // 純粋な数値（日付シリアル値等）と空文字を除外した文字列ヘッダーのみでキーを生成
+  // → 月が変わっても同じExcelフォーマットなら常に同じキーになる
+  var sig = (rawJson[headerRow]||[])
+              .map(function(h){ return String(h||'').trim(); })
+              .filter(function(s){ return s && isNaN(Number(s)); })
+              .slice(0, 10)
+              .join('|');
+  return 'importMap_' + ST + '_' + SSID + '_' + sig;
 }
 function saveMappingToLocal() {
   try {
@@ -305,11 +437,24 @@ function updatePreview() {
   }
 
   parsedRows = [];
-  var errCount = 0, skipCount = 0;
+  var skipCount = 0;
+  var prevValues = {}; // フィルダウン用（結合セル対策）
 
   for(var ri=firstDataRow; ri<rawJson.length; ri++) {
     var row = rawJson[ri]||[];
-    if(!row.some(function(c){return String(c).trim();})) continue;
+
+    // ① エラー値（#N/A, #VALUE!, #REF!等）を空文字に変換したcleanRowを生成
+    var cleanRow = row.map(function(c){
+      var s = String(c||'');
+      return /^#[A-Z\/!]+$/.test(s) ? '' : s;
+    });
+
+    // ② cleanRowが実質空なら完全スキップ
+    if(cleanRow.join('').replace(/\s/g,'') === '') continue;
+
+    // ③ 合計・総計・小計・累計・利益・経費キーワード行を問答無用スキップ
+    var rawStr = cleanRow.join(' ');
+    if(/合計|総計|小計|累計|利益|経費/.test(rawStr)) { skipCount++; continue; }
 
     var rowYM = rowYMMap[ri] || extractedYM;
     var obj = {};
@@ -319,21 +464,25 @@ function updatePreview() {
         if(f.fieldId==='date' && rowYM && rowYM.d) obj[f.fieldId] = rowYM.y+'/'+rowYM.m+'/'+rowYM.d;
         else obj[f.fieldId] = autoCtx[f.fieldId]||'';
       }
-      else if(v!=='-1') obj[f.fieldId] = String(row[parseInt(v)]!==undefined?row[parseInt(v)]:'').trim();
+      else if(v!=='-1') obj[f.fieldId] = String(cleanRow[parseInt(v)]!==undefined?cleanRow[parseInt(v)]:'').trim();
       else              obj[f.fieldId] = '';
     });
 
-    // #N/A → 空欄（Excelの数式エラーセルを無効化）
-    Object.keys(obj).forEach(function(k){ if(obj[k]==='#N/A') obj[k]=''; });
-
     // 日付処理（数字 → 年月/日 補完）
     if(map.date!=='AUTO' && obj.date) {
-      var dStr  = obj.date.split('(')[0].split('（')[0].trim();
-      var pureN = parseInt(dStr.replace(/[^0-9]/g,''), 10);
-      if(!isNaN(pureN) && pureN>=1 && pureN<=31 && dStr.indexOf('/')<0 && dStr.indexOf('-')<0 && rowYM) {
-        obj.date = rowYM.y+'/'+rowYM.m+'/'+pureN;
+      var serialN = parseFloat(obj.date);
+      if(!isNaN(serialN) && serialN>=40000 && serialN<=50000) {
+        // Excelシリアル値を実日付に変換（例: 46108 → 2026/3/27）
+        var sd = new Date((serialN-25569)*86400000);
+        obj.date = sd.getUTCFullYear()+'/'+(sd.getUTCMonth()+1)+'/'+sd.getUTCDate();
       } else {
-        obj.date = dStr;
+        var dStr  = obj.date.split('(')[0].split('（')[0].trim();
+        var pureN = parseInt(dStr.replace(/[^0-9]/g,''), 10);
+        if(!isNaN(pureN) && pureN>=1 && pureN<=31 && dStr.indexOf('/')<0 && dStr.indexOf('-')<0 && rowYM) {
+          obj.date = rowYM.y+'/'+rowYM.m+'/'+pureN;
+        } else {
+          obj.date = dStr;
+        }
       }
     }
     // 日付が未取得 → 選択列のヘッダーまたはシート情報から補完
@@ -347,6 +496,25 @@ function updatePreview() {
     ['driver','car','pickPlace','dropPlace','client','division','carType','ton','phone','memo'].forEach(function(fid){
       if(obj[fid]==='0' || obj[fid]===0) obj[fid]='';
     });
+
+    // フィルダウン（運行シートのみ・結合セル対策）
+    if(ST === 'unkou') {
+      // date/driver/car 以外のフィールドが全て空 → 書式だけのゴミ行と判定してスキップ
+      var hasPayload = fields.some(function(f){
+        return ['date','driver','car'].indexOf(f.fieldId) === -1 && String(obj[f.fieldId]||'').trim();
+      });
+      if(!hasPayload) { skipCount++; continue; }
+
+      // date/driver/car が空なら直前の有効行の値を引き継ぐ
+      ['date','driver','car'].forEach(function(fid){
+        if(map[fid]==='-1'||map[fid]==='AUTO') return;
+        if(obj[fid]) {
+          prevValues[fid] = obj[fid];
+        } else if(prevValues[fid]) {
+          obj[fid] = prevValues[fid];
+        }
+      });
+    }
 
     // 「13w」「１３Ｗ」→ トン数=13t / 車種=W に自動分割（全角→半角変換込み）
     function normHalf(s) {
@@ -365,32 +533,16 @@ function updatePreview() {
 
     // 積地・降地が同じ列なら「〜」で分割
     if(map.pickPlace===map.dropPlace && map.pickPlace!=='-1' && map.pickPlace!=='AUTO') {
-      var rv  = String(row[parseInt(map.pickPlace)]||'').trim();
+      var rv  = String(cleanRow[parseInt(map.pickPlace)]||'').trim();
       var pts = rv.split(/\s*[〜～]\s*/);
       if(pts.length>=2) { obj.pickPlace=pts[0].trim(); obj.dropPlace=pts.slice(1).join('〜').trim(); }
-    } else if(obj.pickPlace && /[〜～]/.test(obj.pickPlace)) {
+    } else if(obj.pickPlace && /[〜～]/.test(obj.pickPlace) && (map.dropPlace==='-1'||map.dropPlace==='AUTO')) {
+      // 降地が未選択の時だけフォールバック分割（ユーザーが明示選択した場合は干渉しない）
       var pts2=obj.pickPlace.split(/\s*[〜～]\s*/);
       obj.pickPlace=pts2[0].trim();
-      if(!obj.dropPlace) obj.dropPlace=pts2.slice(1).join('〜').trim();
+      obj.dropPlace=pts2.slice(1).join('〜').trim();
     }
 
-    var hasSales = parseFloat((obj.sales||'').replace(/,/g,''))>0;
-
-    // 全フィールドを結合して合計・利益・小計などのラベル行をスキップ（生データも含む）
-    var allStr = fields.map(function(f){return String(obj[f.fieldId]||'');}).join(' ');
-    var rawStr = row.map(function(c){return String(c||'');}).join(' ');
-    if(/合計|利益|小計|合\s*計|総計|経費/.test(allStr+' '+rawStr) && !obj.pickPlace && !obj.dropPlace) { skipCount++; continue; }
-
-    // 積地・降地・売上が全て空の行は意味なし→スキップ（乗務員名があっても除外）
-    var hasRoute = obj.pickPlace || obj.dropPlace;
-    if(!hasRoute && !hasSales) { skipCount++; continue; }
-
-    if(/休み|有休|休暇|公休/.test(obj.pickPlace)&&!hasSales){ skipCount++; continue; }
-    if(!obj.date&&!hasRoute&&!hasSales) continue;
-
-    if(obj.date && obj.date.indexOf('?')<0) {
-      var pd=new Date(obj.date); if(isNaN(pd.getTime())){ obj._err=true; errCount++; }
-    }
     parsedRows.push(obj);
   }
 
@@ -400,18 +552,18 @@ function updatePreview() {
     return '<th>'+(en?esc(en.dispName):f)+'</th>';
   }).join('')+'</tr>';
   var tbody=parsedRows.map(function(r,i){
-    var cls=r._err?' class="err"':'';
-    return '<tr'+cls+'><td style="color:#888">'+(i+1)+'</td>'
+    return '<tr><td style="color:#888">'+(i+1)+'</td>'
       +showFids.map(function(f){return '<td title="'+esc(r[f]||'')+'">'+esc(r[f]||'')+'</td>';}).join('')+'</tr>';
   }).join('');
   document.getElementById('prevT').innerHTML='<thead>'+thead+'</thead><tbody>'+tbody+'</tbody>';
-  document.getElementById('rowCnt').innerHTML='抽出: <b>'+parsedRows.length+'</b> 行　エラー: <span style="color:#ff5252">'+errCount+'</span> 行　スキップ: '+skipCount+' 行';
-  document.getElementById('btnOk').disabled=(parsedRows.length===0||errCount===parsedRows.length);
+  document.getElementById('rowCnt').innerHTML='抽出: <b>'+parsedRows.length+'</b> 行　スキップ: '+skipCount+' 行';
+  document.getElementById('btnOk').disabled=(parsedRows.length===0);
+  saveMappingToLocal(); // ドロップダウン変更のたびに即保存
 }
 
 // ⑤ 登録実行
 function doImport() {
-  var validRows = parsedRows.filter(function(r){return !r._err;});
+  var validRows = parsedRows;
   if(validRows.length===0) return;
   document.getElementById('btnOk').disabled=true;
   bar('スプレッドシートに書き込み中（'+validRows.length+'件）...','info');
@@ -423,7 +575,7 @@ function doImport() {
     var colIdx=document.getElementById('sel_'+f.fieldId).value;
     if(colIdx==='-1'||colIdx==='AUTO') return;
     var hdrStr=String((rawJson[headerRow]||[])[parseInt(colIdx)]||'').replace(/\n/g,'').trim();
-    if(!hdrStr) return;
+    if(!hdrStr) return; // 空ヘッダー列は辞書学習をスキップ（仮想列名による辞書汚染を防ぐ）
     var entry=dict.find(function(e){return e.fieldId===f.fieldId;});
     if(entry&&!entry.aliases.some(function(a){return nrm(a)===nrm(hdrStr);})) newAliases.push({fieldId:f.fieldId,alias:hdrStr});
   });
@@ -445,6 +597,30 @@ function doImport() {
   if(newAliases.length>0) {
     google.script.run.withSuccessHandler(runImp).withFailureHandler(runImp).saveImportAliases(ST,newAliases,SSID);
   } else { runImp(); }
+}
+
+// 自動マッピング：辞書のエイリアスに基づいて全列を自動選択
+function autoMapAll() {
+  if(!_getDefVal) return;
+  fields.forEach(function(f){
+    var dv = _getDefVal(f.fieldId);
+    var sel = document.getElementById('sel_'+f.fieldId);
+    var exists = Array.from(sel.options).some(function(o){ return o.value==String(dv); });
+    if(exists) sel.value = String(dv);
+  });
+  updatePreview(); // 末尾でsaveMappingToLocalも呼ばれる
+}
+
+// リセット：選択を全てデフォルトに戻し、保存済み設定を上書き
+function resetMapping() {
+  try { localStorage.removeItem(getMappingKey()); } catch(e) {}
+  fields.forEach(function(f){
+    var sel = document.getElementById('sel_'+f.fieldId);
+    var isAuto = (f.fieldId==='date'||f.fieldId==='car'||f.fieldId==='driver');
+    var autoExists = Array.from(sel.options).some(function(o){ return o.value==='AUTO'; });
+    sel.value = (isAuto && autoExists) ? 'AUTO' : '-1';
+  });
+  updatePreview();
 }
 
 function resetAll() {
