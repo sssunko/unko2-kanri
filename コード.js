@@ -754,6 +754,8 @@ function onOpen() {
       .addItem('① 発注書・指示書を作成（協力会社・乗務員用）', 'showHatchuDocDialog')
       .addItem('② 車番連絡を作成（荷主用）', 'showShabanDocDialog'))
     .addSeparator()
+    .addItem('🔗 チェックした行を配車確定', 'matchAndConfirmDispatch')
+    .addSeparator()
     .addItem('📤 テスト客SSに反映', 'syncToTemplateSS');
   menu.addToUi();
 
@@ -1022,6 +1024,8 @@ function onEdit(e) {
     // ── 3-1-4: シート別振り分け ──────────────────────────────────────
     if (sheetName === '自車専属マスタ') { onEditMasterVehicle_(sheet, range, ss); return; }
     if (sheetName === 'マスタ')         { onEditMasterCustomer_(sheet, range); return; }
+    // 情報（マッチング）シートの自動処理：進捗着色・TEL/FAX自動入力
+    if (sheetName === '情報')           { onEditJoho_(sheet, range, ss); return; }
     // 会社登録シートの処理はインストール型トリガー（installedOnEdit_）が担当する
     // シンプルトリガーはドライブ/メール/トリガー作成などの認証付き操作が不可のため
     if (sheetName === '会社登録') return;
@@ -1511,6 +1515,115 @@ function onEditMasterCustomer_(sheet, range) {
     SpreadsheetApp.flush();
   } finally {
     mIdLock.releaseLock();
+  }
+}
+
+
+// ================================================================
+//  3-5: 情報シート編集時の処理（onEditJoho_）  【大B / 中3 / 小3-5】
+//  「情報」シートでセルを編集した際に自動実行される内部関数。
+//  ① B列（進捗）変更 → 行全体の背景色を自動変更（放置=白/キャンセル・終了=グレー/確定=黄）
+//  ② C列（会社名・貨物）変更 → 取引先マスタを検索しTEL(D列)・FAX(E列)を自動入力
+//  ③ N列（会社名・車両）変更 → 自車専属マスタ→取引先マスタの順で検索しTEL(O列)・FAX(P列)を自動入力
+//
+//  M&A向け補足: このトリガーにより「手入力ゼロ」の配車受付が実現できる。
+//              貨物側は取引先マスタ（荷主情報）、車両側は自社車両マスタから
+//              TEL/FAXを自動補完するため、記録ミスや入力漏れを防止する。
+// ================================================================
+function onEditJoho_(sheet, range, ss) {
+  var col = range.getColumn();
+  var row = range.getRow();
+  if (row < 2) return; // 1行目はヘッダーなので処理しない
+
+  // ── ① B列（進捗・貨物）変更時: 貨物セクション(A〜M = 列1〜13)のみ着色 ──
+  // 車両側(N〜Z)の色は変えない。貨物の状況を独立して管理できるようにする。
+  if (col === 2) {
+    var prog = String(range.getValue() || '').trim();
+    var cargoRange = sheet.getRange(row, 1, 1, 13); // A〜M列
+    if (prog === '確定') {
+      cargoRange.setBackground('#fff9c4'); // 黄色
+    } else if (prog === 'キャンセル' || prog === '終了') {
+      cargoRange.setBackground('#eeeeee'); // グレー
+    } else {
+      cargoRange.setBackground(null); // リセット（白）
+    }
+    return;
+  }
+
+  // ── ①' O列（進捗・車両）変更時: 車両セクション(N〜Z = 列14〜26)のみ着色 ──
+  // 貨物側(A〜M)の色は変えない。車両の状況を独立して管理できるようにする。
+  if (col === 15) {
+    var vprog = String(range.getValue() || '').trim();
+    var vehRange = sheet.getRange(row, 14, 1, 13); // N〜Z列
+    if (vprog === '確定') {
+      vehRange.setBackground('#fff9c4'); // 黄色
+    } else if (vprog === 'キャンセル' || vprog === '終了') {
+      vehRange.setBackground('#eeeeee'); // グレー
+    } else {
+      vehRange.setBackground(null); // リセット（白）
+    }
+    return;
+  }
+
+  // ── ② C列（会社名・貨物）変更時: 取引先マスタからTEL/FAX自動入力 ──
+  // 荷主名を取引先マスタの「会社名」列で検索し、C=電話→D列、FAX→E列に転記する
+  if (col === 3) {
+    var cargoCompany = String(range.getValue() || '').trim();
+    if (!cargoCompany) return;
+    var custSh = ss.getSheetByName('マスタ');
+    if (!custSh || custSh.getLastRow() < 2) return;
+    var cHdrs = custSh.getRange(1, 1, 1, custSh.getLastColumn()).getValues()[0]
+      .map(function(h) { return String(h || '').trim(); });
+    var cData = custSh.getRange(2, 1, custSh.getLastRow() - 1, custSh.getLastColumn()).getValues();
+    var nIdx = cHdrs.indexOf('会社名'), telIdx = cHdrs.indexOf('電話'), faxIdx = cHdrs.indexOf('FAX');
+    for (var i = 0; i < cData.length; i++) {
+      if (String(cData[i][nIdx] || '').trim() === cargoCompany) {
+        if (telIdx >= 0) sheet.getRange(row, 4).setValue(cData[i][telIdx]); // D列 TEL
+        if (faxIdx >= 0) sheet.getRange(row, 5).setValue(cData[i][faxIdx]); // E列 FAX
+        break;
+      }
+    }
+    return;
+  }
+
+  // ── ③ P列(16)（会社名・車両）変更時: 自社マスタ→取引先マスタの順に検索 ──
+  // N=チェック, O=進捗(車両)なのでスキップ。P列(16)が車両側の会社名入力列。
+  // 自車専属マスタには携帯番号のみ存在するため、FAXは取引先マスタのみ参照する
+  if (col === 16) {
+    var vehCompany = String(range.getValue() || '').trim();
+    if (!vehCompany) return;
+
+    // 自車専属マスタを先に検索（自社車両の会社名 → 携帯番号をTELとして使用）
+    var vmSh = ss.getSheetByName('自車専属マスタ');
+    if (vmSh && vmSh.getLastRow() >= 2) {
+      var vmHdrs = vmSh.getRange(1, 1, 1, vmSh.getLastColumn()).getValues()[0]
+        .map(function(h) { return String(h || '').trim(); });
+      var vmData = vmSh.getRange(2, 1, vmSh.getLastRow() - 1, vmSh.getLastColumn()).getValues();
+      var vmNIdx = vmHdrs.indexOf('会社名'), vmTelIdx = vmHdrs.indexOf('携帯番号');
+      for (var vi = 0; vi < vmData.length; vi++) {
+        if (String(vmData[vi][vmNIdx] || '').trim() === vehCompany) {
+          if (vmTelIdx >= 0) sheet.getRange(row, 17).setValue(vmData[vi][vmTelIdx]); // Q列 TEL
+          break;
+        }
+      }
+    }
+
+    // 取引先マスタでも検索（協力会社の場合、FAXも取得できる）
+    var custSh2 = ss.getSheetByName('マスタ');
+    if (custSh2 && custSh2.getLastRow() >= 2) {
+      var csHdrs = custSh2.getRange(1, 1, 1, custSh2.getLastColumn()).getValues()[0]
+        .map(function(h) { return String(h || '').trim(); });
+      var csData = custSh2.getRange(2, 1, custSh2.getLastRow() - 1, custSh2.getLastColumn()).getValues();
+      var csNIdx = csHdrs.indexOf('会社名'), csTelIdx = csHdrs.indexOf('電話'), csFaxIdx = csHdrs.indexOf('FAX');
+      for (var csi = 0; csi < csData.length; csi++) {
+        if (String(csData[csi][csNIdx] || '').trim() === vehCompany) {
+          if (csTelIdx >= 0) sheet.getRange(row, 17).setValue(csData[csi][csTelIdx]); // Q列 TEL
+          if (csFaxIdx >= 0) sheet.getRange(row, 18).setValue(csData[csi][csFaxIdx]); // R列 FAX
+          break;
+        }
+      }
+    }
+    return;
   }
 }
 
@@ -2553,6 +2666,80 @@ function expandAndRefreshSheets() {
 
   ensureCompanySettingSheet_(ss);
 
+  // ── 情報（マッチング）シートの生成・整備 ────────────────────────────
+  // 貨物情報と車両情報を1画面で管理し、チェックボックスで配車を確定するシート
+  // M&A向け補足: このシートは「配車マン不要化」の核心機能。
+  //              荷主からの依頼（貨物情報）と手配した車両（車両情報）を
+  //              同一シートで管理し、チェック→確定で運行シートへ自動登録できる。
+  (function() {
+    // ── 列構成（A〜Z の26列） ─────────────────────────────────────────
+    // [貨物側] A:チェック(貨物) B:進捗(貨物) C:会社名 D:TEL E:FAX F:日付 G:品名
+    //          H:トン数 I:車種 J:積地 K:降地 L:金額(売上) M:備考
+    // [車両側] N:チェック(車両) O:進捗(車両) P:会社名 Q:TEL R:FAX S:看板名
+    //          T:トン数 U:車種 V:車番 W:乗務員名 X:携帯 Y:金額(支払) Z:備考
+    //
+    // 貨物と車両がそれぞれ独立したチェック列・進捗列を持つ設計。
+    // 貨物の進捗(B列)を変えても車両側(N-Z)の色は変わらず、逆も同様。
+    // 「3行目貨物チェック＋5行目車両チェック」で異なる行同士のマッチングが可能。
+    var JOHO_COLS = 26;
+    var johoHdr = [
+      'チェック(貨物)', '進捗(貨物)',
+      '会社名(貨物)', 'TEL(貨物)', 'FAX(貨物)', '日付', '品名',
+      'トン数', '車種', '積地', '降地', '金額(売上)', '備考(貨物)',
+      'チェック(車両)', '進捗(車両)',
+      '会社名(車両)', 'TEL(車両)', 'FAX(車両)', '看板名',
+      'トン数(車両)', '車種(車両)', '車番', '乗務員名', '携帯番号', '金額(支払)', '備考(車両)'
+    ];
+    var johoSheet = ss.getSheetByName('情報');
+    if (!johoSheet) johoSheet = ss.insertSheet('情報');
+
+    // 列数が足りない場合は補完（シートの古いバージョンも安全に更新）
+    if (johoSheet.getMaxColumns() < JOHO_COLS) {
+      johoSheet.insertColumnsAfter(johoSheet.getMaxColumns(), JOHO_COLS - johoSheet.getMaxColumns());
+    }
+
+    // ヘッダー行を常に最新定義で上書き（列追加や名称変更に対応するため毎回書き直す）
+    johoSheet.getRange(1, 1, 1, JOHO_COLS).setValues([johoHdr]);
+    johoSheet.setFrozenRows(1);
+
+    // ── ヘッダー背景色 ────────────────────────────────────────────────
+    // A-B列(貨物チェック・進捗貨物): 濃グレー
+    johoSheet.getRange(1, 1, 1, 2)
+      .setBackground('#455a64').setFontColor('#ffffff').setFontWeight('bold');
+    // C〜M列(貨物情報11列): 濃青
+    johoSheet.getRange(1, 3, 1, 11)
+      .setBackground('#1565c0').setFontColor('#ffffff').setFontWeight('bold');
+    // N-O列(車両チェック・進捗車両): 濃グレー（貨物側と対称）
+    johoSheet.getRange(1, 14, 1, 2)
+      .setBackground('#455a64').setFontColor('#ffffff').setFontWeight('bold');
+    // P〜Z列(車両情報11列): 濃橙
+    johoSheet.getRange(1, 16, 1, 11)
+      .setBackground('#e65100').setFontColor('#ffffff').setFontWeight('bold');
+
+    // 列幅
+    johoSheet.setColumnWidth(1,  50);  // A: チェック(貨物)
+    johoSheet.setColumnWidth(2,  70);  // B: 進捗(貨物)
+    johoSheet.setColumnWidth(14, 50);  // N: チェック(車両)
+    johoSheet.setColumnWidth(15, 70);  // O: 進捗(車両)
+    johoSheet.setColumnWidth(6,  90);  // F: 日付
+    johoSheet.setColumnWidth(7, 120);  // G: 品名
+
+    // ── データ行バリデーション（2〜501行） ─────────────────────────────
+    var dataRows = 500;
+    if (johoSheet.getMaxRows() < dataRows + 1) {
+      johoSheet.insertRowsAfter(johoSheet.getMaxRows(), dataRows + 1 - johoSheet.getMaxRows());
+    }
+    var chkRule  = SpreadsheetApp.newDataValidation().requireCheckbox().build();
+    var progRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['', 'キャンセル', '終了', '確定'], true)
+      .setAllowInvalid(true).build();
+    johoSheet.getRange(2, 1,  dataRows, 1).setDataValidation(chkRule);  // A: 貨物チェック
+    johoSheet.getRange(2, 2,  dataRows, 1).setDataValidation(progRule); // B: 進捗(貨物)
+    johoSheet.getRange(2, 14, dataRows, 1).setDataValidation(chkRule);  // N: 車両チェック
+    johoSheet.getRange(2, 15, dataRows, 1).setDataValidation(progRule); // O: 進捗(車両)
+    johoSheet.getRange(2, 6,  dataRows, 1).setNumberFormat('yyyy/MM/dd'); // F: 日付
+  })();
+
   applyHolidayRowColors_();
   SpreadsheetApp.getUi().alert('シート再生成が完了しました。');
 }
@@ -3059,29 +3246,49 @@ function archiveOldMonth() {
     return;
   }
 
-  // 前月の年・月(0-indexed)を計算
-  var today    = new Date();
-  var prevYear = (today.getMonth() === 0) ? today.getFullYear() - 1 : today.getFullYear();
-  var prevMon  = (today.getMonth() === 0) ? 11 : today.getMonth() - 1;
+  // 今月のキー（年×100＋月の0-indexed）
+  var today = new Date();
+  var thisMonKey = today.getFullYear() * 100 + today.getMonth();
 
-  // 前月データの存在確認
-  var prevRows = getMonthRows_(sheet, prevYear, prevMon, 26);
-  if (prevRows.length === 0) {
-    ui.alert(
-      '📦 前月分アーカイブ\n\n' +
-      prevYear + '年' + (prevMon + 1) + '月のデータが見つかりません。\n既にアーカイブ済みか、データがない可能性があります。'
-    );
+  // 運行シートに存在する「今月より前の月」を全件収集
+  var dateVals = sheet.getRange(2, 10, sheet.getLastRow() - 1, 1).getValues();
+  var monthMap = {};
+  for (var i = 0; i < dateVals.length; i++) {
+    var dv = dateVals[i][0];
+    if (dv instanceof Date) {
+      var key = dv.getFullYear() * 100 + dv.getMonth();
+      if (key < thisMonKey) monthMap[key] = { year: dv.getFullYear(), month: dv.getMonth() };
+    }
+  }
+
+  var keys = Object.keys(monthMap).map(Number).sort(); // 古い月から順に
+  if (keys.length === 0) {
+    ui.alert('📦 前月分アーカイブ\n\n今月より前のデータが見つかりません。\n既にアーカイブ済みか、データがない可能性があります。');
     return;
   }
 
   var companyName = getCompanyName_(ss);
-  var result = archiveMonthData_(ss, prevYear, prevMon, companyName);
+  var totalArchived = 0;
+  var lines = [];
+  for (var k = 0; k < keys.length; k++) {
+    var m = monthMap[keys[k]];
+    var result = archiveMonthData_(ss, m.year, m.month, companyName);
+    if (result.archived > 0) {
+      totalArchived += result.archived;
+      lines.push(m.year + '年' + (m.month + 1) + '月（' + result.archived + '行）');
+    }
+  }
+
+  if (totalArchived === 0) {
+    ui.alert('📦 前月分アーカイブ\n\nアーカイブ対象のデータがありませんでした。');
+    return;
+  }
 
   ui.alert(
     '📦 アーカイブ完了\n\n' +
-    prevYear + '年' + (prevMon + 1) + '月分\n' +
-    result.archived + '行をアーカイブしました。\n\nファイル名: ' + result.fileName +
-    '\n保存先: 運行管理_アーカイブ/' + companyName + '/'
+    lines.join('\n') + '\n\n' +
+    '合計 ' + totalArchived + '行をアーカイブしました。\n' +
+    '保存先: 運行管理_アーカイブ/' + companyName + '/'
   );
 }
 
@@ -5818,7 +6025,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var menu=SpreadsheetApp.getUi().createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var menu=SpreadsheetApp.getUi().createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
@@ -5872,7 +6079,8 @@ function getClientStubSource_() {
     "function showInvoiceDialog(){return UnkouLib.showInvoiceDialog();}",
     "function generateInvoiceSheet(a,b,c,d){return UnkouLib.generateInvoiceSheet(a,b,c,d);}",
     "function showPaymentDialog(){return UnkouLib.showPaymentDialog();}",
-    "function generatePaymentSheet(a,b,c,d,e){return UnkouLib.generatePaymentSheet(a,b,c,d,e);}"
+    "function generatePaymentSheet(a,b,c,d,e){return UnkouLib.generatePaymentSheet(a,b,c,d,e);}",
+    "function matchAndConfirmDispatch(){return UnkouLib.matchAndConfirmDispatch();}"
   ].join('\n');
 }
 
@@ -7718,6 +7926,235 @@ function sendDocumentEmail(docData, docType, method) {
   }
 
   return { ok: false, msg: '不明な送信方法です。' };
+}
+
+
+// ================================================================
+//  15-1: 配車確定・合体処理（matchAndConfirmDispatch）  【大C / 中15 / 小15-1】
+//
+//  「情報」シートでA列（チェックボックス）にチェックを入れた行を
+//  メニューから「🔗 チェックした行を配車確定」で実行する。
+//
+//  【処理パターン】
+//  ・1行チェック: 貨物単独または車両単独として運行シートに登録
+//  ・2行チェック: 貨物行と車両行をマッチング→1つの運行IDで運行シートに登録
+//  ・3行以上: エラーを出して中断（同時処理は2行まで）
+//
+//  【車種不一致チェック】
+//  屋根ありグループ（W・箱・幌等）と屋根なしグループ（平・ユニック等）が
+//  混在する場合、担当者に確認ダイアログを出して正しい車種を入力させる。
+//
+//  【確定後の処理】
+//  ・対象行のチェックを解除
+//  ・進捗列を「確定」に変更
+//  ・行を黄色に着色（onEditが発火しなくても確実に着色）
+//  ・集計表を同期（delaySyncSummary_）
+//
+//  M&A向け補足: この関数が「情報シート→運行シート」への自動転記の核心。
+//              従来は担当者が手動で運行シートに入力していたが、
+//              この機能により入力工数を大幅削減・入力ミスをゼロにできる。
+// ================================================================
+function matchAndConfirmDispatch() {
+  var ui   = SpreadsheetApp.getUi();
+  var ss   = SpreadsheetApp.getActiveSpreadsheet();
+  var joho = ss.getSheetByName('情報');
+  if (!joho || joho.getLastRow() < 2) {
+    ui.alert('「情報」シートにデータがありません。\nメニュー→シート再生成で情報シートを作成してください。');
+    return;
+  }
+
+  // ── A列(貨物チェック)とN列(車両チェック)を独立して収集 ──────────────
+  // 列構成（0ベース）: A=0:チェック(貨物) / N=13:チェック(車両)
+  var lastRow = joho.getLastRow();
+  var allData = joho.getRange(2, 1, lastRow - 1, 26).getValues();
+
+  var cargoRows = []; // A列(index 0)が true の行 → 貨物として使用
+  var vehRows   = []; // N列(index 13)が true の行 → 車両として使用
+  for (var i = 0; i < allData.length; i++) {
+    var rn = i + 2;
+    if (allData[i][0]  === true) cargoRows.push({ rowNum: rn, data: allData[i] });
+    if (allData[i][13] === true) vehRows.push(  { rowNum: rn, data: allData[i] });
+  }
+
+  // ── 選択バリデーション ────────────────────────────────────────────
+  // 対応パターン:
+  //   貨物1・車両0 → 貨物単独受託
+  //   貨物0・車両1 → 車両単独配車
+  //   貨物1・車両1 → 1対1マッチング
+  //   貨物2・車両1 → 2行程（1人の乗務員が2つの荷物を運ぶ）← 同一IDで2行追加
+  // 「車両2以上」「貨物3以上」は非対応
+  if (cargoRows.length === 0 && vehRows.length === 0) {
+    ui.alert('行を選択してください。\nA列（貨物チェック）またはN列（車両チェック）にチェックを入れてから実行してください。');
+    return;
+  }
+  if (cargoRows.length > 2) {
+    ui.alert('貨物チェック（A列）は2行までにしてください。\n3行程以上は個別に実行してください。'); return;
+  }
+  if (vehRows.length > 1) {
+    ui.alert('車両チェック（N列）は1行だけにしてください。'); return;
+  }
+  if (cargoRows.length === 2 && vehRows.length === 0) {
+    ui.alert('貨物が2行選択されています。\n対応する車両行のN列もチェックしてから実行してください。'); return;
+  }
+
+  // ── 運行シートの準備 ────────────────────────────────────────────
+  var unkou    = ss.getSheetByName('運行');
+  if (!unkou) { ui.alert('運行シートが見つかりません。'); return; }
+  var uLastCol = unkou.getLastColumn();
+  var uHdrs    = unkou.getRange(1, 1, 1, uLastCol).getValues()[0]
+    .map(function(h) { return String(h || '').trim(); });
+  function uIdx(name) { return uHdrs.indexOf(name); }
+
+  var newRow = [];
+  for (var n = 0; n < uLastCol; n++) newRow.push('');
+
+  // ── パターン分岐 ────────────────────────────────────────────────
+  // ① 同一行に両方チェック → 1行で貨物+車両両方入力されている場合の単独確定
+  // ② 貨物のみ → 貨物情報だけで運行登録
+  // ③ 車両のみ → 車両情報だけで運行登録
+  // ④ 別行でそれぞれチェック → 異なる行をマッチングして合体
+
+  var vehData    = vehRows.length > 0 ? vehRows[0].data : null;
+  var groupA     = ['W', '箱', '幌', 'アコーディオン', 'Wトレ']; // 屋根あり
+  var groupB     = ['平', 'ユニック', '平トレ'];                    // 屋根なし
+
+  // ── 車種不一致チェック（貨物側と車両側の屋根グループが違う場合に確認） ──
+  // 2行程の場合は貨物1件目でチェックし、決定した車種を両行程に適用する
+  function checkCarType(cData, vData) {
+    if (!cData || !vData) return vData ? String(vData[19]||'').trim() : (cData ? String(cData[8]||'').trim() : null);
+    var cType = String(cData[8]  || '').trim(); // I列=車種(貨物要求)
+    var vType = String(vData[20] || '').trim(); // U列(index20)=車種(車両) ※26列構成
+    var cGrp  = groupA.indexOf(cType) >= 0 ? 'A' : (groupB.indexOf(cType) >= 0 ? 'B' : '');
+    var vGrp  = groupA.indexOf(vType) >= 0 ? 'A' : (groupB.indexOf(vType) >= 0 ? 'B' : '');
+    var resolved = vType || cType;
+    if (cGrp && vGrp && cGrp !== vGrp) {
+      var res = ui.prompt(
+        '【警告】車種不一致',
+        '屋根の有無が異なります。\n貨物要求: ' + cType + ' / 実車両: ' + vType + '\n\n登録する車種を入力してOKを押してください。',
+        ui.ButtonSet.OK_CANCEL
+      );
+      if (res.getSelectedButton() !== ui.Button.OK) return null; // null=中断シグナル
+      resolved = res.getResponseText().trim() || resolved;
+    }
+    return resolved;
+  }
+
+  // ── 運行シートへの追記（内部処理） ──────────────────────────────────
+  // presetId を渡すと採番せずそのIDで登録（2行程で同一IDを共有するため）
+  var registeredIds = [];
+  function addUnkouRow(cData, vData, finalType, presetId) {
+    var row = [];
+    for (var n = 0; n < uLastCol; n++) row.push('');
+    buildJohoNewRow_(row, uIdx, cData, vData, finalType);
+    var nid = presetId || ('V-' + String(getNextIdNum_(unkou, 'V-')).padStart(4, '0'));
+    if (uIdx('ID') >= 0) row[uIdx('ID')] = nid;
+    var ins = unkou.getLastRow() + 1;
+    unkou.getRange(ins, 1, 1, uLastCol).setValues([row]);
+    if (uIdx('日付') >= 0) unkou.getRange(ins, uIdx('日付') + 1).setNumberFormat('yyyy/MM/dd');
+    if (registeredIds.indexOf(nid) === -1) registeredIds.push(nid);
+    try { delaySyncSummary_(nid, ss); } catch(e) {}
+    return nid;
+  }
+
+  // ── パターン分岐 ──────────────────────────────────────────────────
+  if (cargoRows.length === 2 && vehRows.length === 1) {
+    // 【2行程パターン】1台の車両が2つの貨物を順番に運ぶ
+    // IDを先に1つだけ採番し、2行とも同じIDで登録する
+    var ft = checkCarType(cargoRows[0].data, vehData);
+    if (ft === null) return;
+    var sharedId = 'V-' + String(getNextIdNum_(unkou, 'V-')).padStart(4, '0');
+    addUnkouRow(cargoRows[0].data, vehData, ft, sharedId); // 1行程目
+    addUnkouRow(cargoRows[1].data, vehData, ft, sharedId); // 2行程目（同じID）
+
+  } else {
+    // 【通常パターン】1対1マッチング・貨物単独・車両単独
+    var cargoData = cargoRows.length > 0 ? cargoRows[0].data : null;
+    var isSameRow = cargoData && vehData && (cargoRows[0].rowNum === vehRows[0].rowNum);
+    var ft2 = (cargoData && vehData && !isSameRow) ? checkCarType(cargoData, vehData) : (vehData ? String(vehData[20]||'').trim() : null);
+    if (ft2 === null && cargoData && vehData && !isSameRow) return;
+    addUnkouRow(cargoData, vehData, ft2);
+  }
+
+  // ── 確定後の後処理 ────────────────────────────────────────────────
+  // 【重要】貨物行はA-M（貨物セクション）のみ、車両行はN-Z（車両セクション）のみ着色する。
+  // cargoRowsとvehRowsを別々に処理することで「貨物が確定しても車両側の色は変わらない」を実現。
+  // 同一行に両方チェックがある場合は両セクションとも着色される。
+  for (var ci = 0; ci < cargoRows.length; ci++) {
+    var cr = cargoRows[ci].rowNum;
+    joho.getRange(cr, 1).setValue(false);                  // A: 貨物チェック解除
+    joho.getRange(cr, 2).setValue('確定');                 // B: 進捗(貨物)=確定
+    joho.getRange(cr, 1, 1, 13).setBackground('#fff9c4'); // A〜M: 貨物セクションのみ黄色
+  }
+  if (vehRows.length > 0) {
+    var vr2 = vehRows[0].rowNum;
+    joho.getRange(vr2, 14).setValue(false);                 // N: 車両チェック解除
+    joho.getRange(vr2, 15).setValue('確定');                // O: 進捗(車両)=確定
+    joho.getRange(vr2, 14, 1, 13).setBackground('#fff9c4'); // N〜Z: 車両セクションのみ黄色
+  }
+
+  var idMsg = registeredIds.length > 1
+    ? registeredIds[0] + ' の2行程（同一ID・2行）'
+    : registeredIds[0];
+  ui.alert('✅ 配車確定\n\n' + idMsg + ' を運行シートに登録しました。\n\n情報シートの対象行を「確定」（黄色）にしました。');
+}
+
+
+// ================================================================
+//  15-2: 情報シート→運行行データ組み立て（buildJohoNewRow_）  【大B / 中15 / 小15-2】
+//
+//  matchAndConfirmDispatch の内部補助関数。
+//  情報シートの貨物行・車両行の各列データを読み取り、
+//  運行シートのヘッダー列名に合わせて newRow 配列に値をセットする。
+//
+//  【マージルール】
+//  ・日付・積地・降地・荷主・売上・備考 → 貨物行（cargoRow）を優先
+//  ・会社名・トン数・車種・車番・乗務員名・携帯・看板名・支払 → 車両行（vehRow）を優先
+//  ・overrideType が指定されている場合、車種はその値で上書き（不一致確認ダイアログの入力値）
+//
+//  M&A向け補足: この関数を修正することで、運行シートへの転記ルールを柔軟に変更できる。
+//              例えば「トン数は貨物側を優先」に変えたい場合はこの関数のみ修正すればよい。
+// ================================================================
+function buildJohoNewRow_(newRow, uIdx, cargoRow, vehRow, overrideType) {
+  // colName: 運行シートの列名。alt: 別名（旧フォーマット対応）。val: セットする値
+  // 運行シートのヘッダーが「荷主」か「荷主名」かでSSのバージョンによって異なるため
+  // 両方試して見つかった方にセットする（alt は省略可）
+  function set(colName, val, alt) {
+    if (val === null || val === undefined || String(val).trim() === '') return;
+    var i = uIdx(colName);
+    if (i < 0 && alt) i = uIdx(alt); // 第一候補がなければ別名で再検索
+    if (i < 0) return;
+    newRow[i] = val;
+  }
+
+  // ── 貨物情報からのセット ───────────────────────────────────────────
+  // 情報シートの列インデックス（0ベース）: A=0 B=1 C=2 D=3 E=4 F=5 G=6 H=7 I=8 J=9 K=10 L=11 M=12
+  if (cargoRow) {
+    set('荷主',   cargoRow[2], '荷主名'); // C: 会社名(貨物) → 運行シートの荷主/荷主名列へ
+    set('日付',   cargoRow[5]);           // F: 日付
+    set('車種',   cargoRow[8]);           // I: 車種（貨物要求）→ 後で車両側が上書き
+    set('積地',   cargoRow[9]);           // J: 積込地
+    set('降地',   cargoRow[10]);          // K: 降ろし地
+    set('売上',   cargoRow[11]);          // L: 金額(売上)
+    set('備考',   cargoRow[12]);          // M: 備考(貨物)
+  }
+
+  // ── 車両情報からのセット ───────────────────────────────────────────
+  // 情報シート26列構成での車両セクションのインデックス（0ベース）:
+  // N=13:チェック(車両) O=14:進捗(車両) P=15:会社名 Q=16:TEL R=17:FAX S=18:看板名
+  // T=19:トン数 U=20:車種 V=21:車番 W=22:乗務員名 X=23:携帯 Y=24:金額(支払) Z=25:備考
+  if (vehRow) {
+    set('会社名',   vehRow[15]); // P: 会社名(車両) → 協力会社名
+    set('看板名',   vehRow[18]); // S: 看板名
+    set('トン数',   vehRow[19]); // T: トン数(車両) ← 車両実績を優先
+    set('車種',     vehRow[20]); // U: 車種(車両)   ← 貨物側を上書き
+    set('車番',     vehRow[21]); // V: 車番
+    set('乗務員名', vehRow[22]); // W: 乗務員名
+    set('携帯番号', vehRow[23]); // X: 携帯番号
+    set('支払い',   vehRow[24]); // Y: 金額(支払)
+  }
+
+  // 車種不一致ダイアログで入力された値で最終上書き
+  if (overrideType) set('車種', overrideType);
 }
 
 
