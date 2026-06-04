@@ -753,7 +753,9 @@ function onOpen() {
     .addItem('📄 支払確認書生成', 'showPaymentDialog')
     .addSubMenu(SpreadsheetApp.getUi().createMenu('📋 帳票・送信メニュー')
       .addItem('① 発注書・指示書を作成（協力会社・乗務員用）', 'showHatchuDocDialog')
-      .addItem('② 車番連絡を作成（荷主用）', 'showShabanDocDialog'))
+      .addItem('② 車番連絡を作成（荷主用）', 'showShabanDocDialog')
+      .addSeparator()
+      .addItem('🗒 受領書の耳生成', 'showUketorishoDialog'))
     .addSeparator()
     .addItem('🔗 チェックした行を配車確定', 'matchAndConfirmDispatch')
     .addSeparator()
@@ -2609,6 +2611,7 @@ function expandAndRefreshSheets() {
       {name:'装備その他',  bg:'#4527a0', fg:'#ede7f6'},
       {name:'発注書・指示書', bg:'#1a237e', fg:'#e8eaf6'},
       {name:'車番連絡',    bg:'#1a237e', fg:'#e8eaf6'},
+      {name:'受領書',      bg:'#006064', fg:'#e0f7fa'},
       {name:'帳票備考',    bg:'#4e342e', fg:'#efebe9'}
     ];
     docCols.forEach(function(col){
@@ -2618,6 +2621,19 @@ function expandAndRefreshSheets() {
         uNext++;
       }
     });
+    // 受領書が帳票備考より後ろにある場合は帳票備考の直前に移動する
+    uLastCol = unkouInspSheet.getLastColumn();
+    uRawHdrs = uLastCol > 0 ? unkouInspSheet.getRange(1, 1, 1, uLastCol).getValues()[0] : [];
+    uHdrs    = uRawHdrs.map(function(h){ return String(h||'').trim(); });
+    var ukPos = uHdrs.indexOf('受領書') + 1;  // 1-based
+    var bPos  = uHdrs.indexOf('帳票備考') + 1; // 1-based
+    if (ukPos > 0 && bPos > 0 && ukPos > bPos) {
+      // 帳票備考の前に新列を挿入して受領書ヘッダーをコピー、元列を削除
+      unkouInspSheet.insertColumnBefore(bPos);
+      unkouInspSheet.getRange(1, bPos).setValue('受領書')
+        .setBackground('#006064').setFontColor('#e0f7fa').setFontWeight('bold');
+      unkouInspSheet.deleteColumn(ukPos + 1); // 挿入で1列右にずれているので+1
+    }
   }
 
   // 集計表に点呼前完了・点呼後完了列を追加（なければ末尾に追加）
@@ -6063,7 +6079,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('🔄 メニュー再生成','reloadMenu').addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('🔄 メニュー再生成','reloadMenu').addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
@@ -6130,7 +6146,9 @@ function getClientStubSource_() {
     "function showHatchuDocDialog(){return UnkouLib.showHatchuDocDialog();}",
     "function showShabanDocDialog(){return UnkouLib.showShabanDocDialog();}",
     "function sendDocumentEmail(a,b,c){return UnkouLib.sendDocumentEmail(a,b,c);}",
-    "function markDocumentIssued(a,b){return UnkouLib.markDocumentIssued(a,b);}"
+    "function markDocumentIssued(a,b){return UnkouLib.markDocumentIssued(a,b);}",
+    "function showUketorishoDialog(){return UnkouLib.showUketorishoDialog();}",
+    "function generateUketorishoSheet(a){return UnkouLib.generateUketorishoSheet(a);}"
   ].join('\n');
 }
 
@@ -8535,4 +8553,297 @@ function getDocumentData_(source) {
     selfFax:     self['FAX番号']    || '',
     selfPerson:  self['担当者名']   || ''
   };
+}
+
+
+// ================================================================
+//  16-1: 受領書の耳生成ダイアログ（showUketorishoDialog）  【大C / 中16 / 小16-1】
+//  ドロップダウン形式で絞り込み条件を選んでシート生成する
+// ================================================================
+function showUketorishoDialog() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet || sheet.getLastRow() < 2) {
+    SpreadsheetApp.getUi().alert('運行シートにデータがありません。');
+    return;
+  }
+
+  // 運行シートから選択肢を収集
+  var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
+  var clients = {}, companies = {}, dates = {}, cars = {}, drivers = {}, picks = {}, drops = {};
+  data.forEach(function(r) {
+    var id = String(r[0]||'').trim();
+    if (!id) return;
+    var pick = String(r[11]||'').trim();
+    if (!pick || pick.indexOf('有休') !== -1 || pick.indexOf('休み') !== -1) return;
+    if (r[10]) clients[String(r[10]).trim()] = true;
+    if (r[2])  companies[String(r[2]).trim()] = true;
+    if (r[9] instanceof Date) {
+      dates[Utilities.formatDate(r[9], 'Asia/Tokyo', 'yyyy/MM/dd')] = true;
+    }
+    if (r[5]) cars[String(r[5]).trim()] = true;
+    if (r[6]) drivers[String(r[6]).trim()] = true;
+    if (r[11]) picks[String(r[11]).trim()] = true;
+    if (r[12]) drops[String(r[12]).trim()] = true;
+  });
+
+  function mkOpts(obj) {
+    return '<option value="">(全て)</option>'
+      + Object.keys(obj).sort().map(function(v) {
+          return '<option value="' + v.replace(/"/g,'&quot;') + '">' + v + '</option>';
+        }).join('');
+  }
+
+  var html = '<html><body style="font-family:sans-serif;padding:16px;font-size:13px;">'
+    + '<table style="border-collapse:collapse;width:100%">'
+    + '<tr><td style="padding:6px">荷主名</td><td><select id="cl" style="width:200px">' + mkOpts(clients)   + '</select></td></tr>'
+    + '<tr><td style="padding:6px">会社名</td><td><select id="co" style="width:200px">' + mkOpts(companies) + '</select></td></tr>'
+    + '<tr><td style="padding:6px">日付</td><td><select id="dt" style="width:200px">'   + mkOpts(dates)     + '</select></td></tr>'
+    + '<tr><td style="padding:6px">車番</td><td><select id="ca" style="width:200px">'   + mkOpts(cars)      + '</select></td></tr>'
+    + '<tr><td style="padding:6px">乗務員名</td><td><select id="dr" style="width:200px">' + mkOpts(drivers) + '</select></td></tr>'
+    + '<tr><td style="padding:6px">積地</td><td><select id="pk" style="width:200px">'   + mkOpts(picks)     + '</select></td></tr>'
+    + '<tr><td style="padding:6px">降地</td><td><select id="dp" style="width:200px">'   + mkOpts(drops)     + '</select></td></tr>'
+    + '</table>'
+    + '<br><button onclick="g()" style="background:#006064;color:#fff;padding:8px 24px;border:none;border-radius:6px;cursor:pointer;font-size:13px">生成</button>'
+    + '<br><br><button id="pb" style="display:none;background:#1565c0;color:#fff;padding:10px 28px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold">🖨 印刷用PDFを開く</button>'
+    + '<br><span id="m" style="margin-top:8px;display:inline-block;color:#888;font-size:12px"></span>'
+    + '<script>function g(){'
+    + '  document.getElementById("m").innerText="生成中...";'
+    + '  var f={'
+    + '    client:document.getElementById("cl").value,'
+    + '    company:document.getElementById("co").value,'
+    + '    date:document.getElementById("dt").value,'
+    + '    car:document.getElementById("ca").value,'
+    + '    driver:document.getElementById("dr").value,'
+    + '    pick:document.getElementById("pk").value,'
+    + '    drop:document.getElementById("dp").value'
+    + '  };'
+    + '  google.script.run'
+    + '    .withSuccessHandler(function(r){'
+    + '      if(r && r.pdfUrl){'
+    + '        document.getElementById("m").innerText=r.msg;'
+    + '        var b=document.getElementById("pb");b.style.display="inline-block";'
+    + '        b.onclick=function(){window.open(r.pdfUrl,"_blank");};'
+    + '      } else { document.getElementById("m").innerText=(r&&r.msg)||r||"完了"; }'
+    + '    })'
+    + '    .withFailureHandler(function(e){document.getElementById("m").innerText="エラー: "+(e.message||e);})'
+    + '    .generateUketorishoSheet(f);'
+    + '}'
+    + '<\/script></body></html>';
+
+  SpreadsheetApp.getUi().showModalDialog(
+    HtmlService.createHtmlOutput(html).setWidth(420).setHeight(350),
+    '🗒 受領書の耳生成'
+  );
+}
+
+
+// ================================================================
+//  16-2: 受領書耳シート生成（generateUketorishoSheet）  【大A / 中16 / 小16-2】
+//  絞り込み条件に合う行を運行シートから抽出し、A4横2列×5行=10件/ページで
+//  「受領書_耳」シートに印刷用レイアウトを生成する
+// ================================================================
+function generateUketorishoSheet(filters) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var unkou = ss.getSheetByName('運行');
+  if (!unkou || unkou.getLastRow() < 2) return '運行シートにデータがありません。';
+
+  var lastCol = unkou.getLastColumn();
+  var all = unkou.getRange(2, 1, unkou.getLastRow() - 1, Math.max(lastCol, 13)).getValues();
+
+  // 自社設定から自社名取得
+  var selfName = '';
+  var selfSheet = ss.getSheetByName('自社設定');
+  if (selfSheet && selfSheet.getLastRow() >= 1) {
+    selfSheet.getDataRange().getValues().forEach(function(r) {
+      if (String(r[0]||'').trim() === '会社名') selfName = String(r[1]||'').trim();
+    });
+  }
+
+  // 絞り込み（空文字 = 全対象）
+  function matchFilter(filterVal, val) {
+    if (!filterVal) return true;
+    return String(val||'').trim() === filterVal;
+  }
+
+  var rows = [];
+  var seen = {};
+  all.forEach(function(r) {
+    var id = String(r[0]||'').trim();
+    if (!id || seen[id]) return;
+    var dateStr = r[9] instanceof Date ? Utilities.formatDate(r[9], 'Asia/Tokyo', 'yyyy/MM/dd') : String(r[9]||'');
+    var client  = String(r[10]||'').trim();
+    var company = String(r[2] ||'').trim();
+    var car     = String(r[5] ||'').trim();
+    var driver  = String(r[6] ||'').trim();
+    var pick    = String(r[11]||'').trim();
+    var drop    = String(r[12]||'').trim();
+    if (!pick || pick.indexOf('有休') !== -1 || pick.indexOf('休み') !== -1) return;
+    if (!matchFilter(filters.client,   client))  return;
+    if (!matchFilter(filters.company,  company)) return;
+    if (!matchFilter(filters.date,     dateStr)) return;
+    if (!matchFilter(filters.car,      car))     return;
+    if (!matchFilter(filters.driver,   driver))  return;
+    if (!matchFilter(filters.pick,     pick))    return;
+    if (!matchFilter(filters.drop,     drop))    return;
+    seen[id] = true;
+    var WD = ['日','月','火','水','木','金','土'];
+    var wdStr = r[9] instanceof Date ? WD[r[9].getDay()] : '';
+    var signboard = String(r[8]||'').trim() || company;
+    rows.push({ id: id, client: client, company: company, signboard: signboard,
+      dateStr: dateStr, wdStr: wdStr, car: car, driver: driver, pick: pick, drop: drop });
+  });
+
+  // 日付昇順ソート
+  rows.sort(function(a, b) { return a.dateStr.localeCompare(b.dateStr); });
+
+  if (rows.length === 0) return '対象データが見つかりません。絞り込み条件を確認してください。';
+
+  // シート準備
+  var shName = '受領書_耳';
+  var sh = ss.getSheetByName(shName);
+  if (sh) { sh.clear(); sh.clearFormats(); } else { sh = ss.insertSheet(shName); }
+
+  // レイアウト定数: A4縦 3列×7行 = 21件/ページ・余白なし
+  // fitw=false（スケールなし） A4縦96dpi=1123px・横96dpi=793px
+  // 15列 × 53px = 795px ≈ A4幅793px（2px誤差・実質ぴったり）
+  // 1耳 = 荷主24px + 中6行×20px + 自社名16px = 160px × 7段 = 1120px ≈ A4高1123px（3px余白）
+  var COLS_PER_ROW  = 3;
+  var ROWS_PER_PAGE = 7;
+  var PER_PAGE      = COLS_PER_ROW * ROWS_PER_PAGE; // 21
+
+  // 15列（3耳×5列）の列幅を53pxに統一（fitw=false時にA4幅793pxをほぼカバー）
+  for (var ci = 1; ci <= 15; ci++) { sh.setColumnWidth(ci, 53); }
+
+  var CELL_ROWS = 8;  // 1耳あたりのスプレッドシート行数
+  var curRow = 1;
+
+  for (var idx = 0; idx < rows.length; idx += PER_PAGE) {
+    var pageRows = rows.slice(idx, idx + PER_PAGE);
+
+    // ページ内を3列×8行に配置
+    for (var pi = 0; pi < pageRows.length; pi++) {
+      var item    = pageRows[pi];
+      var colSlot = pi % COLS_PER_ROW;               // 0/1/2
+      var rowSlot = Math.floor(pi / COLS_PER_ROW);
+      var c1      = colSlot * 5 + 1;                 // 1/6/11
+      var r1      = curRow + rowSlot * CELL_ROWS;
+
+      var BD = '#006064';
+      var BS = SpreadsheetApp.BorderStyle.SOLID;
+
+      // 行1: 荷主名 御中  [1耳=24+20×6+16=160px × 7段=1120px ≈ A4縦0余白1123px（3px余白）]
+      sh.getRange(r1, c1, 1, 5).merge()
+        .setValue((item.client || '　') + '　御中')
+        .setFontSize(12).setFontWeight('bold')
+        .setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setBackground('#e0f7fa').setFontColor('#006064')
+        .setBorder(true, true, false, true, false, false, BD, BS);
+      sh.setRowHeight(r1, 24);
+
+      // 行2: 積込日
+      var r2 = r1 + 1;
+      sh.getRange(r2, c1, 1, 5).merge()
+        .setValue('積込日　' + item.dateStr + '（' + item.wdStr + '）')
+        .setFontSize(10).setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setBorder(false, true, false, true, false, false, BD, BS);
+      sh.setRowHeight(r2, 20);
+
+      // 行3: 会社名／看板名
+      var r3 = r1 + 2;
+      sh.getRange(r3, c1, 1, 2).merge().setValue('会社名')
+        .setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle').setBackground('#f0f0f0')
+        .setBorder(false, true, false, false, false, false, BD, BS);
+      sh.getRange(r3, c1+2, 1, 3).merge().setValue(item.signboard || item.company)
+        .setFontSize(10).setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setBorder(false, false, false, true, false, false, BD, BS);
+      sh.setRowHeight(r3, 20);
+
+      // 行4: 車番
+      var r4 = r1 + 3;
+      sh.getRange(r4, c1, 1, 2).merge().setValue('車番')
+        .setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle').setBackground('#f0f0f0')
+        .setBorder(false, true, false, false, false, false, BD, BS);
+      sh.getRange(r4, c1+2, 1, 3).merge().setValue(item.car)
+        .setFontSize(11).setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setBorder(false, false, false, true, false, false, BD, BS);
+      sh.setRowHeight(r4, 20);
+
+      // 行5: 乗務員
+      var r5 = r1 + 4;
+      sh.getRange(r5, c1, 1, 2).merge().setValue('乗務員')
+        .setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle').setBackground('#f0f0f0')
+        .setBorder(false, true, false, false, false, false, BD, BS);
+      sh.getRange(r5, c1+2, 1, 3).merge().setValue(item.driver)
+        .setFontSize(10).setHorizontalAlignment('center').setVerticalAlignment('middle')
+        .setBorder(false, false, false, true, false, false, BD, BS);
+      sh.setRowHeight(r5, 20);
+
+      // 行6: 積地
+      var r6 = r1 + 5;
+      sh.getRange(r6, c1, 1, 2).merge().setValue('積地')
+        .setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle').setBackground('#e8f5e9')
+        .setBorder(false, true, false, false, false, false, BD, BS);
+      sh.getRange(r6, c1+2, 1, 3).merge().setValue(item.pick)
+        .setFontSize(10).setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true)
+        .setBorder(false, false, false, true, false, false, BD, BS);
+      sh.setRowHeight(r6, 20);
+
+      // 行7: 降地
+      var r7 = r1 + 6;
+      sh.getRange(r7, c1, 1, 2).merge().setValue('降地')
+        .setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('middle').setBackground('#fce4ec')
+        .setBorder(false, true, false, false, false, false, BD, BS);
+      sh.getRange(r7, c1+2, 1, 3).merge().setValue(item.drop)
+        .setFontSize(10).setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true)
+        .setBorder(false, false, false, true, false, false, BD, BS);
+      sh.setRowHeight(r7, 20);
+
+      // 行8: 自社名（右下）
+      var r8 = r1 + 7;
+      sh.getRange(r8, c1, 1, 5).merge().setValue(selfName)
+        .setFontSize(8).setHorizontalAlignment('right').setVerticalAlignment('middle').setFontColor('#777')
+        .setBorder(true, true, true, true, false, false, BD, BS);
+      sh.setRowHeight(r8, 16);
+    }
+
+    curRow += ROWS_PER_PAGE * CELL_ROWS; // ページ間余白なし
+  }
+
+  // 受領書列に「済」を記録
+  var uHdrs = unkou.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h){ return String(h||'').trim(); });
+  var ukCol = uHdrs.indexOf('受領書');
+  if (ukCol >= 0) {
+    var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'MM/dd HH:mm');
+    var allIds = unkou.getRange(2, 1, unkou.getLastRow() - 1, 1).getValues();
+    for (var ri = 0; ri < allIds.length; ri++) {
+      var rid = String(allIds[ri][0]||'').trim();
+      if (seen[rid]) {
+        unkou.getRange(ri + 2, ukCol + 1).setValue('済 ' + now);
+      }
+    }
+  }
+
+  sh.setHiddenGridlines(false);
+  ss.setActiveSheet(sh);
+
+  // 余白なし・A4縦・幅フィット・グリッド線なし のPDF出力URL
+  var totalRows = curRow - 1;
+  var pdfUrl = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export'
+    + '?format=pdf'
+    + '&gid=' + sh.getSheetId()
+    + '&size=A4'
+    + '&portrait=true'
+    + '&fitw=true'
+    + '&gridlines=false'
+    + '&top_margin=0.00'
+    + '&bottom_margin=0.00'
+    + '&left_margin=0.00'
+    + '&right_margin=0.00'
+    + '&sheetnames=false'
+    + '&printtitle=false'
+    + '&pagenumbers=false'
+    + '&attachment=false';
+
+  return { msg: rows.length + '件の耳を生成しました。「印刷用PDFを開く」ボタンをクリックして印刷してください。', pdfUrl: pdfUrl };
 }
