@@ -881,6 +881,7 @@ var _cfPopupCol=-1;
 //  C-7: 画面切り替え（hideAll / showScreen / goHome）
 // ============================================================
 var _listRefreshTimer = null;
+var _listDataCache = {}; // { 'YYYY_M': { data, ts } } 60秒クライアントキャッシュ
 function hideAll() {
   // リスト自動更新タイマーを停止
   if (_listRefreshTimer) { clearInterval(_listRefreshTimer); _listRefreshTimer = null; }
@@ -1458,13 +1459,10 @@ function showList() {
 function prevMonth() { listMonth--; if (listMonth===0) { listMonth=12; listYear--; } filterDateFrom=''; filterDateTo=''; loadList(); }
 function nextMonth() { listMonth++; if (listMonth===13) { listMonth=1; listYear++; } filterDateFrom=''; filterDateTo=''; loadList(); }
 
-function loadList() {
-  document.getElementById('listYM').innerText = listYear + '年 ' + listMonth + '月';
-  document.getElementById('listBody').innerHTML = '<div style="padding:20px;text-align:center;color:#aaa;">読み込み中...</div>';
-  google.script.run
-    .withSuccessHandler(function(data) {
-      listRows = data.rows || [];
-      var t = data.total;
+// 一覧データを受け取って描画するだけ（GAS呼び出しなし）
+function _applyListData(data) {
+  listRows = data.rows || [];
+  var t = data.total;
       var tPay   = Math.round(t.pay   || 0);
       var tYukyu = Math.round(t.yukyu || 0);
       var tOther = Math.round(t.other || 0);
@@ -1547,9 +1545,33 @@ function loadList() {
           +'<div style="font-size:15px;font-weight:800;color:#81c784;word-break:break-all;">¥'+Math.round(t.toll||0).toLocaleString()+'</div>'
         +'</div>'
         +'</div>';
-      document.getElementById('filterDateFrom').value = filterDateFrom;
-      document.getElementById('filterDateTo').value   = filterDateTo;
-      renderTable();
+  document.getElementById('filterDateFrom').value = filterDateFrom;
+  document.getElementById('filterDateTo').value   = filterDateTo;
+  renderTable();
+}
+
+function loadList(forceRefresh) {
+  document.getElementById('listYM').innerText = listYear + '年 ' + listMonth + '月';
+  var _ldCK = listYear + '_' + listMonth;
+  // キャッシュが新鮮（60秒以内）なら即描画してバックグラウンド更新
+  if (!forceRefresh) {
+    var _ldEntry = _listDataCache[_ldCK];
+    if (_ldEntry && (Date.now() - _ldEntry.ts) < 60000) {
+      _applyListData(_ldEntry.data);
+      google.script.run
+        .withSuccessHandler(function(data) { _listDataCache[_ldCK] = {data:data, ts:Date.now()}; listRows = (data.rows||[]); renderTable(); })
+        .withFailureHandler(function(){})
+        .getListData(listYear, listMonth, COMPANY_SS_ID, getMyEmail());
+      return;
+    }
+  }
+  // キャッシュなし・強制更新 → 読み込み中...表示してフェッチ
+  if (forceRefresh) delete _listDataCache[_ldCK];
+  document.getElementById('listBody').innerHTML = '<div style="padding:20px;text-align:center;color:#aaa;">読み込み中...</div>';
+  google.script.run
+    .withSuccessHandler(function(data) {
+      _listDataCache[_ldCK] = {data:data, ts:Date.now()};
+      _applyListData(data);
     })
     .withFailureHandler(function(err) {
       document.getElementById('listBody').innerHTML = '<div style="padding:20px;color:#ff5252;">データ取得エラー: '+err+'</div>';
@@ -2018,7 +2040,7 @@ function saveListRowAuto(id) {
   if (inspBEl)     obj.inspBefore = extractHmm_(inspBEl.value);
   if (inspAEl)     obj.inspAfter  = extractHmm_(inspAEl.value);
   google.script.run
-    .withSuccessHandler(function() { loadList(); })
+    .withSuccessHandler(function() { loadList(true); })
     .withFailureHandler(function(e) { console.error('自動保存エラー: ' + e.message); })
     .saveEditData(obj, COMPANY_SS_ID, getMyEmail());
 }
@@ -2048,7 +2070,7 @@ function sendNoticeModal() {
   var text = document.getElementById('nmInput').value.trim();
   if (!text) return;
   closeNoticeModal();
-  google.script.run.withSuccessHandler(function(){ loadList(); }).saveTerminalNotice(noticeModalId, text, COMPANY_SS_ID, getMyEmail());
+  google.script.run.withSuccessHandler(function(){ loadList(true); }).saveTerminalNotice(noticeModalId, text, COMPANY_SS_ID, getMyEmail());
 }
 
 // ============================================================
@@ -2349,13 +2371,13 @@ function saveEditModal(){
   };
   closeEditModal();
   google.script.run
-    .withSuccessHandler(function(){ loadList(); })
+    .withSuccessHandler(function(){ loadList(true); })
     .withFailureHandler(function(e){ alert('保存エラー: '+e.message); })
     .saveEditData(obj, COMPANY_SS_ID, getMyEmail());
 }
 function deleteEditModal(){
   if(!confirm('この運行データを削除しますか？')) return;
-  google.script.run.withSuccessHandler(function(){closeEditModal();loadList();}).deleteRunById(editId, COMPANY_SS_ID, getMyEmail());
+  google.script.run.withSuccessHandler(function(){closeEditModal();loadList(true);}).deleteRunById(editId, COMPANY_SS_ID, getMyEmail());
 }
 function addTermFile(id) {
   var input=document.createElement('input'); input.type='file'; input.multiple=true; input.accept='image/*,.pdf,.doc,.docx,.xls,.xlsx';
@@ -2405,7 +2427,7 @@ function saveTermNoticeFromEdit(id) {
   closeEditModal();
   google.script.run
     .withSuccessHandler(function(){
-      loadList();
+      loadList(true);
       var t=document.createElement('div');
       t.style.cssText='position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#388e3c;color:white;padding:10px 28px;border-radius:20px;font-size:15px;font-weight:700;z-index:9999;';
       t.innerText='保存完了';

@@ -1083,6 +1083,7 @@ function onEditUnkou_(sheet, range, ss) {
   idLock.releaseLock();
 
   var lastColU = Math.max(sheet.getLastColumn(), 22);
+  var _oeUnkouSyncIds = []; // ループ後にまとめてsync（ループ内で個別sync廃止）
   for (var i = 0; i < numRows; i++) {
     var row = startRow + i;
     if (row <= 1) continue;
@@ -1206,7 +1207,7 @@ function onEditUnkou_(sheet, range, ss) {
       sheet.getRange(row, 22).setFormula('=IF(AND(U' + row + '="",T' + row + '=""),"",U' + row + '-T' + row + ')');
     }
     SpreadsheetApp.flush();
-    if (currentId) syncSummaryForId_(currentId, ss);
+    if (currentId && _oeUnkouSyncIds.indexOf(currentId) === -1) _oeUnkouSyncIds.push(currentId);
   }
   applyMoneyFormat_(sheet, startRow, numRows, 'unkou');
   applyDateTimeFormat_(sheet, startRow, numRows);
@@ -1214,6 +1215,14 @@ function onEditUnkou_(sheet, range, ss) {
   if (editedCol === 10) {
     sortUnkouByDate_();
     sortSummaryByDate_();
+  }
+  // 複数行の場合はgenerateSummary一発、少数は個別sync
+  if (_oeUnkouSyncIds.length > 3) {
+    generateSummary();
+  } else {
+    for (var _si = 0; _si < _oeUnkouSyncIds.length; _si++) {
+      try { syncSummaryForId_(_oeUnkouSyncIds[_si], ss); } catch(e) {}
+    }
   }
 }
 
