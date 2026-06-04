@@ -756,6 +756,9 @@ function onOpen() {
       .addItem('② 車番連絡を作成（荷主用）', 'showShabanDocDialog')
       .addSeparator()
       .addItem('🗒 受領書の耳生成', 'showUketorishoDialog'))
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('📊 PL管理')
+      .addItem('📈 PL作成', 'showPlDialog')
+      .addItem('🗃 固定費マスタ初期化', 'initFixedCostMaster'))
     .addSeparator()
     .addItem('🔗 チェックした行を配車確定', 'matchAndConfirmDispatch')
     .addSeparator()
@@ -6079,7 +6082,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('🔄 メニュー再生成','reloadMenu').addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('🔄 メニュー再生成','reloadMenu').addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 固定費マスタ初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
@@ -6148,7 +6151,12 @@ function getClientStubSource_() {
     "function sendDocumentEmail(a,b,c){return UnkouLib.sendDocumentEmail(a,b,c);}",
     "function markDocumentIssued(a,b){return UnkouLib.markDocumentIssued(a,b);}",
     "function showUketorishoDialog(){return UnkouLib.showUketorishoDialog();}",
-    "function generateUketorishoSheet(a){return UnkouLib.generateUketorishoSheet(a);}"
+    "function generateUketorishoSheet(a){return UnkouLib.generateUketorishoSheet(a);}",
+    "function showPlDialog(){return UnkouLib.showPlDialog();}",
+    "function getPlFilterOptions(){return UnkouLib.getPlFilterOptions();}",
+    "function generatePl(a){return UnkouLib.generatePl(a);}",
+    "function exportPlJournalCsv(){return UnkouLib.exportPlJournalCsv();}",
+    "function initFixedCostMaster(){return UnkouLib.initFixedCostMaster();}"
   ].join('\n');
 }
 
@@ -8704,10 +8712,9 @@ function generateUketorishoSheet(filters) {
   var sh = ss.getSheetByName(shName);
   if (sh) { sh.clear(); sh.clearFormats(); } else { sh = ss.insertSheet(shName); }
 
-  // レイアウト定数: A4縦 3列×7行 = 21件/ページ・余白なし
-  // fitw=false（スケールなし） A4縦96dpi=1123px・横96dpi=793px
-  // 15列 × 53px = 795px ≈ A4幅793px（2px誤差・実質ぴったり）
-  // 1耳 = 荷主24px + 中6行×20px + 自社名16px = 160px × 7段 = 1120px ≈ A4高1123px（3px余白）
+  // レイアウト定数: A4縦 3列×7行 = 21件/ページ・余白5mm
+  // fitw=true, 余白0.20inch(5mm)。プリンタ印刷可能領域に確実に収める。
+  // 15列 × 53px = 795px → scale=0.949 → 使用可高さ≈1143px → 7段×163px=1141px ✓
   var COLS_PER_ROW  = 3;
   var ROWS_PER_PAGE = 7;
   var PER_PAGE      = COLS_PER_ROW * ROWS_PER_PAGE; // 21
@@ -8732,14 +8739,14 @@ function generateUketorishoSheet(filters) {
       var BD = '#006064';
       var BS = SpreadsheetApp.BorderStyle.SOLID;
 
-      // 行1: 荷主名 御中  [1耳=24+20×6+16=160px × 7段=1120px ≈ A4縦0余白1123px（3px余白）]
+      // 行1: 荷主名 御中  [1耳=23+20×6+16=159px×7=1113px ≈ 余白5mm込み使用可高1143px ✓]
       sh.getRange(r1, c1, 1, 5).merge()
         .setValue((item.client || '　') + '　御中')
         .setFontSize(12).setFontWeight('bold')
         .setHorizontalAlignment('center').setVerticalAlignment('middle')
         .setBackground('#e0f7fa').setFontColor('#006064')
         .setBorder(true, true, false, true, false, false, BD, BS);
-      sh.setRowHeight(r1, 24);
+      sh.setRowHeight(r1, 23);
 
       // 行2: 積込日
       var r2 = r1 + 1;
@@ -8836,10 +8843,10 @@ function generateUketorishoSheet(filters) {
     + '&portrait=true'
     + '&fitw=true'
     + '&gridlines=false'
-    + '&top_margin=0.00'
-    + '&bottom_margin=0.00'
-    + '&left_margin=0.00'
-    + '&right_margin=0.00'
+    + '&top_margin=0.20'
+    + '&bottom_margin=0.20'
+    + '&left_margin=0.20'
+    + '&right_margin=0.20'
     + '&sheetnames=false'
     + '&printtitle=false'
     + '&pagenumbers=false'
