@@ -2200,9 +2200,8 @@ function syncSummaryForId_(targetId, ss) {
   var kyuryoNum = Number(kyuryo) || 0;
   var kariNum   = Number(kari)   || 0;
   var thisToll  = (Number(g.tollReal) || 0) - (Number(g.tollReq) || 0);
+  // ── setValue まとめて実行（setBackground より先に確定）──────────────────
   var payCell   = sumSheet.getRange(sumRow, 27);
-  sumSheet.getRange(sumRow, 31, 1, 3).setBackground(null);
-  payCell.setBackground(null);
   var yukyuVal = '';
   var finalPaySync = null;
   if (pctNum > 0) {
@@ -2214,12 +2213,8 @@ function syncSummaryForId_(targetId, ss) {
     var dailyPay = Math.round(kyuryoNum / kariNum);
     finalPaySync = sIsYasumi ? -dailyPay : dailyPay;
     payCell.setValue(finalPaySync);
-  } else if (kyuryoNum > 0 || kariNum > 0) {
-    // 警告は行背景設定後に適用
-  } else {
-    // 警告は行背景設定後に適用
   }
-  // AC(29)=利益 を値で書き込む（支払い確定後に計算）
+  // AC(29)=利益
   var vSN = typeof vSyncVal==='number' ? vSyncVal : 0;
   var zSN = (Number(keepDistance) > 0 && Number(fuel) > 0 && Number(keepGas) > 0)
     ? Math.round(Number(keepDistance) / Number(fuel) * Number(keepGas)) : 0;
@@ -2227,46 +2222,39 @@ function syncSummaryForId_(targetId, ss) {
   var salesSync = Number(g.sales)||0;
   var acSyncVal = (!salesSync&&!vSN&&!zSN&&!resolvedPaySync&&!expenseVal) ? '' : salesSync-(vSN+zSN+resolvedPaySync+(Number(expenseVal)||0));
   sumSheet.getRange(sumRow, 29).setValue(acSyncVal);
-  // 利益マイナス → 薄赤（有休/休み行はこの後上書き）
-  sumSheet.getRange(sumRow, 1, 1, 37).setBackground(typeof acSyncVal==='number' && acSyncVal < 0 ? '#ffebee' : null);
-  // 有休手当(AH=col34)
   sumSheet.getRange(sumRow, 34).setValue(yukyuVal);
-  // 有休/休み → 行全体をグレー着色
-  var sumLastColBg = Math.max(sumSheet.getLastColumn(), 37);
-  if (spick.indexOf('有休') !== -1 || sdrop.indexOf('有休') !== -1) {
-    sumSheet.getRange(sumRow, 1, 1, sumLastColBg).setBackground('#e0e0e0');
-  } else if (spick.indexOf('休み') !== -1 || sdrop.indexOf('休み') !== -1) {
-    sumSheet.getRange(sumRow, 1, 1, sumLastColBg).setBackground('#9e9e9e');
-  }
-  // 430ルール色付け（行全体の背景色設定後に適用して上書きを防ぐ）
+  // ── 背景色を1配列に積んで1回のsetBackgroundsで書き込む（API呼び出しを削減）──
   var F430 = 4*60*60*1000, T430 = 30*60*1000;
-  var baseRowBg = (typeof acSyncVal === 'number' && acSyncVal < 0) ? '#ffebee' : null;
-  if (spick.indexOf('有休') !== -1 || sdrop.indexOf('有休') !== -1) baseRowBg = '#e0e0e0';
+  var numBgCols = Math.max(sumSheet.getLastColumn(), 37);
+  var baseRowBg = null;
+  if      (spick.indexOf('有休') !== -1 || sdrop.indexOf('有休') !== -1) baseRowBg = '#e0e0e0';
   else if (spick.indexOf('休み') !== -1 || sdrop.indexOf('休み') !== -1) baseRowBg = '#9e9e9e';
-  sumSheet.getRange(sumRow, 15, 1, 4).setBackground(baseRowBg);
-  if (rawPickTime  && rawRestStart && (rawRestStart-rawPickTime)  > F430) { sumSheet.getRange(sumRow,15,1,2).setBackground('#ffd600'); }
-  if (rawRestStart && rawRestEnd   && (rawRestEnd  -rawRestStart) < T430) { sumSheet.getRange(sumRow,16,1,2).setBackground('#4fc3f7'); }
-  if (rawRestEnd   && rawDropTime  && (rawDropTime -rawRestEnd)   > F430) { sumSheet.getRange(sumRow,17,1,2).setBackground('#ffd600'); }
-  // 順序エラー着色（後ろが埋まって前が空の時刻セルをオレンジ表示）
+  else if (typeof acSyncVal === 'number' && acSyncVal < 0)               baseRowBg = '#ffebee';
+  var rowBgArr = [];
+  for (var _bi = 0; _bi < numBgCols; _bi++) rowBgArr.push(baseRowBg);
+  // 430ルール（0-based: col14=13, col15=14, col16=15, col17=16, col18=17）
+  if (rawPickTime  && rawRestStart && (rawRestStart-rawPickTime)  > F430) { rowBgArr[14]='#ffd600'; rowBgArr[15]='#ffd600'; }
+  if (rawRestStart && rawRestEnd   && (rawRestEnd  -rawRestStart) < T430) { rowBgArr[15]='#4fc3f7'; rowBgArr[16]='#4fc3f7'; }
+  if (rawRestEnd   && rawDropTime  && (rawDropTime -rawRestEnd)   > F430) { rowBgArr[16]='#ffd600'; rowBgArr[17]='#ffd600'; }
+  // 順序エラー着色
   var hasGuide = !!g.guideTime;
-  if (!hasGuide    && (rawPickTime||rawRestStart||rawRestEnd||rawDropTime)) sumSheet.getRange(sumRow,14).setBackground('#ff6d00');
-  if (!rawPickTime && (rawRestStart||rawRestEnd||rawDropTime))              sumSheet.getRange(sumRow,15).setBackground('#ff6d00');
-  if (!rawRestStart && (rawRestEnd||rawDropTime))                           sumSheet.getRange(sumRow,16).setBackground('#ff6d00');
-  if (!rawRestEnd  && rawDropTime)                                          sumSheet.getRange(sumRow,17).setBackground('#ff6d00');
-  // 支払い/経費条件不備の警告（行全体の背景色設定の後に適用、グレー）
+  if (!hasGuide    && (rawPickTime||rawRestStart||rawRestEnd||rawDropTime)) rowBgArr[13]='#ff6d00';
+  if (!rawPickTime && (rawRestStart||rawRestEnd||rawDropTime))              rowBgArr[14]='#ff6d00';
+  if (!rawRestStart && (rawRestEnd||rawDropTime))                           rowBgArr[15]='#ff6d00';
+  if (!rawRestEnd  && rawDropTime)                                          rowBgArr[16]='#ff6d00';
+  // 支払い/経費条件不備の警告（グレー）
   if (!sIsYukyu && !sIsYasumi) {
     if (pctNum <= 0 && !(kyuryoNum > 0 && kariNum > 0)) {
       if (kyuryoNum > 0 || kariNum > 0) {
-        if (!kyuryoNum) sumSheet.getRange(sumRow, 32).setBackground('#b0bec5');
-        if (!kariNum)   sumSheet.getRange(sumRow, 31).setBackground('#b0bec5');
+        if (!kyuryoNum) rowBgArr[31]='#b0bec5'; // col32
+        if (!kariNum)   rowBgArr[30]='#b0bec5'; // col31
       } else if (!keepPay) {
-        sumSheet.getRange(sumRow, 27).setBackground('#b0bec5');
+        rowBgArr[26]='#b0bec5'; // col27
       }
     }
-    if (expenseVal === '') {
-      sumSheet.getRange(sumRow, 28).setBackground('#b0bec5');
-    }
+    if (expenseVal === '') rowBgArr[27]='#b0bec5'; // col28
   }
+  sumSheet.getRange(sumRow, 1, 1, numBgCols).setBackgrounds([rowBgArr]);
 
   applySumEditableBorders_(sumSheet, sumRow, 1);
 
@@ -3883,6 +3871,7 @@ function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, emai
     // 日付順にソート（新規行が末尾に追加されているため）
     sortUnkouByDate_(companySsId);
 
+    clearListCache_(email);
     return { rows: resultRows, id: sameId };
 
   } finally {
@@ -3977,6 +3966,7 @@ function recordAction(actionType, id, routeIndex, stateObj, companySsId, email) 
   else if (actionType === 'drop')       setDropComplete(id, routeIndex, companySsId);
   else if (actionType === 'inspBefore') setInspectionComplete_(id, 'before', companySsId);
   else if (actionType === 'inspAfter')  setInspectionComplete_(id, 'after',  companySsId);
+  clearListCache_(email);
 }
 
 
@@ -4076,6 +4066,7 @@ function deleteRunRows(id, companySsId, email) {
   del.sort(function(a, b) { return b - a; });
   for (var j = 0; j < del.length; j++) sheet.deleteRow(del[j]);
   if (id) delaySyncSummary_(id, ss);
+  clearListCache_(email);
 }
 
 
@@ -4133,6 +4124,11 @@ function getListData(year, month, companySsId, email) {
     if (myName) { try { listCache.put(emailKey, myName, 60); } catch(e) {} }
   }
   if (!myName) return {rows:[], total:{days:0,sales:0,toll:0,pay:0}};
+
+  // 30秒キャッシュ（毎回フルシート読みを回避。書き込み操作後はclearListCache_で削除）
+  var _ldKey = 'ld_' + savedEmail.toLowerCase() + '_' + year + '_' + month;
+  var _ldSC  = CacheService.getScriptCache();
+  try { var _ldCached = _ldSC.get(_ldKey); if (_ldCached) return JSON.parse(_ldCached); } catch(e) {}
 
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return {rows:[], total:{days:0,sales:0,toll:0,pay:0}};
@@ -4287,7 +4283,22 @@ function getListData(year, month, companySsId, email) {
     if (g.picks.join('').trim() !== '') dateSet[g.date] = true; // 積地空（未配車）はノーカウント
   }
   result.sort(function(a,b){ return b.dateSort - a.dateSort; });
-  return { rows:result, total:{ days:Object.keys(dateSet).length, sales:totalSales, toll:totalToll, pay:totalPay, yukyu:totalYukyu, other:totalOther, yukyuDays:yukyuDays, yasumiDays:yasumiDays } };
+  var _ldResult = { rows:result, total:{ days:Object.keys(dateSet).length, sales:totalSales, toll:totalToll, pay:totalPay, yukyu:totalYukyu, other:totalOther, yukyuDays:yukyuDays, yasumiDays:yasumiDays } };
+  try { _ldSC.put(_ldKey, JSON.stringify(_ldResult), 30); } catch(e) {}
+  return _ldResult;
+}
+
+
+// ================================================================
+//  clearListCache_: 一覧データキャッシュを削除（書き込み操作後に呼ぶ）
+// ================================================================
+function clearListCache_(email) {
+  if (!email) return;
+  var sc = CacheService.getScriptCache();
+  var now = new Date(), yr = now.getFullYear(), mo = now.getMonth() + 1;
+  var prevMo = mo > 1 ? mo - 1 : 12, prevYr = mo > 1 ? yr : yr - 1;
+  try { sc.remove('ld_' + email.toLowerCase() + '_' + yr + '_' + mo); } catch(e) {}
+  try { sc.remove('ld_' + email.toLowerCase() + '_' + prevYr + '_' + prevMo); } catch(e) {}
 }
 
 
@@ -4507,6 +4518,7 @@ function saveEditData(obj, companySsId, email) {
   }
   delaySyncSummary_(obj.id);
   try { applyHolidayRowColors_(); } catch(e) {}
+  clearListCache_(email);
   } finally {
     lock.releaseLock();
   }
@@ -5001,6 +5013,7 @@ function deleteRunById(id, companySsId, email) {
   delRows.sort(function(a,b){ return b-a; });
   for (var i = 0; i < delRows.length; i++) sheet.deleteRow(delRows[i]);
   delaySyncSummary_(id, ss);
+  clearListCache_(email);
 }
 
 
