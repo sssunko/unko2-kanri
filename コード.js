@@ -8854,3 +8854,644 @@ function generateUketorishoSheet(filters) {
 
   return { msg: rows.length + '件の耳を生成しました。「印刷用PDFを開く」ボタンをクリックして印刷してください。', pdfUrl: pdfUrl };
 }
+
+
+// ================================================================
+// ■ グループ17：PL（損益計算書）生成エンジン
+// ================================================================
+//   17-1  : showPlDialog()           - PLフィルタモーダル表示
+//   17-2  : getPlFilterOptions()     - フィルタ選択肢取得
+//   17-3  : generatePl(filters)      - PL生成メイン
+//   17-3a : buildPlBreakdown_()      - 表示単位別内訳生成
+//   17-3b : buildPlSheet_()          - PLシート整形出力
+//   17-4  : getFixedCosts_()         - 固定費マスタ取得
+//   17-5  : apportionFixedCosts_()   - 固定費按分計算
+//   17-6  : exportPlJournalCsv()     - 弥生会計互換仕訳CSV出力
+//   17-6a : buildJournalEntry_()     - 仕訳行生成補助
+//   17-7  : initFixedCostMaster()    - PL設定シート初期化
+// ================================================================
+
+
+// ================================================================
+//  17-1: PLフィルタモーダル表示（showPlDialog）  【大C / 中17 / 小17-1】
+// ================================================================
+function showPlDialog() {
+  var tmpl = HtmlService.createTemplateFromFile('plDialog');
+  var html = tmpl.evaluate().setWidth(680).setHeight(600);
+  SpreadsheetApp.getUi().showModalDialog(html, '📊 PL（損益計算書）作成');
+}
+
+
+// ================================================================
+//  17-2: PLフィルタ選択肢取得（getPlFilterOptions）  【大A / 中17 / 小17-2】
+//  集計表・自車専属マスタから荷主・会社・車番・乗務員の選択肢を返す
+// ================================================================
+function getPlFilterOptions() {
+  var ss         = SpreadsheetApp.getActiveSpreadsheet();
+  var sumSheet   = ss.getSheetByName('集計表');
+  var masterSheet= ss.getSheetByName('自車専属マスタ');
+
+  var clients = [], companies = [], cars = [], drivers = [];
+
+  if (sumSheet && sumSheet.getLastRow() >= 2) {
+    var sumData = sumSheet.getRange(2, 1, sumSheet.getLastRow() - 1, 11).getValues();
+    for (var i = 0; i < sumData.length; i++) {
+      var co = String(sumData[i][2]  || '').trim(); // C列: 会社名
+      var cl = String(sumData[i][10] || '').trim(); // K列: 荷主
+      if (co && companies.indexOf(co) === -1) companies.push(co);
+      if (cl && clients.indexOf(cl)   === -1) clients.push(cl);
+    }
+  }
+
+  if (masterSheet && masterSheet.getLastRow() >= 2) {
+    var mData = masterSheet.getRange(2, 1, masterSheet.getLastRow() - 1, 9).getValues();
+    for (var j = 0; j < mData.length; j++) {
+      var car    = String(mData[j][7] || '').trim(); // H列: 車番
+      var driver = String(mData[j][8] || '').trim(); // I列: 乗務員名
+      if (car    && cars.indexOf(car)       === -1) cars.push(car);
+      if (driver && drivers.indexOf(driver) === -1) drivers.push(driver);
+    }
+  }
+
+  var today    = new Date();
+  var firstDay = Utilities.formatDate(new Date(today.getFullYear(), today.getMonth(), 1),   'Asia/Tokyo', 'yyyy-MM-dd');
+  var lastDay  = Utilities.formatDate(new Date(today.getFullYear(), today.getMonth() + 1, 0), 'Asia/Tokyo', 'yyyy-MM-dd');
+
+  return {
+    clients:     clients.sort(),
+    companies:   companies.sort(),
+    cars:        cars.sort(),
+    drivers:     drivers.sort(),
+    defaultFrom: firstDay,
+    defaultTo:   lastDay
+  };
+}
+
+
+// ================================================================
+//  17-3: PL生成メイン（generatePl）  【大A / 中17 / 小17-3】
+//  フィルタ条件で集計表を絞り込み、固定費按分を加えてPLシートを出力する
+//  戻り値: { ok, msg, sheetName }
+// ================================================================
+function generatePl(filters) {
+  var ss        = SpreadsheetApp.getActiveSpreadsheet();
+  var sumSheet  = ss.getSheetByName('集計表');
+  if (!sumSheet || sumSheet.getLastRow() < 2) {
+    return { ok: false, msg: '集計表にデータがありません。' };
+  }
+
+  var fromDate         = filters.from ? new Date(filters.from + 'T00:00:00') : null;
+  var toDate           = filters.to   ? new Date(filters.to   + 'T23:59:59') : null;
+  var unit             = filters.unit || 'monthly';
+  var filterClients    = filters.clients   || [];
+  var filterCompanies  = filters.companies || [];
+  var filterCars       = filters.cars      || [];
+  var filterDrivers    = filters.drivers   || [];
+
+  var colCount = Math.max(sumSheet.getLastColumn(), 37);
+  var sumData  = sumSheet.getRange(2, 1, sumSheet.getLastRow() - 1, colCount).getValues();
+
+  var filteredRows = [];
+  for (var i = 0; i < sumData.length; i++) {
+    var r       = sumData[i];
+    var rowDate = r[9]; // J列: 日付
+    if (!(rowDate instanceof Date) || isNaN(rowDate.getTime())) continue;
+    if (fromDate && rowDate < fromDate) continue;
+    if (toDate   && rowDate > toDate)   continue;
+
+    var client  = String(r[10] || '').trim(); // K列: 荷主
+    var company = String(r[2]  || '').trim(); // C列: 会社名
+    var car     = String(r[5]  || '').trim(); // F列: 車番
+    var driver  = String(r[6]  || '').trim(); // G列: 乗務員名
+
+    if (filterClients.length   > 0 && filterClients.indexOf(client)     === -1) continue;
+    if (filterCompanies.length > 0 && filterCompanies.indexOf(company)  === -1) continue;
+    if (filterCars.length      > 0 && filterCars.indexOf(car)           === -1) continue;
+    if (filterDrivers.length   > 0 && filterDrivers.indexOf(driver)     === -1) continue;
+
+    var pick     = String(r[11] || '').trim();
+    var isHoliday= pick.indexOf('有休') !== -1 || pick.indexOf('休み') !== -1;
+
+    filteredRows.push({
+      date:      rowDate,
+      company:   company,
+      car:       car,
+      driver:    driver,
+      client:    client,
+      sales:     Number(r[18]) || 0, // T: 売上
+      tollReq:   Number(r[19]) || 0, // U: 請求高速
+      tollReal:  Number(r[20]) || 0, // V: 実費高速
+      fuel:      Number(r[25]) || 0, // Z: 燃料代
+      payment:   Number(r[26]) || 0, // AA: 支払い
+      expense:   Number(r[27]) || 0, // AB: 経費合計
+      profit:    Number(r[28]) || 0, // AC: 利益
+      yukyu:     Number(r[33]) || 0, // AH: 有休手当
+      other:     Number(r[34]) || 0, // AI: その他手当
+      isHoliday: isHoliday
+    });
+  }
+
+  if (filteredRows.length === 0) {
+    return { ok: false, msg: '条件に合致するデータが見つかりません。' };
+  }
+
+  // 稼働統計（固定費按分用）
+  var activeDateSet = {}, activeCarSet = {};
+  for (var ri = 0; ri < filteredRows.length; ri++) {
+    var row = filteredRows[ri];
+    if (!row.isHoliday && row.sales > 0) {
+      activeDateSet[Utilities.formatDate(row.date, 'Asia/Tokyo', 'yyyy/MM/dd')] = true;
+      activeCarSet[row.car] = true;
+    }
+  }
+  var activeDays     = Object.keys(activeDateSet).length;
+  var activeVehicles = Object.keys(activeCarSet).length;
+  var totalDays      = 30;
+  if (fromDate && toDate) {
+    totalDays = Math.round((toDate.getTime() - fromDate.getTime()) / 86400000) + 1;
+  }
+
+  // 売上・変動費を集計
+  var totalSales = 0, totalTollReq = 0, totalTollReal = 0;
+  var totalFuel  = 0, totalPayment = 0, totalExpense  = 0;
+  var totalYukyu = 0, totalOther  = 0;
+  for (var fi = 0; fi < filteredRows.length; fi++) {
+    var fr      = filteredRows[fi];
+    totalSales   += fr.sales;
+    totalTollReq += fr.tollReq;
+    totalTollReal+= fr.tollReal;
+    totalFuel    += fr.fuel;
+    totalPayment += fr.payment;
+    totalExpense += fr.expense;
+    totalYukyu   += fr.yukyu;
+    totalOther   += fr.other;
+  }
+
+  // 固定費取得・按分
+  var fixedCosts       = getFixedCosts_(ss);
+  var apportioned      = apportionFixedCosts_(fixedCosts, activeDays, activeVehicles, totalDays);
+  var totalFixed       = 0;
+  for (var fc = 0; fc < apportioned.length; fc++) totalFixed += apportioned[fc].amount;
+
+  var totalVariable    = totalPayment + totalTollReal + totalFuel + totalExpense + totalYukyu + totalOther;
+  var grossProfit      = (totalSales + totalTollReq) - totalVariable;
+  var operatingProfit  = grossProfit - totalFixed;
+
+  var breakdown = buildPlBreakdown_(filteredRows, unit);
+
+  var sheetName = buildPlSheet_(ss, {
+    from: filters.from, to: filters.to, unit: unit,
+    totalSales: totalSales, totalTollReq: totalTollReq, totalTollReal: totalTollReal,
+    totalFuel: totalFuel, totalPayment: totalPayment, totalExpense: totalExpense,
+    totalYukyu: totalYukyu, totalOther: totalOther, totalVariable: totalVariable,
+    grossProfit: grossProfit, fixedCosts: apportioned, totalFixed: totalFixed,
+    operatingProfit: operatingProfit,
+    activeDays: activeDays, activeVehicles: activeVehicles, totalRows: filteredRows.length,
+    breakdown: breakdown
+  });
+
+  return { ok: true, msg: filteredRows.length + '件のデータからPLを生成しました。', sheetName: sheetName };
+}
+
+
+// ================================================================
+//  17-3a: 表示単位別内訳生成（buildPlBreakdown_）  【大B / 中17 / 小17-3a】
+// ================================================================
+function buildPlBreakdown_(rows, unit) {
+  var groups = {};
+  for (var i = 0; i < rows.length; i++) {
+    var r   = rows[i];
+    var key;
+    if (unit === 'daily') {
+      key = Utilities.formatDate(r.date, 'Asia/Tokyo', 'yyyy/MM/dd');
+    } else if (unit === 'weekly') {
+      var day  = r.date.getDay();
+      var diff = (day === 0) ? -6 : 1 - day;
+      var mon  = new Date(r.date.getFullYear(), r.date.getMonth(), r.date.getDate() + diff);
+      key = Utilities.formatDate(mon, 'Asia/Tokyo', 'yyyy/MM/dd') + '〜';
+    } else {
+      key = Utilities.formatDate(r.date, 'Asia/Tokyo', 'yyyy年MM月');
+    }
+    if (!groups[key]) groups[key] = { key: key, sales: 0, tollReal: 0, fuel: 0, payment: 0, expense: 0, profit: 0 };
+    groups[key].sales   += r.sales;
+    groups[key].tollReal+= r.tollReal;
+    groups[key].fuel    += r.fuel;
+    groups[key].payment += r.payment;
+    groups[key].expense += r.expense;
+    groups[key].profit  += r.profit;
+  }
+  var result = [];
+  Object.keys(groups).sort().forEach(function(k) { result.push(groups[k]); });
+  return result;
+}
+
+
+// ================================================================
+//  17-3b: PLシート整形出力（buildPlSheet_）  【大B / 中17 / 小17-3b】
+//  黒背景・ライムグリーンアクセントのPLシートを生成してシート名を返す
+// ================================================================
+function buildPlSheet_(ss, d) {
+  var sheetName = 'PL_' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd_HHmm');
+  var existing  = ss.getSheetByName(sheetName);
+  if (existing) ss.deleteSheet(existing);
+  var sh = ss.insertSheet(sheetName);
+
+  sh.setColumnWidth(1, 24);   // A: インデント
+  sh.setColumnWidth(2, 230);  // B: 項目名
+  sh.setColumnWidth(3, 140);  // C: 金額
+  sh.setColumnWidth(4, 24);   // D: 余白
+  sh.setColumnWidth(5, 120);  // E: 内訳期間
+  sh.setColumnWidth(6, 100);  // F: 内訳売上
+  sh.setColumnWidth(7, 100);  // G: 内訳支払
+  sh.setColumnWidth(8, 100);  // H: 内訳燃料
+  sh.setColumnWidth(9, 110);  // I: 内訳利益
+
+  var C_BG      = '#0a0a0a';
+  var C_CARD    = '#111827';
+  var C_CARD2   = '#0d1117';
+  var C_ACCENT  = '#00ff88';
+  var C_DIM     = '#888888';
+  var C_TEXT    = '#e0e0e0';
+  var C_RED     = '#ff4444';
+  var C_BORDER  = '#1e3a2a';
+  var BS        = SpreadsheetApp.BorderStyle.SOLID;
+  var R         = 1;
+
+  function bgRow(r1, numR, numC, bg) {
+    sh.getRange(r1, 1, numR, numC).setBackground(bg);
+  }
+
+  function titleRow(txt) {
+    sh.getRange(R, 1, 1, 9).merge()
+      .setValue(txt).setBackground('#0a1628').setFontColor(C_ACCENT)
+      .setFontWeight('bold').setFontSize(16).setHorizontalAlignment('center').setVerticalAlignment('middle');
+    sh.setRowHeight(R, 44); R++;
+  }
+
+  function infoRow(txt) {
+    sh.getRange(R, 1, 1, 9).merge()
+      .setValue(txt).setBackground('#0d1117').setFontColor(C_DIM)
+      .setFontSize(10).setHorizontalAlignment('center');
+    sh.setRowHeight(R, 20); R++;
+  }
+
+  function sectionHead(txt) {
+    sh.getRange(R, 1, 1, 9).merge()
+      .setValue('  ' + txt).setBackground('#0d2137').setFontColor(C_ACCENT)
+      .setFontWeight('bold').setFontSize(11);
+    sh.setRowHeight(R, 26); R++;
+  }
+
+  function itemRow(label, amount, indent) {
+    var bg = indent ? C_CARD : C_CARD2;
+    sh.getRange(R, 2).setValue(indent ? '    ' + label : '  ' + label)
+      .setBackground(bg).setFontColor(C_TEXT).setFontSize(12);
+    sh.getRange(R, 3).setValue(amount)
+      .setNumberFormat('¥#,##0;[RED]-¥#,##0')
+      .setBackground(bg).setFontColor(amount < 0 ? C_RED : C_TEXT)
+      .setFontSize(12).setHorizontalAlignment('right');
+    sh.setRowHeight(R, 22); R++;
+  }
+
+  function totalRow(label, amount) {
+    sh.getRange(R, 2).setValue('  ' + label)
+      .setBackground('#0a2a1a').setFontColor(C_ACCENT).setFontWeight('bold').setFontSize(12);
+    sh.getRange(R, 3).setValue(amount)
+      .setNumberFormat('¥#,##0;[RED]-¥#,##0')
+      .setBackground('#0a2a1a').setFontColor(amount < 0 ? C_RED : C_ACCENT)
+      .setFontWeight('bold').setFontSize(12).setHorizontalAlignment('right');
+    sh.getRange(R, 2, 1, 2).setBorder(null, null, true, null, null, null, C_BORDER, BS);
+    sh.setRowHeight(R, 24); R++;
+  }
+
+  function profitRow(label, amount, big) {
+    var pBg = amount >= 0 ? '#0a3020' : '#3a0a0a';
+    var pFg = amount >= 0 ? C_ACCENT  : C_RED;
+    var fz  = big ? 15 : 13;
+    sh.getRange(R, 1, 1, 9).merge()
+      .setValue((big ? '★★ ' : '★ ') + label + '  ' +
+        (amount >= 0 ? '¥' : '-¥') + Math.abs(amount).toLocaleString())
+      .setBackground(pBg).setFontColor(pFg).setFontWeight('bold')
+      .setFontSize(fz).setHorizontalAlignment('center');
+    sh.setRowHeight(R, big ? 40 : 34); R++;
+  }
+
+  function blank(h) { sh.setRowHeight(R, h || 8); R++; }
+
+  // ── タイトル ──────────────────────────────────────────────────
+  titleRow('📊  PL（損益計算書）');
+  infoRow('期間: ' + (d.from || '—') + '  〜  ' + (d.to || '—') +
+          '    稼働 ' + d.activeDays + '日 / ' + d.activeVehicles + '台    対象 ' + d.totalRows + '件');
+  blank(10);
+
+  // ── 収益 ──────────────────────────────────────────────────────
+  sectionHead('▶ 収益');
+  itemRow('運賃収入（売上）',       d.totalSales,    true);
+  itemRow('高速代収入（請求分）',   d.totalTollReq,  true);
+  totalRow('売上合計',              d.totalSales + d.totalTollReq);
+  blank();
+
+  // ── 変動費 ────────────────────────────────────────────────────
+  sectionHead('▶ 変動費（売上原価）');
+  itemRow('支払運賃（乗務員）',     d.totalPayment,  true);
+  itemRow('高速代（実費）',         d.totalTollReal, true);
+  itemRow('燃料費',                 d.totalFuel,     true);
+  if (d.totalExpense > 0) itemRow('月次経費按分',    d.totalExpense, true);
+  if (d.totalYukyu   > 0) itemRow('有休手当',        d.totalYukyu,   true);
+  if (d.totalOther   > 0) itemRow('その他手当',      d.totalOther,   true);
+  totalRow('変動費合計',            d.totalVariable);
+  blank();
+
+  // ── 売上総利益 ────────────────────────────────────────────────
+  profitRow('売上総利益（粗利）', d.grossProfit, false);
+  blank();
+
+  // ── 固定費 ────────────────────────────────────────────────────
+  sectionHead('▶ 固定費（按分後）');
+  if (d.fixedCosts && d.fixedCosts.length > 0) {
+    for (var fc = 0; fc < d.fixedCosts.length; fc++) {
+      var fci = d.fixedCosts[fc];
+      itemRow(fci.name + '  (' + fci.method + ')', fci.amount, true);
+    }
+  } else {
+    itemRow('（PL設定シートで固定費を登録してください）', 0, true);
+  }
+  totalRow('固定費合計', d.totalFixed);
+  blank();
+
+  // ── 営業利益 ──────────────────────────────────────────────────
+  profitRow('営業利益', d.operatingProfit, true);
+  blank(16);
+
+  // ── 内訳テーブル ──────────────────────────────────────────────
+  if (d.breakdown && d.breakdown.length > 0) {
+    var unitLbl = d.unit === 'daily' ? '日次' : d.unit === 'weekly' ? '週次' : '月次';
+    sectionHead('▶ ' + unitLbl + '内訳');
+    var bHdrs = ['期間', '売上', '支払運賃', '燃料費', '利益'];
+    var bCols  = [5, 6, 7, 8, 9];
+    for (var bhi = 0; bhi < bHdrs.length; bhi++) {
+      sh.getRange(R, bCols[bhi]).setValue(bHdrs[bhi])
+        .setBackground('#1a2a3a').setFontColor(C_ACCENT).setFontWeight('bold').setFontSize(10)
+        .setHorizontalAlignment('center');
+    }
+    sh.setRowHeight(R, 22); R++;
+    for (var bi = 0; bi < d.breakdown.length; bi++) {
+      var bd  = d.breakdown[bi];
+      var bBg = bi % 2 === 0 ? C_CARD : C_CARD2;
+      sh.getRange(R, 5).setValue(bd.key).setBackground(bBg).setFontColor(C_TEXT).setFontSize(10);
+      [[6, bd.sales],[7, bd.payment + bd.expense],[8, bd.fuel],[9, bd.profit]].forEach(function(kv) {
+        sh.getRange(R, kv[0]).setValue(kv[1])
+          .setNumberFormat('#,##0').setBackground(bBg)
+          .setFontColor(kv[0] === 9 ? (kv[1] >= 0 ? '#00cc66' : C_RED) : C_TEXT)
+          .setFontSize(10).setHorizontalAlignment('right');
+      });
+      sh.setRowHeight(R, 20); R++;
+    }
+  }
+
+  // シート全体に黒背景を下敷き
+  sh.getRange(1, 1, R - 1, 9).setBackground(C_BG);
+  // 各行の個別背景設定が上書きされないよう、再度全体に黒背景（Googleは後勝ちなので問題なし）
+
+  sh.setHiddenGridlines(true);
+  ss.setActiveSheet(sh);
+  return sheetName;
+}
+
+
+// ================================================================
+//  17-4: 固定費データ取得（getFixedCosts_）  【大B / 中17 / 小17-4】
+//  「PL設定」シートから固定費マスタを読み込む
+//  PL含入フラグ=FALSE の項目（社長給与等）は除外する
+// ================================================================
+function getFixedCosts_(ss) {
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('PL設定');
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var data   = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+  var result = [];
+  for (var i = 0; i < data.length; i++) {
+    var name    = String(data[i][0] || '').trim(); // A: 費目名
+    var monthly = Number(data[i][1]) || 0;          // B: 月額
+    var method  = String(data[i][2] || '一定').trim(); // C: 按分方式
+    var account = String(data[i][3] || '').trim();  // D: 勘定科目
+    var plFlag  = data[i][4];                       // E: PL含入フラグ
+    if (!name) continue;
+    if (plFlag === false || String(plFlag).toUpperCase() === 'FALSE') continue; // OFF→除外
+    result.push({ name: name, monthly: monthly, method: method, account: account });
+  }
+  return result;
+}
+
+
+// ================================================================
+//  17-5: 固定費按分計算（apportionFixedCosts_）  【大B / 中17 / 小17-5】
+//  按分方式:
+//    「一定」    → 月額をそのまま使用
+//    「車両台数」→ 月額 × 稼働車両台数 ÷ 全車両台数
+//    「稼働日数」→ 月額 × 稼働日数 ÷ 暦日数
+// ================================================================
+function apportionFixedCosts_(fixedCosts, activeDays, activeVehicles, totalDays) {
+  var ss            = SpreadsheetApp.getActiveSpreadsheet();
+  var master        = ss.getSheetByName('自車専属マスタ');
+  var totalVehicles = master && master.getLastRow() > 1 ? master.getLastRow() - 1 : 1;
+  var result        = [];
+  for (var i = 0; i < fixedCosts.length; i++) {
+    var fc      = fixedCosts[i];
+    var amount  = fc.monthly;
+    if (fc.method === '車両台数') {
+      amount = Math.round(fc.monthly * activeVehicles / Math.max(1, totalVehicles));
+    } else if (fc.method === '稼働日数') {
+      amount = Math.round(fc.monthly * activeDays / Math.max(1, totalDays));
+    }
+    result.push({ name: fc.name, monthly: fc.monthly, amount: amount, method: fc.method, account: fc.account });
+  }
+  return result;
+}
+
+
+// ================================================================
+//  17-6: 仕訳CSV出力（exportPlJournalCsv）  【大A / 中17 / 小17-6】
+//  直近生成のPLシートを弥生会計互換CSVとしてDriveに保存して返す
+//  戻り値: { ok, msg, url }
+// ================================================================
+function exportPlJournalCsv() {
+  var ss       = SpreadsheetApp.getActiveSpreadsheet();
+  var plSheets = ss.getSheets().filter(function(s) {
+    return s.getName().indexOf('PL_') === 0;
+  }).sort(function(a, b) { return b.getName().localeCompare(a.getName()); });
+
+  if (plSheets.length === 0) {
+    return { ok: false, msg: 'PLシートがありません。先に「PL作成」を実行してください。' };
+  }
+  var plSheet = plSheets[0];
+  if (plSheet.getLastRow() < 2) {
+    return { ok: false, msg: 'PLシートにデータがありません。' };
+  }
+
+  var data = plSheet.getRange(1, 1, plSheet.getLastRow(), 3).getValues();
+  var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+
+  // 弥生会計CSVヘッダー
+  var csvRows = [[
+    '伝票No','取引日付','借方勘定科目','借方補助科目','借方部門',
+    '借方金額','借方消費税コード','借方消費税金額',
+    '貸方勘定科目','貸方補助科目','貸方部門',
+    '貸方金額','貸方消費税コード','貸方消費税金額','摘要'
+  ]];
+
+  var vNo = 1;
+  for (var i = 0; i < data.length; i++) {
+    var label  = String(data[i][1] || '').trim();
+    var amount = Number(data[i][2]) || 0;
+    if (!label || amount === 0) continue;
+    if (label.charAt(0) === ' ' || label.charAt(0) === '　') { // インデントあり=明細行
+      var entry = buildJournalEntry_(label.trim(), amount, today, vNo);
+      if (entry) { csvRows.push(entry); vNo++; }
+    }
+  }
+
+  if (csvRows.length <= 1) {
+    return { ok: false, msg: '仕訳データが生成できませんでした。PLシートをご確認ください。' };
+  }
+
+  var csvText = '﻿'; // BOM（Excel文字化け防止）
+  for (var ri = 0; ri < csvRows.length; ri++) {
+    csvText += csvRows[ri].map(function(cell) {
+      var s = String(cell === null || cell === undefined ? '' : cell);
+      return (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1)
+        ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }).join(',') + '\r\n';
+  }
+
+  var fileName = plSheet.getName() + '_仕訳.csv';
+  var folder   = getOrCreateFolder_('PL仕訳CSV');
+  var existing = folder.getFilesByName(fileName);
+  while (existing.hasNext()) { existing.next().setTrashed(true); }
+  var file = folder.createFile(fileName, csvText, 'text/csv; charset=utf-8');
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  return { ok: true, msg: (csvRows.length - 1) + '件の仕訳を生成しました。', url: file.getUrl() };
+}
+
+
+// ================================================================
+//  17-6a: 仕訳行生成補助（buildJournalEntry_）  【大B / 中17 / 小17-6a】
+//  費目名から勘定科目を自動マッピングし弥生会計形式の配列を返す
+// ================================================================
+function buildJournalEntry_(label, amount, date, vNo) {
+  // 運送業標準の勘定科目マッピング（借方/貸方/消費税コード）
+  var MAP = [
+    { key: '運賃収入',    debit: '売掛金',      credit: '売上高',       tax: '0'  },
+    { key: '売上',        debit: '売掛金',      credit: '売上高',       tax: '0'  },
+    { key: '高速代収入',  debit: '売掛金',      credit: '売上高',       tax: '0'  },
+    { key: '支払運賃',    debit: '支払運賃',    credit: '未払金',       tax: '0'  },
+    { key: '乗務員',      debit: '支払運賃',    credit: '未払金',       tax: '0'  },
+    { key: '高速代（実費）',debit:'高速道路料金', credit: '未払金',      tax: '10' },
+    { key: '燃料費',      debit: '燃料費',      credit: '未払金',       tax: '10' },
+    { key: '月次経費',    debit: '諸経費',      credit: '未払金',       tax: '10' },
+    { key: '有休手当',    debit: '法定福利費',  credit: '未払費用',     tax: '0'  },
+    { key: 'その他手当',  debit: '給与手当',    credit: '未払費用',     tax: '0'  },
+    { key: '家賃',        debit: '地代家賃',    credit: '未払金',       tax: '10' },
+    { key: '駐車場',      debit: '地代家賃',    credit: '未払金',       tax: '10' },
+    { key: '電気',        debit: '水道光熱費',  credit: '未払金',       tax: '10' },
+    { key: '水道',        debit: '水道光熱費',  credit: '未払金',       tax: '10' },
+    { key: '通信費',      debit: '通信費',      credit: '未払金',       tax: '10' },
+    { key: '保険',        debit: '損害保険料',  credit: '未払金',       tax: '0'  },
+    { key: 'リース',      debit: 'リース料',    credit: '未払金',       tax: '10' },
+    { key: '減価償却',    debit: '減価償却費',  credit: '減価償却累計額', tax: '0' },
+    { key: '修繕',        debit: '修繕費',      credit: '未払金',       tax: '10' },
+    { key: '消耗品',      debit: '消耗品費',    credit: '未払金',       tax: '10' }
+  ];
+
+  var mapping = null;
+  for (var m = 0; m < MAP.length; m++) {
+    if (label.indexOf(MAP[m].key) !== -1) { mapping = MAP[m]; break; }
+  }
+  if (!mapping) mapping = { debit: '諸経費', credit: '未払金', tax: '10' };
+
+  var taxRate = mapping.tax === '10' ? 0.10 : mapping.tax === '8' ? 0.08 : 0;
+  var taxAmt  = Math.round(amount * taxRate / (1 + taxRate));
+
+  return [
+    String(vNo).padStart(6, '0'), date,
+    mapping.debit, '', '', String(amount), mapping.tax, String(taxAmt),
+    mapping.credit, '', '', String(amount), mapping.tax, String(taxAmt),
+    label
+  ];
+}
+
+
+// ================================================================
+//  17-7: 固定費マスタ初期化（initFixedCostMaster）  【大C / 中17 / 小17-7】
+//  「PL設定」シートを初期構造・サンプルデータで作成する
+//  PL含入フラグ=FALSE の行（社長給与等）はPL集計から自動除外される
+// ================================================================
+function initFixedCostMaster() {
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var ui  = SpreadsheetApp.getUi();
+  var sheet = ss.getSheetByName('PL設定');
+
+  if (sheet) {
+    var ans = ui.alert('PL設定シートが既に存在します', '上書きして初期化しますか？（現在のデータが消えます）', ui.ButtonSet.YES_NO);
+    if (ans !== ui.Button.YES) return;
+    sheet.clear(); sheet.clearFormats();
+  } else {
+    sheet = ss.insertSheet('PL設定');
+  }
+
+  var header = ['費目名', '月額（円）', '按分方式', '勘定科目', 'PL含入フラグ'];
+  sheet.getRange(1, 1, 1, 5).setValues([header])
+    .setBackground('#1a2a3a').setFontColor('#00ff88').setFontWeight('bold').setFontSize(12);
+
+  var defaults = [
+    ['家賃',                    150000, '一定',     '地代家賃',         true  ],
+    ['駐車場代',                  30000, '車両台数', '地代家賃',         true  ],
+    ['電気代',                    20000, '一定',     '水道光熱費',       true  ],
+    ['水道代',                     5000, '一定',     '水道光熱費',       true  ],
+    ['通信費（携帯）',             15000, '車両台数', '通信費',           true  ],
+    ['通信費（固定回線・ネット）',   5000, '一定',     '通信費',           true  ],
+    ['損害保険料（任意）',         20000, '車両台数', '損害保険料',       true  ],
+    ['車両リース代',               80000, '車両台数', 'リース料',         true  ],
+    ['事務用品費',                  3000, '一定',     '消耗品費',         true  ],
+    ['修繕費積立',                 10000, '車両台数', '修繕費',           true  ],
+    ['減価償却費',                 50000, '車両台数', '減価償却費',       true  ],
+    ['社長給与',                  300000, '一定',     '役員報酬',         false ],  // ← PLに含めない
+    ['法定福利費',                 15000, '車両台数', '法定福利費',       true  ]
+  ];
+  sheet.getRange(2, 1, defaults.length, 5).setValues(defaults);
+
+  // 月額列に数値書式
+  sheet.getRange(2, 2, defaults.length, 1).setNumberFormat('#,##0');
+  // 按分方式ドロップダウン
+  sheet.getRange(2, 3, defaults.length, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(['一定','車両台数','稼働日数'], true).setAllowInvalid(false).build()
+  );
+  // PL含入フラグ チェックボックス
+  sheet.getRange(2, 5, defaults.length, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireCheckbox().build()
+  );
+  // 社長給与行を赤背景でわかりやすく
+  var plFlagCol = sheet.getRange(2, 1, defaults.length, 5).getValues();
+  for (var pi = 0; pi < plFlagCol.length; pi++) {
+    if (plFlagCol[pi][4] === false) {
+      sheet.getRange(pi + 2, 1, 1, 5).setBackground('#2a0a0a').setFontColor('#ff6666');
+    }
+  }
+
+  sheet.setColumnWidth(1, 220); sheet.setColumnWidth(2, 120);
+  sheet.setColumnWidth(3, 100); sheet.setColumnWidth(4, 130); sheet.setColumnWidth(5, 100);
+  sheet.setFrozenRows(1);
+  ss.setActiveSheet(sheet);
+
+  ui.alert(
+    'PL設定シートを作成しました。\n\n' +
+    '【按分方式の説明】\n' +
+    '・一定    → 月額をそのまま使用\n' +
+    '・車両台数 → 月額 × 稼働車両数 ÷ 全車両数\n' +
+    '・稼働日数 → 月額 × 稼働日数 ÷ 暦日数\n\n' +
+    '【PL含入フラグ】\n' +
+    '・OFFにした費目はPLに含まれません（社長給与など秘匿項目に使用）\n' +
+    '・赤背景行が現在OFFです。'
+  );
+}

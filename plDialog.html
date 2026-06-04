@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent:    #00ff88;
+      --accent2:   #00cc66;
+      --bg:        #0a0a0a;
+      --bg-card:   #111827;
+      --bg-input:  #161e2d;
+      --bg-hover:  rgba(0,255,136,0.07);
+      --text:      #e0e0e0;
+      --text-dim:  #6b7280;
+      --border:    #1e293b;
+      --red:       #ff4444;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Urbanist', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 14px 16px 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+    h1 {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      letter-spacing: 0.02em;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 13px;
+      margin-bottom: 9px;
+    }
+    .card-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+    .row { display: flex; gap: 10px; align-items: flex-start; }
+    .col { flex: 1; min-width: 0; }
+    label.field-label {
+      display: block;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    input[type="date"] {
+      width: 100%;
+      background: var(--bg-input);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-family: 'Urbanist', sans-serif;
+      font-size: 12px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input[type="date"]:focus { border-color: var(--accent); }
+    /* 表示単位 */
+    .unit-group { display: flex; gap: 6px; }
+    .unit-btn {
+      flex: 1;
+      background: var(--bg-input);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 0;
+      font-family: 'Urbanist', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s;
+    }
+    .unit-btn.active {
+      background: rgba(0,255,136,0.12);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .unit-btn:hover:not(.active) { border-color: #334155; color: var(--text); }
+    /* 検索入力 */
+    .search-box {
+      width: 100%;
+      background: var(--bg-input);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px 6px 0 0;
+      border-bottom: none;
+      padding: 5px 9px;
+      font-family: 'Urbanist', sans-serif;
+      font-size: 11px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .search-box:focus { border-color: var(--accent); }
+    /* マルチセレクト */
+    .multi-list {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 0 0 6px 6px;
+      max-height: 88px;
+      overflow-y: auto;
+      padding: 3px 2px;
+    }
+    .multi-list:empty::after {
+      content: '（データなし）';
+      display: block;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 11px;
+      padding: 8px 0;
+    }
+    .multi-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .multi-item:hover { background: var(--bg-hover); }
+    .multi-item input[type="checkbox"] { accent-color: var(--accent); width: 12px; height: 12px; cursor: pointer; }
+    .multi-item span { font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* グリッド（2列） */
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    /* ボタン群 */
+    .btn-row { display: flex; gap: 8px; margin-top: 11px; }
+    .btn {
+      font-family: 'Urbanist', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px 0;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      flex: 1;
+      transition: all .15s;
+      letter-spacing: 0.02em;
+    }
+    .btn-cancel { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-cancel:hover { border-color: #334155; color: var(--text); }
+    .btn-csv { background: #0d1f2d; color: var(--accent); border: 1px solid #1e4a35; }
+    .btn-csv:hover { background: #0f2a3a; border-color: var(--accent); }
+    .btn-generate { background: var(--accent); color: #000; }
+    .btn-generate:hover { background: var(--accent2); }
+    .btn:disabled { opacity: .5; cursor: default; }
+    /* ステータス */
+    #status {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-dim);
+      min-height: 16px;
+      margin-top: 6px;
+      transition: color .2s;
+    }
+    #status.ok  { color: var(--accent); }
+    #status.err { color: var(--red); }
+    /* スクロールバー */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>📊 PL（損益計算書）作成</h1>
+
+  <!-- 期間 + 表示単位 -->
+  <div class="card">
+    <div class="card-title">集計期間 &amp; 表示単位</div>
+    <div class="row" style="align-items:center;gap:12px">
+      <div class="col">
+        <label class="field-label">開始日</label>
+        <input type="date" id="dateFrom">
+      </div>
+      <div style="color:#374151;font-size:16px;margin-top:18px;">—</div>
+      <div class="col">
+        <label class="field-label">終了日</label>
+        <input type="date" id="dateTo">
+      </div>
+      <div class="col">
+        <label class="field-label">表示単位</label>
+        <div class="unit-group">
+          <button class="unit-btn active" onclick="setUnit('monthly',this)">月次</button>
+          <button class="unit-btn"        onclick="setUnit('weekly', this)">週次</button>
+          <button class="unit-btn"        onclick="setUnit('daily',  this)">日次</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 荷主 + 運送会社 -->
+  <div class="grid2">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">荷主名 <span style="color:#374151;font-weight:400;text-transform:none">（未選択=全て）</span></div>
+      <input class="search-box" type="text" placeholder="🔍 絞り込み..." oninput="filter('clients',this.value)">
+      <div class="multi-list" id="clients-list"></div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">運送会社名 <span style="color:#374151;font-weight:400;text-transform:none">（未選択=全て）</span></div>
+      <input class="search-box" type="text" placeholder="🔍 絞り込み..." oninput="filter('companies',this.value)">
+      <div class="multi-list" id="companies-list"></div>
+    </div>
+  </div>
+  <div style="margin-bottom:9px"></div>
+
+  <!-- 車番 + 乗務員 -->
+  <div class="grid2">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">車番 <span style="color:#374151;font-weight:400;text-transform:none">（未選択=全て）</span></div>
+      <input class="search-box" type="text" placeholder="🔍 絞り込み..." oninput="filter('cars',this.value)">
+      <div class="multi-list" id="cars-list"></div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">乗務員名 <span style="color:#374151;font-weight:400;text-transform:none">（未選択=全て）</span></div>
+      <input class="search-box" type="text" placeholder="🔍 絞り込み..." oninput="filter('drivers',this.value)">
+      <div class="multi-list" id="drivers-list"></div>
+    </div>
+  </div>
+
+  <!-- ボタン -->
+  <div class="btn-row">
+    <button class="btn btn-cancel" onclick="google.script.host.close()">キャンセル</button>
+    <button class="btn btn-csv"      id="btnCsv"      onclick="exportCsv()">📋 仕訳CSV出力</button>
+    <button class="btn btn-generate" id="btnGenerate" onclick="generate()">📈 PL生成</button>
+  </div>
+  <div id="status"></div>
+
+  <script>
+    var ALL  = {};
+    var unit = 'monthly';
+
+    function setUnit(u, btn) {
+      unit = u;
+      document.querySelectorAll('.unit-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+    }
+
+    function filter(type, query) {
+      var items    = ALL[type] || [];
+      var list     = document.getElementById(type + '-list');
+      var selected = getChecked(type);
+      list.innerHTML = '';
+      var q = query.toLowerCase();
+      items.forEach(function(val) {
+        if (q && val.toLowerCase().indexOf(q) === -1) return;
+        var item = document.createElement('div');
+        item.className = 'multi-item';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.dataset.type = type;
+        cb.value = val;
+        if (selected.indexOf(val) !== -1) cb.checked = true;
+        var sp = document.createElement('span');
+        sp.textContent = val;
+        item.appendChild(cb);
+        item.appendChild(sp);
+        item.onclick = function(e) {
+          if (e.target !== cb) cb.checked = !cb.checked;
+        };
+        list.appendChild(item);
+      });
+    }
+
+    function getChecked(type) {
+      var checked = [];
+      document.querySelectorAll('input[data-type="' + type + '"]:checked').forEach(function(cb) {
+        checked.push(cb.value);
+      });
+      return checked;
+    }
+
+    function setStatus(msg, cls) {
+      var el = document.getElementById('status');
+      el.textContent = msg;
+      el.className   = cls || '';
+    }
+
+    function setLoading(on) {
+      document.getElementById('btnGenerate').disabled = on;
+      document.getElementById('btnCsv').disabled      = on;
+    }
+
+    function generate() {
+      setLoading(true);
+      setStatus('生成中...', '');
+      var filters = {
+        from:      document.getElementById('dateFrom').value,
+        to:        document.getElementById('dateTo').value,
+        unit:      unit,
+        clients:   getChecked('clients'),
+        companies: getChecked('companies'),
+        cars:      getChecked('cars'),
+        drivers:   getChecked('drivers')
+      };
+      google.script.run
+        .withSuccessHandler(function(res) {
+          setLoading(false);
+          if (res.ok) {
+            setStatus('✅ ' + res.msg + '  シート名: ' + res.sheetName, 'ok');
+            setTimeout(function(){ google.script.host.close(); }, 2200);
+          } else {
+            setStatus('⚠️ ' + res.msg, 'err');
+          }
+        })
+        .withFailureHandler(function(e) {
+          setLoading(false);
+          setStatus('❌ ' + (e.message || String(e)), 'err');
+        })
+        .generatePl(filters);
+    }
+
+    function exportCsv() {
+      setLoading(true);
+      setStatus('CSV生成中...', '');
+      google.script.run
+        .withSuccessHandler(function(res) {
+          setLoading(false);
+          if (res.ok) {
+            setStatus('✅ ' + res.msg, 'ok');
+            window.open(res.url, '_blank');
+          } else {
+            setStatus('⚠️ ' + res.msg, 'err');
+          }
+        })
+        .withFailureHandler(function(e) {
+          setLoading(false);
+          setStatus('❌ ' + (e.message || String(e)), 'err');
+        })
+        .exportPlJournalCsv();
+    }
+
+    // 初期ロード
+    google.script.run
+      .withSuccessHandler(function(opts) {
+        ALL = opts;
+        document.getElementById('dateFrom').value = opts.defaultFrom;
+        document.getElementById('dateTo').value   = opts.defaultTo;
+        ['clients','companies','cars','drivers'].forEach(function(t){ filter(t, ''); });
+      })
+      .withFailureHandler(function(e) {
+        setStatus('初期化エラー: ' + (e.message || e), 'err');
+      })
+      .getPlFilterOptions();
+  </script>
+</body>
+</html>
