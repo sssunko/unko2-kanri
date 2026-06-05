@@ -732,6 +732,7 @@ function onOpen() {
     .addSeparator()
     .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
     .addItem('📖 使い方シート作成', 'createUsageSheet')
+    .addItem('📤 CSV・Excel出力', 'showExportDialog')
     .addSeparator()
     .addSubMenu(SpreadsheetApp.getUi().createMenu('📥 データ読み込み（CSV）')
       .addItem('運行シート', 'showCsvImportDialogUnkou')
@@ -758,7 +759,7 @@ function onOpen() {
       .addItem('🗒 受領書の耳生成', 'showUketorishoDialog'))
     .addSubMenu(SpreadsheetApp.getUi().createMenu('📊 PL管理')
       .addItem('📈 PL作成', 'showPlDialog')
-      .addItem('🗃 固定費マスタ初期化', 'initFixedCostMaster'))
+      .addItem('🗃 PL設定初期化', 'initFixedCostMaster'))
     .addSeparator()
     .addItem('🔗 チェックした行を配車確定', 'matchAndConfirmDispatch')
     .addSeparator()
@@ -1040,6 +1041,7 @@ function onEdit(e) {
 
     // ── 3-1-4: シート別振り分け ──────────────────────────────────────
     if (sheetName === '自車専属マスタ') { onEditMasterVehicle_(sheet, range, ss); return; }
+    if (sheetName === 'PL設定')        { onEditPlSettings_(sheet, range); return; }
     if (sheetName === 'マスタ')         { onEditMasterCustomer_(sheet, range); return; }
     // 情報（マッチング）シートの自動処理：進捗着色・TEL/FAX自動入力
     if (sheetName === '情報')           { onEditJoho_(sheet, range, ss); return; }
@@ -1088,12 +1090,12 @@ function onEditUnkou_(sheet, range, ss) {
   idLock.releaseLock();
 
   var lastColU = Math.max(sheet.getLastColumn(), 22);
-  var _oeUnkouSyncIds = []; // ループ後にまとめてsync（ループ内で個別sync廃止）
+  var _oeUnkouSyncIds = [];
+  var _allRowsData = sheet.getRange(startRow, 1, numRows, lastColU).getValues(); // 一括先読み（個別読みのキャッシュずれ防止）
   for (var i = 0; i < numRows; i++) {
     var row = startRow + i;
     if (row <= 1) continue;
-    // 行データを1回で一括読み込み（個別getValue廃止）
-    var rowData = sheet.getRange(row, 1, 1, lastColU).getValues()[0];
+    var rowData = _allRowsData[i]; // 一括先読みデータを使用
     var currentId = String(rowData[0] || '').trim();
     var dateVal   = rowData[9]; // J列(10)=日付 0-indexed:9
 
@@ -1110,15 +1112,13 @@ function onEditUnkou_(sheet, range, ss) {
     sheet.getRange(row, 10).setNumberFormat('yyyy/MM/dd');
 
     // F列(6)：車番を入力→自車専属マスタと部分一致で8列一括補完
-    if (editedCol === 6 && range.getNumColumns() === 1) {
+    // range.getNumColumns()制限を撤廃：複数列貼り付け・Ctrl+Enter一括入力にも対応
+    var _fInRange = (editedCol <= 6 && editedCol + range.getNumColumns() - 1 >= 6);
+    if (_fInRange) {
       var inputCar = String(rowData[5] || '').trim(); // F列 0-indexed:5
       if (inputCar && mData.length > 1) {
-        // B〜I列（F=index4を除く）に既存値があれば補完しない
-        var hasPreInput = false;
-        for (var ci = 0; ci < 8; ci++) {
-          if (ci === 4) continue; // F列スキップ
-          if (String(rowData[1 + ci] || '').trim() !== '') { hasPreInput = true; break; }
-        }
+        // 区分(B)と会社名(C)が両方埋まっている場合のみスキップ（片方でも空なら補完する）
+        var hasPreInput = String(rowData[1] || '').trim() !== '' && String(rowData[2] || '').trim() !== '';
         if (!hasPreInput) {
           for (var m2 = 1; m2 < mData.length; m2++) {
             var masterCar = String(mData[m2][7] || '').trim();
@@ -1130,6 +1130,11 @@ function onEditUnkou_(sheet, range, ss) {
                 mData[m2][2], mData[m2][3], mData[m2][5], mData[m2][6],
                 masterCar, mData[m2][8], mData[m2][9], mData[m2][4]
               ]]);
+              // 以降の処理がバグらないようメモリ上の配列も同期する
+              rowData[1] = mData[m2][2]; rowData[2] = mData[m2][3];
+              rowData[3] = mData[m2][5]; rowData[4] = mData[m2][6];
+              rowData[5] = masterCar;    rowData[6] = mData[m2][8];
+              rowData[7] = mData[m2][9]; rowData[8] = mData[m2][4];
               break;
             }
           }
@@ -1235,6 +1240,28 @@ function onEditUnkou_(sheet, range, ss) {
 // ================================================================
 //  3-3: 自車専属マスタ編集時の処理（onEditMasterVehicle_）  【大B / 中3 / 小3-3】
 //  ・A列が空で他列にデータがあればS-XXXXのIDを自動生成
+// ================================================================
+//  PL設定シート編集時：B列（月額）に手入力したらフォントを黒にする
+//  緑=PL設定初期化で入れた目安値、黒=自分で入力した実績値
+// ================================================================
+function onEditPlSettings_(sheet, range) {
+  var row = range.getRow();
+  if (row < 2) return;
+  // B列（月額）を手入力したら黒字に（緑は目安値の印）
+  var startCol = range.getColumn();
+  var endCol   = startCol + range.getNumColumns() - 1;
+  if (startCol <= 2 && endCol >= 2) {
+    var numRows = range.getNumRows();
+    for (var i = 0; i < numRows; i++) {
+      var cell = sheet.getRange(row + i, 2);
+      if (String(cell.getFontColor()).toLowerCase() === '#1a9a50') {
+        cell.setFontColor('#000000');
+      }
+    }
+  }
+}
+
+
 //  ・B列（運行状態）の値に応じて行の背景色を変更
 //    運行→薄赤, 待機→薄黄, 故障→薄緑, その他→なし
 //  ・自車専属運行シートを自動更新
@@ -1366,10 +1393,9 @@ function onEditMasterVehicle_(sheet, range, ss) {
     })();
     sheet.getRange(row, 17).setBackground(isQGray ? '#e0e0e0' : rowBg2);
 
-    // B列（ステータス）が変更された場合、運行シートを今日以降で同期する
+    // [MOD-v1.2] B列（ステータス）が変更された場合、直接の同期は行わずポップアップ処理に委ねる
     if (editedStartCol <= 2 && editedEndCol >= 2) {
-      var mRowData = sheet.getRange(row, 1, 1, 16).getValues()[0];
-      syncVehicleToCurrentMonth_(mRowData, false);
+      // ※ ここにあった強制的な syncVehicleToCurrentMonth_ 呼び出しを削除しました
     }
     // 経費列（Q=17〜AE=31）を手入力したら文字色を黒にリセット（自動入力の赤を解除）
     var expS = Math.max(editedStartCol, 17);
@@ -1431,20 +1457,47 @@ function syncVehicleToCurrentMonth_(veh, skipSort) {
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
   var today = new Date(); today.setHours(0, 0, 0, 0);
-  // ① 今日以降の積地空行を削除（過去・積地ありは触らない）
+  ss.toast('sync開始 car=[' + carNo + '] st=[' + status + ']', 'DEBUG', 8);
+  // ① 今日以降の空行を削除（過去行・データあり行は一切触らない）
+  //    空行 = 荷主(K=10)〜売上(S=18) が全て空の行
   if (sheet.getLastRow() >= 2) {
-    var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 12).getValues();
+    var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 19).getValues();
     var toDelete = [];
+    var matchCount = 0;
     for (var i = 0; i < data.length; i++) {
-      if (String(data[i][5] || '').trim() !== carNo) continue;
+      var cellCar = String(data[i][5] || '').trim();
+      if (cellCar !== carNo) continue;
+      matchCount++;
       var d = data[i][9];
-      if (!(d instanceof Date)) continue;
-      var dm = new Date(d); dm.setHours(0, 0, 0, 0);
+      var dm;
+      if (d instanceof Date) {
+        dm = new Date(d);
+      } else if (typeof d === 'number' && d > 0) {
+        dm = new Date(Math.round((d - 25569) * 86400 * 1000));
+      } else if (typeof d === 'string' && d.trim()) {
+        dm = new Date(d.trim());
+      } else {
+        continue;
+      }
+      if (!dm || isNaN(dm.getTime())) continue;
+      dm.setHours(0, 0, 0, 0);
       if (dm < today) continue;
-      if (String(data[i][11] || '').trim() !== '') continue; // 積地ありは保護
+      // 荷主〜売上(index10〜18)のどれかに値があれば保護
+      var hasData = false;
+      for (var ci = 10; ci <= 18; ci++) {
+        if (String(data[i][ci] || '').trim() !== '') { hasData = true; break; }
+      }
+      if (hasData) continue;
       toDelete.push(i + 2);
     }
-    for (var r = toDelete.length - 1; r >= 0; r--) sheet.deleteRow(toDelete[r]);
+    ss.toast('マッチ=' + matchCount + '行 削除対象=' + toDelete.length + '行', 'DEBUG', 8);
+    try {
+      for (var r = toDelete.length - 1; r >= 0; r--) sheet.deleteRow(toDelete[r]);
+    } catch(delErr) {
+      ss.toast('deleteRowエラー: ' + delErr.message, 'ERROR', 15);
+    }
+  } else {
+    ss.toast('運行シート行なし', 'DEBUG', 5);
   }
   // ② 集計表の孤立ID（削除した行のID）を除去
   cleanAllOrphanSummary_();
@@ -1966,6 +2019,8 @@ function generateSummary() {
   }
   // ヘッダー行（1行目）の枠線を確実にクリア（データ行の黄色枠が残らないように）
   sumSheet.getRange(1, 1, 1, Math.max(sumSheet.getLastColumn(), 37)).setBorder(false, false, false, false, false, false);
+  // 再生成完了 → 次にマスタ編集したとき「いつから？」ダイアログが再表示されるようリセット
+  PropertiesService.getScriptProperties().deleteProperty('recalcFromDateSet');
 }
 
 
@@ -2774,6 +2829,63 @@ function expandAndRefreshSheets() {
 
 
 // ================================================================
+//  4-3a-2: PL按分列を全行自動更新（refreshPlApportionColumn_）  【大B / 中4 / 小4-3a-2】
+//  自車専属マスタのB列（状態）変更時にonEditから呼ばれ、AG列の按分額を全行再計算する
+// ================================================================
+function refreshPlApportionColumn_(ss, sheet) {
+  var plSh = ss.getSheetByName('PL設定');
+  if (!plSh || plSh.getLastRow() < 2) return;
+
+  // PL設定から月額合計を計算（PL含入フラグ=FALSEは除外）
+  var plData  = plSh.getRange(2, 1, plSh.getLastRow() - 1, 5).getValues();
+  var plTotal = 0;
+  for (var pi = 0; pi < plData.length; pi++) {
+    if (!String(plData[pi][0] || '').trim()) continue;
+    var flag = plData[pi][4];
+    if (flag === false || String(flag).toUpperCase() === 'FALSE') continue;
+    plTotal += Number(plData[pi][1]) || 0;
+  }
+  if (plTotal === 0) return;
+
+  var masterLR = sheet.getLastRow();
+  if (masterLR < 2) return;
+
+  // 運行台数をカウント
+  var statusAll  = sheet.getRange(2, 2, masterLR - 1, 1).getValues();
+  var activeCars = 0;
+  for (var si = 0; si < statusAll.length; si++) {
+    if (String(statusAll[si][0] || '').trim() === '運行') activeCars++;
+  }
+  if (activeCars < 1) return;
+
+  var perCar = Math.round(plTotal / activeCars);
+
+  // AG列を動的取得（車両リース代の列 + 15）
+  var hdVals = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0];
+  var expIdx = hdVals.indexOf('車両リース代');
+  if (expIdx < 0) return;
+  var agCol = expIdx + 16; // 1-based: (expIdx+1) + 15
+
+  // ヘッダーがなければ書く
+  if (String(sheet.getRange(1, agCol).getValue()).trim() === '') {
+    sheet.getRange(1, agCol).setValue('PL設定按分（参照）')
+      .setBackground('#1a2a3a').setFontColor('#00ff88').setFontWeight('bold');
+    sheet.setColumnWidth(agCol, 140);
+  }
+
+  // 全行を一括更新
+  for (var ri = 0; ri < masterLR - 1; ri++) {
+    var agCell = sheet.getRange(ri + 2, agCol);
+    if (String(statusAll[ri][0] || '').trim() === '運行') {
+      agCell.setValue(perCar).setFontColor('#1a9a50').setNumberFormat('#,##0');
+    } else {
+      agCell.clearContent().clearFormat();
+    }
+  }
+}
+
+
+// ================================================================
 //  4-3b: 経費自動入力（autoFillExpense）  【大B / 中4 / 小4-3b】
 //  自車専属マスタで選択中の行のトン数（F列）を読み
 //  トン数別平均値を15経費列（Q〜AE列）に一括セットする
@@ -2806,7 +2918,7 @@ function autoFillExpense() {
   }
   var EXP_COL = firstExpColAF + 1; // 1-based
   var EXP_NUM = 15;
-  var AUTO_COLOR = '#cc0000';
+  var AUTO_COLOR = '#1a9a50'; // 自動入力値=緑（手入力=黒で区別）
 
   // トン数別平均値テーブル（Q〜AE列＝15経費列: 1t〜30t）
   // 列順: 車両リース代,任意保険,自賠責,重量税積立,車検費積立,整備費積立,タイヤ代積立,修理積立,駐車場代,ETCリース,カーナビ,通信費,洗車費,制服費,その他固定費
@@ -2875,7 +2987,31 @@ function autoFillExpense() {
     }
   }
 
-  // 新しい値・色の2D配列を構築（手入力済みは維持、自動入力・空は上書き）
+  // 手入力（黒字）セルの有無を確認
+  var hasManual = false;
+  for (var i = 0; i < numSelRows; i++) {
+    if (tNums[i] === null) continue;
+    for (var j = 0; j < EXP_NUM; j++) {
+      var hasVal = existValsAll[i][j] !== '' && existValsAll[i][j] !== 0;
+      var fc_ = String(fontColsAll[i][j] || '').toLowerCase();
+      var isAuto = fc_ === AUTO_COLOR || fc_ === '#cc0000';
+      if (hasVal && !isAuto) { hasManual = true; break; }
+    }
+    if (hasManual) break;
+  }
+
+  var resetAll = false;
+  if (hasManual) {
+    var resetRes = ui.alert(
+      '手入力データが存在します',
+      '手入力を初期値（緑字）にリセットしますか？\n\n[はい]：全て基準値で上書き（緑字）\n[いいえ]：手入力は維持、空欄・緑字のみ上書き\n[キャンセル]：中止',
+      ui.ButtonSet.YES_NO_CANCEL
+    );
+    if (resetRes === ui.Button.CANCEL) return;
+    resetAll = (resetRes === ui.Button.YES);
+  }
+
+  // 新しい値・色の2D配列を構築
   var newVals   = [];
   var newColors = [];
   var successCount = 0, skipCount = 0, manualTotal = 0;
@@ -2892,8 +3028,9 @@ function autoFillExpense() {
     var colorRow= [];
     for (var j = 0; j < EXP_NUM; j++) {
       var hasVal = existValsAll[i][j] !== '' && existValsAll[i][j] !== 0;
-      var isAuto = String(fontColsAll[i][j] || '').toLowerCase() === AUTO_COLOR;
-      if (hasVal && !isAuto) {
+      var fc_ = String(fontColsAll[i][j] || '').toLowerCase();
+      var isAuto = fc_ === AUTO_COLOR || fc_ === '#cc0000';
+      if (!resetAll && hasVal && !isAuto) {
         manualTotal++;
         newRow.push(existValsAll[i][j]);
         colorRow.push(fontColsAll[i][j]);
@@ -2911,10 +3048,58 @@ function autoFillExpense() {
   sheet.getRange(firstRow, EXP_COL, numSelRows, EXP_NUM).setValues(newVals);
   sheet.getRange(firstRow, EXP_COL, numSelRows, EXP_NUM).setFontColors(newColors);
 
-  var msg = successCount + '行に平均値を入力しました（赤字）。';
+  // AG列（EXP_COL+EXP_NUM）にPL設定按分額を計算して書き込む（参照用）
+  // 稼働台数 = マスタ全体で運行状態が「運行」の行数のみカウント（故障・待機は除外）
+  var plSettingsSheet = ss.getSheetByName('PL設定');
+  var plTotalPerCar = 0;
+  if (plSettingsSheet && plSettingsSheet.getLastRow() >= 2) {
+    var plData    = plSettingsSheet.getRange(2, 1, plSettingsSheet.getLastRow() - 1, 5).getValues();
+    var plTotal   = 0;
+    var masterLR  = sheet.getLastRow();
+    var activeCars = 0;
+    if (masterLR >= 2) {
+      var statusVals = sheet.getRange(2, 2, masterLR - 1, 1).getValues();
+      for (var si = 0; si < statusVals.length; si++) {
+        if (String(statusVals[si][0] || '').trim() === '運行') activeCars++;
+      }
+    }
+    if (activeCars < 1) activeCars = 1;
+    for (var pi = 0; pi < plData.length; pi++) {
+      var plName   = String(plData[pi][0] || '').trim();
+      var plAmt    = Number(plData[pi][1]) || 0;
+      var plFlag   = plData[pi][4];
+      if (!plName) continue;
+      if (plFlag === false || String(plFlag).toUpperCase() === 'FALSE') continue;
+      plTotal += plAmt;
+    }
+    plTotalPerCar = Math.round(plTotal / activeCars);
+  }
+  var plAgCol = EXP_COL + EXP_NUM; // AG列（1-based）
+  // AG列のヘッダーがなければ追加
+  if (String(sheet.getRange(1, plAgCol).getValue()).trim() === '') {
+    sheet.getRange(1, plAgCol).setValue('PL設定按分（参照）')
+      .setBackground('#1a2a3a').setFontColor('#00ff88').setFontWeight('bold');
+    sheet.setColumnWidth(plAgCol, 140);
+  }
+  // 選択行の運行状態を一括取得（B列）
+  var selStatusVals = sheet.getRange(firstRow, 2, numSelRows, 1).getValues();
+  for (var ai = 0; ai < numSelRows; ai++) {
+    var rowStatus = String(selStatusVals[ai][0] || '').trim();
+    var agCell = sheet.getRange(firstRow + ai, plAgCol);
+    if (rowStatus === '運行') {
+      // 運行中のみ按分額を記入（緑）
+      agCell.setValue(plTotalPerCar).setFontColor('#1a9a50').setNumberFormat('#,##0');
+    } else {
+      // 故障・待機はクリア
+      agCell.clearContent().clearFormat();
+    }
+  }
+
+  var msg = successCount + '行に平均値を入力しました（緑字）。';
   if (skipCount > 0)   msg += '\n' + skipCount + '行はトン数不明のためスキップしました。';
   if (manualTotal > 0) msg += '\n手入力済み項目（合計' + manualTotal + '件）はそのまま残しました。';
   msg += '\n実態に合わせて修正してください。修正すると黒字に変わります。';
+  if (plTotalPerCar > 0) msg += '\nPL設定按分（参照）: 1台あたり ' + plTotalPerCar.toLocaleString() + '円/月';
   ui.alert(msg);
 }
 
@@ -6082,7 +6267,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('🔄 メニュー再生成','reloadMenu').addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 固定費マスタ初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('🔄 メニュー再生成','reloadMenu').addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
@@ -6156,7 +6341,11 @@ function getClientStubSource_() {
     "function getPlFilterOptions(){return UnkouLib.getPlFilterOptions();}",
     "function generatePl(a){return UnkouLib.generatePl(a);}",
     "function exportPlJournalCsv(){return UnkouLib.exportPlJournalCsv();}",
-    "function initFixedCostMaster(){return UnkouLib.initFixedCostMaster();}"
+    "function initFixedCostMaster(){return UnkouLib.initFixedCostMaster();}",
+    "function showExportDialog(){return UnkouLib.showExportDialog();}",
+    "function exportSheetAsCsvBase64(a){return UnkouLib.exportSheetAsCsvBase64(a);}",
+    "function exportSelectedSheetsAsExcel(a){return UnkouLib.exportSelectedSheetsAsExcel(a);}",
+    "function exportPlBundle(a){return UnkouLib.exportPlBundle(a);}"
   ].join('\n');
 }
 
@@ -7245,35 +7434,39 @@ function installedOnEdit_(e) {
     var row       = range.getRow();
     var col       = range.getColumn();
 
-    // ── 自車専属マスタ or 設定シート編集時：再計算範囲ポップアップ ──────
-    if (sheetName === '自車専属マスタ' || sheetName === '設定') {
-      var mProps = PropertiesService.getScriptProperties();
-      if (mProps.getProperty('recalcFromDateSet')) {
-        SpreadsheetApp.getActiveSpreadsheet().toast('集計表再生成を押してください', '📋 マスタ変更済み', 5);
-        return;
-      }
+    // ── [MOD-v1.2] 自車専属マスタのB列（運行状態）編集時：適用日確認ポップアップ ──────
+    if (sheetName === '自車専属マスタ' && col === 2 && row >= 2) {
       var mToday = new Date();
       var mTodayStr = Utilities.formatDate(mToday, Session.getScriptTimeZone(), 'yyyy/MM/dd');
       var mFirst = new Date(mToday.getFullYear(), mToday.getMonth(), 1);
       var mFirstStr = Utilities.formatDate(mFirst, Session.getScriptTimeZone(), 'yyyy/MM/dd');
       var mHtml = HtmlService.createHtmlOutput(
         '<style>' +
-        'body{font-family:sans-serif;padding:14px;text-align:center;margin:0}' +
-        'p{margin:0 0 12px;font-size:13px}' +
-        'button{display:block;width:100%;padding:10px 8px;margin:6px 0;font-size:13px;' +
+        'body{font-family:sans-serif;padding:16px;text-align:center;margin:0;overflow:hidden}' +
+        'p{margin:0 0 14px;font-size:13px;line-height:1.5}' +
+        'button{display:block;width:100%;padding:11px 8px;margin:7px 0;font-size:13px;' +
         'cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#fff}' +
-        'button:hover{background:#f0f0f0}.cancel{color:#999}' +
+        'button:hover:not(:disabled){background:#f0f0f0}' +
+        'button:disabled{opacity:.5;cursor:default}' +
+        '.cancel{color:#999}' +
         '</style>' +
-        '<p>集計表を再計算する範囲を選んでください。</p>' +
+        '<p>ステータス変更をいつから適用しますか？<br>（未配車の空行のみ整理します）</p>' +
         '<button onclick="go(\'today\')">本日以降（' + mTodayStr + '〜）</button>' +
         '<button onclick="go(\'month\')">今月以降（' + mFirstStr + '〜）</button>' +
-        '<button onclick="go(\'all\')">全期間（制限なし・従来通り）</button>' +
-        '<button class="cancel" onclick="go(\'cancel\')">キャンセル</button>' +
-        '<script>function go(v){' +
-        'google.script.run.withSuccessHandler(function(){google.script.host.close();}).setRecalcChoice(v);' +
-        '}<\/script>'
-      ).setWidth(300).setHeight(235);
-      SpreadsheetApp.getUi().showModalDialog(mHtml, 'マスタ／設定が変更されました');
+        '<button onclick="go(\'all\')">全期間（制限なし）</button>' +
+        '<button class="cancel" onclick="google.script.host.close()">キャンセル</button>' +
+        '<script>' +
+        'function go(v){' +
+        '  document.querySelectorAll("button").forEach(function(b){b.disabled=true;});' +
+        '  google.script.run' +
+        '    .withSuccessHandler(function(){' +
+        '      google.script.host.close();' +
+        '    })' +
+        '    .executeStatusSync_(' + row + ', v);' +
+        '}' +
+        '<\/script>'
+      ).setWidth(300).setHeight(290);
+      SpreadsheetApp.getUi().showModalDialog(mHtml, 'いつから適用しますか？');
       return;
     }
 
@@ -7336,7 +7529,6 @@ function setRecalcChoice(choice) {
   var props = PropertiesService.getScriptProperties();
   props.setProperty('recalcFromDate', fromDate);
   props.setProperty('recalcFromDateSet', '1');
-  SpreadsheetApp.getActiveSpreadsheet().toast('集計表再生成を押してください', '📋 マスタ変更', 5);
 }
 
 
@@ -8877,7 +9069,7 @@ function generateUketorishoSheet(filters) {
 // ================================================================
 function showPlDialog() {
   var tmpl = HtmlService.createTemplateFromFile('plDialog');
-  var html = tmpl.evaluate().setWidth(680).setHeight(600);
+  var html = tmpl.evaluate().setWidth(680).setHeight(680);
   SpreadsheetApp.getUi().showModalDialog(html, '📊 PL（損益計算書）作成');
 }
 
@@ -9091,7 +9283,7 @@ function buildPlBreakdown_(rows, unit) {
 //  黒背景・ライムグリーンアクセントのPLシートを生成してシート名を返す
 // ================================================================
 function buildPlSheet_(ss, d) {
-  var sheetName = 'PL_' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd_HHmm');
+  var sheetName = 'PL';
   var existing  = ss.getSheetByName(sheetName);
   if (existing) ss.deleteSheet(existing);
   var sh = ss.insertSheet(sheetName);
@@ -9165,15 +9357,23 @@ function buildPlSheet_(ss, d) {
   }
 
   function profitRow(label, amount, big) {
-    var pBg = amount >= 0 ? '#0a3020' : '#3a0a0a';
-    var pFg = amount >= 0 ? C_ACCENT  : C_RED;
+    var pBg = big
+      ? (amount >= 0 ? '#0b4a25' : '#4a0b0b')
+      : (amount >= 0 ? '#0a2a18' : '#2a0a0a');
+    var pFg = amount >= 0 ? C_ACCENT : C_RED;
     var fz  = big ? 15 : 13;
+    var sign = amount >= 0 ? '¥' : '-¥';
     sh.getRange(R, 1, 1, 9).merge()
-      .setValue((big ? '★★ ' : '★ ') + label + '  ' +
-        (amount >= 0 ? '¥' : '-¥') + Math.abs(amount).toLocaleString())
+      .setValue(label + '　　' + sign + Math.abs(amount).toLocaleString())
       .setBackground(pBg).setFontColor(pFg).setFontWeight('bold')
       .setFontSize(fz).setHorizontalAlignment('center');
-    sh.setRowHeight(R, big ? 40 : 34); R++;
+    // 上下に横線を入れて区切りを明確にする（★の代替）
+    sh.getRange(R, 1, 1, 9).setBorder(
+      true, null, true, null, null, null,
+      amount >= 0 ? '#1a5f30' : '#5f1a1a',
+      SpreadsheetApp.BorderStyle.MEDIUM
+    );
+    sh.setRowHeight(R, big ? 42 : 36); R++;
   }
 
   function blank(h) { sh.setRowHeight(R, h || 8); R++; }
@@ -9238,7 +9438,7 @@ function buildPlSheet_(ss, d) {
     for (var bi = 0; bi < d.breakdown.length; bi++) {
       var bd  = d.breakdown[bi];
       var bBg = bi % 2 === 0 ? C_CARD : C_CARD2;
-      sh.getRange(R, 5).setValue(bd.key).setBackground(bBg).setFontColor(C_TEXT).setFontSize(10);
+      sh.getRange(R, 5).setValue(String(bd.key)).setNumberFormat('@').setBackground(bBg).setFontColor(C_TEXT).setFontSize(10);
       [[6, bd.sales],[7, bd.payment + bd.expense],[8, bd.fuel],[9, bd.profit]].forEach(function(kv) {
         sh.getRange(R, kv[0]).setValue(kv[1])
           .setNumberFormat('#,##0').setBackground(bBg)
@@ -9318,7 +9518,7 @@ function apportionFixedCosts_(fixedCosts, activeDays, activeVehicles, totalDays)
 function exportPlJournalCsv() {
   var ss       = SpreadsheetApp.getActiveSpreadsheet();
   var plSheets = ss.getSheets().filter(function(s) {
-    return s.getName().indexOf('PL_') === 0;
+    return s.getName() === 'PL' || s.getName().indexOf('PL_') === 0;
   }).sort(function(a, b) { return b.getName().localeCompare(a.getName()); });
 
   if (plSheets.length === 0) {
@@ -9342,11 +9542,13 @@ function exportPlJournalCsv() {
 
   var vNo = 1;
   for (var i = 0; i < data.length; i++) {
-    var label  = String(data[i][1] || '').trim();
-    var amount = Number(data[i][2]) || 0;
+    var rawLabel = String(data[i][1] || '');
+    var label    = rawLabel.trim();
+    var amount   = Number(data[i][2]) || 0;
     if (!label || amount === 0) continue;
-    if (label.charAt(0) === ' ' || label.charAt(0) === '　') { // インデントあり=明細行
-      var entry = buildJournalEntry_(label.trim(), amount, today, vNo);
+    // trim前のrawLabelでインデント判定（trimするとスペースが消えて常にfalseになるため）
+    if (rawLabel.charAt(0) === ' ' || rawLabel.charAt(0) === '　') {
+      var entry = buildJournalEntry_(label, amount, today, vNo);
       if (entry) { csvRows.push(entry); vNo++; }
     }
   }
@@ -9364,14 +9566,118 @@ function exportPlJournalCsv() {
     }).join(',') + '\r\n';
   }
 
-  var fileName = plSheet.getName() + '_仕訳.csv';
-  var folder   = getOrCreateFolder_('PL仕訳CSV');
-  var existing = folder.getFilesByName(fileName);
-  while (existing.hasNext()) { existing.next().setTrashed(true); }
-  var file = folder.createFile(fileName, csvText, 'text/csv; charset=utf-8');
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  // 仕訳表シートにも書き込む（確認・個別CSV出力用）
+  var jSheet = ss.getSheetByName('仕訳表');
+  if (jSheet) ss.deleteSheet(jSheet);
+  jSheet = ss.insertSheet('仕訳表');
+  jSheet.getRange(1, 1, csvRows.length, csvRows[0].length).setValues(csvRows);
+  jSheet.getRange(1, 1, 1, csvRows[0].length)
+    .setBackground('#1a2a3a').setFontColor('#00ff88').setFontWeight('bold').setFontSize(10);
+  jSheet.setFrozenRows(1);
 
-  return { ok: true, msg: (csvRows.length - 1) + '件の仕訳を生成しました。', url: file.getUrl() };
+  var fileName = plSheet.getName() + '_仕訳.csv';
+  // Base64エンコードしてクライアントに返す（ブラウザ直接DL用）
+  var base64csv = Utilities.base64Encode(csvText, Utilities.Charset.UTF_8);
+
+  return { ok: true, msg: (csvRows.length - 1) + '件の仕訳を生成しました。', base64csv: base64csv, fileName: fileName };
+}
+
+
+// ================================================================
+//  17-6a-2: PL表+仕訳CSV ZIP出力（exportPlBundle）  【大C / 中17 / 小17-6a-2】
+//  opts = { includeJournal: bool, includePl: bool }
+//  選択した内容をBOM付きCSVにしてZIPで返す（plDialog.html の📦ZIPボタン用）
+// ================================================================
+function exportPlBundle(opts) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var plSheets = ss.getSheets().filter(function(s) {
+    return s.getName() === 'PL' || s.getName().indexOf('PL_') === 0;
+  }).sort(function(a, b) { return b.getName().localeCompare(a.getName()); });
+
+  if (plSheets.length === 0) {
+    return { ok: false, msg: 'PLシートがありません。先に「📈 PL生成」を実行してください。' };
+  }
+  var plSheet = plSheets[0];
+  var plName  = plSheet.getName();
+  var today   = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+  var blobs   = [];
+  var msgParts = [];
+
+  // 仕訳CSV
+  if (opts && opts.includeJournal) {
+    if (plSheet.getLastRow() < 2) return { ok: false, msg: 'PLシートにデータがありません。' };
+    var data = plSheet.getRange(1, 1, plSheet.getLastRow(), 3).getValues();
+    var csvRows = [[
+      '伝票No','取引日付','借方勘定科目','借方補助科目','借方部門',
+      '借方金額','借方消費税コード','借方消費税金額',
+      '貸方勘定科目','貸方補助科目','貸方部門',
+      '貸方金額','貸方消費税コード','貸方消費税金額','摘要'
+    ]];
+    var vNo = 1;
+    for (var i = 0; i < data.length; i++) {
+      var rawLabel = String(data[i][1] || '');
+      var label    = rawLabel.trim();
+      var amount   = Number(data[i][2]) || 0;
+      if (!label || amount === 0) continue;
+      if (rawLabel.charAt(0) === ' ' || rawLabel.charAt(0) === '　') {
+        var entry = buildJournalEntry_(label, amount, today, vNo);
+        if (entry) { csvRows.push(entry); vNo++; }
+      }
+    }
+    if (csvRows.length <= 1) return { ok: false, msg: '仕訳データが生成できませんでした。PLシートをご確認ください。' };
+    var jText = '﻿';
+    for (var jr = 0; jr < csvRows.length; jr++) {
+      jText += csvRows[jr].map(function(c) {
+        var s = String(c === null || c === undefined ? '' : c);
+        return (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1)
+          ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join(',') + '\r\n';
+    }
+    // 仕訳表シートに書き込む
+    var jSheet = ss.getSheetByName('仕訳表');
+    if (jSheet) ss.deleteSheet(jSheet);
+    jSheet = ss.insertSheet('仕訳表');
+    jSheet.getRange(1, 1, csvRows.length, csvRows[0].length).setValues(csvRows);
+    jSheet.getRange(1, 1, 1, csvRows[0].length)
+      .setBackground('#1a2a3a').setFontColor('#00ff88').setFontWeight('bold').setFontSize(10);
+    jSheet.setFrozenRows(1);
+    blobs.push(Utilities.newBlob(jText, 'text/csv', plName + '_仕訳.csv'));
+    msgParts.push((csvRows.length - 1) + '件の仕訳CSV');
+  }
+
+  // PL表CSV
+  if (opts && opts.includePl) {
+    if (plSheet.getLastRow() < 1) return { ok: false, msg: 'PLシートが空です。' };
+    var plData = plSheet.getRange(1, 1, plSheet.getLastRow(), Math.max(plSheet.getLastColumn(), 1)).getValues();
+    var tz = Session.getScriptTimeZone();
+    var plText = '﻿';
+    for (var pi = 0; pi < plData.length; pi++) {
+      plText += plData[pi].map(function(cell) {
+        var s;
+        if (cell instanceof Date && !isNaN(cell.getTime())) {
+          var yr = parseInt(Utilities.formatDate(cell, tz, 'yyyy'), 10);
+          s = (yr <= 1900) ? Utilities.formatDate(cell, tz, 'H:mm') : Utilities.formatDate(cell, tz, 'yyyy/MM/dd');
+        } else {
+          s = String(cell === null || cell === undefined ? '' : cell);
+        }
+        return (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1)
+          ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join(',') + '\r\n';
+    }
+    blobs.push(Utilities.newBlob(plText, 'text/csv', plName + '_PL表.csv'));
+    msgParts.push('PL表CSV');
+  }
+
+  if (blobs.length === 0) return { ok: false, msg: '出力内容が選択されていません。' };
+
+  var zipName = plName + '_' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd') + '.zip';
+  var zipBlob = Utilities.zip(blobs, zipName);
+  return {
+    ok: true,
+    base64: Utilities.base64Encode(zipBlob.getBytes()),
+    fileName: zipName,
+    msg: msgParts.join(' + ') + ' をZIPにしました。'
+  };
 }
 
 
@@ -9401,7 +9707,13 @@ function buildJournalEntry_(label, amount, date, vNo) {
     { key: 'リース',      debit: 'リース料',    credit: '未払金',       tax: '10' },
     { key: '減価償却',    debit: '減価償却費',  credit: '減価償却累計額', tax: '0' },
     { key: '修繕',        debit: '修繕費',      credit: '未払金',       tax: '10' },
-    { key: '消耗品',      debit: '消耗品費',    credit: '未払金',       tax: '10' }
+    { key: '消耗品',      debit: '消耗品費',    credit: '未払金',       tax: '10' },
+    { key: '重量税',      debit: '租税公課',    credit: '未払金',       tax: '0'  },
+    { key: 'タイヤ',      debit: '消耗品費',    credit: '未払金',       tax: '10' },
+    { key: '洗車',        debit: '消耗品費',    credit: '未払金',       tax: '10' },
+    { key: '制服',        debit: '消耗品費',    credit: '未払金',       tax: '10' },
+    { key: '税理士',      debit: '支払手数料',  credit: '未払金',       tax: '10' },
+    { key: '安全協会',    debit: '諸会費',      credit: '未払金',       tax: '0'  }
   ];
 
   var mapping = null;
@@ -9423,6 +9735,140 @@ function buildJournalEntry_(label, amount, date, vNo) {
 
 
 // ================================================================
+//  17-6b-1: シートCSV取得（exportSheetAsCsvBase64）  【大C / 中17 / 小17-6b-1】
+//  指定シートのデータをBOM付きUTF-8 CSVにしてBase64で返す（ブラウザDL用）
+// ================================================================
+function exportSheetAsCsvBase64(sheetName) {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 1) return { ok: false };
+  var data = sheet.getRange(1, 1, sheet.getLastRow(), Math.max(sheet.getLastColumn(), 1)).getValues();
+  var tz   = Session.getScriptTimeZone();
+  var csv  = '﻿'; // BOM
+  for (var i = 0; i < data.length; i++) {
+    csv += data[i].map(function(cell) {
+      var s;
+      if (cell instanceof Date && !isNaN(cell.getTime())) {
+        var yr = parseInt(Utilities.formatDate(cell, tz, 'yyyy'), 10);
+        s = (yr <= 1900)
+          ? Utilities.formatDate(cell, tz, 'H:mm')
+          : Utilities.formatDate(cell, tz, 'yyyy/MM/dd');
+      } else {
+        s = String(cell === null || cell === undefined ? '' : cell);
+      }
+      return (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1)
+        ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }).join(',') + '\r\n';
+  }
+  return { ok: true, base64: Utilities.base64Encode(csv, Utilities.Charset.UTF_8), name: sheetName };
+}
+
+
+// ================================================================
+//  17-6b-2: 選択シートExcel取得（exportSelectedSheetsAsExcel）  【大C / 中17 / 小17-6b-2】
+//  指定シートのみ一時SSにコピーしてXLSX化・Base64で返す（ブラウザDL用）
+// ================================================================
+function exportSelectedSheetsAsExcel(sheetNames) {
+  if (!sheetNames || sheetNames.length === 0) return { ok: false, msg: 'シートが選択されていません' };
+  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var tempSs = SpreadsheetApp.create('__temp_export__');
+  var tempId = tempSs.getId();
+  try {
+    var copied = 0;
+    for (var i = 0; i < sheetNames.length; i++) {
+      var sheet = ss.getSheetByName(sheetNames[i]);
+      if (sheet) { sheet.copyTo(tempSs).setName(sheetNames[i]); copied++; }
+    }
+    if (copied === 0) return { ok: false, msg: 'コピーできるシートがありませんでした' };
+    tempSs.getSheets().forEach(function(s) {
+      if (sheetNames.indexOf(s.getName()) === -1) {
+        try { tempSs.deleteSheet(s); } catch(e) {}
+      }
+    });
+    var url = 'https://docs.google.com/spreadsheets/d/' + tempId + '/export?format=xlsx';
+    var res  = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() } });
+    var b64  = Utilities.base64Encode(res.getContent());
+    var fname = 'export_' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd') + '.xlsx';
+    return { ok: true, base64: b64, fileName: fname };
+  } finally {
+    try { DriveApp.getFileById(tempId).setTrashed(true); } catch(e) {}
+  }
+}
+
+
+// ================================================================
+//  17-6b: CSV・Excel出力ダイアログ（showExportDialog）  【大C / 中17 / 小17-6b】
+//  シートごとにチェックボックスでExcel対象を選択、CSV個別DLも可能
+// ================================================================
+function showExportDialog() {
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  var rows = sheets.map(function(s) {
+    var name = s.getName().replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return '<tr>'
+      + '<td style="padding:4px 6px;border-bottom:1px solid #eee;width:20px">'
+      + '<input type="checkbox" class="sheetCk" value="' + name + '" checked style="width:14px;height:14px;cursor:pointer;accent-color:#1565c0">'
+      + '</td>'
+      + '<td style="padding:4px 8px;border-bottom:1px solid #eee;font-size:13px">' + s.getName() + '</td>'
+      + '<td style="padding:4px 6px;border-bottom:1px solid #eee">'
+      + '<button onclick="dlCsv(\'' + name + '\')" style="background:#1565c0;color:#fff;padding:3px 10px;border:none;border-radius:4px;font-size:12px;cursor:pointer">CSV</button>'
+      + '</td></tr>';
+  }).join('');
+  var html = '<html><body style="font-family:sans-serif;padding:16px;margin:0">'
+    + '<script>'
+    + 'function dlCsv(name){'
+    +   'var btn=event.target; btn.disabled=true; btn.textContent="取得中…";'
+    +   'google.script.run'
+    +     '.withSuccessHandler(function(r){'
+    +       'btn.disabled=false; btn.textContent="CSV";'
+    +       'if(!r||!r.ok){alert("取得失敗");return;}'
+    +       'var a=document.createElement("a");'
+    +       'a.href="data:text/csv;charset=utf-8;base64,"+r.base64;'
+    +       'a.download=r.name+".csv";'
+    +       'document.body.appendChild(a);a.click();document.body.removeChild(a);'
+    +     '})'
+    +     '.withFailureHandler(function(e){btn.disabled=false;btn.textContent="CSV";alert(e.message);})'
+    +     '.exportSheetAsCsvBase64(name);'
+    + '}'
+    + 'function selectAll(v){document.querySelectorAll(".sheetCk").forEach(function(c){c.checked=v;});}'
+    + 'function dlExcel(){'
+    +   'var names=[];'
+    +   'document.querySelectorAll(".sheetCk:checked").forEach(function(c){names.push(c.value);});'
+    +   'if(names.length===0){alert("シートを選択してください");return;}'
+    +   'var btn=document.getElementById("btnXl"); btn.disabled=true; btn.textContent="生成中…（数秒かかります）";'
+    +   'google.script.run'
+    +     '.withSuccessHandler(function(r){'
+    +       'btn.disabled=false; btn.textContent="📊 選択シートをExcel DL";'
+    +       'if(!r||!r.ok){alert(r&&r.msg||"失敗");return;}'
+    +       'var a=document.createElement("a");'
+    +       'a.href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,"+r.base64;'
+    +       'a.download=r.fileName;'
+    +       'document.body.appendChild(a);a.click();document.body.removeChild(a);'
+    +     '})'
+    +     '.withFailureHandler(function(e){btn.disabled=false;btn.textContent="📊 選択シートをExcel DL";alert(e.message);})'
+    +     '.exportSelectedSheetsAsExcel(names);'
+    + '}'
+    + '<\/script>'
+    + '<h3 style="margin:0 0 10px;color:#1565c0">📤 データ出力</h3>'
+    + '<div style="margin-bottom:8px">'
+    + '<button id="btnXl" onclick="dlExcel()" style="background:#1b5e20;color:white;padding:8px 16px;border:none;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer;width:100%">📊 選択シートをExcel DL</button>'
+    + '</div>'
+    + '<div style="margin-bottom:6px;font-size:11px;color:#555">'
+    + '☑ チェックでExcel対象 ／ <a href="#" onclick="selectAll(true);return false" style="color:#1565c0">全選択</a>'
+    + ' | <a href="#" onclick="selectAll(false);return false" style="color:#1565c0">全解除</a>'
+    + '</div>'
+    + '<hr style="border:none;border-top:1px solid #eee;margin:4px 0 8px">'
+    + '<p style="font-size:11px;color:#555;margin:0 0 4px">シート別CSV（BOM付きUTF-8）:</p>'
+    + '<table style="border-collapse:collapse;width:100%">' + rows + '</table>'
+    + '</body></html>';
+  SpreadsheetApp.getUi().showModalDialog(
+    HtmlService.createHtmlOutput(html).setWidth(400).setHeight(Math.min(160 + sheets.length * 34, 580)),
+    '📤 データ出力'
+  );
+}
+
+
+// ================================================================
 //  17-7: 固定費マスタ初期化（initFixedCostMaster）  【大C / 中17 / 小17-7】
 //  「PL設定」シートを初期構造・サンプルデータで作成する
 //  PL含入フラグ=FALSE の行（社長給与等）はPL集計から自動除外される
@@ -9432,34 +9878,87 @@ function initFixedCostMaster() {
   var ui  = SpreadsheetApp.getUi();
   var sheet = ss.getSheetByName('PL設定');
 
+  var fullReset = true;
   if (sheet) {
-    var ans = ui.alert('PL設定シートが既に存在します', '上書きして初期化しますか？（現在のデータが消えます）', ui.ButtonSet.YES_NO);
-    if (ans !== ui.Button.YES) return;
-    sheet.clear(); sheet.clearFormats();
+    var initRes = ui.alert(
+      'PL設定シートが既に存在します',
+      '[はい]：全て上書き（追加項目も消えます）\n[いいえ]：デフォルト項目の金額のみ台数連動で更新（追加項目を保持）\n[キャンセル]：中止',
+      ui.ButtonSet.YES_NO_CANCEL
+    );
+    if (initRes === ui.Button.CANCEL) return;
+    fullReset = (initRes === ui.Button.YES);
+    if (fullReset) { sheet.clear(); sheet.clearFormats(); }
   } else {
     sheet = ss.insertSheet('PL設定');
   }
 
   var header = ['費目名', '月額（円）', '按分方式', '勘定科目', 'PL含入フラグ'];
-  sheet.getRange(1, 1, 1, 5).setValues([header])
-    .setBackground('#1a2a3a').setFontColor('#00ff88').setFontWeight('bold').setFontSize(12);
+  if (fullReset) {
+    sheet.getRange(1, 1, 1, 5).setValues([header])
+      .setBackground('#1a2a3a').setFontColor('#00ff88').setFontWeight('bold').setFontSize(12);
+  }
+
+  // 自車専属マスタから「運行」台数をカウント（B列が「運行」の行のみ）
+  var n = 1;
+  var masterSh = ss.getSheetByName('自車専属マスタ');
+  if (masterSh && masterSh.getLastRow() >= 2) {
+    var mStatus = masterSh.getRange(2, 2, masterSh.getLastRow() - 1, 1).getValues();
+    var mCount  = 0;
+    for (var mi = 0; mi < mStatus.length; mi++) {
+      if (String(mStatus[mi][0] || '').trim() === '運行') mCount++;
+    }
+    if (mCount > 0) n = mCount;
+  }
 
   var defaults = [
-    ['家賃',                    150000, '一定',     '地代家賃',         true  ],
-    ['駐車場代',                  30000, '車両台数', '地代家賃',         true  ],
-    ['電気代',                    20000, '一定',     '水道光熱費',       true  ],
-    ['水道代',                     5000, '一定',     '水道光熱費',       true  ],
-    ['通信費（携帯）',             15000, '車両台数', '通信費',           true  ],
-    ['通信費（固定回線・ネット）',   5000, '一定',     '通信費',           true  ],
-    ['損害保険料（任意）',         20000, '車両台数', '損害保険料',       true  ],
-    ['車両リース代',               80000, '車両台数', 'リース料',         true  ],
-    ['事務用品費',                  3000, '一定',     '消耗品費',         true  ],
-    ['修繕費積立',                 10000, '車両台数', '修繕費',           true  ],
-    ['減価償却費',                 50000, '車両台数', '減価償却費',       true  ],
-    ['社長給与',                  300000, '一定',     '役員報酬',         false ],  // ← PLに含めない
-    ['法定福利費',                 15000, '車両台数', '法定福利費',       true  ]
+    ['家賃',                          n * 30000,           '一定',     '地代家賃',         true  ],
+    ['駐車場代',                      n * 15000,           '車両台数', '地代家賃',         true  ],
+    ['電気代',                        8000 + n * 2000,     '一定',     '水道光熱費',       true  ],
+    ['水道代',                        3000,                '一定',     '水道光熱費',       true  ],
+    ['通信費（携帯）',                n * 5000,            '車両台数', '通信費',           true  ],
+    ['通信費（固定回線・ネット）',     5000,               '一定',     '通信費',           true  ],
+    ['損害保険料（任意）',            n * 20000,           '車両台数', '損害保険料',       true  ],
+    ['車両リース代',                  n * 80000,           '車両台数', 'リース料',         true  ],
+    ['事務用品費',                    3000,                '一定',     '消耗品費',         true  ],
+    ['修繕費積立',                    n * 10000,           '車両台数', '修繕費',           true  ],
+    ['減価償却費',                    n * 50000,           '車両台数', '減価償却費',       true  ],
+    ['社長給与',                      300000,              '一定',     '役員報酬',         false ],  // ← PLに含めない
+    ['法定福利費',                    n * 8000,            '車両台数', '法定福利費',       true  ],
+    ['自賠責保険料積立',              n * 3000,            '車両台数', '損害保険料',       true  ],
+    ['重量税積立',                    n * 5000,            '車両台数', '租税公課',         true  ],
+    ['車検費積立',                    n * 8000,            '車両台数', '修繕費',           true  ],
+    ['タイヤ代積立',                  n * 5000,            '車両台数', '消耗品費',         true  ],
+    ['ETCリース料',                   n * 1500,            '車両台数', 'リース料',         true  ],
+    ['カーナビリース料',               n * 2000,           '車両台数', 'リース料',         true  ],
+    ['洗車費',                        n * 1000,            '車両台数', '消耗品費',         true  ],
+    ['制服費',                        n * 1000,            '車両台数', '消耗品費',         true  ],
+    ['税理士顧問料',                  30000,               '一定',     '支払手数料',       true  ],
+    ['安全協会費',                    2000,                '一定',     '諸会費',           true  ]
   ];
+  // [いいえ]選択時：デフォルト項目の金額だけ更新して終了（追加項目はそのまま）
+  if (!fullReset) {
+    var existLR = sheet.getLastRow();
+    if (existLR >= 2) {
+      var existNms = sheet.getRange(2, 1, existLR - 1, 1).getValues();
+      var nameToRow = {};
+      for (var ei = 0; ei < existNms.length; ei++) {
+        var eName = String(existNms[ei][0] || '').trim();
+        if (eName) nameToRow[eName] = ei + 2;
+      }
+      for (var di = 0; di < defaults.length; di++) {
+        var dRow = nameToRow[defaults[di][0]];
+        if (dRow !== undefined) {
+          sheet.getRange(dRow, 2).setValue(defaults[di][1]).setFontColor('#1a9a50').setNumberFormat('#,##0');
+        }
+      }
+    }
+    ui.alert('PL設定の金額を更新しました。（稼働台数: ' + n + '台）\n追加項目はそのまま保持されています。');
+    return;
+  }
+
   sheet.getRange(2, 1, defaults.length, 5).setValues(defaults);
+  // B列（月額）はすべて緑（稼働台数連動の目安値）
+  sheet.getRange(2, 2, defaults.length, 1).setFontColor('#1a9a50');
 
   // 月額列に数値書式
   sheet.getRange(2, 2, defaults.length, 1).setNumberFormat('#,##0');
@@ -9485,7 +9984,7 @@ function initFixedCostMaster() {
   ss.setActiveSheet(sheet);
 
   ui.alert(
-    'PL設定シートを作成しました。\n\n' +
+    'PL設定シートを作成しました。（稼働台数: ' + n + '台 で金額を設定）\n\n' +
     '【按分方式の説明】\n' +
     '・一定    → 月額をそのまま使用\n' +
     '・車両台数 → 月額 × 稼働車両数 ÷ 全車両数\n' +
@@ -9494,4 +9993,27 @@ function initFixedCostMaster() {
     '・OFFにした費目はPLに含まれません（社長給与など秘匿項目に使用）\n' +
     '・赤背景行が現在OFFです。'
   );
+}
+
+
+// ================================================================
+//  [ADD-v1.2] ポップアップから呼ばれ、指定された日付を起点に運行シートを同期する
+// ================================================================
+function executeStatusSync_(row, choice) {
+  if (choice === 'cancel') return;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var master = ss.getSheetByName('自車専属マスタ');
+  var mRowData = master.getRange(row, 1, 1, 16).getValues()[0];
+
+  var applyDate;
+  var now = new Date();
+  if (choice === 'today') {
+    applyDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (choice === 'month') {
+    applyDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else {
+    applyDate = new Date(2000, 0, 1);
+  }
+
+  syncVehicleToCurrentMonth_(mRowData, false, applyDate);
 }

@@ -25,6 +25,7 @@ function onOpen() {
     .addSeparator()
     .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
     .addItem('📖 使い方シート作成', 'createUsageSheet')
+    .addItem('📤 CSV・Excel出力', 'showExportDialog')
     .addSeparator()
     .addSubMenu(ui.createMenu('📥 データ読み込み（CSV）')
       .addItem('運行シート', 'showCsvImportDialogUnkou')
@@ -68,6 +69,10 @@ function autoFillExpense()        { return UnkouLib.autoFillExpense(); }
 function sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }
 function fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }
 function createUsageSheet()       { return UnkouLib.createUsageSheet(); }
+function showExportDialog()             { return UnkouLib.showExportDialog(); }
+function exportSheetAsCsvBase64(a)      { return UnkouLib.exportSheetAsCsvBase64(a); }
+function exportSelectedSheetsAsExcel(a) { return UnkouLib.exportSelectedSheetsAsExcel(a); }
+function exportPlBundle(a)              { return UnkouLib.exportPlBundle(a); }
 function installTriggers()        { return UnkouLib.installTriggers(); }
 function setRecalcChoice(a)       { return UnkouLib.setRecalcChoice(a); }
 function syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }

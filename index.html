@@ -2629,7 +2629,7 @@ function downloadExcel() {
       '</tr>';
   });
   html+='</table></body></html>';
-  var blob=new Blob([html],{type:'application/vnd.ms-excel'});
+  var blob=new Blob(['﻿'+html],{type:'application/vnd.ms-excel; charset=utf-8'});
   var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=listYear+'年'+listMonth+'月_運行一覧.xls'; a.click();
 }

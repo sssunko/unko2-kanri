@@ -173,6 +173,37 @@
     }
     #status.ok  { color: var(--accent); }
     #status.err { color: var(--red); }
+    /* ダウンロード選択 */
+    .dl-select {
+      margin-top: 8px;
+      padding: 9px 13px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .dl-select-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 7px;
+    }
+    .dl-check-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 3px 0;
+    }
+    .dl-check-label + .dl-check-label { margin-top: 3px; }
+    .dl-check-label input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+    .dl-check-label span { font-size: 12px; color: var(--text); }
     /* スクロールバー */
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -235,10 +266,23 @@
     </div>
   </div>
 
+  <!-- ダウンロード内容選択（②シート選択） -->
+  <div class="dl-select">
+    <div class="dl-select-title">ダウンロード内容</div>
+    <label class="dl-check-label">
+      <input type="checkbox" id="chkJournal" checked>
+      <span>📋 仕訳CSV（弥生インポート用）</span>
+    </label>
+    <label class="dl-check-label">
+      <input type="checkbox" id="chkPl" checked>
+      <span>📊 PL表CSV（管理・確認用）</span>
+    </label>
+  </div>
+
   <!-- ボタン -->
   <div class="btn-row">
     <button class="btn btn-cancel" onclick="google.script.host.close()">キャンセル</button>
-    <button class="btn btn-csv"      id="btnCsv"      onclick="exportCsv()">📋 仕訳CSV出力</button>
+    <button class="btn btn-csv"      id="btnCsv"      onclick="exportBundle()">📦 ZIPでDL</button>
     <button class="btn btn-generate" id="btnGenerate" onclick="generate()">📈 PL生成</button>
   </div>
   <div id="status"></div>
@@ -287,10 +331,10 @@
       return checked;
     }
 
-    function setStatus(msg, cls) {
+    function setStatus(msg, cls, isHtml) {
       var el = document.getElementById('status');
-      el.textContent = msg;
-      el.className   = cls || '';
+      if (isHtml) { el.innerHTML = msg; } else { el.textContent = msg; }
+      el.className = cls || '';
     }
 
     function setLoading(on) {
@@ -314,8 +358,7 @@
         .withSuccessHandler(function(res) {
           setLoading(false);
           if (res.ok) {
-            setStatus('✅ ' + res.msg + '  シート名: ' + res.sheetName, 'ok');
-            setTimeout(function(){ google.script.host.close(); }, 2200);
+            setStatus('✅ ' + res.msg + '　← 仕訳CSV出力ボタンも押せます', 'ok');
           } else {
             setStatus('⚠️ ' + res.msg, 'err');
           }
@@ -327,15 +370,23 @@
         .generatePl(filters);
     }
 
-    function exportCsv() {
+    function exportBundle() {
+      var inclJ = document.getElementById('chkJournal').checked;
+      var inclP = document.getElementById('chkPl').checked;
+      if (!inclJ && !inclP) { setStatus('⚠️ ダウンロード内容を選択してください', 'err'); return; }
       setLoading(true);
-      setStatus('CSV生成中...', '');
+      setStatus('ZIP生成中...', '');
       google.script.run
         .withSuccessHandler(function(res) {
           setLoading(false);
           if (res.ok) {
             setStatus('✅ ' + res.msg, 'ok');
-            window.open(res.url, '_blank');
+            var a = document.createElement('a');
+            a.href = 'data:application/zip;base64,' + res.base64;
+            a.download = res.fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
           } else {
             setStatus('⚠️ ' + res.msg, 'err');
           }
@@ -344,7 +395,7 @@
           setLoading(false);
           setStatus('❌ ' + (e.message || String(e)), 'err');
         })
-        .exportPlJournalCsv();
+        .exportPlBundle({ includeJournal: inclJ, includePl: inclP });
     }
 
     // 初期ロード

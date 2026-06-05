@@ -69,7 +69,13 @@
       "Bash(grep -v \"function\\\\|//\\\\|setValue\\\\|setBackground\\\\|import\\\\|export\")",
       "Bash(grep -v \"^.*//\\\\|荷主側\\\\|荷主様\")",
       "Bash(grep -v \"^.*//\\\\|^.*\\\\*\")",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "WebSearch",
+      "PowerShell(cd c:\\\\gas\\\\unko2-kanri\\\\stub_for_clientSS; \\(Get-Content appsscript.json\\) -replace '\"version\": \"388\"', '\"version\": \"389\"' | Set-Content appsscript.json; clasp push --force 2>&1)",
+      "PowerShell(cd c:\\\\gas\\\\unko2-kanri\\\\stub_for_clientSS; \\(Get-Content appsscript.json\\) -replace '\"version\": \"389\"', '\"version\": \"390\"' | Set-Content appsscript.json; clasp push --force 2>&1)",
+      "PowerShell(cd c:\\\\gas\\\\unko2-kanri\\\\stub_for_clientSS; \\(Get-Content appsscript.json\\) -replace '\"version\": \"390\"', '\"version\": \"391\"' | Set-Content appsscript.json; clasp push --force 2>&1)",
+      "Bash(grep -v \"//\\\\|startDay\\\\|startRow\\\\|startCol\")",
+      "Bash(awk -F: '$2 < 2100 && $2 > 2000 {print}')"
     ]
   }
 }
