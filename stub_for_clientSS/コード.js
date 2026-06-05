@@ -75,6 +75,7 @@ function exportSelectedSheetsAsExcel(a) { return UnkouLib.exportSelectedSheetsAs
 function exportPlBundle(a)              { return UnkouLib.exportPlBundle(a); }
 function installTriggers()        { return UnkouLib.installTriggers(); }
 function setRecalcChoice(a)       { return UnkouLib.setRecalcChoice(a); }
+function executeStatusSync(a,b)  { return UnkouLib.executeStatusSync(a,b); }
 function syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }
 
 // ── CSVインポート ─────────────────────────────────────────────────────

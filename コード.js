@@ -1449,25 +1449,28 @@ function applyMasterVehicleWarnings_(sheet) {
 //  ・ステータスが「運行」なら今日〜今月末の行を再生成
 //  ・skipSort=true のとき並び替え・色付けをスキップ（一括処理用）
 // ================================================================
-function syncVehicleToCurrentMonth_(veh, skipSort) {
+// ================================================================
+//  3-3b: 車両ステータス変更時の運行シート同期（syncVehicleToCurrentMonth_）
+//  [MOD-v1.2] 引数 applyDate を追加。起点日以降の空行削除と生成を行う
+// ================================================================
+function syncVehicleToCurrentMonth_(veh, skipSort, applyDate) {
   var carNo  = String(veh[7] || '').trim(); // H列(index7)=車番
   var status = String(veh[1] || '').trim(); // B列(index1)=ステータス
   if (!carNo) return;
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
-  var today = new Date(); today.setHours(0, 0, 0, 0);
-  ss.toast('sync開始 car=[' + carNo + '] st=[' + status + ']', 'DEBUG', 8);
-  // ① 今日以降の空行を削除（過去行・データあり行は一切触らない）
+
+  var targetDate = applyDate instanceof Date ? applyDate : new Date();
+  targetDate.setHours(0, 0, 0, 0);
+
+  // ① 適用日以降の空行を削除（過去行・データあり行は一切触らない）
   //    空行 = 荷主(K=10)〜売上(S=18) が全て空の行
   if (sheet.getLastRow() >= 2) {
     var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 19).getValues();
-    var toDelete = [];
-    var matchCount = 0;
+    var toDelete = [], toDeleteIds = [];
     for (var i = 0; i < data.length; i++) {
-      var cellCar = String(data[i][5] || '').trim();
-      if (cellCar !== carNo) continue;
-      matchCount++;
+      if (String(data[i][5] || '').trim() !== carNo) continue;
       var d = data[i][9];
       var dm;
       if (d instanceof Date) {
@@ -1481,32 +1484,36 @@ function syncVehicleToCurrentMonth_(veh, skipSort) {
       }
       if (!dm || isNaN(dm.getTime())) continue;
       dm.setHours(0, 0, 0, 0);
-      if (dm < today) continue;
-      // 荷主〜売上(index10〜18)のどれかに値があれば保護
+      if (dm < targetDate) continue;
+      // 荷主(K=10)〜売上(S=18)のどれかに値があれば保護（絶対に消さない）
       var hasData = false;
       for (var ci = 10; ci <= 18; ci++) {
         if (String(data[i][ci] || '').trim() !== '') { hasData = true; break; }
       }
       if (hasData) continue;
       toDelete.push(i + 2);
+      var rowId = String(data[i][0] || '').trim();
+      if (rowId) toDeleteIds.push(rowId);
     }
-    ss.toast('マッチ=' + matchCount + '行 削除対象=' + toDelete.length + '行', 'DEBUG', 8);
-    try {
-      for (var r = toDelete.length - 1; r >= 0; r--) sheet.deleteRow(toDelete[r]);
-    } catch(delErr) {
-      ss.toast('deleteRowエラー: ' + delErr.message, 'ERROR', 15);
+    if (toDelete.length > 0) {
+      deleteRowsGrouped_(sheet, toDelete);
+      // 削除したIDだけ集計表からピンポイント削除（全リビルド不要）
+      var sumSheet = ss.getSheetByName('集計表');
+      if (sumSheet && sumSheet.getLastRow() >= 2 && toDeleteIds.length > 0) {
+        var sumData = sumSheet.getRange(2, 1, sumSheet.getLastRow() - 1, 1).getValues();
+        var sumToDelete = [];
+        for (var si = 0; si < sumData.length; si++) {
+          if (toDeleteIds.indexOf(String(sumData[si][0] || '').trim()) !== -1) sumToDelete.push(si + 2);
+        }
+        if (sumToDelete.length > 0) deleteRowsGrouped_(sumSheet, sumToDelete);
+      }
     }
-  } else {
-    ss.toast('運行シート行なし', 'DEBUG', 5);
   }
-  // ② 集計表の孤立ID（削除した行のID）を除去
-  cleanAllOrphanSummary_();
-  // ③ ステータスが「運行」なら今日〜今月末の行を生成（既存行程のある日はスキップ）
+
+  // ③ ステータスが「運行」なら起点日〜今月末の行を生成（既存行程のある日はスキップ）
   if (status === '運行') {
-    var now = new Date();
-    var yr = now.getFullYear(), mo = now.getMonth(), startDay = now.getDate();
+    var yr = targetDate.getFullYear(), mo = targetDate.getMonth(), startDay = targetDate.getDate();
     var endDay = new Date(yr, mo + 1, 0).getDate();
-    // 削除後の現状を読み直して、この車番で既に行がある日付を収集
     var existingDates = {};
     if (sheet.getLastRow() >= 2) {
       var remainData = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
@@ -1526,7 +1533,7 @@ function syncVehicleToCurrentMonth_(veh, skipSort) {
       var rowsData  = [], formulas = [];
       for (var day = startDay; day <= endDay; day++) {
         var dateMid = new Date(yr, mo, day); dateMid.setHours(0, 0, 0, 0);
-        if (existingDates[dateMid.getTime()]) continue; // 既存行程のある日はスキップ
+        if (existingDates[dateMid.getTime()]) continue;
         var rowId = 'V-' + String(nextNum).padStart(4, '0'); nextNum++;
         var rn    = insertRow + rowsData.length;
         rowsData.push([rowId, veh[2], veh[3], veh[5], veh[6], veh[7], veh[8], veh[9],
@@ -1542,7 +1549,8 @@ function syncVehicleToCurrentMonth_(veh, skipSort) {
       SpreadsheetApp.flush();
     } finally { lock.releaseLock(); }
   }
-  if (!skipSort) { sortUnkouByDate_(); applyHolidayRowColors_(); }
+  // 運行（行追加あり）の時だけソート・色付けを実行。待機/故障は削除のみなので不要
+  if (!skipSort && status === '運行') { sortUnkouByDate_(); applyHolidayRowColors_(); }
 }
 
 
@@ -6285,6 +6293,7 @@ function getClientStubSource_() {
     "function createUsageSheet(){return UnkouLib.createUsageSheet();}",
     "function installTriggers(){return UnkouLib.installTriggers();}",
     "function setRecalcChoice(a){return UnkouLib.setRecalcChoice(a);}",
+    "function executeStatusSync(a,b){return UnkouLib.executeStatusSync(a,b);}",
     "function syncToAllClientSS(){return UnkouLib.syncToAllClientSS();}",
     "function storeCompanySsId(a){return UnkouLib.storeCompanySsId(a);}",
     "function getInitialData(a,b){return UnkouLib.getInitialData(a,b);}",
@@ -7462,7 +7471,7 @@ function installedOnEdit_(e) {
         '    .withSuccessHandler(function(){' +
         '      google.script.host.close();' +
         '    })' +
-        '    .executeStatusSync_(' + row + ', v);' +
+        '    .executeStatusSync(' + row + ', v);' +
         '}' +
         '<\/script>'
       ).setWidth(300).setHeight(290);
@@ -9999,7 +10008,7 @@ function initFixedCostMaster() {
 // ================================================================
 //  [ADD-v1.2] ポップアップから呼ばれ、指定された日付を起点に運行シートを同期する
 // ================================================================
-function executeStatusSync_(row, choice) {
+function executeStatusSync(row, choice) {
   if (choice === 'cancel') return;
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var master = ss.getSheetByName('自車専属マスタ');
