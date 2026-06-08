@@ -32,6 +32,7 @@ table.doc-tbl td[contenteditable]:focus{background:#fffde7;}
 table.doc-tbl td.ctr{text-align:center;}
 table.doc-tbl td.num{text-align:right;}
 .footer-note{text-align:right;font-size:8pt;color:#888;margin-top:8px;}
+@page{size:landscape;margin:0;}
 @media print{
   .toolbar{display:none!important;}
   body{background:#fff;}
@@ -144,7 +145,7 @@ function onEmailSend() {
     .withSuccessHandler(function(r) {
       if (r && r.ok) {
         alert(r.msg);
-        btn.textContent = '✅ 送信済み'; btn.className = 'tbtn tbtn-sent';
+        btn.textContent = '✅ 送信完了'; btn.className = 'tbtn tbtn-sent';
       } else {
         alert((r && r.msg) || '送信に失敗しました。');
         btn.disabled = false; btn.textContent = '✉️ メール送信';
@@ -169,7 +170,7 @@ function onFaxSend() {
     .withSuccessHandler(function(r) {
       if (r && r.ok) {
         alert(r.msg);
-        btn.textContent = '✅ 送信済み'; btn.className = 'tbtn tbtn-sent';
+        btn.textContent = '✅ 送信完了'; btn.className = 'tbtn tbtn-sent';
       } else {
         alert((r && r.msg) || '送信に失敗しました。');
         btn.disabled = false; btn.textContent = '📠 FAX送信';

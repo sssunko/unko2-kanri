@@ -18,6 +18,8 @@ function onOpen() {
     .addItem('📄 支払確認書生成', 'showPaymentDialog')
     .addSeparator()
     .addItem('集計表再生成', 'generateSummary')
+    .addItem('📏 距離計算（未計算分）', 'calcDistanceManual')
+    .addItem('🗾 距離マスタ 主要地データ投入', 'initDistanceMasterMajorCities')
     .addItem('シート再生成', 'expandAndRefreshSheets')
     .addItem('💴 経費自動入力', 'autoFillExpense')
     .addItem('🔃 日付順並び替え', 'sortBothSheetsByDate')
@@ -64,6 +66,8 @@ function archiveOldMonth()        { return UnkouLib.archiveOldMonth(); }
 
 // ── シート管理 ────────────────────────────────────────────────────────
 function generateSummary()        { return UnkouLib.generateSummary(); }
+function calcDistanceManual()              { return UnkouLib.calcDistanceManual(); }
+function initDistanceMasterMajorCities()  { return UnkouLib.initDistanceMasterMajorCities(); }
 function expandAndRefreshSheets() { return UnkouLib.expandAndRefreshSheets(); }
 function autoFillExpense()        { return UnkouLib.autoFillExpense(); }
 function sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }

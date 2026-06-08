@@ -725,6 +725,8 @@ function onOpen() {
     .addSeparator()
     .addItem('🔄 メニュー再生成（F5でOK）', 'reloadMenu')
     .addItem('集計表再生成', 'generateSummary')
+    .addItem('📏 距離計算（未計算分）', 'calcDistanceManual')
+    .addItem('🗾 距離マスタ 主要地データ投入', 'initDistanceMasterMajorCities')
     .addItem('シート再生成', 'expandAndRefreshSheets')
     .addItem('💴 経費自動入力', 'autoFillExpense')
     .addItem('🔃 日付順並び替え', 'sortBothSheetsByDate')
@@ -4087,7 +4089,11 @@ function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, emai
     }
 
     // 集計表を非同期で同期（遅延実行）
-    delaySyncSummary_(sameId);
+    delaySyncSummary_(sameId, ss);
+    SpreadsheetApp.flush(); // 集計表への書き込みを確定してから距離マスタ照合
+
+    // 距離マスタを照合して集計表W列に即時反映（なければMaps APIで即時計算）
+    lookupAndSetDistanceAfterCreate_(ss, sameId, picks, drops);
 
     // 日付順にソート（新規行が末尾に追加されているため）
     sortUnkouByDate_(companySsId);
@@ -6286,6 +6292,8 @@ function getClientStubSource_() {
     "function generateNextMonth(){return UnkouLib.generateNextMonth();}",
     "function archiveOldMonth(){return UnkouLib.archiveOldMonth();}",
     "function generateSummary(){return UnkouLib.generateSummary();}",
+    "function calcDistanceManual(){return UnkouLib.calcDistanceManual();}",
+    "function initDistanceMasterMajorCities(){return UnkouLib.initDistanceMasterMajorCities();}",
     "function expandAndRefreshSheets(){return UnkouLib.expandAndRefreshSheets();}",
     "function autoFillExpense(){return UnkouLib.autoFillExpense();}",
     "function sortBothSheetsByDate(){return UnkouLib.sortBothSheetsByDate();}",
@@ -7376,6 +7384,303 @@ function processPendingCompanies_() {
 
 
 // ================================================================
+//  [ADD] 距離マスタ・自動距離計算 ユーティリティ群
+//  距離マスタシートへのキャッシュ照合・Maps API計算・集計表W列反映を担う。
+//  行程入力時にキャッシュヒットすれば即時反映。未ヒットは13時トリガーorメニューで補完。
+// ================================================================
+
+// 地名文字列の先頭の丸数字（①〜⑩）を解析して順序と地名を返す
+function parseLocation_(str) {
+  str = String(str || '').trim();
+  var circled = '①②③④⑤⑥⑦⑧⑨⑩';
+  if (str.length > 0 && circled.indexOf(str.charAt(0)) >= 0) {
+    return { order: circled.indexOf(str.charAt(0)) + 1, location: str.slice(1).trim() };
+  }
+  return { order: 0, location: str };
+}
+
+// picks/drops 配列からルートキーを生成（①②順・なければ積地→降地の入力順）
+function buildRouteKeyFromPicksDrops_(picks, drops) {
+  var entries = [];
+  for (var i = 0; i < picks.length; i++) {
+    var p = parseLocation_(picks[i] || '');
+    var d = parseLocation_(drops[i] || '');
+    if (p.location) entries.push({ order: p.order || 999, location: p.location });
+    if (d.location) entries.push({ order: d.order || 999, location: d.location });
+  }
+  if (!entries.length) return '';
+  var hasNum = entries.some(function(e) { return e.order < 999; });
+  if (hasNum) entries.sort(function(a, b) { return a.order - b.order; });
+  return entries.map(function(e) { return e.location; }).join('→');
+}
+
+// 運行シートデータから積完/降完の時刻順でルートキーを生成（トリガー・手動ボタン用）
+function buildTimeOrderedRouteKey_(unkouData, targetId) {
+  var events = [];
+  for (var i = 1; i < unkouData.length; i++) {
+    var r = unkouData[i];
+    if (String(r[0] || '').trim() !== targetId) continue;
+    var pickTime = r[14]; // O列=積完時刻
+    var pickLoc  = parseLocation_(String(r[11] || '')).location;
+    if (pickTime instanceof Date && pickLoc) events.push({ time: pickTime, loc: pickLoc });
+    var dropTime = r[17]; // R列=降完時刻
+    var dropLoc  = parseLocation_(String(r[12] || '')).location;
+    if (dropTime instanceof Date && dropLoc) events.push({ time: dropTime, loc: dropLoc });
+  }
+  if (!events.length) return null;
+  events.sort(function(a, b) { return a.time - b.time; });
+  return events.map(function(e) { return e.loc; }).join('→');
+}
+
+// 距離マスタシートを取得または作成（なければ新規作成してヘッダーを書く）
+function getOrCreateDistanceMasterSheet_(ss) {
+  var sh = ss.getSheetByName('距離マスタ');
+  if (!sh) {
+    sh = ss.insertSheet('距離マスタ');
+    sh.getRange(1, 1, 1, 4).setValues([['ルートキー', '距離(km)', '計算方法', '更新日']]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+// 距離マスタを {ルートキー: km} のマップとして一括ロード（API呼び出し1回）
+function loadDistanceMasterMap_(ss) {
+  var sh  = getOrCreateDistanceMasterSheet_(ss);
+  var map = {};
+  var lr  = sh.getLastRow();
+  if (lr < 2) return map;
+  var data = sh.getRange(2, 1, lr - 1, 2).getValues();
+  for (var i = 0; i < data.length; i++) {
+    var key = String(data[i][0] || '').trim();
+    var km  = Number(data[i][1]) || 0;
+    if (key && km) map[key] = km;
+  }
+  return map;
+}
+
+// 距離マスタに新規ルートを一括追記（既存キーはスキップ・setValuesで一括書き込み）
+function appendDistanceMasterRows_(ss, newRoutes) {
+  if (!newRoutes || !newRoutes.length) return;
+  var sh    = getOrCreateDistanceMasterSheet_(ss);
+  var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+  var rows  = newRoutes.map(function(r) { return [r.key, r.km, r.method, today]; });
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, 4).setValues(rows);
+}
+
+// Google Maps Directions API で経由地込みの走行距離を計算して km を返す
+function calcDistanceMapsApi_(locations) {
+  if (!locations || locations.length < 2) return null;
+  try {
+    var finder = Maps.newDirectionFinder().setMode(Maps.DirectionFinder.Mode.DRIVING);
+    finder.setOrigin(locations[0]);
+    for (var i = 1; i < locations.length - 1; i++) finder.addWaypoint(locations[i]);
+    finder.setDestination(locations[locations.length - 1]);
+    var dirs = finder.getDirections();
+    if (!dirs || !dirs.routes || !dirs.routes.length) return null;
+    var total = 0;
+    dirs.routes[0].legs.forEach(function(leg) { total += leg.distance.value; });
+    return Math.round(total / 1000);
+  } catch(e) { return null; }
+}
+
+// 集計表W列（距離・col23）に値をセット。isAuto=trueで緑文字（API計算済み）
+function setDistanceInSummary_(ss, id, km, isAuto) {
+  var sh = ss.getSheetByName('集計表');
+  if (!sh || sh.getLastRow() < 2) return;
+  var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0] || '').trim() !== String(id).trim()) continue;
+    var cell = sh.getRange(i + 2, 23);
+    cell.setValue(km);
+    if (isAuto) cell.setFontColor('#1a9a50');
+    return;
+  }
+}
+
+// 行程作成直後に距離マスタを照合して即時反映（ヒットしなければ無処理・失敗してもOK）
+function lookupAndSetDistanceAfterCreate_(ss, id, picks, drops) {
+  try {
+    var routeKey = buildRouteKeyFromPicksDrops_(picks, drops);
+    if (!routeKey) return;
+    var map = loadDistanceMasterMap_(ss);
+    if (map[routeKey] !== undefined) {
+      setDistanceInSummary_(ss, id, map[routeKey], true);
+      return;
+    }
+    // マスタにない場合はMaps APIで即時計算してマスタ追加＋即時反映
+    var locs = routeKey.split('→');
+    if (locs.length < 2) return;
+    var km = calcDistanceMapsApi_(locs);
+    if (km !== null) {
+      setDistanceInSummary_(ss, id, km, true);
+      appendDistanceMasterRows_(ss, [{ key: routeKey, km: km, method: 'API' }]);
+    }
+  } catch(e) {}
+}
+
+// 降完あり・距離未入力の行を一括処理してW列に反映（トリガー・手動ボタン共通）
+function calcDistanceForAllPending_(ss) {
+  var sumSh   = ss.getSheetByName('集計表');
+  var unkouSh = ss.getSheetByName('運行');
+  if (!sumSh || !unkouSh || sumSh.getLastRow() < 2) return 0;
+
+  var numRows  = sumSh.getLastRow() - 1;
+  var sumCols  = Math.max(sumSh.getLastColumn(), 37);
+  var sumData  = sumSh.getRange(2, 1, numRows, sumCols).getValues();
+  var sumFonts = sumSh.getRange(2, 1, numRows, sumCols).getFontColors();
+  var unkouData = unkouSh.getDataRange().getValues();
+  var masterMap = loadDistanceMasterMap_(ss);
+
+  var GREEN     = '#1a9a50';
+  var newRoutes = [];
+  var processed = 0;
+  var apiCalls  = 0;
+
+  for (var i = 0; i < sumData.length; i++) {
+    var id = String(sumData[i][0] || '').trim();
+    if (!id) continue;
+
+    // 緑（API計算済み）はスキップ。空・黒（手入力）は全て処理して緑に上書き
+    var curDist = sumData[i][22];
+    var curFont = String(sumFonts[i][22] || '').toLowerCase();
+    var alreadyGreen = (curFont === '#1a9a50') && curDist !== '' && curDist !== null && curDist !== undefined;
+    if (alreadyGreen) continue;
+
+    // 積地・降地がなければスキップ（空行）
+    var pickStr = String(sumData[i][11] || '').trim(); // L列=積地
+    var dropStr = String(sumData[i][12] || '').trim(); // M列=降地
+    if (!pickStr || !dropStr) continue;
+
+    // STEP1: 積地/降地のシンプルキーでマスタ照合（降完不要）
+    var pickArr   = pickStr.split('・');
+    var dropArr   = dropStr.split('・');
+    var simpleKey = buildRouteKeyFromPicksDrops_(pickArr, dropArr);
+    if (simpleKey && masterMap[simpleKey] !== undefined) {
+      sumData[i][22]  = masterMap[simpleKey];
+      sumFonts[i][22] = GREEN;
+      processed++;
+      continue;
+    }
+
+    // STEP2: 降完ありなら時刻順キーでもマスタ照合
+    var routeKey = null;
+    if (sumData[i][17]) {
+      routeKey = buildTimeOrderedRouteKey_(unkouData, id);
+      if (routeKey && masterMap[routeKey] !== undefined) {
+        sumData[i][22]  = masterMap[routeKey];
+        sumFonts[i][22] = GREEN;
+        processed++;
+        continue;
+      }
+    }
+
+    // STEP3: Maps API 計算（降完あり→時刻順、なし→シンプル順）
+    var apiKey  = routeKey || simpleKey;
+    var apiLocs = apiKey ? apiKey.split('→') : null;
+    if (!apiLocs || apiLocs.length < 2) continue;
+
+    var km = calcDistanceMapsApi_(apiLocs);
+    if (km !== null) {
+      sumData[i][22]    = km;
+      sumFonts[i][22]   = GREEN;
+      masterMap[apiKey] = km;
+      newRoutes.push({ key: apiKey, km: km, method: 'API' });
+      processed++;
+    }
+    apiCalls++;
+    if (apiCalls % 10 === 0) Utilities.sleep(500);
+  }
+
+  // W列のみ一括書き込み（setValues + setFontColors各1回）
+  if (processed > 0) {
+    var distVals  = sumData.map(function(r) { return [r[22]]; });
+    var distFonts = sumFonts.map(function(r) { return [r[22]]; });
+    sumSh.getRange(2, 23, numRows, 1).setValues(distVals);
+    sumSh.getRange(2, 23, numRows, 1).setFontColors(distFonts);
+  }
+  if (newRoutes.length) appendDistanceMasterRows_(ss, newRoutes);
+  return processed;
+}
+
+// 毎日13時に自動実行されるトリガー関数
+function calcDistanceTrigger_() {
+  var ssId = PropertiesService.getScriptProperties().getProperty('masterSsId');
+  var ss   = ssId ? SpreadsheetApp.openById(ssId) : SpreadsheetApp.getActiveSpreadsheet();
+  calcDistanceForAllPending_(ss);
+}
+
+// メニュー「距離計算（未計算分）」ボタン
+function calcDistanceManual() {
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var cnt = calcDistanceForAllPending_(ss);
+  SpreadsheetApp.getUi().alert(cnt + '件の距離を計算・反映しました。\n\n※ 降完時刻が空の行はスキップします。');
+}
+
+// 全国主要都市ペアの距離をMaps APIで一括取得して距離マスタに登録する初期データ投入
+function initDistanceMasterMajorCities() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = ui.alert(
+    '全国主要ルートをMaps APIで計算して距離マスタに登録します。\n（約40〜50件・2〜3分かかります）\n\nよろしいですか？',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (resp !== ui.Button.OK) return;
+
+  var ss        = SpreadsheetApp.getActiveSpreadsheet();
+  var masterMap = loadDistanceMasterMap_(ss);
+
+  // ハブ都市（幹線）
+  var hubs = [
+    '大阪市', '東京都', '名古屋市', '福岡市', '広島市', '仙台市', '札幌市'
+  ];
+  // 主要地方都市
+  var regionals = [
+    '神戸市', '京都市', '岡山市', '高松市', '松山市', '高知市', '徳島市',
+    '和歌山市', '奈良市', '津市', '大津市', '金沢市', '富山市', '新潟市',
+    '静岡市', '横浜市', 'さいたま市', '千葉市', '宇都宮市', '水戸市',
+    '北九州市', '熊本市', '鹿児島市', '長崎市', '大分市', '宮崎市',
+    '山口市', '鳥取市', '松江市', '山形市', '盛岡市', '青森市',
+    '八尾市', '吹田市', '堺市', '東大阪市', '尼崎市'
+  ];
+  var allCities = hubs.concat(regionals);
+
+  // 登録するペアを組み立て（ハブ→全都市 + ハブ間双方向）
+  var pairs = [];
+  for (var h = 0; h < hubs.length; h++) {
+    for (var c = 0; c < allCities.length; c++) {
+      if (hubs[h] === allCities[c]) continue;
+      var key  = hubs[h] + '→' + allCities[c];
+      var keyR = allCities[c] + '→' + hubs[h];
+      if (masterMap[key]  === undefined) pairs.push({ from: hubs[h],   to: allCities[c], key: key });
+      if (masterMap[keyR] === undefined) pairs.push({ from: allCities[c], to: hubs[h],   key: keyR });
+    }
+  }
+
+  var newRoutes = [];
+  var apiCount  = 0;
+  var totalSaved = 0;
+  for (var i = 0; i < pairs.length; i++) {
+    var km = calcDistanceMapsApi_([pairs[i].from, pairs[i].to]);
+    if (km !== null) {
+      newRoutes.push({ key: pairs[i].key, km: km, method: 'API' });
+      masterMap[pairs[i].key] = km;
+    }
+    apiCount++;
+    // 20件ごとに途中保存（タイムアウトしても進捗が消えない）
+    if (newRoutes.length > 0 && apiCount % 20 === 0) {
+      appendDistanceMasterRows_(ss, newRoutes);
+      totalSaved += newRoutes.length;
+      newRoutes = [];
+    }
+    if (apiCount % 10 === 0) Utilities.sleep(500);
+    if (apiCount >= 200) break; // 6分タイムアウト回避
+  }
+
+  if (newRoutes.length) { appendDistanceMasterRows_(ss, newRoutes); totalSaved += newRoutes.length; }
+  ui.alert(totalSaved + '件の主要ルートを距離マスタに登録しました。\n\n残りがある場合はもう一度実行してください。');
+}
+
+
+// ================================================================
 //  13-1: インストール型トリガーのセットアップ（installTriggers）  【大C / 中13 / 小13-1】
 //  最初に1回だけ実行する。これ以降は会社登録シートのA+B列入力で完全自動化される。
 //  メニュー「🔧 初期設定（最初に1回だけ押す）」から実行。
@@ -7418,6 +7723,16 @@ function installTriggers() {
     .onEdit()
     .create();
 
+  // 毎日13時に距離自動計算を実行するトリガーを登録（既存があれば削除して再登録）
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'calcDistanceTrigger_') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('calcDistanceTrigger_')
+    .timeBased()
+    .atHour(13)
+    .everyDays(1)
+    .create();
+
   var finalUrl = props.getProperty('webAppUrl') || '（未設定 — URLを貼り付けてから再実行してください）';
   ui.alert(
     '初期設定が完了しました！\n\n' +
@@ -7427,6 +7742,68 @@ function installTriggers() {
   );
 }
 
+
+// ================================================================
+//  13-1b: PL設定按分を全マスタ行に即時反映（updatePlApportionment_）
+// ================================================================
+function updatePlApportionment_(ss) {
+  var plSheet     = ss.getSheetByName('PL設定');
+  var masterSheet = ss.getSheetByName('自車専属マスタ');
+  if (!plSheet || !masterSheet || masterSheet.getLastRow() < 2) return;
+
+  // PL設定合計（フラグONのみ）
+  var plTotal = 0;
+  if (plSheet.getLastRow() >= 2) {
+    var plData = plSheet.getRange(2, 1, plSheet.getLastRow() - 1, 5).getValues();
+    for (var pi = 0; pi < plData.length; pi++) {
+      var plName = String(plData[pi][0] || '').trim();
+      var plAmt  = Number(plData[pi][1]) || 0;
+      var plFlag = plData[pi][4];
+      if (!plName) continue;
+      if (plFlag === false || String(plFlag).toUpperCase() === 'FALSE') continue;
+      plTotal += plAmt;
+    }
+  }
+
+  // 稼働台数（運行のみ）
+  var masterLR  = masterSheet.getLastRow();
+  var statusVals = masterSheet.getRange(2, 2, masterLR - 1, 1).getValues();
+  var activeCars = 0;
+  for (var si = 0; si < statusVals.length; si++) {
+    if (String(statusVals[si][0] || '').trim() === '運行') activeCars++;
+  }
+  if (activeCars < 1) activeCars = 1;
+  var plTotalPerCar = Math.round(plTotal / activeCars);
+
+  // AG列をヘッダー名で特定（存在しなければ何もしない）
+  var lastCol = masterSheet.getLastColumn();
+  var hdrs = masterSheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h){ return String(h||'').trim(); });
+  var agColIdx = hdrs.indexOf('PL設定按分（参照）');
+  if (agColIdx === -1) return;
+  var agCol = agColIdx + 1; // 1-based
+
+  // [MOD-v1.3] ループ内setValue廃止→配列構築後に一括setValues/setFontColors/setNumberFormatsへ変更
+  var numRows    = statusVals.length;
+  var writeVals  = [];
+  var writeFonts = [];
+  var writeFmts  = [];
+  for (var i = 0; i < numRows; i++) {
+    var rowStatus = String(statusVals[i][0] || '').trim();
+    if (rowStatus === '運行') {
+      writeVals.push([plTotalPerCar]);
+      writeFonts.push(['#1a9a50']);
+      writeFmts.push(['#,##0']);
+    } else {
+      writeVals.push(['']);
+      writeFonts.push(['#000000']);
+      writeFmts.push(['']);
+    }
+  }
+  var agRange = masterSheet.getRange(2, agCol, numRows, 1);
+  agRange.setValues(writeVals);
+  agRange.setFontColors(writeFonts);
+  agRange.setNumberFormats(writeFmts);
+}
 
 // ================================================================
 //  13-2: インストール型onEditトリガー（installedOnEdit_）  【大B / 中13 / 小13-2】
@@ -7476,6 +7853,33 @@ function installedOnEdit_(e) {
         '<\/script>'
       ).setWidth(300).setHeight(290);
       SpreadsheetApp.getUi().showModalDialog(mHtml, 'いつから適用しますか？');
+      return;
+    }
+
+    // PL設定シートが変更されたら自車専属マスタのAG列を即時更新
+    if (sheetName === 'PL設定' && row >= 2) {
+      updatePlApportionment_(e.source);
+      return;
+    }
+
+    // 運行シートのL列（積地）またはM列（降地）を直接編集したら距離を即時反映
+    if (sheetName === '運行' && (col === 12 || col === 13) && row >= 2) {
+      var ss_ = e.source;
+      var id  = String(sheet.getRange(row, 1).getValue() || '').trim();
+      if (id) {
+        var allData_ = sheet.getDataRange().getValues();
+        var picksArr_ = [], dropsArr_ = [];
+        for (var ri_ = 1; ri_ < allData_.length; ri_++) {
+          if (String(allData_[ri_][0] || '').trim() !== id) continue;
+          var pv_ = String(allData_[ri_][11] || '').trim();
+          var dv_ = String(allData_[ri_][12] || '').trim();
+          if (pv_) picksArr_.push(pv_);
+          if (dv_) dropsArr_.push(dv_);
+        }
+        if (picksArr_.length && dropsArr_.length) {
+          lookupAndSetDistanceAfterCreate_(ss_, id, picksArr_, dropsArr_);
+        }
+      }
       return;
     }
 
@@ -8240,7 +8644,7 @@ function markDocumentIssued(rowId, docType) {
   var ids = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
   for (var i = 0; i < ids.length; i++) {
     if (String(ids[i][0]||'').trim() === rowId) {
-      sheet.getRange(i + 2, colIdx + 1).setValue('済');
+      sheet.getRange(i + 2, colIdx + 1).setValue(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'MM/dd HH:mm'));
       SpreadsheetApp.getActiveSpreadsheet().toast(
         colName + ' を発行済にしました（ID: ' + rowId + '）', '✅', 3
       );
@@ -9027,7 +9431,7 @@ function generateUketorishoSheet(filters) {
     for (var ri = 0; ri < allIds.length; ri++) {
       var rid = String(allIds[ri][0]||'').trim();
       if (seen[rid]) {
-        unkou.getRange(ri + 2, ukCol + 1).setValue('済 ' + now);
+        unkou.getRange(ri + 2, ukCol + 1).setValue(now);
       }
     }
   }
@@ -9041,7 +9445,7 @@ function generateUketorishoSheet(filters) {
     + '?format=pdf'
     + '&gid=' + sh.getSheetId()
     + '&size=A4'
-    + '&portrait=true'
+    + '&portrait=false'
     + '&fitw=true'
     + '&gridlines=false'
     + '&top_margin=0.20'
