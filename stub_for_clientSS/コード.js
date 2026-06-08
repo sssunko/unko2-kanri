@@ -34,6 +34,8 @@ function onOpen() {
       .addItem('自車専属マスタ', 'showCsvImportDialogMaster')
       .addItem('マスタ（取引先）', 'showCsvImportDialogCust')
       .addSeparator()
+      .addItem('⛽ ETC利用明細', 'showEtcImportDialog')
+      .addSeparator()
       .addItem('🗑 空インポート行を削除', 'deleteBlankImportRows'))
     .addSeparator()
     .addSubMenu(ui.createMenu('📋 帳票・送信メニュー')
@@ -86,6 +88,9 @@ function syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }
 function showCsvImportDialogUnkou()      { return UnkouLib.showCsvImportDialogUnkou(); }
 function showCsvImportDialogMaster()     { return UnkouLib.showCsvImportDialogMaster(); }
 function showCsvImportDialogCust()       { return UnkouLib.showCsvImportDialogCust(); }
+function showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }
+function prepareEtcImport(a,b,c)         { return UnkouLib.prepareEtcImport(a,b,c); }
+function executeEtcImport(a,b,c,d)       { return UnkouLib.executeEtcImport(a,b,c,d); }
 function deleteBlankImportRows()         { return UnkouLib.deleteBlankImportRows(); }
 function getImportDictionary(a,b)        { return UnkouLib.getImportDictionary(a,b); }
 function importBulkRows(a,b,c)           { return UnkouLib.importBulkRows(a,b,c); }

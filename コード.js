@@ -741,6 +741,8 @@ function onOpen() {
       .addItem('自車専属マスタ', 'showCsvImportDialogMaster')
       .addItem('マスタ（取引先）', 'showCsvImportDialogCust')
       .addSeparator()
+      .addItem('⛽ ETC利用明細', 'showEtcImportDialog')
+      .addSeparator()
       .addItem('🗑 空インポート行を削除', 'deleteBlankImportRows'))
     .addSeparator()
     .addItem('シート保護設定', 'setupSheetProtection')
@@ -6239,7 +6241,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
       timeZone: 'Asia/Tokyo',
       dependencies: { libraries: [{ userSymbol: 'UnkouLib',
         libraryId: '1n79omnAcdsEojMRyjnj9-Ic9pIl1-7Nt_HB7Avy0NVFizOSeqt0guqyZ',
-        version: libVer, developmentMode: true }] },
+        version: libVer, developmentMode: false }] },
       webapp: { executeAs: 'USER_DEPLOYING', access: 'ANYONE_ANONYMOUS' },
       oauthScopes: [
         'https://www.googleapis.com/auth/spreadsheets',
@@ -6253,7 +6255,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
     });
 
     // スタブコード書き込み
-    UrlFetchApp.fetch(apiBase + '/' + scriptId + '/content', {
+    var putResp = UrlFetchApp.fetch(apiBase + '/' + scriptId + '/content', {
       method: 'PUT', headers: hdrs,
       payload: JSON.stringify({ files: [
         { name: 'appsscript', type: 'JSON',      source: manifest },
@@ -6261,27 +6263,43 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
       ]}),
       muteHttpExceptions: true
     });
+    if (putResp.getResponseCode() !== 200) {
+      return { error: 'content PUT ' + putResp.getResponseCode() + ': ' + putResp.getContentText().slice(0, 120) };
+    }
+
+    // バージョン作成（デプロイに必要）
+    var verResp = UrlFetchApp.fetch(apiBase + '/' + scriptId + '/versions', {
+      method: 'POST', headers: hdrs,
+      payload: JSON.stringify({ description: companyName + '_auto' }),
+      muteHttpExceptions: true
+    });
+    var verData = JSON.parse(verResp.getContentText());
+    var versionNum = verData.versionNumber || null;
 
     // WebApp デプロイ作成
+    var deployPayload = { description: companyName + '_WebApp', manifestFileName: 'appsscript' };
+    if (versionNum) deployPayload.versionNumber = versionNum;
     var dr = UrlFetchApp.fetch(apiBase + '/' + scriptId + '/deployments', {
       method: 'POST', headers: hdrs,
-      payload: JSON.stringify({ description: companyName + '_WebApp', manifestFileName: 'appsscript' }),
+      payload: JSON.stringify(deployPayload),
       muteHttpExceptions: true
     });
     var drData = JSON.parse(dr.getContentText());
-    if (!drData.deploymentId) return null;
+    if (!drData.deploymentId) {
+      return { error: 'deploy ' + dr.getResponseCode() + ': ' + dr.getContentText().slice(0, 120) };
+    }
 
     var webAppUrl = 'https://script.google.com/macros/s/' + drData.deploymentId + '/exec';
     PropertiesService.getScriptProperties().setProperty('scriptId_' + ssId, scriptId);
     return { scriptId: scriptId, webAppUrl: webAppUrl };
-  } catch(e) { return null; }
+  } catch(e) { return { error: 'EXCEPTION: ' + (e.message || String(e)) }; }
 }
 
 
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('🔄 メニュー再生成','reloadMenu').addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('🔄 メニュー再生成','reloadMenu').addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('⛽ ETC利用明細','showEtcImportDialog').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
@@ -6344,6 +6362,9 @@ function getClientStubSource_() {
     "function showCsvImportDialogUnkou(){return UnkouLib.showCsvImportDialogUnkou();}",
     "function showCsvImportDialogMaster(){return UnkouLib.showCsvImportDialogMaster();}",
     "function showCsvImportDialogCust(){return UnkouLib.showCsvImportDialogCust();}",
+    "function showEtcImportDialog(){return UnkouLib.showEtcImportDialog();}",
+    "function prepareEtcImport(a,b,c){return UnkouLib.prepareEtcImport(a,b,c);}",
+    "function executeEtcImport(a,b,c,d){return UnkouLib.executeEtcImport(a,b,c,d);}",
     "function deleteBlankImportRows(){return UnkouLib.deleteBlankImportRows();}",
     "function getImportDictionary(a,b){return UnkouLib.getImportDictionary(a,b);}",
     "function importBulkRows(a,b,c){return UnkouLib.importBulkRows(a,b,c);}",
@@ -6953,20 +6974,13 @@ function syncToTemplateSS() {
   var tgtSs    = SpreadsheetApp.openById(templateSsId);
   DriveApp.getFileById(tgtSs.getId()).setName('客用');
 
-  // ① バージョン作成（60分以内に作成済みなら再利用してバージョン消費を節約）
-  var lastVerTime = Number(props.getProperty('lastLibVersionTime') || 0);
-  var lastVerNum  = Number(props.getProperty('lastLibVersionNum')  || 0);
-  var newVersion;
-  if (lastVerNum > 0 && (Date.now() - lastVerTime) < 60 * 60 * 1000) {
-    newVersion = lastVerNum;
-  } else {
-    newVersion = createLibraryVersion_(
-      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm') + ' テスト客SS反映'
-    );
-    if (newVersion) {
-      props.setProperty('lastLibVersionTime', String(Date.now()));
-      props.setProperty('lastLibVersionNum',  String(newVersion));
-    }
+  // ① 毎回新バージョン作成（デプロイ後の最新コードを確実に反映するため）
+  var newVersion = createLibraryVersion_(
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm') + ' テスト客SS反映'
+  );
+  if (newVersion) {
+    props.setProperty('lastLibVersionTime', String(Date.now()));
+    props.setProperty('lastLibVersionNum',  String(newVersion));
   }
   if (newVersion) {
     var tmplStubResult = updateStubVersion_(TEMPLATE_SCRIPT_ID, newVersion);
@@ -10467,4 +10481,309 @@ function executeStatusSync(row, choice) {
   }
 
   syncVehicleToCurrentMonth_(mRowData, false, applyDate);
+}
+
+
+// ================================================================
+// ■ グループ13追記：ETC利用明細 CSV読込
+// ================================================================
+
+// ================================================================
+//  13-10: ETC利用明細インポートダイアログ表示（showEtcImportDialog）  【大C / 中13 / 小13-10】
+// ================================================================
+function showEtcImportDialog() {
+  var ss   = SpreadsheetApp.getActiveSpreadsheet();
+  var ssId = ss.getId();
+  if (!ss.getSheetByName('集計表')) {
+    var linked = PropertiesService.getUserProperties().getProperty('linkedSsId');
+    if (linked) ssId = linked;
+  }
+  var tmpl = HtmlService.createTemplateFromFile('etcImport');
+  tmpl.currentSsId = ssId;
+  var html = tmpl.evaluate().setWidth(860).setHeight(540);
+  SpreadsheetApp.getUi().showModalDialog(html, '⛽ ETC利用明細 読み込み');
+}
+
+
+// ================================================================
+//  13-11: ETC照合準備（prepareEtcImport）  【大A / 中13 / 小13-11】
+//  CSVテキストと列設定を受け取り、ETC行パース・重複車番チェック・手入力チェックを返す
+//  conflicts: 1つのETC車番に集計表の車両が複数ある場合のリスト
+//  carResolution: 重複なし（1対1）の場合の自動解決マップ
+// ================================================================
+function prepareEtcImport(csvText, colConfig, companySsId) {
+  var ss    = getTargetSS_(companySsId);
+  var sumSh = ss.getSheetByName('集計表');
+  if (!sumSh) throw new Error('集計シートが見つかりません');
+
+  // CSVパース
+  var lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  if (lines.length < 2) return { etcRows: [], conflicts: [], carResolution: {}, manualCount: 0 };
+
+  // colConfigがnullまたは未指定の場合はヘッダー行から自動検出
+  if (!colConfig) {
+    var headers = parseEtcCsvLine_(lines[0]);
+    colConfig = detectEtcColumns_(headers);
+    if (colConfig.colError) return { etcRows: [], conflicts: [], carResolution: {}, manualCount: 0, colError: colConfig.colError };
+  }
+
+  var etcRows = [];
+  for (var i = 1; i < lines.length; i++) {
+    var cols = parseEtcCsvLine_(lines[i]);
+    if (!cols || cols.length < 2) continue;
+    var rawCar    = String(cols[colConfig.colCarNum] || '').trim();
+    var rawDateTo = String(cols[colConfig.colDateTo]  || '').trim();
+    var rawTimeTo = colConfig.colTimeTo >= 0 ? String(cols[colConfig.colTimeTo] || '').trim() : '';
+    var rawAmt    = String(cols[colConfig.colAmount]  || '').trim()
+                      .replace(/,/g,'').replace(/[－−‐]/g,'-');
+    if (!rawCar || !rawDateTo) continue;
+    var amount = parseInt(rawAmt, 10);
+    if (isNaN(amount) || amount <= 0) continue;
+    var dt = parseEtcDateTime_(rawDateTo, rawTimeTo);
+    if (!dt) continue;
+    var carNum = extractCarNum_(rawCar);
+    if (!carNum) continue;
+    etcRows.push({ carNum: carNum, dt: dt.getTime(), amount: amount });
+  }
+  if (etcRows.length === 0) return { etcRows: [], conflicts: [], carResolution: {}, manualCount: 0, noData: true };
+
+  // 集計表の車番リストを取得（末尾数字 → 実車番リスト）
+  var lr = sumSh.getLastRow();
+  if (lr < 2) return { etcRows: etcRows, conflicts: [], carResolution: {}, manualCount: 0 };
+  var numCols  = 21;
+  var sumData  = sumSh.getRange(2, 1, lr - 1, numCols).getValues();
+  var sumFonts = sumSh.getRange(2, 21, lr - 1, 1).getFontColors();
+
+  var carNumMap = {};
+  for (var r = 0; r < sumData.length; r++) {
+    var car = String(sumData[r][5] || '').trim();
+    if (!car) continue;
+    var num = extractCarNum_(car);
+    if (!num) continue;
+    if (!carNumMap[num]) carNumMap[num] = [];
+    if (carNumMap[num].indexOf(car) < 0) carNumMap[num].push(car);
+  }
+
+  // 重複チェック & 自動解決マップ構築
+  var conflictsMap  = {};
+  var carResolution = {};
+  var usedNums      = {};
+  for (var j = 0; j < etcRows.length; j++) {
+    var cn = etcRows[j].carNum;
+    if (usedNums[cn]) continue;
+    usedNums[cn] = true;
+    var cands = carNumMap[cn] || [];
+    if (cands.length === 0) {
+      // 集計表に一致なし → スキップ扱い（空マップのまま）
+    } else if (cands.length === 1) {
+      carResolution[cn] = cands[0];
+    } else {
+      conflictsMap[cn] = cands;
+    }
+  }
+  var conflicts = [];
+  for (var key in conflictsMap) conflicts.push({ etcCar: key, candidates: conflictsMap[key] });
+
+  // 手入力チェック（U列フォントカラーが#1a9a50でなく値がある行）
+  var GREEN       = '#1a9a50';
+  var manualCount = 0;
+  for (var r2 = 0; r2 < sumData.length; r2++) {
+    var uVal = sumData[r2][20];
+    var uFc  = String(sumFonts[r2][0] || '').toLowerCase();
+    if (uVal !== '' && uVal !== null && uFc !== GREEN) manualCount++;
+  }
+
+  return { etcRows: etcRows, conflicts: conflicts, carResolution: carResolution, manualCount: manualCount };
+}
+
+
+// ================================================================
+//  13-12: ETC照合実行（executeEtcImport）  【大A / 中13 / 小13-12】
+//  etcRows・車番解決マップ・手入力上書きフラグを受け取り集計表U列に書き込む
+//  照合範囲：前行程の降完時刻 〜 この行程の降完時刻（降完なしはスキップ）
+// ================================================================
+function executeEtcImport(etcRows, carResolution, overwriteManual, companySsId) {
+  var ss    = getTargetSS_(companySsId);
+  var sumSh = ss.getSheetByName('集計表');
+  if (!sumSh) throw new Error('集計シートが見つかりません');
+
+  var lr = sumSh.getLastRow();
+  if (lr < 2) return { updated: 0, skipped: 0 };
+  var numCols  = 21;
+  var sumData  = sumSh.getRange(2, 1, lr - 1, numCols).getValues();
+  var sumFonts = sumSh.getRange(2, 21, lr - 1, 1).getFontColors();
+  var GREEN    = '#1a9a50';
+
+  // 集計表を車番ごとにグループ化
+  var rows = [];
+  for (var r = 0; r < sumData.length; r++) {
+    var car  = String(sumData[r][5] || '').trim();
+    var drop = sumData[r][17];
+    var uVal = sumData[r][20];
+    var uFc  = String(sumFonts[r][0] || '').toLowerCase();
+    var dropMs = null;
+    if (drop instanceof Date && !isNaN(drop.getTime())) dropMs = drop.getTime();
+    rows.push({ rowIdx: r, car: car, dropMs: dropMs, uVal: uVal, uFc: uFc });
+  }
+  var carGroups = {};
+  for (var i = 0; i < rows.length; i++) {
+    var c = rows[i].car;
+    if (!c) continue;
+    if (!carGroups[c]) carGroups[c] = [];
+    carGroups[c].push(rows[i]);
+  }
+  for (var car2 in carGroups) {
+    carGroups[car2].sort(function(a, b) {
+      if (a.dropMs === null && b.dropMs === null) return 0;
+      if (a.dropMs === null) return 1;
+      if (b.dropMs === null) return -1;
+      return a.dropMs - b.dropMs;
+    });
+  }
+
+  // 降完時刻なし行の日付別マップ（日付フォールバック用）
+  var tz = Session.getScriptTimeZone();
+  var carDateMap = {};
+  for (var r3 = 0; r3 < rows.length; r3++) {
+    if (!rows[r3].car || rows[r3].dropMs !== null) continue;
+    var dv = sumData[r3][9]; // 日付 col J
+    if (!dv || !(dv instanceof Date)) continue;
+    var ds = Utilities.formatDate(dv, tz, 'yyyy/M/d');
+    if (!carDateMap[rows[r3].car]) carDateMap[rows[r3].car] = {};
+    if (!carDateMap[rows[r3].car][ds]) carDateMap[rows[r3].car][ds] = [];
+    carDateMap[rows[r3].car][ds].push(rows[r3].rowIdx);
+  }
+
+  // ETCを各集計行に割り当て（前降完〜今降完の範囲、なければ日付一致フォールバック）
+  var accumulated = {};
+  for (var e = 0; e < etcRows.length; e++) {
+    var etcCar = etcRows[e].carNum;
+    var etcDt  = etcRows[e].dt;
+    var etcAmt = etcRows[e].amount;
+    var realCar = carResolution[etcCar];
+    if (!realCar) continue;
+    var group = carGroups[realCar];
+    var assigned = false;
+
+    if (group) {
+      for (var g = 0; g < group.length; g++) {
+        var thisDrop = group[g].dropMs;
+        if (thisDrop === null) continue;
+        var prevDrop = (g > 0) ? group[g - 1].dropMs : null;
+        var inRange  = (prevDrop === null) ? (etcDt <= thisDrop)
+                                           : (etcDt > prevDrop && etcDt <= thisDrop);
+        if (inRange) {
+          accumulated[group[g].rowIdx] = (accumulated[group[g].rowIdx] || 0) + etcAmt;
+          assigned = true;
+          break;
+        }
+      }
+    }
+
+    if (!assigned && carDateMap[realCar]) {
+      var etcDs = Utilities.formatDate(new Date(etcDt), tz, 'yyyy/M/d');
+      var dIdxs = carDateMap[realCar][etcDs];
+      if (dIdxs && dIdxs.length > 0) {
+        accumulated[dIdxs[0]] = (accumulated[dIdxs[0]] || 0) + etcAmt;
+      }
+    }
+  }
+
+  // U列に書き込み
+  var updated = 0, skipped = 0;
+  for (var ri2 in accumulated) {
+    var idx    = parseInt(ri2, 10);
+    var addAmt = accumulated[ri2];
+    if (addAmt <= 0) continue;
+    var row      = rows[idx];
+    var isManual = (row.uVal !== '' && row.uVal !== null && row.uFc !== GREEN);
+    if (isManual && !overwriteManual) { skipped++; continue; }
+    sumSh.getRange(idx + 2, 21).setValue(addAmt).setFontColor(GREEN).setNumberFormat('#,##0');
+    updated++;
+  }
+  return { updated: updated, skipped: skipped };
+}
+
+
+// ================================================================
+//  13-13: 車番末尾数字抽出（extractCarNum_）  【大B / 中13 / 小13-13】
+//  「奈良お102」→「102」, 「大阪100か101」→「101」, 「55」→「55」
+// ================================================================
+function extractCarNum_(carStr) {
+  var s = String(carStr || '').trim().replace(/\s/g, '');
+  var m = s.match(/(\d+)$/);
+  return m ? String(parseInt(m[1], 10)) : '';
+}
+
+
+// ================================================================
+//  13-13b: ETC列自動検出（detectEtcColumns_）  【大B / 中13 / 小13-13b】
+//  ヘッダー行の文字列から出口日付・出口時刻・料金・車番の列番号を自動判定する
+// ================================================================
+function detectEtcColumns_(headers) {
+  var colDateTo = -1, colTimeTo = -1, colAmount = -1, colCarNum = -1;
+  for (var i = 0; i < headers.length; i++) {
+    var lh = headers[i].replace(/\s/g, '');
+    // 出口（至）日付：「利用年月日（至）」「至」を含み時刻でないもの
+    if (colDateTo < 0 && /利用年月日.*至|至.*利用年月日/.test(lh)) colDateTo = i;
+    // 出口（至）時刻：「時分（至）」
+    if (colTimeTo < 0 && /時分.*至|至.*時分/.test(lh)) colTimeTo = i;
+    // 通行料金
+    if (colAmount < 0 && /通行料金/.test(lh)) colAmount = i;
+    // 車両番号（K列相当）：「車両番号」「車番」「車輌番号」
+    if (colCarNum < 0 && /車両番号|車番|車輌番号/.test(lh)) colCarNum = i;
+  }
+  // フォールバック：「至」がヘッダーに単独で含まれる列を日付として使用
+  if (colDateTo < 0) {
+    for (var j = 0; j < headers.length; j++) {
+      if (/至/.test(headers[j]) && !/時分/.test(headers[j])) { colDateTo = j; break; }
+    }
+  }
+  var missing = [];
+  if (colDateTo < 0) missing.push('出口日付（利用年月日（至））');
+  if (colAmount < 0) missing.push('通行料金');
+  if (colCarNum < 0) missing.push('車両番号');
+  if (missing.length > 0) return { colError: '以下の列が見つかりません: ' + missing.join(' / ') };
+  return { colDateTo: colDateTo, colTimeTo: colTimeTo, colAmount: colAmount, colCarNum: colCarNum };
+}
+
+
+// ================================================================
+//  13-14: ETC CSV行パース補助（parseEtcCsvLine_）  【大B / 中13 / 小13-14】
+// ================================================================
+function parseEtcCsvLine_(line) {
+  var result = [], cur = '', inQ = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') {
+      if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+      else { inQ = !inQ; }
+    } else if (c === ',' && !inQ) {
+      result.push(cur); cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+
+// ================================================================
+//  13-15: ETC日時パース補助（parseEtcDateTime_）  【大B / 中13 / 小13-15】
+//  「2026/6/1」+「7:54」→ Date。タイムゾーン Asia/Tokyo で解釈
+// ================================================================
+function parseEtcDateTime_(dateStr, timeStr) {
+  var ds = String(dateStr || '').trim();
+  var ts = String(timeStr || '').trim() || '00:00';
+  var dp = ds.replace(/\//g, '-').split('-');
+  if (dp.length !== 3) return null;
+  var pad = function(n) { return (parseInt(n, 10) < 10 ? '0' : '') + parseInt(n, 10); };
+  var y = parseInt(dp[0], 10);
+  if (y < 100) y += 2000;  // 2桁年（26→2026）対応
+  var iso = y + '-' + pad(dp[1]) + '-' + pad(dp[2]);
+  var tp  = ts.split(':');
+  var tIso = pad(tp[0] || '0') + ':' + pad(tp[1] || '0') + ':00';
+  var dt  = new Date(iso + 'T' + tIso + '+09:00');
+  return isNaN(dt.getTime()) ? null : dt;
 }

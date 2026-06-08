@@ -83,7 +83,9 @@
       "WebFetch(domain:jobcan-ac.zendesk.com)",
       "WebFetch(domain:japanex.jp)",
       "WebFetch(domain:www.kiyama-cpa.com)",
-      "WebFetch(domain:the-board.jp)"
+      "WebFetch(domain:the-board.jp)",
+      "PowerShell($lines = \\(Get-Content \"c:\\\\gas\\\\unko2-kanri\\\\stub_for_clientSS\\\\コード.js\"\\).Count; Write-Output \"stub総行数: $lines\"; Select-String -Path \"c:\\\\gas\\\\unko2-kanri\\\\stub_for_clientSS\\\\コード.js\" -Pattern \"showCsvImport|prepareEtc|executeEtc|showEtc\")",
+      "Bash(grep -v \"//\\\\|html\\\\|select\\\\|document\")"
     ]
   }
 }

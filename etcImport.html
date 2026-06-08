@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ETC利用明細 読み込み</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI','Meiryo',sans-serif; background:#121212; color:#e0e0e0; padding:16px; font-size:13px; }
+h2 { color:#69f0ae; margin-bottom:12px; font-size:15px; }
+.sec { background:#1e1e1e; border-radius:8px; padding:14px; margin-bottom:10px; }
+.sec-ttl { color:#69f0ae; font-weight:bold; margin-bottom:10px; font-size:13px; }
+#bar { padding:8px 12px; border-radius:6px; margin-bottom:10px; font-size:12px; display:none; }
+#bar.info    { background:#1a237e; color:#90caf9; display:block; }
+#bar.error   { background:#4a1010; color:#ef9a9a; display:block; }
+.hidden { display:none; }
+#dropzone { border:2px dashed #555; border-radius:8px; padding:32px 20px; text-align:center; cursor:pointer; color:#aaa; transition:border-color .2s; }
+#dropzone.drag-over { border-color:#69f0ae; color:#69f0ae; }
+#dropzone input[type=file] { display:none; }
+.dz-icon { font-size:36px; margin-bottom:8px; }
+.dz-txt  { font-size:13px; }
+.dz-sub  { font-size:11px; color:#777; margin-top:4px; }
+#fileInfo { display:none; background:#2a2a2a; border-radius:6px; padding:8px 12px; font-size:12px; color:#aaa; margin-top:8px; }
+.cfl-row { display:flex; align-items:center; gap:10px; margin:6px 0; }
+.cfl-lbl { min-width:100px; font-size:12px; color:#aaa; }
+.cfl-row select { flex:1; padding:4px 6px; background:#2a2a2a; color:#e0e0e0; border:1px solid #555; border-radius:4px; font-size:12px; }
+.cfl-intro { margin-bottom:8px; font-size:12px; color:#aaa; }
+.btn { padding:9px 20px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; font-size:13px; }
+.btn-ok  { background:#00796b; color:#fff; }
+.btn-ok:hover:not(:disabled) { background:#009688; }
+.btn-ng  { background:#333; color:#ccc; }
+.btn-ng:hover { background:#444; }
+.btn-red { background:#b71c1c; color:#fff; }
+.btn-red:hover { background:#c62828; }
+.btn:active:not(:disabled) { transform:scale(0.93); filter:brightness(0.75); }
+.footer { display:flex; gap:10px; justify-content:flex-end; margin-top:12px; }
+.warn-box { background:#4a3800; border:1px solid #f9a825; border-radius:6px; padding:10px 12px; font-size:12px; color:#ffe082; }
+.note { font-size:12px; color:#aaa; margin-top:8px; }
+.result-txt { font-size:13px; color:#a5d6a7; }
+</style>
+</head>
+<body>
+<h2>⛽ ETC利用明細 読み込み</h2>
+<div id="bar"></div>
+
+<!-- ステップ1：ファイル選択 -->
+<div id="step1">
+  <div class="sec">
+    <div class="sec-ttl">① CSVファイルを選択</div>
+    <div id="dropzone" onclick="document.getElementById('fi').click()">
+      <input type="file" id="fi" accept=".csv,.txt">
+      <div class="dz-icon">📂</div>
+      <div class="dz-txt">クリックしてCSVを選択　または　ここにドラッグ&amp;ドロップ</div>
+      <div class="dz-sub">選択後、自動で列を読み取って処理します</div>
+    </div>
+    <div id="fileInfo"></div>
+  </div>
+  <div class="footer">
+    <button type="button" class="btn btn-ng" onclick="google.script.host.close()">閉じる</button>
+  </div>
+</div>
+
+<!-- ステップ2：重複車番解決 -->
+<div id="step2" class="hidden">
+  <div class="sec">
+    <div class="sec-ttl">⚠️ 重複車番の確認</div>
+    <p class="cfl-intro">以下の車番が複数の車両に一致します。正しい方を選択してください：</p>
+    <div id="conflictList"></div>
+  </div>
+  <div class="footer">
+    <button type="button" class="btn btn-ng" onclick="google.script.host.close()">キャンセル</button>
+    <button type="button" class="btn btn-ok" onclick="resolveConflicts()">確定 →</button>
+  </div>
+</div>
+
+<!-- ステップ3：手入力上書き確認 -->
+<div id="step3" class="hidden">
+  <div class="sec">
+    <div class="sec-ttl">⚠️ 手入力済みデータの確認</div>
+    <div class="warn-box" id="manualMsg"></div>
+    <p class="note">
+      「YES（上書き）」→ 手入力値も緑字で上書き<br>
+      「NO（スキップ）」→ 手入力行はそのまま、空欄・緑字のみ反映
+    </p>
+  </div>
+  <div class="footer">
+    <button type="button" class="btn btn-ng"  onclick="google.script.host.close()">キャンセル</button>
+    <button type="button" class="btn btn-ng"  onclick="execute(false)">NO（スキップ）</button>
+    <button type="button" class="btn btn-red" onclick="execute(true)">YES（上書き）</button>
+  </div>
+</div>
+
+<!-- ステップ4：完了 -->
+<div id="step4" class="hidden">
+  <div class="sec">
+    <div class="sec-ttl">✅ 反映完了</div>
+    <div id="resultMsg" class="result-txt"></div>
+  </div>
+  <div class="footer">
+    <button type="button" class="btn btn-ok" onclick="google.script.host.close()">閉じる</button>
+  </div>
+</div>
+
+<script>
+var companySsId   = '<?= currentSsId ?>';
+var csvText       = '';
+var parsedEtcRows = [];
+var conflictsData = [];
+var carResolution = {};
+var manualCount   = 0;
+
+function goStep(n) {
+  [1,2,3,4].forEach(function(i){
+    document.getElementById('step'+i).classList[i===n?'remove':'add']('hidden');
+  });
+}
+function setBar(msg, cls) {
+  var el = document.getElementById('bar');
+  el.className = cls; el.textContent = msg;
+}
+
+var dz = document.getElementById('dropzone');
+dz.addEventListener('dragover',  function(e){ e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', function(){ dz.classList.remove('drag-over'); });
+dz.addEventListener('drop', function(e){
+  e.preventDefault(); dz.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+document.getElementById('fi').addEventListener('change', function(e){
+  if (e.target.files.length) loadFile(e.target.files[0]);
+});
+
+function loadFile(file) {
+  if (!file.name.match(/\.(csv|txt)$/i)) {
+    setBar('CSVファイルを選択してください（.csv）', 'error'); return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var txt = e.target.result;
+    if ((txt.match(/�/g) || []).length > 5) {
+      var r2 = new FileReader();
+      r2.onload = function(e2) { onCsvLoaded(file, e2.target.result); };
+      r2.readAsText(file, 'Shift_JIS');
+    } else {
+      onCsvLoaded(file, txt);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function onCsvLoaded(file, txt) {
+  csvText = txt;
+  document.getElementById('fileInfo').style.display = 'block';
+  document.getElementById('fileInfo').textContent = '📄 ' + file.name + '（' + Math.round(file.size/1024) + ' KB）';
+  dz.querySelector('.dz-icon').textContent = '✅';
+  dz.querySelector('.dz-txt').textContent  = file.name;
+  dz.querySelector('.dz-sub').textContent  = '列を自動検出してチェック中...';
+  setBar('読み込み中...', 'info');
+  google.script.run
+    .withSuccessHandler(onPrepareSuccess)
+    .withFailureHandler(function(e){
+      setBar('エラー: ' + e.message, 'error');
+      dz.querySelector('.dz-sub').textContent = '選択後、自動で列を読み取って処理します';
+    })
+    .prepareEtcImport(csvText, null, companySsId);
+}
+
+function onPrepareSuccess(result) {
+  parsedEtcRows = result.etcRows;
+  conflictsData = result.conflicts;
+  carResolution = result.carResolution;
+  manualCount   = result.manualCount;
+
+  if (result.colError) { setBar('列の自動検出失敗: ' + result.colError, 'error'); return; }
+  if (result.noData || !parsedEtcRows.length) { setBar('CSVに有効な料金記録がありませんでした（料金0・「−」は除外）', 'info'); return; }
+  if (!conflictsData.length && !Object.keys(carResolution).length) {
+    setBar('CSVを読み込みましたが、集計表に一致する車番がありませんでした', 'info'); return;
+  }
+  setBar(parsedEtcRows.length + '件のETC記録を検出しました', 'info');
+
+  if (conflictsData.length > 0) {
+    buildConflictUI(); goStep(2);
+  } else if (manualCount > 0) {
+    document.getElementById('manualMsg').textContent =
+      manualCount + '件の手入力済みデータ（U列）があります。ETC明細で上書きしますか？';
+    goStep(3);
+  } else {
+    execute(false);
+  }
+}
+
+function buildConflictUI() {
+  var c = document.getElementById('conflictList');
+  c.innerHTML = '';
+  conflictsData.forEach(function(cf){
+    var row = document.createElement('div'); row.className = 'cfl-row';
+    var lbl = document.createElement('span'); lbl.className = 'cfl-lbl';
+    lbl.textContent = '車番「' + cf.etcCar + '」→';
+    var sel = document.createElement('select'); sel.id = 'cfl_' + cf.etcCar;
+    cf.candidates.forEach(function(cand){
+      var opt = document.createElement('option'); opt.value = cand; opt.textContent = cand;
+      sel.appendChild(opt);
+    });
+    row.appendChild(lbl); row.appendChild(sel); c.appendChild(row);
+  });
+}
+
+function resolveConflicts() {
+  conflictsData.forEach(function(cf){
+    carResolution[cf.etcCar] = document.getElementById('cfl_' + cf.etcCar).value;
+  });
+  if (manualCount > 0) {
+    document.getElementById('manualMsg').textContent =
+      manualCount + '件の手入力済みデータ（U列）があります。ETC明細で上書きしますか？';
+    goStep(3);
+  } else {
+    execute(false);
+  }
+}
+
+function execute(overwriteManual) {
+  setBar('反映中...', 'info');
+  google.script.run
+    .withSuccessHandler(function(res){
+      document.getElementById('resultMsg').textContent =
+        res.updated + '行 に高速代を反映しました（緑字）' +
+        (res.skipped > 0 ? '。手入力 ' + res.skipped + '行 はスキップ' : '');
+      goStep(4);
+    })
+    .withFailureHandler(function(e){ setBar('エラー: ' + e.message, 'error'); })
+    .executeEtcImport(parsedEtcRows, carResolution, overwriteManual, companySsId);
+}
+</script>
+</body>
+</html>
