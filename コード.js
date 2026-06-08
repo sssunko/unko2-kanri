@@ -9541,12 +9541,12 @@ function exportPlJournalCsv() {
   var data = plSheet.getRange(1, 1, plSheet.getLastRow(), 3).getValues();
   var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
 
-  // 弥生会計CSVヘッダー
+  // 弥生会計CSVヘッダー（公式25列フォーマット準拠）
   var csvRows = [[
-    '伝票No','取引日付','借方勘定科目','借方補助科目','借方部門',
-    '借方金額','借方消費税コード','借方消費税金額',
-    '貸方勘定科目','貸方補助科目','貸方部門',
-    '貸方金額','貸方消費税コード','貸方消費税金額','摘要'
+    '識別フラグ','伝票No.','決算','取引日付',
+    '借方勘定科目','借方補助科目','借方部門','借方税区分','借方金額','借方税金額',
+    '貸方勘定科目','貸方補助科目','貸方部門','貸方税区分','貸方金額','貸方税金額',
+    '摘要','番号','期日','タイプ','生成元','仕訳メモ','付箋1','付箋2','調整'
   ]];
 
   var vNo = 1;
@@ -9615,13 +9615,17 @@ function exportPlBundle(opts) {
   // 仕訳CSV
   if (opts && opts.includeJournal) {
     if (plSheet.getLastRow() < 2) return { ok: false, msg: 'PLシートにデータがありません。' };
+    var jFmt = (opts.journalFormat === 'mf') ? 'mf' : 'yayoi';
     var data = plSheet.getRange(1, 1, plSheet.getLastRow(), 3).getValues();
-    var csvRows = [[
-      '伝票No','取引日付','借方勘定科目','借方補助科目','借方部門',
-      '借方金額','借方消費税コード','借方消費税金額',
-      '貸方勘定科目','貸方補助科目','貸方部門',
-      '貸方金額','貸方消費税コード','貸方消費税金額','摘要'
-    ]];
+    var csvRows = jFmt === 'mf'
+      ? [['取引No','取引日',
+          '借方勘定科目','借方補助科目','借方部門','借方取引先','借方税区分','借方インボイス','借方金額(円)','借方税額',
+          '貸方勘定科目','貸方補助科目','貸方部門','貸方取引先','貸方税区分','貸方インボイス','貸方金額(円)','貸方税額',
+          '摘要','仕訳メモ','タグ','MF仕訳タイプ','決算整理仕訳','作成日時','作成者','最終更新日時','最終更新者']]
+      : [['識別フラグ','伝票No.','決算','取引日付',
+          '借方勘定科目','借方補助科目','借方部門','借方税区分','借方金額','借方税金額',
+          '貸方勘定科目','貸方補助科目','貸方部門','貸方税区分','貸方金額','貸方税金額',
+          '摘要','番号','期日','タイプ','生成元','仕訳メモ','付箋1','付箋2','調整']];
     var vNo = 1;
     for (var i = 0; i < data.length; i++) {
       var rawLabel = String(data[i][1] || '');
@@ -9629,7 +9633,9 @@ function exportPlBundle(opts) {
       var amount   = Number(data[i][2]) || 0;
       if (!label || amount === 0) continue;
       if (rawLabel.charAt(0) === ' ' || rawLabel.charAt(0) === '　') {
-        var entry = buildJournalEntry_(label, amount, today, vNo);
+        var entry = jFmt === 'mf'
+          ? buildJournalEntryMF_(label, amount, today)
+          : buildJournalEntry_(label, amount, today, vNo);
         if (entry) { csvRows.push(entry); vNo++; }
       }
     }
@@ -9650,7 +9656,8 @@ function exportPlBundle(opts) {
     jSheet.getRange(1, 1, 1, csvRows[0].length)
       .setBackground('#1a2a3a').setFontColor('#00ff88').setFontWeight('bold').setFontSize(10);
     jSheet.setFrozenRows(1);
-    blobs.push(Utilities.newBlob(jText, 'text/csv', plName + '_仕訳.csv'));
+    var jSuffix = jFmt === 'mf' ? '_仕訳MF.csv' : '_仕訳弥生.csv';
+    blobs.push(Utilities.newBlob(jText, 'text/csv', plName + jSuffix));
     msgParts.push((csvRows.length - 1) + '件の仕訳CSV');
   }
 
@@ -9691,54 +9698,85 @@ function exportPlBundle(opts) {
 
 
 // ================================================================
-//  17-6a: 仕訳行生成補助（buildJournalEntry_）  【大B / 中17 / 小17-6a】
-//  費目名から勘定科目を自動マッピングし弥生会計形式の配列を返す
+//  17-6a: 仕訳行生成補助  【大B / 中17 / 小17-6a】
+//  resolveJournalMapping_ : 費目名→勘定科目と税区分キー(sale/purchase/exempt)を返す
+//  buildJournalEntry_     : 弥生会計形式25列を返す（公式フォーマット準拠）
+//  buildJournalEntryMF_   : マネーフォワード クラウド会計形式27列を返す（公式フォーマット準拠）
 // ================================================================
-function buildJournalEntry_(label, amount, date, vNo) {
-  // 運送業標準の勘定科目マッピング（借方/貸方/消費税コード）
+function resolveJournalMapping_(label) {
+  // dt/ct = 'sale'(課税売上) / 'purchase'(課税仕入) / 'exempt'(対象外)
+  // 売上系: 借方(売掛金)=exempt、貸方(売上高)=sale
+  // 費用系: 借方(費用科目)=purchase、貸方(未払金)=exempt
+  // 不課税: 給与・保険・税金・会費など両側exempt
   var MAP = [
-    { key: '運賃収入',    debit: '売掛金',      credit: '売上高',       tax: '0'  },
-    { key: '売上',        debit: '売掛金',      credit: '売上高',       tax: '0'  },
-    { key: '高速代収入',  debit: '売掛金',      credit: '売上高',       tax: '0'  },
-    { key: '支払運賃',    debit: '支払運賃',    credit: '未払金',       tax: '0'  },
-    { key: '乗務員',      debit: '支払運賃',    credit: '未払金',       tax: '0'  },
-    { key: '高速代（実費）',debit:'高速道路料金', credit: '未払金',      tax: '10' },
-    { key: '燃料費',      debit: '燃料費',      credit: '未払金',       tax: '10' },
-    { key: '月次経費',    debit: '諸経費',      credit: '未払金',       tax: '10' },
-    { key: '有休手当',    debit: '法定福利費',  credit: '未払費用',     tax: '0'  },
-    { key: 'その他手当',  debit: '給与手当',    credit: '未払費用',     tax: '0'  },
-    { key: '家賃',        debit: '地代家賃',    credit: '未払金',       tax: '10' },
-    { key: '駐車場',      debit: '地代家賃',    credit: '未払金',       tax: '10' },
-    { key: '電気',        debit: '水道光熱費',  credit: '未払金',       tax: '10' },
-    { key: '水道',        debit: '水道光熱費',  credit: '未払金',       tax: '10' },
-    { key: '通信費',      debit: '通信費',      credit: '未払金',       tax: '10' },
-    { key: '保険',        debit: '損害保険料',  credit: '未払金',       tax: '0'  },
-    { key: 'リース',      debit: 'リース料',    credit: '未払金',       tax: '10' },
-    { key: '減価償却',    debit: '減価償却費',  credit: '減価償却累計額', tax: '0' },
-    { key: '修繕',        debit: '修繕費',      credit: '未払金',       tax: '10' },
-    { key: '消耗品',      debit: '消耗品費',    credit: '未払金',       tax: '10' },
-    { key: '重量税',      debit: '租税公課',    credit: '未払金',       tax: '0'  },
-    { key: 'タイヤ',      debit: '消耗品費',    credit: '未払金',       tax: '10' },
-    { key: '洗車',        debit: '消耗品費',    credit: '未払金',       tax: '10' },
-    { key: '制服',        debit: '消耗品費',    credit: '未払金',       tax: '10' },
-    { key: '税理士',      debit: '支払手数料',  credit: '未払金',       tax: '10' },
-    { key: '安全協会',    debit: '諸会費',      credit: '未払金',       tax: '0'  }
+    { key: '運賃収入',      debit: '売掛金',         credit: '売上高',         dt: 'exempt',   ct: 'sale'    },
+    { key: '売上',          debit: '売掛金',         credit: '売上高',         dt: 'exempt',   ct: 'sale'    },
+    { key: '高速代収入',    debit: '売掛金',         credit: '売上高',         dt: 'exempt',   ct: 'sale'    },
+    { key: '支払運賃',      debit: '支払運賃',       credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '乗務員',        debit: '支払運賃',       credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '高速代（実費）',debit: '高速道路料金',   credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '燃料費',        debit: '燃料費',         credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '月次経費',      debit: '諸経費',         credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '有休手当',      debit: '法定福利費',     credit: '未払費用',       dt: 'exempt',   ct: 'exempt'  },
+    { key: 'その他手当',    debit: '給与手当',       credit: '未払費用',       dt: 'exempt',   ct: 'exempt'  },
+    { key: '家賃',          debit: '地代家賃',       credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '駐車場',        debit: '地代家賃',       credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '電気',          debit: '水道光熱費',     credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '水道',          debit: '水道光熱費',     credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '通信費',        debit: '通信費',         credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '保険',          debit: '損害保険料',     credit: '未払金',         dt: 'exempt',   ct: 'exempt'  },
+    { key: 'リース',        debit: 'リース料',       credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '減価償却',      debit: '減価償却費',     credit: '減価償却累計額', dt: 'exempt',   ct: 'exempt'  },
+    { key: '修繕',          debit: '修繕費',         credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '消耗品',        debit: '消耗品費',       credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '重量税',        debit: '租税公課',       credit: '未払金',         dt: 'exempt',   ct: 'exempt'  },
+    { key: 'タイヤ',        debit: '消耗品費',       credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '洗車',          debit: '消耗品費',       credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '制服',          debit: '消耗品費',       credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '税理士',        debit: '支払手数料',     credit: '未払金',         dt: 'purchase', ct: 'exempt'  },
+    { key: '安全協会',      debit: '諸会費',         credit: '未払金',         dt: 'exempt',   ct: 'exempt'  }
   ];
-
-  var mapping = null;
   for (var m = 0; m < MAP.length; m++) {
-    if (label.indexOf(MAP[m].key) !== -1) { mapping = MAP[m]; break; }
+    if (label.indexOf(MAP[m].key) !== -1) return MAP[m];
   }
-  if (!mapping) mapping = { debit: '諸経費', credit: '未払金', tax: '10' };
+  return { debit: '諸経費', credit: '未払金', dt: 'purchase', ct: 'exempt' };
+}
 
-  var taxRate = mapping.tax === '10' ? 0.10 : mapping.tax === '8' ? 0.08 : 0;
-  var taxAmt  = Math.round(amount * taxRate / (1 + taxRate));
+function calcJournalTax_(amount, key) {
+  return (key === 'sale' || key === 'purchase') ? Math.round(amount * 10 / 110) : 0;
+}
 
+// 弥生会計形式（25列・公式サポート情報準拠）
+// 識別フラグ,伝票No.,決算,取引日付,
+// 借方勘定科目,借方補助科目,借方部門,借方税区分,借方金額,借方税金額,
+// 貸方勘定科目,貸方補助科目,貸方部門,貸方税区分,貸方金額,貸方税金額,
+// 摘要,番号,期日,タイプ,生成元,仕訳メモ,付箋1,付箋2,調整
+// 税区分（税込み入力）: 課税売上込10% / 課対仕入込10% / 対象外
+function buildJournalEntry_(label, amount, date, vNo) {
+  var mp  = resolveJournalMapping_(label);
+  var TAX = { sale: '課税売上込10%', purchase: '課対仕入込10%', exempt: '対象外' };
   return [
-    String(vNo).padStart(6, '0'), date,
-    mapping.debit, '', '', String(amount), mapping.tax, String(taxAmt),
-    mapping.credit, '', '', String(amount), mapping.tax, String(taxAmt),
-    label
+    '2000', String(vNo), '', date,
+    mp.debit,  '', '', TAX[mp.dt], String(amount), String(calcJournalTax_(amount, mp.dt)),
+    mp.credit, '', '', TAX[mp.ct], String(amount), String(calcJournalTax_(amount, mp.ct)),
+    label, '', '', '', '', '', '', '', ''
+  ];
+}
+
+// マネーフォワード クラウド会計形式（27列・公式サポート情報準拠）
+// 取引No,取引日,
+// 借方勘定科目,借方補助科目,借方部門,借方取引先,借方税区分,借方インボイス,借方金額(円),借方税額,
+// 貸方勘定科目,貸方補助科目,貸方部門,貸方取引先,貸方税区分,貸方インボイス,貸方金額(円),貸方税額,
+// 摘要,仕訳メモ,タグ,MF仕訳タイプ,決算整理仕訳,作成日時,作成者,最終更新日時,最終更新者
+// 税区分（正式名称）: 課税売上 10% / 課税仕入 10% / 対象外
+function buildJournalEntryMF_(label, amount, date) {
+  var mp  = resolveJournalMapping_(label);
+  var TAX = { sale: '課税売上 10%', purchase: '課税仕入 10%', exempt: '対象外' };
+  return [
+    '', date,
+    mp.debit,  '', '', '', TAX[mp.dt], '', String(amount), String(calcJournalTax_(amount, mp.dt)),
+    mp.credit, '', '', '', TAX[mp.ct], '', String(amount), String(calcJournalTax_(amount, mp.ct)),
+    label, '', '', '', '', '', '', '', ''
   ];
 }
 

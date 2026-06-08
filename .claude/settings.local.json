@@ -77,7 +77,13 @@
       "Bash(grep -v \"//\\\\|startDay\\\\|startRow\\\\|startCol\")",
       "Bash(awk -F: '$2 < 2100 && $2 > 2000 {print}')",
       "WebFetch(domain:support.yayoi-kk.co.jp)",
-      "WebFetch(domain:biz.moneyforward.com)"
+      "WebFetch(domain:biz.moneyforward.com)",
+      "WebFetch(domain:yoshikazu-komatsu.com)",
+      "WebFetch(domain:aiknot.jp)",
+      "WebFetch(domain:jobcan-ac.zendesk.com)",
+      "WebFetch(domain:japanex.jp)",
+      "WebFetch(domain:www.kiyama-cpa.com)",
+      "WebFetch(domain:the-board.jp)"
     ]
   }
 }

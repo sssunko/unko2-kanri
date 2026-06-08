@@ -270,9 +270,19 @@
   <div class="dl-select">
     <div class="dl-select-title">ダウンロード内容</div>
     <label class="dl-check-label">
-      <input type="checkbox" id="chkJournal" checked>
-      <span>📋 仕訳CSV（弥生インポート用）</span>
+      <input type="checkbox" id="chkJournal" checked onchange="toggleFmtOptions()">
+      <span>📋 仕訳CSV</span>
     </label>
+    <div id="fmtOptions" style="margin:4px 0 2px 22px;display:flex;gap:16px;">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+        <input type="radio" name="journalFmt" value="yayoi" checked style="accent-color:var(--accent);width:13px;height:13px;">
+        <span style="font-size:12px;color:var(--text);">弥生会計</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+        <input type="radio" name="journalFmt" value="mf" style="accent-color:var(--accent);width:13px;height:13px;">
+        <span style="font-size:12px;color:var(--text);">マネーフォワード</span>
+      </label>
+    </div>
     <label class="dl-check-label">
       <input type="checkbox" id="chkPl" checked>
       <span>📊 PL表CSV（管理・確認用）</span>
@@ -370,10 +380,17 @@
         .generatePl(filters);
     }
 
+    function toggleFmtOptions() {
+      var visible = document.getElementById('chkJournal').checked;
+      document.getElementById('fmtOptions').style.display = visible ? 'flex' : 'none';
+    }
+
     function exportBundle() {
       var inclJ = document.getElementById('chkJournal').checked;
       var inclP = document.getElementById('chkPl').checked;
       if (!inclJ && !inclP) { setStatus('⚠️ ダウンロード内容を選択してください', 'err'); return; }
+      var fmtEl = document.querySelector('input[name="journalFmt"]:checked');
+      var jFmt  = fmtEl ? fmtEl.value : 'yayoi';
       setLoading(true);
       setStatus('ZIP生成中...', '');
       google.script.run
@@ -395,7 +412,7 @@
           setLoading(false);
           setStatus('❌ ' + (e.message || String(e)), 'err');
         })
-        .exportPlBundle({ includeJournal: inclJ, includePl: inclP });
+        .exportPlBundle({ includeJournal: inclJ, includePl: inclP, journalFormat: jFmt });
     }
 
     // 初期ロード
