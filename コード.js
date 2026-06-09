@@ -746,6 +746,7 @@ function onOpen() {
     .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
     .addItem('📖 使い方シート作成', 'createUsageSheet')
     .addItem('📤 CSV・Excel出力', 'showExportDialog')
+    .addItem('📋 監査用表生成', 'generateAuditSheet')
     .addSeparator()
     .addSubMenu(SpreadsheetApp.getUi().createMenu('📥 データ読み込み（CSV）')
       .addItem('運行シート', 'showCsvImportDialogUnkou')
@@ -790,6 +791,7 @@ function onOpen() {
   } catch(ex) {}
   convertLegacyAdminDataUrls_();
   applyHolidayRowColors_();
+  checkMasterExpiries();
 }
 
 
@@ -2514,10 +2516,16 @@ function ensureSettingItems_(ss) {
       '事故・ヒヤリハットの有無',
       '道路状況・運行状況の異常の有無',
       '翌乗務員への引き継ぎ事項の有無',
-      '運行記録（日報）の提出・乗務後点呼の実施'
+      '運行記録（日報）の提出・乗務後点呼の実施',
+      '乗務後点呼・アルコールチェック（帰庫後）の実施'
     ];
     for (var dj = 0; dj < defaultAfter.length; dj++) {
       settingSheet.getRange(dj + 2, aCol + 1).setValue(defaultAfter[dj]);
+    }
+  } else {
+    var hasAlcA = existA.some(function(v){ return v.indexOf('アルコールチェック') !== -1; });
+    if (!hasAlcA) {
+      settingSheet.getRange(settingSheet.getLastRow() + 1, aCol + 1).setValue('乗務後点呼・アルコールチェック（帰庫後）の実施');
     }
   }
 }
@@ -2761,6 +2769,20 @@ function expandAndRefreshSheets() {
       }
     }
     // newIdx >= 0 かつ oldIdx === -1 → 既に正しい名称で存在、何もしない
+  }
+
+  // 自車専属マスタにコンプライアンス管理4列を追加（なければ）
+  var masterCompCols = ['免許証有効期限', '安全教育次回予定日', '健康診断次回予定日', '適性診断次回予定日'];
+  if (masterSheet) {
+    var mCLastCol = masterSheet.getLastColumn();
+    var mCHeaders = mCLastCol > 0 ? masterSheet.getRange(1, 1, 1, mCLastCol).getValues()[0] : [];
+    var mCNextCol = mCLastCol + 1;
+    for (var cj = 0; cj < masterCompCols.length; cj++) {
+      if (mCHeaders.indexOf(masterCompCols[cj]) === -1) {
+        masterSheet.getRange(1, mCNextCol).setValue(masterCompCols[cj]);
+        mCNextCol++;
+      }
+    }
   }
 
   // 自車専属マスタの燃費を設定シートから一括再計算（一括貼り付け後にシート再生成でも確実に反映）
@@ -6479,7 +6501,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('🔄 メニュー再生成（メニューが消えたら押す）','reloadMenu').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('📏 距離計算（未計算分）','calcDistanceManual').addItem('🗾 距離マスタ 主要地データ投入','initDistanceMasterMajorCities').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addItem('📤 CSV・Excel出力','showExportDialog').addItem('🛡 シート保護設定','setupSheetProtection').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('⛽ ETC利用明細','showEtcImportDialog').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch').addItem('🔓 選択行のマッチング解除','cancelDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('🔄 メニュー再生成（メニューが消えたら押す）','reloadMenu').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('📏 距離計算（未計算分）','calcDistanceManual').addItem('🗾 距離マスタ 主要地データ投入','initDistanceMasterMajorCities').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addItem('📤 CSV・Excel出力','showExportDialog').addItem('📋 監査用表生成','generateAuditSheet').addItem('🛡 シート保護設定','setupSheetProtection').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('⛽ ETC利用明細','showEtcImportDialog').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch').addItem('🔓 選択行のマッチング解除','cancelDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}try{UnkouLib.checkMasterExpiries();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
@@ -6565,7 +6587,9 @@ function getClientStubSource_() {
     "function showExportDialog(){return UnkouLib.showExportDialog();}",
     "function exportSheetAsCsvBase64(a){return UnkouLib.exportSheetAsCsvBase64(a);}",
     "function exportSelectedSheetsAsExcel(a){return UnkouLib.exportSelectedSheetsAsExcel(a);}",
-    "function exportPlBundle(a){return UnkouLib.exportPlBundle(a);}"
+    "function exportPlBundle(a){return UnkouLib.exportPlBundle(a);}",
+    "function generateAuditSheet(){return UnkouLib.generateAuditSheet();}",
+    "function checkMasterExpiries(){return UnkouLib.checkMasterExpiries();}"
   ].join('\n');
 }
 
@@ -6594,7 +6618,8 @@ function initClientSSSheets_(ss, companyName) {
     'アドレス','燃費','備考','仮日数','給料','％','高速を引く（引くは〇、引かないは空欄）',
     '車両リース代','任意保険料','自賠責保険料','重量税積立','車検費積立',
     '整備費積立','タイヤ代積立','修理積立','駐車場代','ETCリース料',
-    'カーナビリース料','通信費','洗車費','制服費','その他固定費'
+    'カーナビリース料','通信費','洗車費','制服費','その他固定費',
+    '免許証有効期限','安全教育次回予定日','健康診断次回予定日','適性診断次回予定日'
   ];
   var activeHeader = [
     '車両ID','運行状態','区分','会社名','看板名','トン数','車種','車番',
@@ -11030,4 +11055,205 @@ function parseEtcDateTime_(dateStr, timeStr) {
   var tIso = pad(tp[0] || '0') + ':' + pad(tp[1] || '0') + ':00';
   var dt  = new Date(iso + 'T' + tIso + '+09:00');
   return isNaN(dt.getTime()) ? null : dt;
+}
+
+
+// ================================================================
+//  期限アラート（checkMasterExpiries）
+//  onOpen時に自車専属マスタの免許・教育・健診・適性の期限が近い乗務員を通知
+// ================================================================
+function checkMasterExpiries() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var masterSheet = ss.getSheetByName('自車専属マスタ');
+  if (!masterSheet || masterSheet.getLastRow() < 2) return;
+
+  var headers = masterSheet.getRange(1, 1, 1, masterSheet.getLastColumn()).getValues()[0];
+  var nameCol    = headers.indexOf('乗務員名');
+  var licenseCol = headers.indexOf('免許証有効期限');
+  var eduCol     = headers.indexOf('安全教育次回予定日');
+  var healthCol  = headers.indexOf('健康診断次回予定日');
+  var fitCol     = headers.indexOf('適性診断次回予定日');
+  if (licenseCol === -1 && eduCol === -1 && healthCol === -1 && fitCol === -1) return;
+
+  var data = masterSheet.getRange(2, 1, masterSheet.getLastRow() - 1, masterSheet.getLastColumn()).getValues();
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var day60 = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
+  var day30 = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  var checks = [
+    { col: licenseCol, label: '免許証有効期限',     limit: day60 },
+    { col: eduCol,     label: '安全教育次回予定日',  limit: day30 },
+    { col: healthCol,  label: '健康診断次回予定日',  limit: day30 },
+    { col: fitCol,     label: '適性診断次回予定日',  limit: day30 }
+  ];
+
+  var warnings = [];
+  for (var i = 0; i < data.length; i++) {
+    var name = nameCol >= 0 ? String(data[i][nameCol] || '').trim() : '';
+    if (!name) continue;
+    for (var j = 0; j < checks.length; j++) {
+      var c = checks[j];
+      if (c.col < 0) continue;
+      var d = data[i][c.col];
+      if (!d || !(d instanceof Date) || isNaN(d.getTime())) continue;
+      var dd = new Date(d); dd.setHours(0, 0, 0, 0);
+      if (dd <= c.limit) {
+        var dStr  = Utilities.formatDate(dd, 'Asia/Tokyo', 'M/d');
+        var label = dd < today ? '期限切れ' : 'まもなく期限';
+        warnings.push('【' + label + '】' + name + '  ' + c.label + ' : ' + dStr);
+      }
+    }
+  }
+
+  if (warnings.length > 0) {
+    SpreadsheetApp.getUi().alert('⚠ 期限アラート\n\n' + warnings.join('\n') + '\n\n自車専属マスタで確認・更新してください。');
+  }
+}
+
+
+// ================================================================
+//  監査用表生成（generateAuditSheet）
+//  集計表から監査対応全項目を抽出し「監査用」シートに月次小計付きで出力
+// ================================================================
+function generateAuditSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sumSheet = ss.getSheetByName('集計表');
+  if (!sumSheet || sumSheet.getLastRow() < 2) {
+    SpreadsheetApp.getUi().alert('集計表にデータがありません');
+    return;
+  }
+
+  // 集計表の列マップ（0-based）:
+  // 0=ID,1=区分,2=会社名,3=トン数,4=車種,5=車番,6=乗務員名,7=携帯番号,8=看板名
+  // 9=日付,10=荷主,11=積地,12=降地,13=誘導時刻,14=積完時刻,15=休憩開始,16=休憩終了,17=降完時刻
+  // 18=売上,19=請求高速,20=実費高速,21=合計高速,22=距離,23=燃費,24=ガソリン代,25=燃料代
+  // 26=支払い,27=経費合計,28=利益,29=備考,30=仮日数,31=給料,32=%,33=有休手当,34=その他手当
+  // 35=点呼前完了,36=点呼後完了
+  var auditCols = [
+    { name: '日付',         src: 9  },
+    { name: '区分',         src: 1  },
+    { name: '会社名',       src: 2  },
+    { name: '車種',         src: 4  },
+    { name: '車番',         src: 5  },
+    { name: '乗務員名',     src: 6  },
+    { name: '荷主',         src: 10 },
+    { name: '積地',         src: 11 },
+    { name: '降地',         src: 12 },
+    { name: 'トン数',       src: 3  },
+    { name: '距離(km)',     src: 22 },
+    { name: '点呼前完了',   src: 35 },
+    { name: '誘導時刻',     src: 13 },
+    { name: '積完時刻',     src: 14 },
+    { name: '休憩開始',     src: 15 },
+    { name: '休憩終了',     src: 16 },
+    { name: '降完時刻',     src: 17 },
+    { name: '点呼後完了',   src: 36 },
+    { name: '拘束時間(h)', src: -1 },
+    { name: '売上',         src: 18 },
+    { name: '高速代(合計)', src: 21 },
+    { name: '燃料代',       src: 25 },
+    { name: '支払い',       src: 26 },
+    { name: '経費合計',     src: 27 },
+    { name: '利益',         src: 28 },
+    { name: '給料',         src: 31 },
+    { name: '有休手当',     src: 33 },
+    { name: 'その他手当',   src: 34 },
+    { name: '備考',         src: 29 }
+  ];
+  var numCols = auditCols.length;
+
+  var lastRow = sumSheet.getLastRow();
+  var lastCol = sumSheet.getLastColumn();
+  var rawData = sumSheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var rows = rawData.filter(function(r) { return r[9] instanceof Date && r[9].getTime() > 0; });
+  rows.sort(function(a, b) { return a[9] - b[9]; });
+
+  var auditSheet = ss.getSheetByName('監査用');
+  if (!auditSheet) {
+    auditSheet = ss.insertSheet('監査用');
+  } else {
+    auditSheet.clearContents();
+    auditSheet.clearFormats();
+  }
+
+  var outputRows = [];
+  outputRows.push(auditCols.map(function(c) { return c.name; }));
+
+  var prevMonth = '';
+  var mt = { u: 0, h: 0, n: 0, p: 0, k: 0, r: 0, g: 0, y: 0, o: 0 };
+
+  function pushMonthTotal(month) {
+    var tr = new Array(numCols).fill('');
+    tr[0] = month + ' 合計';
+    tr[19] = mt.u; tr[20] = mt.h; tr[21] = mt.n; tr[22] = mt.p;
+    tr[23] = mt.k; tr[24] = mt.r; tr[25] = mt.g; tr[26] = mt.y; tr[27] = mt.o;
+    outputRows.push(tr);
+  }
+
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var monthKey = Utilities.formatDate(r[9], 'Asia/Tokyo', 'yyyy/MM');
+    if (prevMonth && monthKey !== prevMonth) {
+      pushMonthTotal(prevMonth);
+      mt = { u: 0, h: 0, n: 0, p: 0, k: 0, r: 0, g: 0, y: 0, o: 0 };
+    }
+    prevMonth = monthKey;
+
+    var kosokunJikan = '';
+    var yuido = r[13]; var koka = r[17]; var ks = r[15]; var ke = r[16];
+    if (yuido instanceof Date && koka instanceof Date && yuido.getTime() > 0 && koka.getTime() > 0) {
+      var diffMs = koka.getTime() - yuido.getTime();
+      if (ks instanceof Date && ke instanceof Date && ke.getTime() > ks.getTime()) {
+        diffMs -= (ke.getTime() - ks.getTime());
+      }
+      if (diffMs > 0) kosokunJikan = Math.round(diffMs / 36000) / 100;
+    }
+
+    outputRows.push(auditCols.map(function(c) {
+      if (c.src === -1) return kosokunJikan;
+      return (r[c.src] !== undefined && r[c.src] !== null) ? r[c.src] : '';
+    }));
+
+    mt.u += Number(r[18]) || 0;
+    mt.h += Number(r[21]) || 0;
+    mt.n += Number(r[25]) || 0;
+    mt.p += Number(r[26]) || 0;
+    mt.k += Number(r[27]) || 0;
+    mt.r += Number(r[28]) || 0;
+    mt.g += Number(r[31]) || 0;
+    mt.y += Number(r[33]) || 0;
+    mt.o += Number(r[34]) || 0;
+  }
+  if (prevMonth) pushMonthTotal(prevMonth);
+
+  if (outputRows.length > 0) {
+    auditSheet.getRange(1, 1, outputRows.length, numCols).setValues(outputRows);
+  }
+
+  // ヘッダー書式
+  auditSheet.getRange(1, 1, 1, numCols)
+    .setBackground('#1a3d6b').setFontColor('#ffffff').setFontWeight('bold');
+  auditSheet.setFrozenRows(1);
+
+  var dataRows = outputRows.length - 1;
+  if (dataRows > 0) {
+    // 日付列書式
+    auditSheet.getRange(2, 1, dataRows, 1).setNumberFormat('yyyy/MM/dd');
+    // 時刻列書式（誘導〜降完: 13〜17列目 1-based）
+    auditSheet.getRange(2, 13, dataRows, 5).setNumberFormat('M/d H:mm');
+    // 金額列書式（売上〜その他手当: 20〜28列目 1-based）
+    auditSheet.getRange(2, 20, dataRows, 9).setNumberFormat('#,##0');
+  }
+
+  // 月次合計行ハイライト
+  for (var mr = 2; mr <= outputRows.length; mr++) {
+    if (String(outputRows[mr - 1][0]).indexOf('合計') !== -1) {
+      auditSheet.getRange(mr, 1, 1, numCols)
+        .setBackground('#fff9c4').setFontWeight('bold');
+    }
+  }
+
+  auditSheet.autoResizeColumns(1, numCols);
+  ss.setActiveSheet(auditSheet);
+  SpreadsheetApp.getUi().alert('監査用表を生成しました（' + rows.length + '件 / 月次合計付き）');
 }

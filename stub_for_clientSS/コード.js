@@ -30,6 +30,7 @@ function onOpen() {
     .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
     .addItem('📖 使い方シート作成', 'createUsageSheet')
     .addItem('📤 CSV・Excel出力', 'showExportDialog')
+    .addItem('📋 監査用表生成', 'generateAuditSheet')
     .addItem('🛡 シート保護設定', 'setupSheetProtection')
     .addSeparator()
     .addSubMenu(ui.createMenu('📥 データ読み込み（CSV）')
@@ -60,6 +61,7 @@ function onOpen() {
   menu.addToUi();
   try { UnkouLib.convertLegacyAdminDataUrls_(); } catch(e) {}
   try { UnkouLib.applyHolidayRowColors_(); } catch(e) {}
+  try { UnkouLib.checkMasterExpiries(); } catch(e) {}
 }
 
 function doGet(e)            { return UnkouLib.doGet(e); }
@@ -125,6 +127,8 @@ function generatePaymentSheet(a,b,c,d,e) { return UnkouLib.generatePaymentSheet(
 // ── 情報シート・配車確定 ──────────────────────────────────────────────
 function matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispatch(); }
 function cancelDispatch()               { return UnkouLib.cancelDispatch(); }
+function generateAuditSheet()           { return UnkouLib.generateAuditSheet(); }
+function checkMasterExpiries()          { return UnkouLib.checkMasterExpiries(); }
 
 // ── アプリ連携（端末↔SS） ────────────────────────────────────────────
 function storeCompanySsId(a)              { return UnkouLib.storeCompanySsId(a); }
