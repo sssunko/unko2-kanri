@@ -42,7 +42,8 @@ function onOpen() {
       .addItem('① 発注書・指示書を作成（協力会社・乗務員用）', 'showHatchuDocDialog')
       .addItem('② 車番連絡を作成（荷主用）', 'showShabanDocDialog'))
     .addSeparator()
-    .addItem('🔗 チェックした行を配車確定', 'matchAndConfirmDispatch');
+    .addItem('🔗 チェックした行を配車確定', 'matchAndConfirmDispatch')
+    .addItem('🔓 選択行のマッチング解除', 'cancelDispatch');
 
   if (isTemplate) {
     menu.addSeparator().addItem('📤 各客に反映', 'syncToAllClientSS');
@@ -110,6 +111,7 @@ function generatePaymentSheet(a,b,c,d,e) { return UnkouLib.generatePaymentSheet(
 
 // ── 情報シート・配車確定 ──────────────────────────────────────────────
 function matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispatch(); }
+function cancelDispatch()               { return UnkouLib.cancelDispatch(); }
 
 // ── アプリ連携（端末↔SS） ────────────────────────────────────────────
 function storeCompanySsId(a)              { return UnkouLib.storeCompanySsId(a); }
