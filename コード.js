@@ -374,6 +374,17 @@ function getNextIdNum_(sheet, prefix) {
   return nextNum;
 }
 
+// トン数を「4t」形式に正規化。全角数字・大文字T対応。数字のみ入力→t付加。
+function normalizeTons_(val) {
+  var s = String(val || '').trim()
+    .replace(/[０-９]/g, function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);})
+    .replace(/[ｔＴ]/g, 't');
+  if (!s) return val;
+  var m = s.match(/^([\d.]+)[tT]?$/);
+  if (m) return m[1] + 't';
+  return val;
+}
+
 
 // ================================================================
 //  1-2: Googleドライブのフォルダ取得or作成（補助）  【大B / 中1 / 小1-2】
@@ -1097,6 +1108,12 @@ function onEditUnkou_(sheet, range, ss) {
   var lastColU = Math.max(sheet.getLastColumn(), 22);
   var _oeUnkouSyncIds = [];
   var _allRowsData = sheet.getRange(startRow, 1, numRows, lastColU).getValues(); // 一括先読み（個別読みのキャッシュずれ防止）
+  // D列(4)=トン数 一括正規化
+  if (startRow >= 2) {
+    var _uTons = _allRowsData.map(function(r) { return [normalizeTons_(r[3])]; }); // D=index3
+    var _uChg  = _uTons.some(function(v, i) { return String(v[0]) !== String(_allRowsData[i][3]); });
+    if (_uChg) sheet.getRange(startRow, 4, numRows, 1).setValues(_uTons);
+  }
   for (var i = 0; i < numRows; i++) {
     var row = startRow + i;
     if (row <= 1) continue;
@@ -1301,16 +1318,13 @@ function onEditMasterVehicle_(sheet, range, ss) {
 
   if (numRows > 0 && startRow > 1) {
     var statusVals = sheet.getRange(startRow, 2, numRows, 1).getValues();
+    var rowBgColors = [];
     for (var ci = 0; ci < numRows; ci++) {
-      var crow = startRow + ci;
-      if (crow <= 1) continue;
       var cStatus = String(statusVals[ci][0] || '').trim();
-      var cRange  = sheet.getRange(crow, 1, 1, lastCol);
-      if      (cStatus === '運行') cRange.setBackground('#ffcdd2');
-      else if (cStatus === '待機') cRange.setBackground('#fff9c4');
-      else if (cStatus === '故障') cRange.setBackground('#c8e6c9');
-      else                         cRange.setBackground(null);
+      var bg = cStatus === '運行' ? '#ffcdd2' : cStatus === '待機' ? '#fff9c4' : cStatus === '故障' ? '#c8e6c9' : null;
+      rowBgColors.push(Array(lastCol).fill(bg));
     }
+    sheet.getRange(startRow, 1, numRows, lastCol).setBackgrounds(rowBgColors);
   }
 
   // 設定シートからトン数→燃費マップを取得（正規化: 全角数字→半角, 大文字小文字統一, 't'有無両対応）
@@ -1330,22 +1344,32 @@ function onEditMasterVehicle_(sheet, range, ss) {
       }
     }
   }
+  // ── バッチ先読み（100行一括貼り付けでも燃費・トン数正規化が確実に動くように）──
+  var _bStart = Math.max(startRow, 2);
+  var _bRows  = (startRow + numRows - 1) - _bStart + 1;
+  var _bData  = _bRows > 0 ? sheet.getRange(_bStart, 1, _bRows, 17).getValues() : [];
+  var _bFuel  = _bRows > 0 ? sheet.getRange(_bStart, 12, _bRows, 1).getValues() : [];
+  var _newTons = [], _newFuel = [];
+  for (var bi = 0; bi < _bRows; bi++) {
+    var bTonsRaw = String(_bData[bi][5] || '').trim(); // F=index5
+    var normT    = normalizeTons_(bTonsRaw);
+    _newTons.push([normT]);
+    var tNrm = normT.replace(/[０-９]/g, function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);}).replace(/[ｔＴ]/g,'t').toLowerCase();
+    var nPrt = tNrm.replace(/t$/,'');
+    var fv   = fuelMap[tNrm] || fuelMap[nPrt+'t'] || fuelMap[nPrt] || '';
+    _newFuel.push([fv !== '' ? fv : _bFuel[bi][0]]);
+  }
+  if (_bRows > 0) {
+    sheet.getRange(_bStart, 6,  _bRows, 1).setValues(_newTons);
+    sheet.getRange(_bStart, 12, _bRows, 1).setValues(_newFuel);
+    SpreadsheetApp.flush();
+  }
   for (var i = 0; i < numRows; i++) {
     var row = startRow + i;
     if (row <= 1) continue;
-    // F列（col6）のトン数に対応する燃費をL列（col12）に自動反映
-    var tonsRaw = String(sheet.getRange(row, 6).getValue()).trim();
-    if (tonsRaw) {
-      var tonsNorm = tonsRaw
-        .replace(/[０-９]/g, function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);})
-        .replace(/[ｔＴ]/g,'t').toLowerCase();
-      var numPart = tonsNorm.replace(/t$/,'');
-      var fuel = fuelMap[tonsNorm] || fuelMap[numPart+'t'] || fuelMap[numPart] || '';
-      if (fuel !== '' && fuel !== undefined) sheet.getRange(row, 12).setValue(fuel);
-    }
-
-    // 行データ読み取り（N=14=仮日数, O=15=給料, P=16=%, Q=17=高速を引く）
-    var mRow = sheet.getRange(row, 1, 1, 17).getValues()[0];
+    var _bi = row - _bStart;
+    // 行データ（バッチ先読みから取得）
+    var mRow = (_bi >= 0 && _bi < _bData.length) ? _bData[_bi] : sheet.getRange(row, 1, 1, 17).getValues()[0];
     var mCar    = String(mRow[7]  || '').trim();
     var mName   = String(mRow[8]  || '').trim();
     var mKari   = mRow[13]; // N=14
@@ -1647,6 +1671,16 @@ function onEditJoho_(sheet, range, ss) {
   }
   sheet.getRange(effStart, 1,  effRows, 14).setBackgrounds(cargoBgs); // A〜N(貨物セクション)
   sheet.getRange(effStart, 15, effRows, 14).setBackgrounds(vehBgs);   // O〜AB(車両セクション)
+
+  // ── トン数自動変換: H(8)=貨物トン数, U(21)=車両トン数 ──
+  var _tonsEnd = col + numCols - 1;
+  [8, 21].forEach(function(tc) {
+    if (tc < col || tc > _tonsEnd) return;
+    var _tvOld = sheet.getRange(effStart, tc, effRows, 1).getValues();
+    var _tvNew = _tvOld.map(function(r) { return [normalizeTons_(r[0])]; });
+    var _tvChg = _tvNew.some(function(v, i) { return String(v[0]) !== String(_tvOld[i][0]); });
+    if (_tvChg) sheet.getRange(effStart, tc, effRows, 1).setValues(_tvNew);
+  });
 
   // コピペ（複数列一括編集）はTEL/FAX自動入力・運行登録不要なので着色のみで終了
   if (numCols > 1) return;
@@ -2727,6 +2761,43 @@ function expandAndRefreshSheets() {
       }
     }
     // newIdx >= 0 かつ oldIdx === -1 → 既に正しい名称で存在、何もしない
+  }
+
+  // 自車専属マスタの燃費を設定シートから一括再計算（一括貼り付け後にシート再生成でも確実に反映）
+  var _earFuelSetting = ss.getSheetByName('設定');
+  var _earFuelMap = {};
+  if (_earFuelSetting && _earFuelSetting.getLastRow() >= 2) {
+    var _earSVals = _earFuelSetting.getRange(2, 1, _earFuelSetting.getLastRow()-1, 4).getValues();
+    for (var _ese = 0; _ese < _earSVals.length; _ese++) {
+      var _esKey = String(_earSVals[_ese][0]||'').trim()
+        .replace(/[０-９]/g, function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);})
+        .replace(/[ｔＴ]/g,'t').toLowerCase();
+      if (_esKey && _esKey !== '有休') {
+        var _esNum = _esKey.replace(/t$/,'');
+        _earFuelMap[_esKey]       = _earSVals[_ese][1];
+        _earFuelMap[_esNum]       = _earSVals[_ese][1];
+        _earFuelMap[_esNum + 't'] = _earSVals[_ese][1];
+      }
+    }
+  }
+  if (masterSheet && masterSheet.getLastRow() >= 2) {
+    var _earLR      = masterSheet.getLastRow();
+    var _earTons    = masterSheet.getRange(2, 6, _earLR - 1, 1).getValues();  // F=トン数
+    var _earCurFuel = masterSheet.getRange(2, 12, _earLR - 1, 1).getValues(); // L=燃費（現在値）
+    var _earNewFuel = [];
+    for (var _efi = 0; _efi < _earTons.length; _efi++) {
+      var _eft  = String(_earTons[_efi][0] || '').trim();
+      if (_eft) {
+        var _efn  = normalizeTons_(_eft);
+        var _efnL = _efn.replace(/[０-９]/g, function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);}).replace(/[ｔＴ]/g,'t').toLowerCase();
+        var _efp  = _efnL.replace(/t$/,'');
+        var _efv  = _earFuelMap[_efnL] || _earFuelMap[_efp+'t'] || _earFuelMap[_efp] || '';
+        _earNewFuel.push([_efv !== '' ? _efv : _earCurFuel[_efi][0]]);
+      } else {
+        _earNewFuel.push([_earCurFuel[_efi][0]]);
+      }
+    }
+    masterSheet.getRange(2, 12, _earLR - 1, 1).setValues(_earNewFuel);
   }
 
   // 運行シートに点呼前完了・点呼後完了列を追加（なければ末尾に追加）―早期に実行してタイムアウトを回避

@@ -10,6 +10,8 @@ function onOpen() {
   menu
     .addItem('ホーム画面を表示', 'showSidebar')
     .addSeparator()
+    .addItem('🔄 メニュー再生成（メニューが消えたら押す）', 'reloadMenu')
+    .addSeparator()
     .addItem('📅 今月分生成（途中契約）', 'generateCurrentMonth')
     .addItem('📅 翌月分生成（前月アーカイブ）', 'generateNextMonth')
     .addItem('📦 前月分アーカイブ', 'archiveOldMonth')
@@ -28,6 +30,7 @@ function onOpen() {
     .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
     .addItem('📖 使い方シート作成', 'createUsageSheet')
     .addItem('📤 CSV・Excel出力', 'showExportDialog')
+    .addItem('🛡 シート保護設定', 'setupSheetProtection')
     .addSeparator()
     .addSubMenu(ui.createMenu('📥 データ読み込み（CSV）')
       .addItem('運行シート', 'showCsvImportDialogUnkou')
@@ -40,7 +43,12 @@ function onOpen() {
     .addSeparator()
     .addSubMenu(ui.createMenu('📋 帳票・送信メニュー')
       .addItem('① 発注書・指示書を作成（協力会社・乗務員用）', 'showHatchuDocDialog')
-      .addItem('② 車番連絡を作成（荷主用）', 'showShabanDocDialog'))
+      .addItem('② 車番連絡を作成（荷主用）', 'showShabanDocDialog')
+      .addSeparator()
+      .addItem('🗒 受領書の耳生成', 'showUketorishoDialog'))
+    .addSubMenu(ui.createMenu('📊 PL管理')
+      .addItem('📈 PL作成', 'showPlDialog')
+      .addItem('🗃 PL設定初期化', 'initFixedCostMaster'))
     .addSeparator()
     .addItem('🔗 チェックした行を配車確定', 'matchAndConfirmDispatch')
     .addItem('🔓 選択行のマッチング解除', 'cancelDispatch');
@@ -61,6 +69,7 @@ function installedOnEdit_(e) { return UnkouLib.installedOnEdit_(e); }
 // ── 画面表示 ──────────────────────────────────────────────────────────
 function showSidebar()            { return UnkouLib.showSidebar(); }
 function showUploadSidebar()      { return UnkouLib.showUploadSidebar(); }
+function reloadMenu()             { return UnkouLib.reloadMenu(); }
 
 // ── 月次処理 ──────────────────────────────────────────────────────────
 function generateCurrentMonth()   { return UnkouLib.generateCurrentMonth(); }
@@ -76,6 +85,7 @@ function autoFillExpense()        { return UnkouLib.autoFillExpense(); }
 function sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }
 function fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }
 function createUsageSheet()       { return UnkouLib.createUsageSheet(); }
+function setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }
 function showExportDialog()             { return UnkouLib.showExportDialog(); }
 function exportSheetAsCsvBase64(a)      { return UnkouLib.exportSheetAsCsvBase64(a); }
 function exportSelectedSheetsAsExcel(a) { return UnkouLib.exportSelectedSheetsAsExcel(a); }
@@ -100,8 +110,11 @@ function saveImportAliases(a,b,c)        { return UnkouLib.saveImportAliases(a,b
 // ── 帳票・送信 ────────────────────────────────────────────────────────
 function showHatchuDocDialog()           { return UnkouLib.showHatchuDocDialog(); }
 function showShabanDocDialog()           { return UnkouLib.showShabanDocDialog(); }
+function showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(); }
 function sendDocumentEmail(a,b,c)        { return UnkouLib.sendDocumentEmail(a,b,c); }
 function markDocumentIssued(a,b)         { return UnkouLib.markDocumentIssued(a,b); }
+function showPlDialog()                  { return UnkouLib.showPlDialog(); }
+function initFixedCostMaster()           { return UnkouLib.initFixedCostMaster(); }
 
 // ── 請求書・支払確認書 ────────────────────────────────────────────────
 function showInvoiceDialog()             { return UnkouLib.showInvoiceDialog(); }
