@@ -6479,7 +6479,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('🔄 メニュー再生成','reloadMenu').addItem('集計表再生成','generateSummary').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('⛽ ETC利用明細','showEtcImportDialog').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('🔄 メニュー再生成（メニューが消えたら押す）','reloadMenu').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('📏 距離計算（未計算分）','calcDistanceManual').addItem('🗾 距離マスタ 主要地データ投入','initDistanceMasterMajorCities').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addItem('📤 CSV・Excel出力','showExportDialog').addItem('🛡 シート保護設定','setupSheetProtection').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('⛽ ETC利用明細','showEtcImportDialog').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch').addItem('🔓 選択行のマッチング解除','cancelDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
@@ -6561,6 +6561,7 @@ function getClientStubSource_() {
     "function generatePl(a){return UnkouLib.generatePl(a);}",
     "function exportPlJournalCsv(){return UnkouLib.exportPlJournalCsv();}",
     "function initFixedCostMaster(){return UnkouLib.initFixedCostMaster();}",
+    "function setupSheetProtection(){return UnkouLib.setupSheetProtection();}",
     "function showExportDialog(){return UnkouLib.showExportDialog();}",
     "function exportSheetAsCsvBase64(a){return UnkouLib.exportSheetAsCsvBase64(a);}",
     "function exportSelectedSheetsAsExcel(a){return UnkouLib.exportSelectedSheetsAsExcel(a);}",
@@ -8289,14 +8290,16 @@ function syncToAllClientSS() {
         mSheet.getRange(2, 2, mSheet.getMaxRows() - 1, 1).setDataValidation(sv);
       }
 
-      // 不要シートを削除（マスタ点検項目など）
-      // 情報・自社設定は新機能シートのため保持する
+      // 不要シートを削除（マスタ点検項目など）、ただし業務シートは保護
       var validClientSheets = [
         '運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定',
-        '情報','自社設定','__COMPANY_SS__'
+        '情報','自社設定','距離マスタ','PL設定','受領','__COMPANY_SS__'
       ];
       clientSs.getSheets().forEach(function(s) {
-        if (validClientSheets.indexOf(s.getName()) === -1 && clientSs.getSheets().length > 1) {
+        var sn = s.getName();
+        // PL または PL_で始まる月次PLシートも保護
+        var isValid = validClientSheets.indexOf(sn) >= 0 || sn === 'PL' || sn.indexOf('PL_') === 0;
+        if (!isValid && clientSs.getSheets().length > 1) {
           try { clientSs.deleteSheet(s); } catch(e) {}
         }
       });
