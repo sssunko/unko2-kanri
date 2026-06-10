@@ -936,7 +936,6 @@ function getDispatchDashboardData() {
 //  スタブ更新後にメニューを即時反映させる。onOpenを再実行するだけ。
 // ================================================================
 function reloadMenu() {
-  ensureInstalledTrigger_();
   onOpen();
   SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3);
 }
@@ -1029,7 +1028,6 @@ function validateDriverEmail_(email, companySsId) {
 //  スプレッドシートのサイドバーとして表示する
 // ================================================================
 function showSidebar() {
-  ensureInstalledTrigger_();
   var tmpl = HtmlService.createTemplateFromFile('index');
   tmpl.companySsId = '';
   var html = tmpl.evaluate().setTitle('ホーム').setWidth(400);
@@ -1618,11 +1616,11 @@ function applyMasterVehicleWarnings_(sheet) {
 //  3-3b: 車両ステータス変更時の運行シート同期（syncVehicleToCurrentMonth_）
 //  [MOD-v1.2] 引数 applyDate を追加。起点日以降の空行削除と生成を行う
 // ================================================================
-function syncVehicleToCurrentMonth_(veh, skipSort, applyDate) {
+function syncVehicleToCurrentMonth_(veh, skipSort, applyDate, ss) {
   var carNo  = String(veh[7] || '').trim(); // H列(index7)=車番
   var status = String(veh[1] || '').trim(); // B列(index1)=ステータス
   if (!carNo) return;
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
 
@@ -6690,11 +6688,11 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addItem('🚚 配車ダッシュボード','showDispatchDashboard').addSeparator().addItem('🔄 メニュー再生成（メニューが消えたら押す）','reloadMenu').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('📏 距離計算（未計算分）','calcDistanceManual').addItem('🗾 距離マスタ 主要地データ投入','initDistanceMasterMajorCities').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addItem('📤 CSV・Excel出力','showExportDialog').addItem('📋 監査用表生成','generateAuditSheet').addItem('🛡 シート保護設定','setupSheetProtection').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('⛽ ETC利用明細','showEtcImportDialog').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch').addItem('🔓 選択行のマッチング解除','cancelDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}try{UnkouLib.checkMasterExpiries();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addItem('🚚 配車ダッシュボード','showDispatchDashboard').addSeparator().addItem('🔄 メニュー再生成（メニューが消えたら押す）','reloadMenu').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('📏 距離計算（未計算分）','calcDistanceManual').addItem('🗾 距離マスタ 主要地データ投入','initDistanceMasterMajorCities').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addItem('📤 CSV・Excel出力','showExportDialog').addItem('📋 監査用表生成','generateAuditSheet').addItem('🛡 シート保護設定','setupSheetProtection').addItem('🔧 初期設定','installTriggers').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('⛽ ETC利用明細','showEtcImportDialog').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch').addItem('🔓 選択行のマッチング解除','cancelDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}try{UnkouLib.checkMasterExpiries();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
-    "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
-    "function reloadMenu(){try{UnkouLib.ensureInstalledTrigger_();}catch(e){}onOpen();SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました','🔄',3);}",
+    "function installedOnEdit_(e){var r=UnkouLib.dispatchInstalledEdit(e);if(r&&r.html){SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(r.html).setWidth(r.width||300).setHeight(r.height||290),r.title||'');}}",
+    "function reloadMenu(){onOpen();SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました','🔄',3);}",
     "function showSidebar(){return UnkouLib.showSidebar();}",
     "function showUploadSidebar(){return UnkouLib.showUploadSidebar();}",
     "function generateCurrentMonth(){return UnkouLib.generateCurrentMonth();}",
@@ -6708,9 +6706,9 @@ function getClientStubSource_() {
     "function sortBothSheetsByDate(){return UnkouLib.sortBothSheetsByDate();}",
     "function fillMissingIdsAndCars(){return UnkouLib.fillMissingIdsAndCars();}",
     "function createUsageSheet(){return UnkouLib.createUsageSheet();}",
-    "function installTriggers(){return UnkouLib.installTriggers();}",
+    "function installTriggers(){var ss=SpreadsheetApp.getActiveSpreadsheet();ScriptApp.getProjectTriggers().forEach(function(t){if(t.getHandlerFunction()==='installedOnEdit_')ScriptApp.deleteTrigger(t);});ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）','✓',3);}",
     "function setRecalcChoice(a){return UnkouLib.setRecalcChoice(a);}",
-    "function executeStatusSync(a,b){return UnkouLib.executeStatusSync(a,b);}",
+    "function executeStatusSync(a,b,c){return UnkouLib.executeStatusSync(a,b,c);}",
     "function syncToAllClientSS(){return UnkouLib.syncToAllClientSS();}",
     "function storeCompanySsId(a){return UnkouLib.storeCompanySsId(a);}",
     "function getInitialData(a,b){return UnkouLib.getInitialData(a,b);}",
@@ -8300,7 +8298,13 @@ function updatePlApportionment_(ss) {
 //  実行時間制限もシンプルトリガーの30秒ではなく6分まで利用できる。
 //  installTriggers() で登録済みの場合のみ発火する。
 // ================================================================
-function installedOnEdit_(e) {
+// ================================================================
+//  13-1b: インストール型トリガーのディスパッチャ（dispatchInstalledEdit）
+//  installedOnEdit_ から分離した公開関数。②③スタブからも呼べる（アンダースコアなし）。
+//  UI表示（showModalDialog）はスタブ側で行うため、ポップアップ案件は htmlなどを返す。
+//  非UI案件は直接処理してnullを返す。
+// ================================================================
+function dispatchInstalledEdit(e) {
   try {
     var range     = e.range;
     var sheet     = range.getSheet();
@@ -8308,46 +8312,56 @@ function installedOnEdit_(e) {
     var row       = range.getRow();
     var col       = range.getColumn();
 
-    // ── [MOD-v1.2] 自車専属マスタのB列（運行状態）編集時：適用日確認ポップアップ ──────
+    // 自車専属マスタのB列（運行状態）編集時：適用日確認ポップアップ
     if (sheetName === '自車専属マスタ' && col === 2 && row >= 2) {
+      // 複数行同時編集に対応：編集された全行番号を収集
+      var ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
+      var numEditRows = range.getNumRows();
+      var editedRows = [];
+      for (var rIdx = 0; rIdx < numEditRows; rIdx++) {
+        if (row + rIdx >= 2) editedRows.push(row + rIdx);
+      }
+      if (editedRows.length === 0) return null;
+      var rowsJson = JSON.stringify(editedRows);
       var mToday = new Date();
       var mTodayStr = Utilities.formatDate(mToday, Session.getScriptTimeZone(), 'yyyy/MM/dd');
       var mFirst = new Date(mToday.getFullYear(), mToday.getMonth(), 1);
       var mFirstStr = Utilities.formatDate(mFirst, Session.getScriptTimeZone(), 'yyyy/MM/dd');
-      var mHtml = HtmlService.createHtmlOutput(
+      var countNote = editedRows.length > 1 ? '<br><small>（' + editedRows.length + '台まとめて適用）</small>' : '';
+      var htmlStr =
         '<style>' +
         'body{font-family:sans-serif;padding:16px;text-align:center;margin:0;overflow:hidden}' +
         'p{margin:0 0 14px;font-size:13px;line-height:1.5}' +
+        'small{color:#888;font-size:11px}' +
         'button{display:block;width:100%;padding:11px 8px;margin:7px 0;font-size:13px;' +
         'cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#fff}' +
         'button:hover:not(:disabled){background:#f0f0f0}' +
         'button:disabled{opacity:.5;cursor:default}' +
         '.cancel{color:#999}' +
         '</style>' +
-        '<p>ステータス変更をいつから適用しますか？<br>（未配車の空行のみ整理します）</p>' +
+        '<p>ステータス変更をいつから適用しますか？' + countNote + '<br>（未配車の空行のみ整理します）</p>' +
         '<button onclick="go(\'today\')">本日以降（' + mTodayStr + '〜）</button>' +
         '<button onclick="go(\'month\')">今月以降（' + mFirstStr + '〜）</button>' +
         '<button onclick="go(\'all\')">全期間（制限なし）</button>' +
         '<button class="cancel" onclick="google.script.host.close()">キャンセル</button>' +
         '<script>' +
+        'var _rows=' + rowsJson + ';' +
+        'var _ssId="' + ssId + '";' +
         'function go(v){' +
         '  document.querySelectorAll("button").forEach(function(b){b.disabled=true;});' +
         '  google.script.run' +
-        '    .withSuccessHandler(function(){' +
-        '      google.script.host.close();' +
-        '    })' +
-        '    .executeStatusSync(' + row + ', v);' +
+        '    .withSuccessHandler(function(){google.script.host.close();})' +
+        '    .withFailureHandler(function(e){alert("エラー: "+(e.message||e));document.querySelectorAll("button").forEach(function(b){b.disabled=false;});})' +
+        '    .executeStatusSync(JSON.stringify(_rows),v,_ssId);' +
         '}' +
-        '<\/script>'
-      ).setWidth(300).setHeight(290);
-      SpreadsheetApp.getUi().showModalDialog(mHtml, 'いつから適用しますか？');
-      return;
+        '<\/script>';
+      return { html: htmlStr, title: 'いつから適用しますか？', width: 300, height: 290 };
     }
 
     // PL設定シートが変更されたら自車専属マスタのAG列を即時更新
     if (sheetName === 'PL設定' && row >= 2) {
       updatePlApportionment_(e.source);
-      return;
+      return null;
     }
 
     // 運行シートのL列（積地）またはM列（降地）を直接編集したら距離を即時反映
@@ -8368,40 +8382,37 @@ function installedOnEdit_(e) {
           lookupAndSetDistanceAfterCreate_(ss_, id, picksArr_, dropsArr_);
         }
       }
-      return;
+      return null;
     }
 
-    if (sheetName !== '会社登録' || row <= 1) return;
+    if (sheetName !== '会社登録' || row <= 1) return null;
 
-    // ── A列 or B列: 会社名+Gmail が揃ったらフルセットアップ ──────────
+    // A列 or B列: 会社名+Gmail が揃ったらフルセットアップ
     if (col === 1 || col === 2) {
       var companyName = String(sheet.getRange(row, 1).getValue() || '').trim();
       var adminEmail  = String(sheet.getRange(row, 2).getValue() || '').trim();
       var status      = String(sheet.getRange(row, 3).getValue() || '').trim();
-
-      if (!companyName || !adminEmail || adminEmail.indexOf('@') === -1) return;
-      // 未処理（空）またはエラーのみ実行。処理済ステータスは全てスキップ
-      if (status !== '' && status.indexOf('エラー') !== 0) return;
-
+      if (!companyName || !adminEmail || adminEmail.indexOf('@') === -1) return null;
+      if (status !== '' && status.indexOf('エラー') !== 0) return null;
       sheet.getRange(row, 3).setValue('処理中...').setBackground('#fff9c4');
       try {
         processNewCompany_(companyName, adminEmail);
       } catch(err) {
         sheet.getRange(row, 3).setValue('エラー: ' + err.message).setBackground('#ffcdd2');
       }
-      return;
+      return null;
     }
 
-    // ── F列 or G列: SS URL + App URL が揃ったら配布メール送信 ──────────
+    // F列 or G列: SS URL + App URL が揃ったら配布メール送信
     if (col === 6 || col === 7) {
       var ssUrl      = String(sheet.getRange(row, 6).getValue() || '').trim();
       var appUrl     = String(sheet.getRange(row, 7).getValue() || '').trim();
       var mailStatus = String(sheet.getRange(row, 8).getValue() || '').trim();
-      if (!ssUrl || !appUrl) return;
-      if (mailStatus.indexOf('送信済') !== -1) return;
+      if (!ssUrl || !appUrl) return null;
+      if (mailStatus.indexOf('送信済') !== -1) return null;
       var cName  = String(sheet.getRange(row, 1).getValue() || '').trim();
       var aEmail = String(sheet.getRange(row, 2).getValue() || '').trim();
-      if (!cName || !aEmail || aEmail.indexOf('@') === -1) return;
+      if (!cName || !aEmail || aEmail.indexOf('@') === -1) return null;
       try {
         sendDistributionMail_(cName, aEmail, ssUrl, appUrl, row, sheet);
       } catch(err) {
@@ -8409,6 +8420,18 @@ function installedOnEdit_(e) {
       }
     }
   } catch(ex) {}
+  return null;
+}
+
+
+function installedOnEdit_(e) {
+  var result = dispatchInstalledEdit(e);
+  if (result && result.html) {
+    SpreadsheetApp.getUi().showModalDialog(
+      HtmlService.createHtmlOutput(result.html).setWidth(result.width).setHeight(result.height),
+      result.title
+    );
+  }
 }
 
 
@@ -11053,11 +11076,14 @@ function initFixedCostMaster() {
 // ================================================================
 //  [ADD-v1.2] ポップアップから呼ばれ、指定された日付を起点に運行シートを同期する
 // ================================================================
-function executeStatusSync(row, choice) {
+function executeStatusSync(rowsParam, choice, ssId) {
   if (choice === 'cancel') return;
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // rowsParam はJSON配列文字列または数値（後方互換）
+  var rows = typeof rowsParam === 'string' ? JSON.parse(rowsParam) : [rowsParam];
+  // getActiveSpreadsheetはAPIから呼ばれる時に正しいSSを返さないため getTargetSS_ を使う
+  var ss = getTargetSS_(ssId);
   var master = ss.getSheetByName('自車専属マスタ');
-  var mRowData = master.getRange(row, 1, 1, 16).getValues()[0];
+  if (!master) return;
 
   var applyDate;
   var now = new Date();
@@ -11069,7 +11095,11 @@ function executeStatusSync(row, choice) {
     applyDate = new Date(2000, 0, 1);
   }
 
-  syncVehicleToCurrentMonth_(mRowData, false, applyDate);
+  for (var i = 0; i < rows.length; i++) {
+    var mRowData = master.getRange(rows[i], 1, 1, 16).getValues()[0];
+    // 最後の1台だけソートを実行（それ以前はskipSort=true）
+    syncVehicleToCurrentMonth_(mRowData, i < rows.length - 1, applyDate, ss);
+  }
 }
 
 

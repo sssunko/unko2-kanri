@@ -33,6 +33,7 @@ function onOpen() {
     .addItem('📤 CSV・Excel出力', 'showExportDialog')
     .addItem('📋 監査用表生成', 'generateAuditSheet')
     .addItem('🛡 シート保護設定', 'setupSheetProtection')
+    .addItem('🔧 初期設定', 'installTriggers')
     .addSeparator()
     .addSubMenu(ui.createMenu('📥 データ読み込み（CSV）')
       .addItem('運行シート', 'showCsvImportDialogUnkou')
@@ -67,7 +68,15 @@ function onOpen() {
 
 function doGet(e)            { return UnkouLib.doGet(e); }
 function onEdit(e)           { return UnkouLib.onEdit(e); }
-function installedOnEdit_(e) { return UnkouLib.installedOnEdit_(e); }
+function installedOnEdit_(e) {
+  var r = UnkouLib.dispatchInstalledEdit(e);
+  if (r && r.html) {
+    SpreadsheetApp.getUi().showModalDialog(
+      HtmlService.createHtmlOutput(r.html).setWidth(r.width || 300).setHeight(r.height || 290),
+      r.title || ''
+    );
+  }
+}
 
 // ── 画面表示 ──────────────────────────────────────────────────────────
 function showSidebar()            { return UnkouLib.showSidebar(); }
@@ -93,9 +102,17 @@ function showExportDialog()             { return UnkouLib.showExportDialog(); }
 function exportSheetAsCsvBase64(a)      { return UnkouLib.exportSheetAsCsvBase64(a); }
 function exportSelectedSheetsAsExcel(a) { return UnkouLib.exportSelectedSheetsAsExcel(a); }
 function exportPlBundle(a)              { return UnkouLib.exportPlBundle(a); }
-function installTriggers()        { return UnkouLib.installTriggers(); }
+// installTriggersはライブラリ経由にするとScriptAppが①を向くためローカル実装
+function installTriggers() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'installedOnEdit_') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();
+  ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);
+}
 function setRecalcChoice(a)       { return UnkouLib.setRecalcChoice(a); }
-function executeStatusSync(a,b)  { return UnkouLib.executeStatusSync(a,b); }
+function executeStatusSync(a,b,c){ return UnkouLib.executeStatusSync(a,b,c); }
 function syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }
 
 // ── CSVインポート ─────────────────────────────────────────────────────
