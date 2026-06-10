@@ -8315,7 +8315,8 @@ function dispatchInstalledEdit(e) {
     // 自車専属マスタのB列（運行状態）編集時：適用日確認ポップアップ
     if (sheetName === '自車専属マスタ' && col === 2 && row >= 2) {
       // 複数行同時編集に対応：編集された全行番号を収集
-      var ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
+      // e.source はトリガー発火元のSSを確実に返す（ライブラリ内でgetActiveSpreadsheetは使えない）
+      var ssId = e.source.getId();
       var numEditRows = range.getNumRows();
       var editedRows = [];
       for (var rIdx = 0; rIdx < numEditRows; rIdx++) {
