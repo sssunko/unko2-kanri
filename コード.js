@@ -936,6 +936,7 @@ function getDispatchDashboardData() {
 //  スタブ更新後にメニューを即時反映させる。onOpenを再実行するだけ。
 // ================================================================
 function reloadMenu() {
+  ensureInstalledTrigger_();
   onOpen();
   SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3);
 }
@@ -1028,6 +1029,7 @@ function validateDriverEmail_(email, companySsId) {
 //  スプレッドシートのサイドバーとして表示する
 // ================================================================
 function showSidebar() {
+  ensureInstalledTrigger_();
   var tmpl = HtmlService.createTemplateFromFile('index');
   tmpl.companySsId = '';
   var html = tmpl.evaluate().setTitle('ホーム').setWidth(400);
@@ -6692,7 +6694,7 @@ function getClientStubSource_() {
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
-    "function reloadMenu(){onOpen();SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました','🔄',3);}",
+    "function reloadMenu(){try{UnkouLib.ensureInstalledTrigger_();}catch(e){}onOpen();SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました','🔄',3);}",
     "function showSidebar(){return UnkouLib.showSidebar();}",
     "function showUploadSidebar(){return UnkouLib.showUploadSidebar();}",
     "function generateCurrentMonth(){return UnkouLib.generateCurrentMonth();}",
@@ -6778,7 +6780,11 @@ function getClientStubSource_() {
     "function generateAuditSheet(){return UnkouLib.generateAuditSheet();}",
     "function checkMasterExpiries(){return UnkouLib.checkMasterExpiries();}",
     "function showDispatchDashboard(){return UnkouLib.showDispatchDashboard();}",
-    "function getDispatchDashboardData(){return UnkouLib.getDispatchDashboardData();}"
+    "function getDispatchDashboardData(){return UnkouLib.getDispatchDashboardData();}",
+    "function getCarInfoByNumber(a,b){return UnkouLib.getCarInfoByNumber(a,b);}",
+    "function deleteTerminalFile(a,b,c){return UnkouLib.deleteTerminalFile(a,b,c);}",
+    "function replaceTerminalFile(a,b,c,d,e,f){return UnkouLib.replaceTerminalFile(a,b,c,d,e,f);}",
+    "function saveTermNoticeByDriver(a,b,c){return UnkouLib.saveTermNoticeByDriver(a,b,c);}"
   ].join('\n');
 }
 
@@ -8200,6 +8206,28 @@ function installTriggers() {
     '「会社登録」シートのA列（会社名）とB列（Gmail）を入力するだけで\n' +
     'スプレッドシート作成・フォルダ作成・メール送信が自動で行われます。'
   );
+}
+
+
+// ================================================================
+//  13-1b-auto: トリガー自動インストール（ensureInstalledTrigger_）
+//  ライブラリ経由でも ScriptApp は呼び出し元（②③スタブ）のコンテキストで動くため、
+//  showSidebar / reloadMenu 等のメニュー起動時に一度だけ呼べば ②③ に自動登録される。
+// ================================================================
+function ensureInstalledTrigger_() {
+  try {
+    var ss   = SpreadsheetApp.getActiveSpreadsheet();
+    var ssId = ss.getId();
+    var existing = ScriptApp.getProjectTriggers();
+    var hasIt = existing.some(function(t) {
+      return t.getHandlerFunction() === 'installedOnEdit_' && t.getTriggerSourceId() === ssId;
+    });
+    if (!hasIt) {
+      ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();
+    }
+  } catch(e) {
+    // トリガー登録権限がない（シンプルトリガー内から呼ばれた等）は無視
+  }
 }
 
 

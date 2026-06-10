@@ -114,9 +114,13 @@ function saveImportAliases(a,b,c)        { return UnkouLib.saveImportAliases(a,b
 function showHatchuDocDialog()           { return UnkouLib.showHatchuDocDialog(); }
 function showShabanDocDialog()           { return UnkouLib.showShabanDocDialog(); }
 function showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(); }
+function generateUketorishoSheet(a)      { return UnkouLib.generateUketorishoSheet(a); }
 function sendDocumentEmail(a,b,c)        { return UnkouLib.sendDocumentEmail(a,b,c); }
 function markDocumentIssued(a,b)         { return UnkouLib.markDocumentIssued(a,b); }
 function showPlDialog()                  { return UnkouLib.showPlDialog(); }
+function getPlFilterOptions()            { return UnkouLib.getPlFilterOptions(); }
+function generatePl(a)                   { return UnkouLib.generatePl(a); }
+function exportPlJournalCsv()            { return UnkouLib.exportPlJournalCsv(); }
 function initFixedCostMaster()           { return UnkouLib.initFixedCostMaster(); }
 
 // ── 請求書・支払確認書 ────────────────────────────────────────────────
@@ -167,3 +171,7 @@ function agreeContract(a,b,c,d)          { return UnkouLib.agreeContract(a,b,c,d
 function queueFileUpload(a,b,c,d)        { return UnkouLib.queueFileUpload(a,b,c,d); }
 function recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }
 function clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }
+function getCarInfoByNumber(a,b)         { return UnkouLib.getCarInfoByNumber(a,b); }
+function deleteTerminalFile(a,b,c)       { return UnkouLib.deleteTerminalFile(a,b,c); }
+function replaceTerminalFile(a,b,c,d,e,f){ return UnkouLib.replaceTerminalFile(a,b,c,d,e,f); }
+function saveTermNoticeByDriver(a,b,c)   { return UnkouLib.saveTermNoticeByDriver(a,b,c); }

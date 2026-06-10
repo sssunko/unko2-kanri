@@ -85,7 +85,10 @@
       "WebFetch(domain:www.kiyama-cpa.com)",
       "WebFetch(domain:the-board.jp)",
       "PowerShell($lines = \\(Get-Content \"c:\\\\gas\\\\unko2-kanri\\\\stub_for_clientSS\\\\コード.js\"\\).Count; Write-Output \"stub総行数: $lines\"; Select-String -Path \"c:\\\\gas\\\\unko2-kanri\\\\stub_for_clientSS\\\\コード.js\" -Pattern \"showCsvImport|prepareEtc|executeEtc|showEtc\")",
-      "Bash(grep -v \"//\\\\|html\\\\|select\\\\|document\")"
+      "Bash(grep -v \"//\\\\|html\\\\|select\\\\|document\")",
+      "Bash(awk -F\"function \" '{print $2}')",
+      "Bash(awk -F\"\\(\" '{print $1}')",
+      "Bash(awk -F\"UnkouLib\\\\.\" '{print $2}')"
     ]
   }
 }
