@@ -9,6 +9,7 @@ function onOpen() {
   var menu = ui.createMenu('メニュー');
   menu
     .addItem('ホーム画面を表示', 'showSidebar')
+    .addItem('🚚 配車ダッシュボード', 'showDispatchDashboard')
     .addSeparator()
     .addItem('🔄 メニュー再生成（メニューが消えたら押す）', 'reloadMenu')
     .addSeparator()
@@ -129,6 +130,8 @@ function matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispat
 function cancelDispatch()               { return UnkouLib.cancelDispatch(); }
 function generateAuditSheet()           { return UnkouLib.generateAuditSheet(); }
 function checkMasterExpiries()          { return UnkouLib.checkMasterExpiries(); }
+function showDispatchDashboard()        { return UnkouLib.showDispatchDashboard(); }
+function getDispatchDashboardData()     { return UnkouLib.getDispatchDashboardData(); }
 
 // ── アプリ連携（端末↔SS） ────────────────────────────────────────────
 function storeCompanySsId(a)              { return UnkouLib.storeCompanySsId(a); }

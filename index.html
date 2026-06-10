@@ -351,6 +351,7 @@
         <div class="info-line"><span class="info-label">車番：</span><span id="carNumber"></span></div>
         <div class="info-line"><span class="info-label">名前：</span><span id="driverName"></span></div>
         <div class="info-line"><span class="info-label">携帯番号：</span><span id="driverTel"></span></div>
+        <div id="expiryWarning" style="display:none;margin-top:8px;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:bold;"></div>
       </div>
     </div>
     <div class="card">
@@ -744,6 +745,24 @@ window.onload = function() {
           document.getElementById('statusText').innerText = '状態：紐づけOK';
           driverProfile = { company:init.profile.company||'', tons:init.profile.tons||'', type:init.profile.type||'', car:init.profile.carNo||'', name:init.profile.name||'', tel:init.profile.tel||'' };
           localStorage.setItem(LS_EMAIL_KEY, init.email);
+          // 期限アラート表示
+          var ewDiv = document.getElementById('expiryWarning');
+          if (ewDiv) {
+            if (init.expiryWarning) {
+              var ew = init.expiryWarning;
+              var ewMsg = ew.status === 'expired' ? '⚠️ ' + ew.label + ' が期限切れです！' :
+                          ew.status === 'today'   ? '⚠️ ' + ew.label + ' が本日期限です' :
+                                                    '⚠️ ' + ew.label + ' まで' + ew.minDays + '日';
+              var ewBg  = ew.status === 'expired' ? '#ffcdd2' : ew.status === 'today' ? '#bbdefb' : '#c8e6c9';
+              var ewCol = ew.status === 'expired' ? '#b71c1c' : ew.status === 'today' ? '#0d47a1' : '#1b5e20';
+              ewDiv.innerText = ewMsg;
+              ewDiv.style.background = ewBg;
+              ewDiv.style.color = ewCol;
+              ewDiv.style.display = 'block';
+            } else {
+              ewDiv.style.display = 'none';
+            }
+          }
         } else {
           document.getElementById('statusText').innerText = '状態：マスタ未登録';
         }

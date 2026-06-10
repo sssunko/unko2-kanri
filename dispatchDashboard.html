@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Meiryo', 'Hiragino Sans', sans-serif; font-size: 12px; background: #f0f2f5; }
+
+.hdr {
+  background: #b71c1c;
+  color: white;
+  padding: 8px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.hdr-top { display: flex; justify-content: space-between; align-items: center; }
+.hdr h1 { font-size: 13px; font-weight: bold; }
+.hdr .sub { font-size: 10px; opacity: 0.8; margin-top: 3px; }
+.btn-refresh {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.4);
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.btn-refresh:hover { background: rgba(255,255,255,0.35); }
+
+.date-banner {
+  text-align: center;
+  padding: 14px 12px 6px;
+  font-size: 30px;
+  font-weight: bold;
+  color: #1a237e;
+  letter-spacing: 1px;
+}
+
+.hero {
+  text-align: center;
+  padding: 8px 12px 12px;
+}
+.count-ok {
+  font-size: 48px;
+  font-weight: bold;
+  color: #2e7d32;
+  line-height: 1;
+}
+.count-ng {
+  font-size: 48px;
+  font-weight: bold;
+  color: #c62828;
+  line-height: 1;
+}
+.hero-label { font-size: 12px; color: #666; margin-top: 4px; }
+
+.ok-banner {
+  margin: 16px 12px;
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  border-radius: 6px;
+  padding: 16px;
+  text-align: center;
+  color: #2e7d32;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+thead th {
+  background: #37474f;
+  color: white;
+  padding: 5px 8px;
+  font-size: 11px;
+  text-align: left;
+  position: sticky;
+  top: 52px;
+  z-index: 10;
+}
+td { padding: 6px 8px; border-bottom: 1px solid #e8e8e8; vertical-align: middle; }
+tbody tr { background: #fff9f9; }
+tbody tr:hover td { background: #ffeaea; }
+
+.car-col { font-weight: bold; color: #b71c1c; }
+.id-col  { color: #999; font-size: 10px; }
+
+.loading { text-align: center; padding: 30px; color: #999; font-size: 13px; }
+.err     { text-align: center; padding: 20px; color: #f44336; }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-top">
+    <h1>🚨 配車漏れチェック</h1>
+    <button type="button" class="btn-refresh" onclick="loadData()">🔄 更新</button>
+  </div>
+  <div class="sub">
+    <span id="ts">読み込み中...</span>
+  </div>
+</div>
+
+<div id="dateBanner" class="date-banner"></div>
+<div id="content"><div class="loading">読み込み中...</div></div>
+
+<script>
+var _timer;
+
+function loadData() {
+  clearInterval(_timer);
+  document.getElementById('content').innerHTML = '<div class="loading">確認中...</div>';
+  google.script.run
+    .withSuccessHandler(render)
+    .withFailureHandler(function(e) {
+      document.getElementById('content').innerHTML = '<div class="err">エラー: ' + (e.message||e) + '</div>';
+    })
+    .getDispatchDashboardData();
+}
+
+function render(data) {
+  document.getElementById('ts').textContent = data.timestamp + ' 現在';
+  document.getElementById('dateBanner').textContent = data.dateLabel || data.date;
+  var html = '';
+
+  if (data.count === 0) {
+    html = '<div class="hero"><div class="count-ok">0</div><div class="hero-label">配車漏れ件数</div></div>' +
+           '<div class="ok-banner">✅ 配車漏れなし</div>';
+  } else {
+    html = '<div class="hero"><div class="count-ng">' + data.count + '</div><div class="hero-label">件 積地未入力（配車漏れ）</div></div>';
+    html += '<table><thead><tr><th>車番</th><th>乗務員名</th><th>荷主</th><th>ID</th></tr></thead><tbody>';
+    data.gaps.forEach(function(v) {
+      html += '<tr>' +
+        '<td class="car-col">' + esc(v.car || '─') + '</td>' +
+        '<td>' + esc(v.driver || '─') + '</td>' +
+        '<td>' + esc(v.customer || '─') + '</td>' +
+        '<td class="id-col">' + esc(v.id) + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+  }
+
+  document.getElementById('content').innerHTML = html;
+  startAutoRefresh();
+}
+
+function startAutoRefresh() {
+  clearInterval(_timer);
+  _timer = setInterval(function() { loadData(); }, 30000);
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+loadData();
+</script>
+</body>
+</html>

@@ -536,6 +536,7 @@ function applyHolidayRowColors_() {
     sumSheet.getRange(2, 1, slr - 1, sLastCol).setBackgrounds(sbgs2D);
   }
 
+  applyExpiryWarningColors_();
   markIdCollisions_();
 }
 
@@ -594,6 +595,81 @@ function markIdCollisions_() {
     }
   }
   if (hasChange) sheet.getRange(2, 1, numRows, 1).setBackgrounds(newColors);
+}
+
+
+// ================================================================
+//  1-7c: 期限アラート色付け（applyExpiryWarningColors_）  【大B / 中1 / 小1-7c】
+//  自車専属マスタの4期限列（免許証・安全教育・健康診断・適性診断）を参照し
+//  運行シートのA列（ID）を乗務員ごとの最も近い期限に応じて着色する。
+//  淡い赤=期限超過 / 淡い青=当日 / 淡い緑=7日以内
+//  有休・休み行(グレー)・ID衝突行(#ff1744)には上書きしない。
+// ================================================================
+function applyExpiryWarningColors_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet       = ss.getSheetByName('運行');
+  var masterSheet = ss.getSheetByName('自車専属マスタ');
+  if (!sheet || !masterSheet || sheet.getLastRow() < 2 || masterSheet.getLastRow() < 2) return;
+
+  var mHeaders = masterSheet.getRange(1, 1, 1, masterSheet.getLastColumn()).getValues()[0];
+  var nameColM = mHeaders.indexOf('乗務員名');
+  var expiCols = [
+    mHeaders.indexOf('免許証有効期限'),
+    mHeaders.indexOf('安全教育次回予定日'),
+    mHeaders.indexOf('健康診断次回予定日'),
+    mHeaders.indexOf('適性診断次回予定日')
+  ].filter(function(c) { return c >= 0; });
+  if (nameColM < 0 || expiCols.length === 0) return;
+
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var mData = masterSheet.getRange(2, 1, masterSheet.getLastRow() - 1, masterSheet.getLastColumn()).getValues();
+
+  var expiryMap = {};
+  for (var mi = 0; mi < mData.length; mi++) {
+    var mRow = mData[mi];
+    var dName = String(mRow[nameColM] || '').trim();
+    if (!dName) continue;
+    var minDays = null;
+    for (var ci = 0; ci < expiCols.length; ci++) {
+      var dt = mRow[expiCols[ci]];
+      if (!(dt instanceof Date) || isNaN(dt.getTime())) continue;
+      var exp = new Date(dt); exp.setHours(0, 0, 0, 0);
+      var days = Math.round((exp.getTime() - today.getTime()) / 86400000);
+      if (minDays === null || days < minDays) minDays = days;
+    }
+    if (minDays !== null) expiryMap[dName] = minDays;
+  }
+  if (Object.keys(expiryMap).length === 0) return;
+
+  var lr = sheet.getLastRow() - 1;
+  var aVals  = sheet.getRange(2, 1, lr, 1).getValues();
+  var gVals  = sheet.getRange(2, 7, lr, 1).getValues();
+  var curBgs = sheet.getRange(2, 1, lr, 1).getBackgrounds();
+  var skipSet = { '#e0e0e0': 1, '#9e9e9e': 1, '#ff1744': 1 };
+
+  var newBgs = [], changed = false;
+  for (var i = 0; i < lr; i++) {
+    var id  = String(aVals[i][0] || '').trim();
+    var drv = String(gVals[i][0] || '').trim();
+    var cur = curBgs[i][0];
+    if (!id || skipSet[cur] || !expiryMap.hasOwnProperty(drv)) {
+      newBgs.push([cur]); continue;
+    }
+    var d = expiryMap[drv];
+    var nc = d < 0 ? '#ffcdd2' : d === 0 ? '#bbdefb' : d <= 7 ? '#c8e6c9' : cur;
+    if (nc !== cur) changed = true;
+    newBgs.push([nc]);
+  }
+  if (changed) sheet.getRange(2, 1, lr, 1).setBackgrounds(newBgs);
+
+  // A1セルに色凡例をメモとして設定（常に最新状態に保つ）
+  sheet.getRange(1, 1).setNote(
+    '■ ID列の背景色（期限アラート）\n' +
+    '　淡い緑：免許・健診などの期限が7日以内\n' +
+    '　淡い青：本日が期限\n' +
+    '　淡い赤：期限切れ\n' +
+    '※ 設定なし・データなしの場合は色なし'
+  );
 }
 
 
@@ -729,6 +805,7 @@ function onOpen() {
   var menu = SpreadsheetApp.getUi().createMenu('メニュー');
   menu
     .addItem('ホーム画面を表示', 'showSidebar')
+    .addItem('🚚 配車ダッシュボード', 'showDispatchDashboard')
     .addSeparator()
     .addItem('📅 今月分生成（途中契約）', 'generateCurrentMonth')
     .addItem('📅 翌月分生成（前月アーカイブ）', 'generateNextMonth')
@@ -792,6 +869,65 @@ function onOpen() {
   convertLegacyAdminDataUrls_();
   applyHolidayRowColors_();
   checkMasterExpiries();
+}
+
+
+// ================================================================
+//  配車ダッシュボード表示（showDispatchDashboard）
+// ================================================================
+function showDispatchDashboard() {
+  var html = HtmlService.createHtmlOutputFromFile('dispatchDashboard')
+    .setTitle('配車ダッシュボード')
+    .setWidth(520);
+  SpreadsheetApp.getUi().showSidebar(html);
+}
+
+
+// ================================================================
+//  配車ダッシュボード用データ取得（getDispatchDashboardData）
+//  本日分の運行シートで「積地が空欄（配車未確定）」の行だけを返す。
+//  配車漏れチェック専用。
+// ================================================================
+function getDispatchDashboardData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var unkouSheet = ss.getSheetByName('運行');
+
+  var today    = new Date(); today.setHours(0, 0, 0, 0);
+  var tomorrow = new Date(today.getTime() + 86400000);
+
+  var gaps = [];
+
+  if (unkouSheet && unkouSheet.getLastRow() > 1) {
+    var uCols = Math.min(unkouSheet.getLastColumn(), 13);
+    var uData = unkouSheet.getRange(2, 1, unkouSheet.getLastRow() - 1, uCols).getValues();
+
+    for (var i = 0; i < uData.length; i++) {
+      var r    = uData[i];
+      var id   = String(r[0] || '').trim();   // A=ID
+      var dt   = r[9];                          // J=日付
+      var car  = String(r[5] || '').trim();   // F=車番
+      var drv  = String(r[6] || '').trim();   // G=乗務員名
+      var cust = String(r[10] || '').trim();  // K=荷主
+      var pick = String(r[11] || '').trim();  // L=積地
+
+      if (!id) continue;                                        // IDなし（空行）は無視
+      if (!(dt instanceof Date) || dt < today || dt >= tomorrow) continue; // 今日以外は無視
+      if (pick !== '') continue;                               // 積地あり = 配車済みは無視
+
+      gaps.push({ id: id, car: car, driver: drv, customer: cust, rowNum: i + 2 });
+    }
+  }
+
+  var youbi = ['日', '月', '火', '水', '木', '金', '土'][today.getDay()];
+  var dateLabel = Utilities.formatDate(today, 'Asia/Tokyo', 'M月d日') + '（' + youbi + '）';
+
+  return {
+    gaps: gaps,
+    count: gaps.length,
+    date: Utilities.formatDate(today, 'Asia/Tokyo', 'M/d'),
+    dateLabel: dateLabel,
+    timestamp: Utilities.formatDate(new Date(), 'Asia/Tokyo', 'H:mm:ss')
+  };
 }
 
 
@@ -1413,16 +1549,12 @@ function onEditMasterVehicle_(sheet, range, ss) {
       }
     }
 
-    // 高速を引く(Q=17): %なし or 仮日数/給料あり → 適用外でグレー
-    var pctNum2 = Number(mPct) || 0;
-    var kariNum2 = Number(mKari) || 0;
-    var kyuNum2  = Number(mKyuryo) || 0;
-    var isQGray = (!pctNum2 || kyuNum2 > 0 || kariNum2 > 0);
+    // Q列(高速を引く)はグレーにしない（給料制でも高速を引く運用があるため常に入力可）
     var rowBg2 = (function(){
       var st = String(sheet.getRange(row, 2).getValue() || '').trim();
       return st === '運行' ? '#ffcdd2' : st === '待機' ? '#fff9c4' : st === '故障' ? '#c8e6c9' : null;
     })();
-    sheet.getRange(row, 17).setBackground(isQGray ? '#e0e0e0' : rowBg2);
+    sheet.getRange(row, 17).setBackground(rowBg2);
 
     // [MOD-v1.2] B列（ステータス）が変更された場合、直接の同期は行わずポップアップ処理に委ねる
     if (editedStartCol <= 2 && editedEndCol >= 2) {
@@ -1465,8 +1597,8 @@ function applyMasterVehicleWarnings_(sheet) {
     var nBg = (!kariN && (kyuN > 0 || pctN > 0 || expTot > 0)) ? '#b0bec5' : rowBg;
     // 仮日数あり かつ 給料も%もなし → O列(給料)とP列(%)を両方グレー警告
     var opBg = (kariN > 0 && !kyuN && !pctN) ? '#b0bec5' : rowBg;
-    // %なし または 仮日数/給料あり → Q列(高速を引く)はグレー（適用外）
-    var qBg = (!pctN || kyuN > 0 || kariN > 0) ? '#e0e0e0' : rowBg;
+    // Q列(高速を引く)はグレーにしない（給料制でも会社によって高速を引く場合があるため常に入力可）
+    var qBg = rowBg;
     warnBgs.push([nBg, opBg, opBg, qBg]);
   }
   sheet.getRange(2, 14, lr - 1, 4).setBackgrounds(warnBgs); // N,O,P,Q
@@ -2489,7 +2621,8 @@ function ensureSettingItems_(ss) {
   if (bCol === -1) { bCol = lastCol; settingSheet.getRange(1, bCol + 1).setValue('業務前点検'); lastCol++; }
   if (aCol === -1) { aCol = lastCol; settingSheet.getRange(1, aCol + 1).setValue('業務後点検'); }
   var sLastRow = settingSheet.getLastRow();
-  var existB = sLastRow >= 2 ? settingSheet.getRange(2, bCol + 1, sLastRow - 1, 1).getValues().map(function(r){ return String(r[0]||'').trim(); }).filter(function(v){ return v; }) : [];
+  var bRaw = sLastRow >= 2 ? settingSheet.getRange(2, bCol + 1, sLastRow - 1, 1).getValues() : [];
+  var existB = bRaw.map(function(r){ return String(r[0]||'').trim(); }).filter(function(v){ return v; });
 
   if (existB.length === 0) {
     var defaultBefore = [
@@ -2502,31 +2635,56 @@ function ensureSettingItems_(ss) {
       'ワイパーの動作・払拭状態',
       'エンジンのかかり具合・異音の確認',
       'ミラーの調整・シートベルトの装着',
-      '乗務前点呼・アルコールチェックの実施'
+      'アルコールチェックの実施'
     ];
     for (var di = 0; di < defaultBefore.length; di++) {
       settingSheet.getRange(di + 2, bCol + 1).setValue(defaultBefore[di]);
     }
+  } else {
+    // 旧名称リネーム（乗務前点呼・ の prefix を削除）
+    for (var bri = 0; bri < bRaw.length; bri++) {
+      var bv = String(bRaw[bri][0]||'').trim();
+      if (bv === '乗務前点呼・アルコールチェックの実施') {
+        settingSheet.getRange(bri + 2, bCol + 1).setValue('アルコールチェックの実施');
+        break;
+      }
+    }
+    var hasAlcB = existB.some(function(v){ return v.indexOf('アルコールチェック') !== -1; });
+    if (!hasAlcB) {
+      settingSheet.getRange(existB.length + 2, bCol + 1).setValue('アルコールチェックの実施');
+    }
   }
-  var existA = sLastRow >= 2 ? settingSheet.getRange(2, aCol + 1, sLastRow - 1, 1).getValues().map(function(r){ return String(r[0]||'').trim(); }).filter(function(v){ return v; }) : [];
+
+  // AFTER列: シート全体のlastRowから読み、空白行を詰めて書き直す
+  var fullLastRow = settingSheet.getLastRow();
+  var aAllRaw = fullLastRow >= 2 ? settingSheet.getRange(2, aCol + 1, fullLastRow - 1, 1).getValues() : [];
+  var existA = [];
+  for (var ari = 0; ari < aAllRaw.length; ari++) {
+    var av2 = String(aAllRaw[ari][0] || '').trim();
+    if (av2 === '乗務後点呼・アルコールチェック（帰庫後）の実施') av2 = 'アルコールチェックの実施（帰庫後）';
+    if (av2) existA.push(av2);
+  }
 
   if (existA.length === 0) {
-    var defaultAfter = [
+    existA = [
       '車両・積載物の異常の有無（タイヤ・車体等）',
       '事故・ヒヤリハットの有無',
       '道路状況・運行状況の異常の有無',
       '翌乗務員への引き継ぎ事項の有無',
       '運行記録（日報）の提出・乗務後点呼の実施',
-      '乗務後点呼・アルコールチェック（帰庫後）の実施'
+      'アルコールチェックの実施（帰庫後）'
     ];
-    for (var dj = 0; dj < defaultAfter.length; dj++) {
-      settingSheet.getRange(dj + 2, aCol + 1).setValue(defaultAfter[dj]);
-    }
-  } else {
-    var hasAlcA = existA.some(function(v){ return v.indexOf('アルコールチェック') !== -1; });
-    if (!hasAlcA) {
-      settingSheet.getRange(settingSheet.getLastRow() + 1, aCol + 1).setValue('乗務後点呼・アルコールチェック（帰庫後）の実施');
-    }
+  }
+
+  var hasAlcA = existA.some(function(v){ return v.indexOf('アルコールチェック') !== -1; });
+  if (!hasAlcA) existA.push('アルコールチェックの実施（帰庫後）');
+
+  // 空白行を詰めてAFTER列を書き直す
+  if (fullLastRow >= 2) {
+    settingSheet.getRange(2, aCol + 1, fullLastRow - 1, 1).clearContent();
+  }
+  for (var dj = 0; dj < existA.length; dj++) {
+    settingSheet.getRange(dj + 2, aCol + 1).setValue(existA[dj]);
   }
 }
 
@@ -3905,19 +4063,48 @@ function getCompanyName_(ss) {
 // ================================================================
 function getInitialData(hintEmail, companySsId) {
   var savedEmail = hintEmail || '';
-  var result = { email: savedEmail, profile: null };
+  var result = { email: savedEmail, profile: null, expiryWarning: null };
   if (!savedEmail) return result;
   var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var master = ss.getSheetByName('自車専属マスタ');
   if (!master) return result;
   var data       = master.getDataRange().getValues();
+  var headers    = data[0] || [];
   var emailLower = savedEmail.toLowerCase().trim();
+
+  // 期限列のインデックスを動的に取得
+  var expiCols = [
+    headers.indexOf('免許証有効期限'),
+    headers.indexOf('安全教育次回予定日'),
+    headers.indexOf('健康診断次回予定日'),
+    headers.indexOf('適性診断次回予定日')
+  ].filter(function(c) { return c >= 0; });
+
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+
   for (var i = 1; i < data.length; i++) {
     if (data[i][10] && String(data[i][10]).toLowerCase().trim() === emailLower) {
       result.profile = {
         company: data[i][3], tons: data[i][5], type: data[i][6],
         carNo:   data[i][7], name: data[i][8], tel:  data[i][9]
       };
+      // 期限チェック（最も近い期限日数を計算）
+      var minDays = null;
+      var minLabel = '';
+      for (var ci = 0; ci < expiCols.length; ci++) {
+        var dt = data[i][expiCols[ci]];
+        if (!(dt instanceof Date) || isNaN(dt.getTime())) continue;
+        var exp = new Date(dt); exp.setHours(0, 0, 0, 0);
+        var days = Math.round((exp.getTime() - today.getTime()) / 86400000);
+        if (minDays === null || days < minDays) {
+          minDays = days;
+          minLabel = String(headers[expiCols[ci]]);
+        }
+      }
+      if (minDays !== null && minDays <= 7) {
+        var status = minDays < 0 ? 'expired' : minDays === 0 ? 'today' : 'soon';
+        result.expiryWarning = { minDays: minDays, label: minLabel, status: status };
+      }
       break;
     }
   }
@@ -6501,7 +6688,7 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
 function getClientStubSource_() {
   return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addSeparator().addItem('🔄 メニュー再生成（メニューが消えたら押す）','reloadMenu').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('📏 距離計算（未計算分）','calcDistanceManual').addItem('🗾 距離マスタ 主要地データ投入','initDistanceMasterMajorCities').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addItem('📤 CSV・Excel出力','showExportDialog').addItem('📋 監査用表生成','generateAuditSheet').addItem('🛡 シート保護設定','setupSheetProtection').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('⛽ ETC利用明細','showEtcImportDialog').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch').addItem('🔓 選択行のマッチング解除','cancelDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}try{UnkouLib.checkMasterExpiries();}catch(e){}}",
+    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addItem('🚚 配車ダッシュボード','showDispatchDashboard').addSeparator().addItem('🔄 メニュー再生成（メニューが消えたら押す）','reloadMenu').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('📏 距離計算（未計算分）','calcDistanceManual').addItem('🗾 距離マスタ 主要地データ投入','initDistanceMasterMajorCities').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addItem('📤 CSV・Excel出力','showExportDialog').addItem('📋 監査用表生成','generateAuditSheet').addItem('🛡 シート保護設定','setupSheetProtection').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('⛽ ETC利用明細','showEtcImportDialog').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch').addItem('🔓 選択行のマッチング解除','cancelDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}try{UnkouLib.checkMasterExpiries();}catch(e){}}",
     "function doGet(e){return UnkouLib.doGet(e);}",
     "function onEdit(e){return UnkouLib.onEdit(e);}",
     "function installedOnEdit_(e){return UnkouLib.installedOnEdit_(e);}",
@@ -6589,7 +6776,9 @@ function getClientStubSource_() {
     "function exportSelectedSheetsAsExcel(a){return UnkouLib.exportSelectedSheetsAsExcel(a);}",
     "function exportPlBundle(a){return UnkouLib.exportPlBundle(a);}",
     "function generateAuditSheet(){return UnkouLib.generateAuditSheet();}",
-    "function checkMasterExpiries(){return UnkouLib.checkMasterExpiries();}"
+    "function checkMasterExpiries(){return UnkouLib.checkMasterExpiries();}",
+    "function showDispatchDashboard(){return UnkouLib.showDispatchDashboard();}",
+    "function getDispatchDashboardData(){return UnkouLib.getDispatchDashboardData();}"
   ].join('\n');
 }
 
@@ -6764,11 +6953,31 @@ function initClientSSSheets_(ss, companyName) {
 // ================================================================
 //  12-3c-1: ライブラリバージョン作成（createLibraryVersion_）  【大B / 中12】
 //  Script API でライブラリの新バージョンを作成して番号を返す
+//
+//  ★ M&A後の引き継ぎメモ ★
+//  この関数は「①修正用SS（ライブラリ本体）のバージョンスナップショット」を作成する。
+//  ScriptApp.getScriptId() はGASの仕様で「library として呼ばれると呼び出し元のID」を返すため、
+//  Script Properties の 'ownScriptId' を優先参照して①のIDを正確に取得する。
+//  'ownScriptId' は syncToTemplateSS（STEP2「テスト客SS反映」）実行時に自動保存される。
+//
+//  ★ Googleアカウントごと譲渡する場合（推奨）★
+//    → ①②③のID・URLは一切変わらないため、このコードを修正する必要なし。
+//      新管理者が clasp login で再認証するだけ。
+//
+//  ★ GASプロジェクトを新規作成して移行する場合 ★
+//    → 以下の4か所を新しいIDに更新する必要がある（詳細は syncToTemplateSS のコメント参照）：
+//      [1] .clasp.json の scriptId
+//      [2] stub_for_clientSS/appsscript.json の libraryId
+//      [3] syncToTemplateSS の TEMPLATE_SCRIPT_ID と templateSsId
+//      [4] Script Properties の 'ownScriptId' と 'clientTemplateSsId'（①から「テスト客SS反映」実行で自動更新）
 // ================================================================
 function createLibraryVersion_(description) {
   try {
     var token   = ScriptApp.getOAuthToken();
-    var scriptId = ScriptApp.getScriptId();
+    // ScriptApp.getScriptId() はライブラリとして呼ばれると呼び出し元のIDを返すため
+    // syncToTemplateSS が保存した①本体のIDを Script Properties から優先参照する
+    var props2  = PropertiesService.getScriptProperties();
+    var scriptId = props2.getProperty('ownScriptId') || ScriptApp.getScriptId();
     var hdrs    = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
     var apiBase = 'https://script.googleapis.com/v1/projects/' + scriptId;
 
@@ -6802,11 +7011,23 @@ function createLibraryVersion_(description) {
 // ================================================================
 //  12-3c-2: スタブのライブラリバージョン更新（updateStubVersion_）  【大B / 中12】
 //  Script API でスタブの appsscript.json 内ライブラリバージョンを書き換える
+//
+//  ★ 重要バグ修正メモ（2026-06-10）★
+//  旧実装は `ScriptApp.getScriptId()` でライブラリIDを取得し libraryId と比較していたが、
+//  GASの仕様で「libraryとして呼ばれると呼び出し元（②）のIDを返す」ため、
+//  ②から「各客に反映」を実行したとき libraryId（①のID）と一致せずバージョンが更新されなかった。
+//  → `userSymbol === 'UnkouLib'` に変更することでIDに依存しない比較に修正済み。
+//
+//  ★ M&A後の引き継ぎメモ ★
+//  userSymbol は appsscript.json の "userSymbol": "UnkouLib" と一致させる文字列。
+//  新管理者がライブラリのuserSymbolを変更した場合はこの文字列も合わせて変更すること。
+//  ライブラリID（libraryId）が変わっても userSymbol が 'UnkouLib' のままなら修正不要。
 // ================================================================
 function updateStubVersion_(stubScriptId, versionNumber, useDevMode) {
   try {
     var token = ScriptApp.getOAuthToken();
-    var libId = ScriptApp.getScriptId();
+    // ScriptApp.getScriptId() はライブラリとして呼ばれると呼び出し元のIDを返すため削除
+    // → userSymbol 'UnkouLib' で一致させることでIDに依存しない比較に変更
     var getResp = UrlFetchApp.fetch(
       'https://script.googleapis.com/v1/projects/' + stubScriptId + '/content',
       { headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true }
@@ -6821,7 +7042,7 @@ function updateStubVersion_(stubScriptId, versionNumber, useDevMode) {
       var manifest = JSON.parse(files[i].source);
       var libs = (manifest.dependencies && manifest.dependencies.libraries) || [];
       for (var j = 0; j < libs.length; j++) {
-        if (libs[j].libraryId === libId) {
+        if (libs[j].userSymbol === 'UnkouLib') {
           libs[j].version = String(versionNumber);
           libs[j].developmentMode = false; // 常にfalse固定
         }
@@ -7173,6 +7394,20 @@ function generatePaymentSheet(company, carNo, driverName, dateFrom, dateTo) {
 
 
 // ================================================================
+//  12-3c: ①修正用SS→②客用SSに反映（syncToTemplateSS）
+//
+//  ★ M&A後の引き継ぎメモ ★
+//  この関数は①から直接実行（メニュー「テスト客SS反映」）することが必要。
+//  ②のメニューから実行しても動かない（①のメニューにしか存在しない）。
+//
+//  ★ Googleアカウントごと譲渡する場合（推奨）★
+//    → TEMPLATE_SCRIPT_ID・templateSsId はそのまま使用可能。変更不要。
+//
+//  ★ GASプロジェクトを新規作成して移行する場合 ★
+//    TEMPLATE_SCRIPT_ID → 新②客用SS の Apps Script ID（スクリプトエディタURLの /projects/XXXX 部分）
+//    templateSsId       → 新②客用SS の スプレッドシートID（SS URLの /d/XXXX 部分）
+//    Script Properties の 'clientTemplateSsId' も更新（または削除してデフォルト値を変更）
+// ================================================================
 function syncToTemplateSS() {
   var props = PropertiesService.getScriptProperties();
   var TEMPLATE_SCRIPT_ID = '19CfyUPhldzSccj05xo-sn4Xh78fCHAHDVJtGyKdDGQkO1D4wZWFEnZCT';
@@ -7181,7 +7416,11 @@ function syncToTemplateSS() {
   var tgtSs    = SpreadsheetApp.openById(templateSsId);
   DriveApp.getFileById(tgtSs.getId()).setName('客用');
 
-  // ① 毎回新バージョン作成（デプロイ後の最新コードを確実に反映するため）
+  // ①修正用SS自身のスクリプトIDを保存（createLibraryVersion_がlibrary経由で呼ばれても正しいIDを参照できるよう）
+  // この関数は必ず①から直接実行されるため、ScriptApp.getScriptId()は①のIDを正しく返す
+  props.setProperty('ownScriptId', ScriptApp.getScriptId());
+
+  // ② 毎回新バージョン作成（デプロイ後の最新コードを確実に反映するため）
   var newVersion = createLibraryVersion_(
     Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm') + ' テスト客SS反映'
   );
@@ -8223,6 +8462,20 @@ function showMyScriptId() {
 //  14-3: ②客用SS→全③各客SSにヘッダー・設定を反映（syncToAllClientSS）
 //  ②客用SSのメニュー「📤 各客に反映」から実行。データ行は一切消さない。
 //  ②の __TEMPLATE_SS__ シートのB1から①修正用SSのIDを取得し会社登録シートを参照する。
+//
+//  ★ M&A後の引き継ぎメモ ★
+//  この関数は①からも②からも実行可能。動作の違いは以下の通り：
+//  ・①から実行 → activeSpreadsheetが①、__TEMPLATE_SS__なし → elseブランチ → ScriptPropertiesから approvedLibVersion 取得
+//  ・②から実行 → activeSpreadsheetが②、__TEMPLATE_SS__あり → ifブランチ → __TEMPLATE_SS__ C1から取得
+//
+//  ★ 注意：必ず STEP2「テスト客SS反映」を先に実行してから STEP4「各客に反映」を実行すること ★
+//  STEP2 を省くと approvedVersion が古いままになり、③のライブラリが旧バージョンを参照し続ける。
+//
+//  ★ 各客SSへのコード配布の仕組み ★
+//  updateStubVersion_() が Script API 経由で各③のスクリプトを以下の2点更新する：
+//  [1] appsscript.json → UnkouLibのバージョン番号を最新に書き換え
+//  [2] コード.js（SERVER_JS）→ getClientStubSource_() の最新内容に書き換え
+//  これにより③のF5だけでメニュー・スタブ関数が全て最新になる。
 // ================================================================
 function syncToAllClientSS() {
   var activeSs = SpreadsheetApp.getActiveSpreadsheet();
@@ -11201,9 +11454,12 @@ function generateAuditSheet() {
 
     var kosokunJikan = '';
     var yuido = r[13]; var koka = r[17]; var ks = r[15]; var ke = r[16];
-    if (yuido instanceof Date && koka instanceof Date && yuido.getTime() > 0 && koka.getTime() > 0) {
+    // GASの時刻専用値はDec 30 1899基準のため getTime() < 0 になる → > 0チェック不可
+    // isNaN チェックのみで有効判定する
+    if (yuido instanceof Date && !isNaN(yuido.getTime()) && koka instanceof Date && !isNaN(koka.getTime())) {
       var diffMs = koka.getTime() - yuido.getTime();
-      if (ks instanceof Date && ke instanceof Date && ke.getTime() > ks.getTime()) {
+      if (diffMs < 0) diffMs += 24 * 3600000; // 日またぎ補正
+      if (ks instanceof Date && !isNaN(ks.getTime()) && ke instanceof Date && !isNaN(ke.getTime()) && ke.getTime() > ks.getTime()) {
         diffMs -= (ke.getTime() - ks.getTime());
       }
       if (diffMs > 0) kosokunJikan = Math.round(diffMs / 36000) / 100;
