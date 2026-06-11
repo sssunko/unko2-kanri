@@ -125,7 +125,9 @@
       "Bash(awk 'NR>=460 && NR<=510')",
       "Bash(awk 'NR>=510 && NR<=555')",
       "Bash(awk 'NR>=555 && NR<=590')",
-      "Bash(node deploy.js \"コード番号・TOC整合性修正（コメントのみ）\")"
+      "Bash(node deploy.js \"コード番号・TOC整合性修正（コメントのみ）\")",
+      "Bash(ls \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\\" 2>/dev/null || ls \"/c/Users/OWNER/.claude/projects/c--gas-unko2-kanri/\")",
+      "Read(//c/Users/OWNER/.claude/projects/c--gas-unko2-kanri\" 2>/dev/null || ls /c/Users/OWNER/.claude/projects/**)"
     ]
   }
 }
