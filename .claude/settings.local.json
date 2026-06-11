@@ -113,7 +113,19 @@
       "Bash(node deploy.js \"全シートヘッダー行（1行目）onEdit自動リバート\")",
       "Bash(grep -n \"//.*【大\\\\|//.*【中\\\\|// ===\\\\|// ─\\\\|function \" \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\")",
       "Bash(grep -v \"^.*var \\\\|^.*if \\\\|^.*for \\\\|^.*return \\\\|^.*//.*function\")",
-      "Bash(grep -n \"//.*【大\\\\|// ================================================================\" \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\")"
+      "Bash(grep -n \"//.*【大\\\\|// ================================================================\" \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\")",
+      "Bash(awk 'NR>=70 && NR<=100')",
+      "Bash(grep -n \"^//.*[0-9]\\\\+-[0-9]\" \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\")",
+      "Bash(grep -v \"^\\\\s*//\")",
+      "Bash(awk 'NR>=70 && NR<=110')",
+      "Bash(awk 'NR>=300 && NR<=340')",
+      "Bash(awk 'NR>=355 && NR<=390')",
+      "Bash(grep -n \"//.*【大\\\\|^// ===\\\\|^function \" \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\")",
+      "Bash(awk 'NR>=395 && NR<=435')",
+      "Bash(awk 'NR>=460 && NR<=510')",
+      "Bash(awk 'NR>=510 && NR<=555')",
+      "Bash(awk 'NR>=555 && NR<=590')",
+      "Bash(node deploy.js \"コード番号・TOC整合性修正（コメントのみ）\")"
     ]
   }
 }

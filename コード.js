@@ -191,23 +191,40 @@
 //            ・8-6-3: 時刻はDate型で合成して書き込み（空の場合はクリア）
 //            ・8-6-4: 売上/高速は複数行IDの場合は先頭行のみ書き込み
 //            ・8-6-5: 集計表を該当IDで同期
-//   8-6a : setAdminDataRichText_(sheet, rowNum, url)
-//            1件のURLをW列にリッチテキストリンク「ファイル1」として書き込む
-//   8-6b : setAdminDataRichTextMulti_(sheet, rowNum, urls)
-//            複数URLをW列にリッチテキストリンク「ファイル1  ファイル2...」として書き込む
-//            ・URLをセルノートにも保存（getNotes()で一括読み取り可能にするため）
-//   8-6b-1: importImageToDrive_(url)
-//            外部URL（GoogleフォトなどのURL）の画像をGoogleドライブに取り込み公開URLを返す
-//            ・外部URLは端末から直接開けない場合があるためDriveに保存して変換
-//   8-6b-2: getTerminalUrls_(sheet, rowNum)
-//            Y列(25)のリッチテキストからリンクURL一覧を取得して返す
-//   8-6b-3: setTerminalUrls_(sheet, rowNum, urls)
+//   8-6a : saveTermNoticeByDriver(id, termNotice, companySsId)
+//            端末アプリの一覧編集モーダルから連絡(端末)(Y列=25)のみを書き込む
+//   8-6b : setupSheetProtection()
+//            集計表を全体保護（W・Y・AA・AD・AI列のデータ行のみ編集可）し運行シートも保護する
+//            ・集計表：スプレッドシートレベル保護＋編集可列をunprotectedRangesで指定
+//            ・運行シート：Y列(連絡端末)・Z列(データ端末)をlockして直接入力を防止
+//   8-6b-0a: insertKanbanColumn()
+//            看板名列(I列=col9)が未存在の場合に運行シート・集計表に列を挿入し
+//            既存行は会社名(C列)をデフォルト値として埋める（メニューから1回のみ実行）
+//   8-6b-1: getTerminalUrls_(sheet, rowNum)
+//            Y列(25)のリッチテキストからリンクURL一覧を配列で取得して返す
+//   8-6b-2: setTerminalUrls_(sheet, rowNum, urls)
 //            複数URLをY列(25)にリッチテキストリンク「ファイル1  ファイル2...」として書き込む
+//            ・URLをセルノートにも保存（getNotes()で一括読み取り可能にするため）
+//   8-6b-2b: importImageToDrive_(url)
+//            外部URL（GoogleフォトなどのURL）の画像をOAuthトークンで取得しDriveにコピー
+//            ・Googleフォトのプライベート URL は不可（サイドバーアップロード推奨）
+//            ※ ファイル上はb-1/b-2の後に配置されているが補助関数として番号2bとする
+//   8-6b-3: setAdminDataRichText_(sheet, rowNum, url)
+//            1件のURLをW列(23)にリッチテキストリンク「ファイル1」として書き込む
+//   8-6b-3b: setAdminDataRichTextMulti_(sheet, rowNum, urls)
+//            複数URLをW列(23)にリッチテキストリンク「ファイル1  ファイル2...」として書き込む
+//            ・URLをセルノートにも保存（getNotes()で一括読み取り可能にするため）
 //   8-6b-4: getAdminDataUrl_(sheet, rowNum)
 //            W列(23)のリッチテキストからURLをカンマ区切り文字列で返す（プレーン値フォールバックあり）
 //   8-6c : appendTerminalFile(id, fileName, base64Data, mimeType)
 //            Base64データをファイル化してDriveに保存しY列(25)のリッチテキストURLに追記する
 //            ・「端末データ」フォルダに保存・誰でも閲覧可能リンクを設定
+//   8-6c-2: appendAdminFileById / deleteAdminFileById / replaceAdminFileById
+//            管理側（W列=23）ファイルの追加・削除・差し替えをIDで指定して実行する
+//   8-6d : deleteTerminalFile(id, fileUrl, companySsId)
+//            端末データ（Y列=25）から指定URLのファイルを削除しDriveからも削除する
+//   8-6e : replaceTerminalFile(id, oldUrl, fileName, base64Data, mimeType, companySsId)
+//            端末データ（Y列=25）の既存URLを新ファイルで差し替える
 //   8-7  : deleteRunById(id)
 //            指定IDの全行を削除し集計表を再生成する
 //
@@ -294,6 +311,23 @@
 //   中10 端末 既読管理              10-1〜10-4 getMyNotices, markAsRead など
 //   中11 会社セットアップ・配布     11-1〜11-6 onEditCompanyRegister_, setupOneCompany_, setupCompanies,
 //                                             createUsageSheet, sendDistributionMail_, triggerDistributionMail
+//   中12 会社専用SS作成・管理       12-1〜12-8 getWebAppBaseUrl_, setWebAppUrl, getNewSsScriptId_(12-3a),
+//                                             createCompanySpreadsheet_(12-3), createLibraryVersion_(12-3c-1),
+//                                             updateStubVersion_(12-3c-2), processNewCompany_(12-4),
+//                                             agreeContract(12-4b), sendCompanySetupEmails(12-5),
+//                                             createSignupForm(12-6), onFormSubmit_(12-7), processPendingCompanies_(12-8)
+//   中13 CSVインポート              13-0〜13-15 showCsvImportDialog_, importBulkRows, buildSheetRow_,
+//                                             getImportDictionary, saveImportAliases,
+//                                             showEtcImportDialog, prepareEtcImport, executeEtcImport など
+//   中14 トリガー・反映             14-1〜14-3 installTriggers(14-1), installedOnEdit_(14-2),
+//                                             dispatchInstalledEdit(14-2b), syncToAllClientSS(14-3)
+//   中15 配車確定                   15-1〜15-2 matchAndConfirmDispatch, cancelDispatch, buildJohoNewRow_
+//   中16 受領書                     16-1〜16-2 showUketorishoDialog, generateUketorishoSheet
+//   中17 PL管理                     17-1〜17-7 showPlDialog, getPlFilterOptions, generatePl,
+//                                             buildPlBreakdown_, buildPlSheet_, getFixedCosts_,
+//                                             apportionFixedCosts_, exportPlJournalCsv, exportPlBundle,
+//                                             exportSheetAsCsvBase64, exportSelectedSheetsAsExcel,
+//                                             showExportDialog, initFixedCostMaster
 //
 // ──────────────────────────────────────────────────────────────────
 //
@@ -5221,7 +5255,7 @@ function saveEditData(obj, companySsId, email) {
 
 
 // ================================================================
-//  8-6c: 端末連絡保存（saveTermNoticeByDriver）  【大A / 中8 / 小8-6c】
+//  8-6a: 端末連絡保存（saveTermNoticeByDriver）  【大A / 中8 / 小8-6a】
 //  端末アプリの一覧編集モーダルから連絡(端末)(Y列=25)のみを書き込む
 // ================================================================
 function saveTermNoticeByDriver(id, termNotice, companySsId) {
@@ -5377,7 +5411,7 @@ function setupSheetProtection() {
 
 
 // ================================================================
-//  8-6b-0b: 看板名列を既存シートに挿入（insertKanbanColumn）  【大C / 中8 / 小8-6b-0b】
+//  8-6b-0a: 看板名列を既存シートに挿入（insertKanbanColumn）  【大C / 中8 / 小8-6b-0a】
 //  メニューから1回だけ実行する。I列（col9）に看板名を追加し
 //  既存行は会社名(C列)をデフォルト値として埋める。
 // ================================================================
@@ -5507,9 +5541,10 @@ function setTerminalUrls_(sheet, rowNum, urls) {
 
 
 // ================================================================
-//  8-6b-0: 画像URLをDriveに取込（importImageToDrive_）  【大B / 中8 / 小8-6b-0】
+//  8-6b-2b: 画像URLをDriveに取込（importImageToDrive_）  【大B / 中8 / 小8-6b-2b】
 //  公開画像URLをOAuthトークンで取得しDriveにコピーして返す
 //  Google フォトのプライベートURLは不可（サイドバーでアップロード推奨）
+//  ※ ファイル上は8-6b-1/2の後に配置されているが、補助関数として番号2bとする
 // ================================================================
 function importImageToDrive_(url) {
   try {
@@ -6621,8 +6656,9 @@ function setWebAppUrl() {
 
 
 // ================================================================
-//  12-3d: 新規SSのバインドスクリプトID取得（getNewSsScriptId_）  【大B / 中12】
+//  12-3a: 新規SSのバインドスクリプトID取得（getNewSsScriptId_）  【大B / 中12 / 小12-3a】
 //  DriveApp でSSの子ファイルからApps Scriptを検索してスクリプトIDを返す
+//  ※ createCompanySpreadsheet_(12-3)の補助関数。12-3本体より前に配置されている
 // ================================================================
 function getNewSsScriptId_(ssId) {
   try {
@@ -8152,7 +8188,7 @@ function initDistanceMasterMajorCities() {
 
 
 // ================================================================
-//  13-1: インストール型トリガーのセットアップ（installTriggers）  【大C / 中13 / 小13-1】
+//  14-1: インストール型トリガーのセットアップ（installTriggers）  【大C / 中14 / 小14-1】
 //  最初に1回だけ実行する。これ以降は会社登録シートのA+B列入力で完全自動化される。
 //  メニュー「🔧 初期設定（最初に1回だけ押す）」から実行。
 //  ※ シンプルトリガー(onEdit)は認証付きサービス（Drive/Gmail等）が使えないため
@@ -8299,14 +8335,14 @@ function updatePlApportionment_(ss) {
 }
 
 // ================================================================
-//  13-2: インストール型onEditトリガー（installedOnEdit_）  【大B / 中13 / 小13-2】
+//  14-2: インストール型onEditトリガー（installedOnEdit_）  【大B / 中14 / 小14-2】
 //  会社登録シートのA+B列入力 → processNewCompany_() を自動実行する。
 //  インストール型トリガーはDrive/Gmail/ScriptApp等の認証付きサービスが使用可能。
 //  実行時間制限もシンプルトリガーの30秒ではなく6分まで利用できる。
 //  installTriggers() で登録済みの場合のみ発火する。
 // ================================================================
 // ================================================================
-//  13-1b: インストール型トリガーのディスパッチャ（dispatchInstalledEdit）
+//  14-2b: インストール型トリガーのディスパッチャ（dispatchInstalledEdit）  【大B / 中14 / 小14-2b】
 //  installedOnEdit_ から分離した公開関数。②③スタブからも呼べる（アンダースコアなし）。
 //  UI表示（showModalDialog）はスタブ側で行うため、ポップアップ案件は htmlなどを返す。
 //  非UI案件は直接処理してnullを返す。
