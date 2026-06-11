@@ -104,7 +104,9 @@
       "Bash(node deploy.js \"既存行編集時の集計表即時反映バグ修正（LockRelease修正＋flush追加）\")",
       "Bash(node deploy.js \"集計表の点呼前後完了をDate正規化して運行シートと同一表示に統一\")",
       "Bash(node deploy.js \"拘束時間を全行表示（点呼なし行は誘導〜降完で代替計算）\")",
-      "Bash(node deploy.js \"対象会社に御中追加・setupOneCompanyメールをご担当者様に統一\")"
+      "Bash(node deploy.js \"対象会社に御中追加・setupOneCompanyメールをご担当者様に統一\")",
+      "Bash(node deploy.js \"担当管理者列追加・管理者シート作成・集計表に点呼前後担当者2列追加\")",
+      "Bash(node deploy.js \"集計表ヘッダー行AM/AN列の表示修正とロック追加\")"
     ]
   }
 }

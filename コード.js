@@ -2009,6 +2009,7 @@ function generateSummary(ss) {
     var mHdrRow = master.getRange(1, 1, 1, mReadCols).getValues()[0];
     var mHasTollDeduct = String(mHdrRow[16]||'').trim() === '高速を引く（引くは〇、引かないは空欄）';
     var mExpStart = mHasTollDeduct ? 17 : 16;
+    var mMgrIdx = mHdrRow.indexOf('担当管理者');
     for (var m = 0; m < mData.length; m++) {
       var mcar  = String(mData[m][7]  || '').trim();
       var mname = String(mData[m][8]  || '').trim();
@@ -2020,7 +2021,8 @@ function generateSummary(ss) {
         kyuryo:     mData[m][14] || '',
         pct:        mData[m][15] || '',
         tollDeduct: mHasTollDeduct ? String(mData[m][16] || '').trim() : '',
-        expense:    mExp
+        expense:    mExp,
+        manager:    mMgrIdx >= 0 ? String(mData[m][mMgrIdx] || '').trim() : ''
       };
     }
   }
@@ -2057,7 +2059,7 @@ function generateSummary(ss) {
     '売上','請求(高速代)','実費(高速代)','合計(高速代)',
     '距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考',
     '仮日数','給料','％','有休手当','その他手当',
-    '点呼前完了','点呼後完了','拘束時間(h)'
+    '点呼前完了','点呼後完了','拘束時間(h)','点呼前担当者','点呼後担当者'
   ];
 
   // 運行シートを全行読み込み、ID単位にデータを集約する
@@ -2211,19 +2213,20 @@ function generateSummary(ss) {
       yukyuRow,
       old.other || '',
       iBefore_g || '', iAfter_g || '',  // 点呼前後完了（Dateに正規化済み）
-      kosokuH_g
+      kosokuH_g,
+      pc.manager || '', pc.manager || ''  // 点呼前担当者, 点呼後担当者
     ]);
   }
 
   // 集計表を再書き込み（値のみクリア・背景リセット、枠線・書式・ヘッダー色は保持）
   var prevLR_ = sumSheet.getLastRow();
-  var prevLC_ = Math.max(sumSheet.getLastColumn(), 38);
+  var prevLC_ = Math.max(sumSheet.getLastColumn(), 40);
   sumSheet.clearContents();
   if (prevLR_ >= 2) {
     sumSheet.getRange(2, 1, prevLR_ - 1, prevLC_).setBackground(null);
   }
   if (outRows.length > 0) {
-    sumSheet.getRange(1, 1, outRows.length, 38).setValues(outRows);
+    sumSheet.getRange(1, 1, outRows.length, 40).setValues(outRows);
     // 燃料代（Z=26列）に数式を設定（距離÷燃費×ガソリン代）
     if (outRows.length > 1) {
       var fuelFormulas = [];
@@ -2233,6 +2236,12 @@ function generateSummary(ss) {
       sumSheet.getRange(2, 26, outRows.length - 1, 1).setFormulas(fuelFormulas);
     }
     sumSheet.setFrozenRows(1);
+    // ヘッダー行の色を全40列に明示的に再設定（clearContentsで書式保持されるが新列は暗背景+黒文字で不可視になるため上書き）
+    sumSheet.getRange(1, 1, 1, 40).setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
+    var _hdrEditCols = [23, 25, 27, 30, 35];
+    for (var _hec = 0; _hec < _hdrEditCols.length; _hec++) {
+      sumSheet.getRange(1, _hdrEditCols[_hec]).setBackground('#1b5e20').setFontColor('#a5d6a7').setFontWeight('bold');
+    }
 
     // 4時間超で黄色（労働時間過超）、30分未満で水色（休憩不足）の判定閾値
     var F = 4*60*60*1000;
@@ -2246,7 +2255,7 @@ function generateSummary(ss) {
       var rowExpN = Number(outRows[row-1][27])||0;
       var calcProfit = (Number(g2.sales)||0)-(rowVN+rowZN+rowPayN+rowExpN);
       var rowRed = calcProfit < 0 ? '#ffebee' : null;
-      sumSheet.getRange(row, 1, 1, 38).setBackground(rowRed);
+      sumSheet.getRange(row, 1, 1, 40).setBackground(rowRed);
       sumSheet.getRange(row, 15, 1, 4).setBackground(rowRed);
       if (g2.rawPickTime  && g2.rawRestStart && (g2.rawRestStart-g2.rawPickTime)  > F) { sumSheet.getRange(row,15,1,2).setBackground('#ffd600'); }
       if (g2.rawRestStart && g2.rawRestEnd   && (g2.rawRestEnd  -g2.rawRestStart) < T) { sumSheet.getRange(row,16,1,2).setBackground('#4fc3f7'); }
@@ -2296,7 +2305,12 @@ function generateSummary(ss) {
     sumSheet.getRange(1, 1, sumSheet.getLastRow(), sumSheet.getLastColumn()).createFilter();
   }
   // ヘッダー行（1行目）の枠線を確実にクリア（データ行の黄色枠が残らないように）
-  sumSheet.getRange(1, 1, 1, Math.max(sumSheet.getLastColumn(), 38)).setBorder(false, false, false, false, false, false);
+  sumSheet.getRange(1, 1, 1, Math.max(sumSheet.getLastColumn(), 40)).setBorder(false, false, false, false, false, false);
+  // ヘッダー行（1行目）に警告保護をかける（意図しない手動編集を防止）
+  sumSheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).filter(function(p) {
+    return p.getRange().getRow() === 1 && p.getRange().getNumRows() === 1;
+  }).forEach(function(p) { p.remove(); });
+  sumSheet.getRange(1, 1, 1, 40).protect().setDescription('集計表ヘッダー').setWarningOnly(true);
   // 再生成完了 → 次にマスタ編集したとき「いつから？」ダイアログが再表示されるようリセット
   PropertiesService.getScriptProperties().deleteProperty('recalcFromDateSet');
 }
@@ -2381,6 +2395,7 @@ function syncSummaryForId_(targetId, ss) {
       var mHdrRowS = mAllS[0];
       var mHasTollDeductS = String(mHdrRowS[16]||'').trim() === '高速を引く（引くは〇、引かないは空欄）';
       var mExpStartS = mHasTollDeductS ? 17 : 16;
+      var mMgrIdxS = mHdrRowS.indexOf('担当管理者');
       for (var m = 1; m < mAllS.length; m++) {
         var mcar  = String(mAllS[m][7]  || '').trim();
         var mname = String(mAllS[m][8]  || '').trim();
@@ -2391,7 +2406,8 @@ function syncSummaryForId_(targetId, ss) {
           kyuryo:     mAllS[m][14] || '',
           pct:        mAllS[m][15] || '',
           tollDeduct: mHasTollDeductS ? String(mAllS[m][16] || '').trim() : '',
-          expense:    mExp
+          expense:    mExp,
+          manager:    mMgrIdxS >= 0 ? String(mAllS[m][mMgrIdxS] || '').trim() : ''
         };
       }
     }
@@ -2516,8 +2532,9 @@ function syncSummaryForId_(targetId, ss) {
     kari, kyuryo, pct,
     sIsYukyu ? yukyuRate : '',
     keepOther,   // AI=その他手当（手入力保持）
-    iBefore_s || '', iAfter_s || '',  // AJ=点呼前完了, AK=点呼後完了（Dateに正規化済み）
-    kosokuH_s  // AL=拘束時間(h)
+    iBefore_s || '', iAfter_s || '',  // 点呼前完了, 点呼後完了（Dateに正規化済み）
+    kosokuH_s,  // 拘束時間(h)
+    pc.manager || '', pc.manager || ''  // 点呼前担当者, 点呼後担当者
   ];
 
   // LockServiceで並行実行による集計表重複挿入を防止
@@ -2538,17 +2555,17 @@ function syncSummaryForId_(targetId, ss) {
       }
     }
     if (sumRow > 0) {
-      sumSheet.getRange(sumRow, 1, 1, 38).setValues([rowData]);
+      sumSheet.getRange(sumRow, 1, 1, 40).setValues([rowData]);
       SpreadsheetApp.flush();
     } else {
       sumRow = sumSheet.getLastRow()+1;
       if (sumRow === 1) {
-        var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考','仮日数','給料','％','有休手当','その他手当','点呼前完了','点呼後完了','拘束時間(h)'];
-        sumSheet.getRange(1, 1, 1, 38).setValues([hdr]);
+        var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考','仮日数','給料','％','有休手当','その他手当','点呼前完了','点呼後完了','拘束時間(h)','点呼前担当者','点呼後担当者'];
+        sumSheet.getRange(1, 1, 1, 40).setValues([hdr]);
         sumSheet.setFrozenRows(1);
         sumRow = 2;
       }
-      sumSheet.getRange(sumRow, 1, 1, 38).setValues([rowData]);
+      sumSheet.getRange(sumRow, 1, 1, 40).setValues([rowData]);
       SpreadsheetApp.flush();
     }
   } finally {
@@ -2989,6 +3006,23 @@ function expandAndRefreshSheets() {
         mCNextCol++;
       }
     }
+  }
+
+  // 自車専属マスタに「担当管理者」列を追加（なければ）
+  if (masterSheet) {
+    var mMgrLastCol = masterSheet.getLastColumn();
+    var mMgrHeaders = mMgrLastCol > 0 ? masterSheet.getRange(1, 1, 1, mMgrLastCol).getValues()[0] : [];
+    if (mMgrHeaders.indexOf('担当管理者') === -1) {
+      masterSheet.getRange(1, mMgrLastCol + 1).setValue('担当管理者');
+    }
+  }
+
+  // 管理者シートを作成（なければ）
+  var adminMgrSheet = ss.getSheetByName('管理者');
+  if (!adminMgrSheet) {
+    adminMgrSheet = ss.insertSheet('管理者');
+    adminMgrSheet.getRange(1, 1, 1, 3).setValues([['管理者名', 'メールアドレス', '備考']]);
+    adminMgrSheet.getRange(1, 1, 1, 3).setFontWeight('bold').setBackground('#37474f').setFontColor('#ffffff');
   }
 
   // 自車専属マスタの燃費を設定シートから一括再計算（一括貼り付け後にシート再生成でも確実に反映）
@@ -5217,7 +5251,7 @@ function applySheetColors_(ss) {
   var sumSheet = ss.getSheetByName('集計表');
   if (sumSheet) {
     var editableCols = [23, 25, 27, 30, 35];
-    var lastCol = Math.max(sumSheet.getLastColumn(), 34);
+    var lastCol = Math.max(sumSheet.getLastColumn(), 40);
     sumSheet.getRange(1, 1, 1, lastCol)
       .setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
     for (var ec = 0; ec < editableCols.length; ec++) {
