@@ -88,7 +88,23 @@
       "Bash(grep -v \"//\\\\|html\\\\|select\\\\|document\")",
       "Bash(awk -F\"function \" '{print $2}')",
       "Bash(awk -F\"\\(\" '{print $1}')",
-      "Bash(awk -F\"UnkouLib\\\\.\" '{print $2}')"
+      "Bash(awk -F\"UnkouLib\\\\.\" '{print $2}')",
+      "Bash(node build_stub.js)",
+      "Bash(node check_integrity.js)",
+      "Bash(node deploy.js \"489_reloadMenu修正・スタブ3関数追加・自動生成システム導入\")",
+      "Bash(node deploy.js \"SS混同バグ修正・集計表自動更新改善\")",
+      "Bash(node deploy.js \"監査用表に%列追加\")",
+      "Bash(node deploy.js \"監査用表に時刻間隔色付け追加\")",
+      "Bash(node deploy.js \"監査用表から給料・%列を削除（月次合計が狂うため）\")",
+      "Bash(node deploy.js \"集計表・監査用表に拘束13時間超え赤フラグ追加、監査用表に警告内容列追加\")",
+      "Bash(node deploy.js \"AL列拘束時間追加・監査表点呼日時フォーマット修正\")",
+      "Bash(node deploy.js \"拘束時間を点呼前後計算に修正・数値書式設定\")",
+      "Bash(node deploy.js \"拘束時間超えの色をオレンジに変更\")",
+      "Bash(node deploy.js \"点呼前後完了に積完時刻と同じ日時正規化を適用\")",
+      "Bash(node deploy.js \"既存行編集時の集計表即時反映バグ修正（LockRelease修正＋flush追加）\")",
+      "Bash(node deploy.js \"集計表の点呼前後完了をDate正規化して運行シートと同一表示に統一\")",
+      "Bash(node deploy.js \"拘束時間を全行表示（点呼なし行は誘導〜降完で代替計算）\")",
+      "Bash(node deploy.js \"対象会社に御中追加・setupOneCompanyメールをご担当者様に統一\")"
     ]
   }
 }

@@ -5,3 +5,6 @@ stub_for_motoSS/**
 stub_for_clientSS/**
 stub_motoSS.js
 stub_clientSS.js
+build_stub.js
+check_integrity.js
+deploy.js

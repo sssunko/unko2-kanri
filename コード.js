@@ -1252,6 +1252,13 @@ function onEditUnkou_(sheet, range, ss) {
     var _uChg  = _uTons.some(function(v, i) { return String(v[0]) !== String(_allRowsData[i][3]); });
     if (_uChg) sheet.getRange(startRow, 4, numRows, 1).setValues(_uTons);
   }
+  // 点呼前完了・点呼後完了の列番号を動的取得（積完時刻と同じ正規化を適用するため）
+  var _unkHdr0 = sheet.getRange(1, 1, 1, lastColU).getValues()[0];
+  var _inspBColNum = _unkHdr0.indexOf('点呼前完了') + 1; // 1-based、見つからなければ0
+  var _inspAColNum = _unkHdr0.indexOf('点呼後完了') + 1;
+  var _timeCols = [14, 15, 16, 17, 18];
+  if (_inspBColNum > 0) _timeCols.push(_inspBColNum);
+  if (_inspAColNum > 0) _timeCols.push(_inspAColNum);
   for (var i = 0; i < numRows; i++) {
     var row = startRow + i;
     if (row <= 1) continue;
@@ -1302,8 +1309,8 @@ function onEditUnkou_(sheet, range, ss) {
       }
     }
 
-    // N/O/P/Q/R列（誘導・積完・休憩・降完時刻）：全角文字・日付なし時刻を正規化して合成
-    if ([14, 15, 16, 17, 18].indexOf(editedCol) !== -1) {
+    // N〜R列（誘導・積完・休憩・降完時刻）および点呼前後完了：全角・日付なし時刻を正規化して合成
+    if (_timeCols.indexOf(editedCol) !== -1) {
       var timeCell = sheet.getRange(row, editedCol);
       var tv = timeCell.getValue();
       var baseDateObj = (rowData[9] instanceof Date) ? rowData[9] : null;
@@ -1386,14 +1393,7 @@ function onEditUnkou_(sheet, range, ss) {
     sortUnkouByDate_();
     sortSummaryByDate_();
   }
-  // 複数行の場合はgenerateSummary一発、少数は個別sync
-  if (_oeUnkouSyncIds.length > 3) {
-    generateSummary();
-  } else {
-    for (var _si = 0; _si < _oeUnkouSyncIds.length; _si++) {
-      try { syncSummaryForId_(_oeUnkouSyncIds[_si], ss); } catch(e) {}
-    }
-  }
+  // 集計表syncはinstalledOnEdit_（30分トリガー）で処理するためここでは行わない
 }
 
 
@@ -1980,8 +1980,8 @@ function refreshJohoColors_(ss) {
 //  ⑩ W列の旧URL形式をリッチテキストに変換
 //  ・生成後に支払い再計算（4-4）を自動実行
 // ================================================================
-function generateSummary() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+function generateSummary(ss) {
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   var unkouSheet = ss.getSheetByName('運行');
   if (!unkouSheet) return;
 
@@ -2057,7 +2057,7 @@ function generateSummary() {
     '売上','請求(高速代)','実費(高速代)','合計(高速代)',
     '距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考',
     '仮日数','給料','％','有休手当','その他手当',
-    '点呼前完了','点呼後完了'
+    '点呼前完了','点呼後完了','拘束時間(h)'
   ];
 
   // 運行シートを全行読み込み、ID単位にデータを集約する
@@ -2185,6 +2185,21 @@ function generateSummary() {
     var payNG = typeof payRow==='number'?payRow:(Number(old.pay)||0);
     var salesNG = Number(g.sales)||0, expNG = Number(gExpense)||0;
     var acRow = (!salesNG&&!vNG&&!zNG&&!payNG&&!expNG) ? '' : salesNG-(vNG+zNG+payNG+expNG);
+    // 点呼前後完了を Date に正規化（文字列・全角コロン対応）して集計表に書き込む
+    var iBefore_g = normInspTime_(g.inspBefore, g.date);
+    var iAfter_g  = normInspTime_(g.inspAfter,  g.date);
+    // 拘束時間計算（AL=col38）
+    // ① 点呼前〜点呼後が揃っていれば法律定義通り
+    // ② なければ誘導〜降完で代替（全行表示のため）
+    var kosokuH_g = '';
+    if (iBefore_g && iAfter_g && iAfter_g > iBefore_g) {
+      kosokuH_g = Math.round((iAfter_g.getTime() - iBefore_g.getTime()) / 36000) / 100;
+    } else {
+      var gT_g = g.guideTime instanceof Date ? g.guideTime : (g.guideTime ? new Date(g.guideTime) : null);
+      if (gT_g && g.rawDropTime && !isNaN(gT_g.getTime()) && g.rawDropTime > gT_g) {
+        kosokuH_g = Math.round((g.rawDropTime.getTime() - gT_g.getTime()) / 36000) / 100;
+      }
+    }
     outRows.push([
       g.id, g.kubun, g.company, g.tons, g.type, g.car, g.name, g.tel, g.kanban||g.company,
       g.date, g.clients.join('・'), gpick, gdrop,
@@ -2195,19 +2210,20 @@ function generateSummary() {
       kari, kyuryo, pct,
       yukyuRow,
       old.other || '',
-      g.inspBefore || '', g.inspAfter || ''
+      iBefore_g || '', iAfter_g || '',  // 点呼前後完了（Dateに正規化済み）
+      kosokuH_g
     ]);
   }
 
   // 集計表を再書き込み（値のみクリア・背景リセット、枠線・書式・ヘッダー色は保持）
   var prevLR_ = sumSheet.getLastRow();
-  var prevLC_ = Math.max(sumSheet.getLastColumn(), 37);
+  var prevLC_ = Math.max(sumSheet.getLastColumn(), 38);
   sumSheet.clearContents();
   if (prevLR_ >= 2) {
     sumSheet.getRange(2, 1, prevLR_ - 1, prevLC_).setBackground(null);
   }
   if (outRows.length > 0) {
-    sumSheet.getRange(1, 1, outRows.length, 37).setValues(outRows);
+    sumSheet.getRange(1, 1, outRows.length, 38).setValues(outRows);
     // 燃料代（Z=26列）に数式を設定（距離÷燃費×ガソリン代）
     if (outRows.length > 1) {
       var fuelFormulas = [];
@@ -2230,11 +2246,16 @@ function generateSummary() {
       var rowExpN = Number(outRows[row-1][27])||0;
       var calcProfit = (Number(g2.sales)||0)-(rowVN+rowZN+rowPayN+rowExpN);
       var rowRed = calcProfit < 0 ? '#ffebee' : null;
-      sumSheet.getRange(row, 1, 1, 37).setBackground(rowRed);
+      sumSheet.getRange(row, 1, 1, 38).setBackground(rowRed);
       sumSheet.getRange(row, 15, 1, 4).setBackground(rowRed);
       if (g2.rawPickTime  && g2.rawRestStart && (g2.rawRestStart-g2.rawPickTime)  > F) { sumSheet.getRange(row,15,1,2).setBackground('#ffd600'); }
       if (g2.rawRestStart && g2.rawRestEnd   && (g2.rawRestEnd  -g2.rawRestStart) < T) { sumSheet.getRange(row,16,1,2).setBackground('#4fc3f7'); }
       if (g2.rawRestEnd   && g2.rawDropTime  && (g2.rawDropTime -g2.rawRestEnd)   > F) { sumSheet.getRange(row,17,1,2).setBackground('#ffd600'); }
+      // 拘束時間13時間超え：AL列（col38）をオレンジ（利益マイナスの赤と区別）
+      var kH_chk = outRows[row-1][37];
+      if (typeof kH_chk === 'number' && kH_chk > 13) {
+        sumSheet.getRange(row, 38, 1, 1).setBackground('#ff9800');
+      }
       // 支払い条件不備の警告背景色（グレー）
       var pctNR = Number(outRows[row-1][32])||0, kyuRN = Number(outRows[row-1][31])||0, kariRN = Number(outRows[row-1][30])||0;
       sumSheet.getRange(row, 27).setBackground(rowRed);
@@ -2256,6 +2277,8 @@ function generateSummary() {
     applyMoneyFormat_(sumSheet, 2, outRows.length - 1, 'summary');
     applyDateTimeFormat_(sumSheet, 2, outRows.length - 1);
     sumSheet.getRange(2, 36, outRows.length - 1, 2).setNumberFormat('M/d HH:mm');
+    // 拘束時間（AL=col38）は数値書式（隣の日時列の書式が滲むため明示設定）
+    sumSheet.getRange(2, 38, outRows.length - 1, 1).setNumberFormat('0.00');
     applySumEditableBorders_(sumSheet, 2, outRows.length - 1);
   }
   // 旧データより行数が減った場合、余分な行の書式（枠線・色含む）をクリア
@@ -2273,7 +2296,7 @@ function generateSummary() {
     sumSheet.getRange(1, 1, sumSheet.getLastRow(), sumSheet.getLastColumn()).createFilter();
   }
   // ヘッダー行（1行目）の枠線を確実にクリア（データ行の黄色枠が残らないように）
-  sumSheet.getRange(1, 1, 1, Math.max(sumSheet.getLastColumn(), 37)).setBorder(false, false, false, false, false, false);
+  sumSheet.getRange(1, 1, 1, Math.max(sumSheet.getLastColumn(), 38)).setBorder(false, false, false, false, false, false);
   // 再生成完了 → 次にマスタ編集したとき「いつから？」ダイアログが再表示されるようリセット
   PropertiesService.getScriptProperties().deleteProperty('recalcFromDateSet');
 }
@@ -2323,7 +2346,7 @@ function syncSummaryForId_(targetId, ss) {
   var unkouSheet = ss.getSheetByName('運行');
   if (!unkouSheet) return;
   var sumSheet = ss.getSheetByName('集計表');
-  if (!sumSheet || sumSheet.getLastRow() < 1) { generateSummary(); return; }
+  if (!sumSheet || sumSheet.getLastRow() < 1) { generateSummary(ss); return; }
 
   // 設定・マスタをCacheServiceで高速化（同一セッション内の連続同期で再読み込みを省く）
   var syncCache = CacheService.getScriptCache();
@@ -2418,7 +2441,7 @@ function syncSummaryForId_(targetId, ss) {
   if (sumLast >= 2) {
     var colCount = sumSheet.getLastColumn();
     var isNewSumLayout = colCount >= 35; // 経費合計列（AB=28）が追加済みか
-    var sumIds   = sumSheet.getRange(2, 1, sumLast-1, Math.max(colCount, 37)).getValues();
+    var sumIds   = sumSheet.getRange(2, 1, sumLast-1, Math.max(colCount, 38)).getValues();
     for (var k = 0; k < sumIds.length; k++) {
       if (String(sumIds[k][0]).trim() === String(targetId).trim()) {
         sumRow      = k + 2;
@@ -2469,6 +2492,21 @@ function syncSummaryForId_(targetId, ss) {
   var pcExp       = (payCondMap[pkey] || {}).expense || 0;
   var expenseVal  = (sIsYukyu || sIsYasumi) ? 0 : (pcExp > 0 && scheduledDaysS === 0 ? '' : Math.round(pcExp / expWorkDays));
 
+  // 点呼前後完了を Date に正規化（文字列・全角コロン対応）して集計表に書き込む
+  var iBefore_s = normInspTime_(inspBeforeTime, g.date);
+  var iAfter_s  = normInspTime_(inspAfterTime,  g.date);
+  // 拘束時間計算（AL=col38）
+  // ① 点呼前〜点呼後が揃っていれば法律定義通り
+  // ② なければ誘導〜降完で代替（全行表示のため）
+  var kosokuH_s = '';
+  if (iBefore_s && iAfter_s && iAfter_s > iBefore_s) {
+    kosokuH_s = Math.round((iAfter_s.getTime() - iBefore_s.getTime()) / 36000) / 100;
+  } else {
+    var gT_s = g.guideTime instanceof Date ? g.guideTime : (g.guideTime ? new Date(g.guideTime) : null);
+    if (gT_s && rawDropTime && !isNaN(gT_s.getTime()) && rawDropTime > gT_s) {
+      kosokuH_s = Math.round((rawDropTime.getTime() - gT_s.getTime()) / 36000) / 100;
+    }
+  }
   var rowData = [
     g.id, g.kubun, g.company, g.tons, g.type, g.car, g.name, g.tel, g.kanban||g.company,
     g.date, g.clients.join('・'), spick, sdrop,
@@ -2478,12 +2516,16 @@ function syncSummaryForId_(targetId, ss) {
     kari, kyuryo, pct,
     sIsYukyu ? yukyuRate : '',
     keepOther,   // AI=その他手当（手入力保持）
-    inspBeforeTime, inspAfterTime  // AJ=点呼前完了, AK=点呼後完了
+    iBefore_s || '', iAfter_s || '',  // AJ=点呼前完了, AK=点呼後完了（Dateに正規化済み）
+    kosokuH_s  // AL=拘束時間(h)
   ];
 
   // LockServiceで並行実行による集計表重複挿入を防止
+  // _lockAcq_ フラグで「ロック取得できた場合のみ release」にし、
+  // waitLock タイムアウト時の releaseLock() 例外による途中終了を防ぐ
   var sumInsLock = LockService.getScriptLock();
-  try { sumInsLock.waitLock(15000); } catch(e) {}
+  var _lockAcq_ = false;
+  try { sumInsLock.waitLock(10000); _lockAcq_ = true; } catch(e) {}
   try {
     // ロック取得後に再度同IDが存在しないか確認（並行実行で先に挿入された場合の対策）
     if (sumRow === 0 && sumSheet.getLastRow() >= 2) {
@@ -2496,19 +2538,21 @@ function syncSummaryForId_(targetId, ss) {
       }
     }
     if (sumRow > 0) {
-      sumSheet.getRange(sumRow, 1, 1, 37).setValues([rowData]);
+      sumSheet.getRange(sumRow, 1, 1, 38).setValues([rowData]);
+      SpreadsheetApp.flush();
     } else {
       sumRow = sumSheet.getLastRow()+1;
       if (sumRow === 1) {
-        var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考','仮日数','給料','％','有休手当','その他手当','点呼前完了','点呼後完了'];
-        sumSheet.getRange(1, 1, 1, 37).setValues([hdr]);
+        var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考','仮日数','給料','％','有休手当','その他手当','点呼前完了','点呼後完了','拘束時間(h)'];
+        sumSheet.getRange(1, 1, 1, 38).setValues([hdr]);
         sumSheet.setFrozenRows(1);
         sumRow = 2;
       }
-      sumSheet.getRange(sumRow, 1, 1, 37).setValues([rowData]);
+      sumSheet.getRange(sumRow, 1, 1, 38).setValues([rowData]);
+      SpreadsheetApp.flush();
     }
   } finally {
-    sumInsLock.releaseLock();
+    if (_lockAcq_) sumInsLock.releaseLock();
   }
 
   var vSyncVal = (g.tollReq === 0 && g.tollReal === 0) ? '' : (Number(g.tollReal)||0)-(Number(g.tollReq)||0);
@@ -2519,6 +2563,8 @@ function syncSummaryForId_(targetId, ss) {
   applyMoneyFormat_(sumSheet, sumRow, 1, 'summary');
   applyDateTimeFormat_(sumSheet, sumRow, 1);
   sumSheet.getRange(sumRow, 36, 1, 2).setNumberFormat('M/d HH:mm');
+  // 拘束時間（AL=col38）は数値書式（隣の日時列の書式が滲むため明示設定）
+  sumSheet.getRange(sumRow, 38).setNumberFormat('0.00');
   // この行だけの支払い(AA=col27)をインライン計算
   var pctNum    = Number(pct)    || 0;
   var kyuryoNum = Number(kyuryo) || 0;
@@ -2549,7 +2595,7 @@ function syncSummaryForId_(targetId, ss) {
   sumSheet.getRange(sumRow, 34).setValue(yukyuVal);
   // ── 背景色を1配列に積んで1回のsetBackgroundsで書き込む（API呼び出しを削減）──
   var F430 = 4*60*60*1000, T430 = 30*60*1000;
-  var numBgCols = Math.max(sumSheet.getLastColumn(), 37);
+  var numBgCols = Math.max(sumSheet.getLastColumn(), 38);
   var baseRowBg = null;
   if      (spick.indexOf('有休') !== -1 || sdrop.indexOf('有休') !== -1) baseRowBg = '#e0e0e0';
   else if (spick.indexOf('休み') !== -1 || sdrop.indexOf('休み') !== -1) baseRowBg = '#9e9e9e';
@@ -2578,6 +2624,8 @@ function syncSummaryForId_(targetId, ss) {
     }
     if (expenseVal === '') rowBgArr[27]='#b0bec5'; // col28
   }
+  // 拘束時間13時間超え：AL列（col38, index37）をオレンジ（利益マイナスの赤と区別）
+  if (typeof kosokuH_s === 'number' && kosokuH_s > 13) rowBgArr[37] = '#ff9800';
   sumSheet.getRange(sumRow, 1, 1, numBgCols).setBackgrounds([rowBgArr]);
 
   applySumEditableBorders_(sumSheet, sumRow, 1);
@@ -5212,6 +5260,30 @@ function applySheetColors_(ss) {
   applyHolidayRowColors_();
 }
 
+// ================================================================
+//  点呼前後完了の値を Date に正規化する（全角コロン・日付なし形式に対応）
+//  運行シートの値（Date or 文字列）を集計表に書く前に必ず通す
+// ================================================================
+function normInspTime_(v, baseDate) {
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (!v) return null;
+  var s = String(v).trim().replace(/[：]/g, ':').replace(/[　]/g, ' ');
+  // "M/d H:mm" 形式（例: "6/6 21:00"）
+  var mx = s.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  if (mx) {
+    var yr = (baseDate instanceof Date) ? baseDate.getFullYear() : new Date().getFullYear();
+    var d  = new Date(yr, parseInt(mx[1])-1, parseInt(mx[2]), parseInt(mx[3]), parseInt(mx[4]), 0);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  // "H:mm" のみ形式（例: "21:00"）
+  var mx2 = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (mx2 && baseDate instanceof Date) {
+    var d2 = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), parseInt(mx2[1]), parseInt(mx2[2]), 0);
+    return isNaN(d2.getTime()) ? null : d2;
+  }
+  return null;
+}
+
 function applySumEditableBorders_(sumSheet, startRow, numRows) {
   if (!sumSheet || numRows < 1 || startRow <= 1) return;
   var editCols = [23, 25, 27, 30, 35]; // W=距離, Y=ガソリン代, AA=支払い, AD=備考, AI=その他手当
@@ -5514,14 +5586,14 @@ function appendTerminalFile(id, fileName, base64Data, mimeType, companySsId, ema
 // ================================================================
 //  8-6c-2: 管理側ファイル追加・削除・差替（ID指定）  【大A / 中8 / 小8-6c-2】
 // ================================================================
-function appendAdminFileById(id, fileName, base64Data, mimeType) {
+function appendAdminFileById(id, fileName, base64Data, mimeType, companySsId) {
   var folder  = getOrCreateFolder_('運行データ');
   var decoded = Utilities.base64Decode(base64Data);
   var blob    = Utilities.newBlob(decoded, mimeType, fileName);
   var file    = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   var url   = file.getUrl();
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+  var sheet = getTargetSS_(companySsId).getSheetByName('運行');
   if (!sheet) return;
   var all = sheet.getDataRange().getValues();
   for (var i = 1; i < all.length; i++) {
@@ -5535,8 +5607,8 @@ function appendAdminFileById(id, fileName, base64Data, mimeType) {
   return { ok: true, url: url };
 }
 
-function deleteAdminFileById(id, urlToDelete) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+function deleteAdminFileById(id, urlToDelete, companySsId) {
+  var sheet = getTargetSS_(companySsId).getSheetByName('運行');
   if (!sheet) return;
   var all = sheet.getDataRange().getValues();
   for (var i = 1; i < all.length; i++) {
@@ -5549,14 +5621,14 @@ function deleteAdminFileById(id, urlToDelete) {
   }
 }
 
-function replaceAdminFileById(id, oldUrl, fileName, base64Data, mimeType) {
+function replaceAdminFileById(id, oldUrl, fileName, base64Data, mimeType, companySsId) {
   var folder  = getOrCreateFolder_('運行データ');
   var decoded = Utilities.base64Decode(base64Data);
   var blob    = Utilities.newBlob(decoded, mimeType, fileName);
   var file    = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   var newUrl  = file.getUrl();
-  var sheet   = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+  var sheet   = getTargetSS_(companySsId).getSheetByName('運行');
   if (!sheet) return;
   var all = sheet.getDataRange().getValues();
   for (var i = 1; i < all.length; i++) {
@@ -5575,8 +5647,8 @@ function replaceAdminFileById(id, oldUrl, fileName, base64Data, mimeType) {
 //  8-6d: 端末ファイル削除（deleteTerminalFile）  【大A / 中8 / 小8-6d】
 //  col25のリッチテキストURLから指定URLを除去する
 // ================================================================
-function deleteTerminalFile(id, urlToDelete) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+function deleteTerminalFile(id, urlToDelete, companySsId) {
+  var sheet = getTargetSS_(companySsId).getSheetByName('運行');
   if (!sheet) return;
   var all = sheet.getDataRange().getValues();
   for (var i = 1; i < all.length; i++) {
@@ -5593,14 +5665,14 @@ function deleteTerminalFile(id, urlToDelete) {
 //  8-6e: 端末ファイル差し替え（replaceTerminalFile）  【大A / 中8 / 小8-6e】
 //  col25のリッチテキストURLの指定URLを新URLに置き換える
 // ================================================================
-function replaceTerminalFile(id, oldUrl, fileName, base64Data, mimeType) {
+function replaceTerminalFile(id, oldUrl, fileName, base64Data, mimeType, companySsId) {
   var folder  = getOrCreateFolder_('端末データ');
   var decoded = Utilities.base64Decode(base64Data);
   var blob    = Utilities.newBlob(decoded, mimeType, fileName);
   var file    = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   var newUrl = file.getUrl();
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+  var sheet = getTargetSS_(companySsId).getSheetByName('運行');
   if (!sheet) return;
   var all = sheet.getDataRange().getValues();
   for (var i = 1; i < all.length; i++) {
@@ -6081,7 +6153,7 @@ function setupOneCompany_(companyName, adminEmail, suppressEmail) {
   if (!suppressEmail) {
     var subject = '[運行管理] ' + companyName + ' のご利用準備が整いました';
     var body =
-      companyName + ' 担当者様\n\n' +
+      companyName + ' ご担当者様\n\n' +
       '運行管理システムのフォルダを作成しました。\n\n' +
       '■ 共有フォルダ（運行データ・アーカイブの保管場所）\n' +
       folderUrl + '\n\n' +
@@ -6685,105 +6757,11 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
 }
 
 
-// スタブコードのソース文字列（stub_for_clientSS/コード.js と同一内容）
+// スタブコードのソース文字列（stub_for_clientSS/コード.js から build_stub.js が自動生成）
 function getClientStubSource_() {
-  return [
-    "function onOpen(){var ss=SpreadsheetApp.getActiveSpreadsheet();var isTemplate=ss.getSheetByName('__TEMPLATE_SS__')!==null;var ui=SpreadsheetApp.getUi();var menu=ui.createMenu('メニュー');menu.addItem('ホーム画面を表示','showSidebar').addItem('🚚 配車ダッシュボード','showDispatchDashboard').addSeparator().addItem('🔄 メニュー再生成（メニューが消えたら押す）','reloadMenu').addSeparator().addItem('📅 今月分生成（途中契約）','generateCurrentMonth').addItem('📅 翌月分生成（前月アーカイブ）','generateNextMonth').addItem('📦 前月分アーカイブ','archiveOldMonth').addSeparator().addItem('📄 請求書生成','showInvoiceDialog').addItem('📄 支払確認書生成','showPaymentDialog').addSeparator().addItem('集計表再生成','generateSummary').addItem('📏 距離計算（未計算分）','calcDistanceManual').addItem('🗾 距離マスタ 主要地データ投入','initDistanceMasterMajorCities').addItem('シート再生成','expandAndRefreshSheets').addItem('💴 経費自動入力','autoFillExpense').addItem('🔃 日付順並び替え','sortBothSheetsByDate').addItem('🆔 ID・車番一括補完','fillMissingIdsAndCars').addSeparator().addItem('📷 写真・ファイル取込','showUploadSidebar').addItem('📖 使い方シート作成','createUsageSheet').addItem('📤 CSV・Excel出力','showExportDialog').addItem('📋 監査用表生成','generateAuditSheet').addItem('🛡 シート保護設定','setupSheetProtection').addItem('🔧 初期設定','installTriggers').addSeparator().addSubMenu(ui.createMenu('📥 データ読み込み（CSV）').addItem('運行シート','showCsvImportDialogUnkou').addItem('自車専属マスタ','showCsvImportDialogMaster').addItem('マスタ（取引先）','showCsvImportDialogCust').addSeparator().addItem('⛽ ETC利用明細','showEtcImportDialog').addSeparator().addItem('🗑 空インポート行を削除','deleteBlankImportRows')).addSeparator().addSubMenu(ui.createMenu('📋 帳票・送信メニュー').addItem('① 発注書・指示書を作成（協力会社・乗務員用）','showHatchuDocDialog').addItem('② 車番連絡を作成（荷主用）','showShabanDocDialog').addSeparator().addItem('🗒 受領書の耳生成','showUketorishoDialog')).addSubMenu(ui.createMenu('📊 PL管理').addItem('📈 PL作成','showPlDialog').addItem('🗃 PL設定初期化','initFixedCostMaster')).addSeparator().addItem('🔗 チェックした行を配車確定','matchAndConfirmDispatch').addItem('🔓 選択行のマッチング解除','cancelDispatch');if(isTemplate){menu.addSeparator().addItem('📤 各客に反映','syncToAllClientSS');}menu.addToUi();try{UnkouLib.convertLegacyAdminDataUrls_();}catch(e){}try{UnkouLib.applyHolidayRowColors_();}catch(e){}try{UnkouLib.checkMasterExpiries();}catch(e){}}",
-    "function doGet(e){return UnkouLib.doGet(e);}",
-    "function onEdit(e){return UnkouLib.onEdit(e);}",
-    "function installedOnEdit_(e){var r=UnkouLib.dispatchInstalledEdit(e);if(r&&r.html){SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(r.html).setWidth(r.width||300).setHeight(r.height||290),r.title||'');}}",
-    "function reloadMenu(){onOpen();SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました','🔄',3);}",
-    "function showSidebar(){return UnkouLib.showSidebar();}",
-    "function showUploadSidebar(){return UnkouLib.showUploadSidebar();}",
-    "function generateCurrentMonth(){return UnkouLib.generateCurrentMonth();}",
-    "function generateNextMonth(){return UnkouLib.generateNextMonth();}",
-    "function archiveOldMonth(){return UnkouLib.archiveOldMonth();}",
-    "function generateSummary(){return UnkouLib.generateSummary();}",
-    "function calcDistanceManual(){return UnkouLib.calcDistanceManual();}",
-    "function initDistanceMasterMajorCities(){return UnkouLib.initDistanceMasterMajorCities();}",
-    "function expandAndRefreshSheets(){return UnkouLib.expandAndRefreshSheets();}",
-    "function autoFillExpense(){return UnkouLib.autoFillExpense();}",
-    "function sortBothSheetsByDate(){return UnkouLib.sortBothSheetsByDate();}",
-    "function fillMissingIdsAndCars(){return UnkouLib.fillMissingIdsAndCars();}",
-    "function createUsageSheet(){return UnkouLib.createUsageSheet();}",
-    "function installTriggers(){var ss=SpreadsheetApp.getActiveSpreadsheet();ScriptApp.getProjectTriggers().forEach(function(t){if(t.getHandlerFunction()==='installedOnEdit_')ScriptApp.deleteTrigger(t);});ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）','✓',3);}",
-    "function setRecalcChoice(a){return UnkouLib.setRecalcChoice(a);}",
-    "function executeStatusSync(a,b,c){return UnkouLib.executeStatusSync(a,b,c);}",
-    "function syncToAllClientSS(){return UnkouLib.syncToAllClientSS();}",
-    "function storeCompanySsId(a){return UnkouLib.storeCompanySsId(a);}",
-    "function getInitialData(a,b){return UnkouLib.getInitialData(a,b);}",
-    "function linkAddress(a,b){return UnkouLib.linkAddress(a,b);}",
-    "function unlinkAddress(a){return UnkouLib.unlinkAddress(a);}",
-    "function saveRunState(a,b,c){return UnkouLib.saveRunState(a,b,c);}",
-    "function loadRunState(){return UnkouLib.loadRunState();}",
-    "function clearRunState(a,b){return UnkouLib.clearRunState(a,b);}",
-    "function getTodayRoutes(a,b){return UnkouLib.getTodayRoutes(a,b);}",
-    "function createParentRows(a,b,c,d,e,f){return UnkouLib.createParentRows(a,b,c,d,e,f);}",
-    "function setPickComplete(a,b,c){return UnkouLib.setPickComplete(a,b,c);}",
-    "function setRest(a,b,c,d){return UnkouLib.setRest(a,b,c,d);}",
-    "function setDropComplete(a,b,c){return UnkouLib.setDropComplete(a,b,c);}",
-    "function updateRouteData(a,b,c,d){return UnkouLib.updateRouteData(a,b,c,d);}",
-    "function deleteRunRows(a,b,c){return UnkouLib.deleteRunRows(a,b,c);}",
-    "function clearTimeCell(a,b,c,d,e){return UnkouLib.clearTimeCell(a,b,c,d,e);}",
-    "function getListData(a,b,c,d){return UnkouLib.getListData(a,b,c,d);}",
-    "function getEditData(a,b,c){return UnkouLib.getEditData(a,b,c);}",
-    "function saveEditData(a,b,c){return UnkouLib.saveEditData(a,b,c);}",
-    "function appendTerminalFile(a,b,c,d,e,f){return UnkouLib.appendTerminalFile(a,b,c,d,e,f);}",
-    "function deleteRunById(a,b,c){return UnkouLib.deleteRunById(a,b,c);}",
-    "function saveNotice(a,b,c,d){return UnkouLib.saveNotice(a,b,c,d);}",
-    "function uploadFileToRow(a,b,c,d){return UnkouLib.uploadFileToRow(a,b,c,d);}",
-    "function saveTerminalNotice(a,b,c,d){return UnkouLib.saveTerminalNotice(a,b,c,d);}",
-    "function uploadTerminalFile(a,b,c,d){return UnkouLib.uploadTerminalFile(a,b,c,d);}",
-    "function getMyNotices(a,b){return UnkouLib.getMyNotices(a,b);}",
-    "function getRoutesById(a,b,c){return UnkouLib.getRoutesById(a,b,c);}",
-    "function getNoticeByRow(a,b,c){return UnkouLib.getNoticeByRow(a,b,c);}",
-    "function markAsRead(a,b){return UnkouLib.markAsRead(a,b);}",
-    "function getReadNotices(a){return UnkouLib.getReadNotices(a);}",
-    "function agreeContract(a,b,c,d){return UnkouLib.agreeContract(a,b,c,d);}",
-    "function queueFileUpload(a,b,c,d){return UnkouLib.queueFileUpload(a,b,c,d);}",
-    "function recordAction(a,b,c,d,e,f){return UnkouLib.recordAction(a,b,c,d,e,f);}",
-    "function clearInspTime(a,b,c,d){return UnkouLib.clearInspTime(a,b,c,d);}",
-    "function showInvoiceDialog(){return UnkouLib.showInvoiceDialog();}",
-    "function generateInvoiceSheet(a,b,c,d){return UnkouLib.generateInvoiceSheet(a,b,c,d);}",
-    "function showPaymentDialog(){return UnkouLib.showPaymentDialog();}",
-    "function generatePaymentSheet(a,b,c,d,e){return UnkouLib.generatePaymentSheet(a,b,c,d,e);}",
-    "function matchAndConfirmDispatch(){return UnkouLib.matchAndConfirmDispatch();}",
-    "function cancelDispatch(){return UnkouLib.cancelDispatch();}",
-    "function showCsvImportDialogUnkou(){return UnkouLib.showCsvImportDialogUnkou();}",
-    "function showCsvImportDialogMaster(){return UnkouLib.showCsvImportDialogMaster();}",
-    "function showCsvImportDialogCust(){return UnkouLib.showCsvImportDialogCust();}",
-    "function showEtcImportDialog(){return UnkouLib.showEtcImportDialog();}",
-    "function prepareEtcImport(a,b,c){return UnkouLib.prepareEtcImport(a,b,c);}",
-    "function executeEtcImport(a,b,c,d){return UnkouLib.executeEtcImport(a,b,c,d);}",
-    "function deleteBlankImportRows(){return UnkouLib.deleteBlankImportRows();}",
-    "function getImportDictionary(a,b){return UnkouLib.getImportDictionary(a,b);}",
-    "function importBulkRows(a,b,c){return UnkouLib.importBulkRows(a,b,c);}",
-    "function saveImportAliases(a,b,c){return UnkouLib.saveImportAliases(a,b,c);}",
-    "function showHatchuDocDialog(){return UnkouLib.showHatchuDocDialog();}",
-    "function showShabanDocDialog(){return UnkouLib.showShabanDocDialog();}",
-    "function sendDocumentEmail(a,b,c){return UnkouLib.sendDocumentEmail(a,b,c);}",
-    "function markDocumentIssued(a,b){return UnkouLib.markDocumentIssued(a,b);}",
-    "function showUketorishoDialog(){return UnkouLib.showUketorishoDialog();}",
-    "function generateUketorishoSheet(a){return UnkouLib.generateUketorishoSheet(a);}",
-    "function showPlDialog(){return UnkouLib.showPlDialog();}",
-    "function getPlFilterOptions(){return UnkouLib.getPlFilterOptions();}",
-    "function generatePl(a){return UnkouLib.generatePl(a);}",
-    "function exportPlJournalCsv(){return UnkouLib.exportPlJournalCsv();}",
-    "function initFixedCostMaster(){return UnkouLib.initFixedCostMaster();}",
-    "function setupSheetProtection(){return UnkouLib.setupSheetProtection();}",
-    "function showExportDialog(){return UnkouLib.showExportDialog();}",
-    "function exportSheetAsCsvBase64(a){return UnkouLib.exportSheetAsCsvBase64(a);}",
-    "function exportSelectedSheetsAsExcel(a){return UnkouLib.exportSelectedSheetsAsExcel(a);}",
-    "function exportPlBundle(a){return UnkouLib.exportPlBundle(a);}",
-    "function generateAuditSheet(){return UnkouLib.generateAuditSheet();}",
-    "function checkMasterExpiries(){return UnkouLib.checkMasterExpiries();}",
-    "function showDispatchDashboard(){return UnkouLib.showDispatchDashboard();}",
-    "function getDispatchDashboardData(){return UnkouLib.getDispatchDashboardData();}",
-    "function getCarInfoByNumber(a,b){return UnkouLib.getCarInfoByNumber(a,b);}",
-    "function deleteTerminalFile(a,b,c){return UnkouLib.deleteTerminalFile(a,b,c);}",
-    "function replaceTerminalFile(a,b,c,d,e,f){return UnkouLib.replaceTerminalFile(a,b,c,d,e,f);}",
-    "function saveTermNoticeByDriver(a,b,c){return UnkouLib.saveTermNoticeByDriver(a,b,c);}"
-  ].join('\n');
+  // === AUTO_GENERATED_STUB_START（手動編集禁止：build_stub.js が生成） ===
+  return "// 客SS・テンプレートSS用スタブ（実装はライブラリ UnkouLib にある）\n// ②客用SSには __TEMPLATE_SS__ シートあり → 「各客に反映」メニューを表示\n// ③各客SSには __COMPANY_SS__ シートあり → 業務メニューのみ表示\nfunction onOpen() {\n  var ss         = SpreadsheetApp.getActiveSpreadsheet();\n  var isTemplate = ss.getSheetByName('__TEMPLATE_SS__') !== null;\n  var ui         = SpreadsheetApp.getUi();\n\n  var menu = ui.createMenu('メニュー');\n  menu\n    .addItem('ホーム画面を表示', 'showSidebar')\n    .addItem('🚚 配車ダッシュボード', 'showDispatchDashboard')\n    .addSeparator()\n    .addItem('🔄 メニュー再生成（メニューが消えたら押す）', 'reloadMenu')\n    .addSeparator()\n    .addItem('📅 今月分生成（途中契約）', 'generateCurrentMonth')\n    .addItem('📅 翌月分生成（前月アーカイブ）', 'generateNextMonth')\n    .addItem('📦 前月分アーカイブ', 'archiveOldMonth')\n    .addSeparator()\n    .addItem('📄 請求書生成', 'showInvoiceDialog')\n    .addItem('📄 支払確認書生成', 'showPaymentDialog')\n    .addSeparator()\n    .addItem('集計表再生成', 'generateSummary')\n    .addItem('📏 距離計算（未計算分）', 'calcDistanceManual')\n    .addItem('🗾 距離マスタ 主要地データ投入', 'initDistanceMasterMajorCities')\n    .addItem('シート再生成', 'expandAndRefreshSheets')\n    .addItem('💴 経費自動入力', 'autoFillExpense')\n    .addItem('🔃 日付順並び替え', 'sortBothSheetsByDate')\n    .addItem('🆔 ID・車番一括補完', 'fillMissingIdsAndCars')\n    .addSeparator()\n    .addItem('📷 写真・ファイル取込', 'showUploadSidebar')\n    .addItem('📖 使い方シート作成', 'createUsageSheet')\n    .addItem('📤 CSV・Excel出力', 'showExportDialog')\n    .addItem('📋 監査用表生成', 'generateAuditSheet')\n    .addItem('🛡 シート保護設定', 'setupSheetProtection')\n    .addItem('🔧 初期設定', 'installTriggers')\n    .addSeparator()\n    .addSubMenu(ui.createMenu('📥 データ読み込み（CSV）')\n      .addItem('運行シート', 'showCsvImportDialogUnkou')\n      .addItem('自車専属マスタ', 'showCsvImportDialogMaster')\n      .addItem('マスタ（取引先）', 'showCsvImportDialogCust')\n      .addSeparator()\n      .addItem('⛽ ETC利用明細', 'showEtcImportDialog')\n      .addSeparator()\n      .addItem('🗑 空インポート行を削除', 'deleteBlankImportRows'))\n    .addSeparator()\n    .addSubMenu(ui.createMenu('📋 帳票・送信メニュー')\n      .addItem('① 発注書・指示書を作成（協力会社・乗務員用）', 'showHatchuDocDialog')\n      .addItem('② 車番連絡を作成（荷主用）', 'showShabanDocDialog')\n      .addSeparator()\n      .addItem('🗒 受領書の耳生成', 'showUketorishoDialog'))\n    .addSubMenu(ui.createMenu('📊 PL管理')\n      .addItem('📈 PL作成', 'showPlDialog')\n      .addItem('🗃 PL設定初期化', 'initFixedCostMaster'))\n    .addSeparator()\n    .addItem('🔗 チェックした行を配車確定', 'matchAndConfirmDispatch')\n    .addItem('🔓 選択行のマッチング解除', 'cancelDispatch');\n\n  if (isTemplate) {\n    menu.addSeparator().addItem('📤 各客に反映', 'syncToAllClientSS');\n  }\n\n  menu.addToUi();\n  try { UnkouLib.convertLegacyAdminDataUrls_(); } catch(e) {}\n  try { UnkouLib.applyHolidayRowColors_(); } catch(e) {}\n  try { UnkouLib.checkMasterExpiries(); } catch(e) {}\n}\n\nfunction doGet(e)            { return UnkouLib.doGet(e); }\nfunction onEdit(e)           { return UnkouLib.onEdit(e); }\nfunction installedOnEdit_(e) {\n  var r = UnkouLib.dispatchInstalledEdit(e);\n  if (r && r.html) {\n    SpreadsheetApp.getUi().showModalDialog(\n      HtmlService.createHtmlOutput(r.html).setWidth(r.width || 300).setHeight(r.height || 290),\n      r.title || ''\n    );\n  }\n}\n\n// ── 画面表示 ──────────────────────────────────────────────────────────\nfunction showSidebar()            { return UnkouLib.showSidebar(); }\nfunction showUploadSidebar()      { return UnkouLib.showUploadSidebar(); }\n// ライブラリ経由だとライブラリのonOpen()（①メニュー）が実行されるためローカル実装\nfunction reloadMenu() { onOpen(); SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3); }\n\n// ── 月次処理 ──────────────────────────────────────────────────────────\nfunction generateCurrentMonth()   { return UnkouLib.generateCurrentMonth(); }\nfunction generateNextMonth()      { return UnkouLib.generateNextMonth(); }\nfunction archiveOldMonth()        { return UnkouLib.archiveOldMonth(); }\n\n// ── シート管理 ────────────────────────────────────────────────────────\nfunction generateSummary()        { return UnkouLib.generateSummary(); }\nfunction calcDistanceManual()              { return UnkouLib.calcDistanceManual(); }\nfunction initDistanceMasterMajorCities()  { return UnkouLib.initDistanceMasterMajorCities(); }\nfunction expandAndRefreshSheets() { return UnkouLib.expandAndRefreshSheets(); }\nfunction autoFillExpense()        { return UnkouLib.autoFillExpense(); }\nfunction sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }\nfunction fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }\nfunction createUsageSheet()       { return UnkouLib.createUsageSheet(); }\nfunction setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }\nfunction showExportDialog()             { return UnkouLib.showExportDialog(); }\nfunction exportSheetAsCsvBase64(a)      { return UnkouLib.exportSheetAsCsvBase64(a); }\nfunction exportSelectedSheetsAsExcel(a) { return UnkouLib.exportSelectedSheetsAsExcel(a); }\nfunction exportPlBundle(a)              { return UnkouLib.exportPlBundle(a); }\n// installTriggersはライブラリ経由にするとScriptAppが①を向くためローカル実装\nfunction installTriggers() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  ScriptApp.getProjectTriggers().forEach(function(t) {\n    if (t.getHandlerFunction() === 'installedOnEdit_') ScriptApp.deleteTrigger(t);\n  });\n  ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();\n  ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);\n}\nfunction setRecalcChoice(a)       { return UnkouLib.setRecalcChoice(a); }\nfunction executeStatusSync(a,b,c){ return UnkouLib.executeStatusSync(a,b,c); }\nfunction syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }\n\n// ── CSVインポート ─────────────────────────────────────────────────────\nfunction showCsvImportDialogUnkou()      { return UnkouLib.showCsvImportDialogUnkou(); }\nfunction showCsvImportDialogMaster()     { return UnkouLib.showCsvImportDialogMaster(); }\nfunction showCsvImportDialogCust()       { return UnkouLib.showCsvImportDialogCust(); }\nfunction showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }\nfunction prepareEtcImport(a,b,c)         { return UnkouLib.prepareEtcImport(a,b,c); }\nfunction executeEtcImport(a,b,c,d)       { return UnkouLib.executeEtcImport(a,b,c,d); }\nfunction deleteBlankImportRows()         { return UnkouLib.deleteBlankImportRows(); }\nfunction getImportDictionary(a,b)        { return UnkouLib.getImportDictionary(a,b); }\nfunction importBulkRows(a,b,c)           { return UnkouLib.importBulkRows(a,b,c); }\nfunction saveImportAliases(a,b,c)        { return UnkouLib.saveImportAliases(a,b,c); }\n\n// ── 帳票・送信 ────────────────────────────────────────────────────────\nfunction showHatchuDocDialog()           { return UnkouLib.showHatchuDocDialog(); }\nfunction showShabanDocDialog()           { return UnkouLib.showShabanDocDialog(); }\nfunction showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(); }\nfunction generateUketorishoSheet(a)      { return UnkouLib.generateUketorishoSheet(a); }\nfunction sendDocumentEmail(a,b,c)        { return UnkouLib.sendDocumentEmail(a,b,c); }\nfunction markDocumentIssued(a,b)         { return UnkouLib.markDocumentIssued(a,b); }\nfunction showPlDialog()                  { return UnkouLib.showPlDialog(); }\nfunction getPlFilterOptions()            { return UnkouLib.getPlFilterOptions(); }\nfunction generatePl(a)                   { return UnkouLib.generatePl(a); }\nfunction exportPlJournalCsv()            { return UnkouLib.exportPlJournalCsv(); }\nfunction initFixedCostMaster()           { return UnkouLib.initFixedCostMaster(); }\n\n// ── 請求書・支払確認書 ────────────────────────────────────────────────\nfunction showInvoiceDialog()             { return UnkouLib.showInvoiceDialog(); }\nfunction generateInvoiceSheet(a,b,c,d)   { return UnkouLib.generateInvoiceSheet(a,b,c,d); }\nfunction showPaymentDialog()             { return UnkouLib.showPaymentDialog(); }\nfunction generatePaymentSheet(a,b,c,d,e) { return UnkouLib.generatePaymentSheet(a,b,c,d,e); }\n\n// ── 情報シート・配車確定 ──────────────────────────────────────────────\nfunction matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispatch(); }\nfunction cancelDispatch()               { return UnkouLib.cancelDispatch(); }\nfunction generateAuditSheet()           { return UnkouLib.generateAuditSheet(); }\nfunction checkMasterExpiries()          { return UnkouLib.checkMasterExpiries(); }\nfunction showDispatchDashboard()        { return UnkouLib.showDispatchDashboard(); }\nfunction getDispatchDashboardData()     { return UnkouLib.getDispatchDashboardData(); }\n\n// ── アプリ連携（端末↔SS） ────────────────────────────────────────────\nfunction storeCompanySsId(a)              { return UnkouLib.storeCompanySsId(a); }\nfunction getInitialData(a,b)              { return UnkouLib.getInitialData(a,b); }\nfunction linkAddress(a,b)                 { return UnkouLib.linkAddress(a,b); }\nfunction unlinkAddress(a)                 { return UnkouLib.unlinkAddress(a); }\nfunction saveRunState(a,b,c)              { return UnkouLib.saveRunState(a,b,c); }\nfunction loadRunState()                   { return UnkouLib.loadRunState(); }\nfunction clearRunState(a,b)               { return UnkouLib.clearRunState(a,b); }\nfunction getTodayRoutes(a,b)              { return UnkouLib.getTodayRoutes(a,b); }\nfunction createParentRows(a,b,c,d,e,f)   { return UnkouLib.createParentRows(a,b,c,d,e,f); }\nfunction setPickComplete(a,b,c)           { return UnkouLib.setPickComplete(a,b,c); }\nfunction setRest(a,b,c,d)                { return UnkouLib.setRest(a,b,c,d); }\nfunction setDropComplete(a,b,c)           { return UnkouLib.setDropComplete(a,b,c); }\nfunction updateRouteData(a,b,c,d)         { return UnkouLib.updateRouteData(a,b,c,d); }\nfunction deleteRunRows(a,b,c)             { return UnkouLib.deleteRunRows(a,b,c); }\nfunction clearTimeCell(a,b,c,d,e)         { return UnkouLib.clearTimeCell(a,b,c,d,e); }\nfunction getListData(a,b,c,d)             { return UnkouLib.getListData(a,b,c,d); }\nfunction getEditData(a,b,c)               { return UnkouLib.getEditData(a,b,c); }\nfunction saveEditData(a,b,c)              { return UnkouLib.saveEditData(a,b,c); }\nfunction appendTerminalFile(a,b,c,d,e,f) { return UnkouLib.appendTerminalFile(a,b,c,d,e,f); }\nfunction deleteRunById(a,b,c)             { return UnkouLib.deleteRunById(a,b,c); }\nfunction saveNotice(a,b,c,d)             { return UnkouLib.saveNotice(a,b,c,d); }\nfunction uploadFileToRow(a,b,c,d)         { return UnkouLib.uploadFileToRow(a,b,c,d); }\nfunction saveTerminalNotice(a,b,c,d)      { return UnkouLib.saveTerminalNotice(a,b,c,d); }\nfunction uploadTerminalFile(a,b,c,d)      { return UnkouLib.uploadTerminalFile(a,b,c,d); }\nfunction getMyNotices(a,b)               { return UnkouLib.getMyNotices(a,b); }\nfunction getRoutesById(a,b,c)             { return UnkouLib.getRoutesById(a,b,c); }\nfunction getNoticeByRow(a,b,c)            { return UnkouLib.getNoticeByRow(a,b,c); }\nfunction markAsRead(a,b)                  { return UnkouLib.markAsRead(a,b); }\nfunction getReadNotices(a)               { return UnkouLib.getReadNotices(a); }\nfunction agreeContract(a,b,c,d)          { return UnkouLib.agreeContract(a,b,c,d); }\nfunction queueFileUpload(a,b,c,d)        { return UnkouLib.queueFileUpload(a,b,c,d); }\nfunction recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }\nfunction clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }\nfunction getCarInfoByNumber(a,b)         { return UnkouLib.getCarInfoByNumber(a,b); }\nfunction deleteTerminalFile(a,b,c)       { return UnkouLib.deleteTerminalFile(a,b,c); }\nfunction replaceTerminalFile(a,b,c,d,e,f){ return UnkouLib.replaceTerminalFile(a,b,c,d,e,f); }\nfunction saveTermNoticeByDriver(a,b,c)   { return UnkouLib.saveTermNoticeByDriver(a,b,c); }\nfunction appendAdminFileById(a,b,c,d,e)  { return UnkouLib.appendAdminFileById(a,b,c,d,e); }\nfunction deleteAdminFileById(a,b,c)      { return UnkouLib.deleteAdminFileById(a,b,c); }\nfunction replaceAdminFileById(a,b,c,d,e,f){ return UnkouLib.replaceAdminFileById(a,b,c,d,e,f); }\n";
+  // === AUTO_GENERATED_STUB_END ===
 }
 
 
@@ -8365,22 +8343,41 @@ function dispatchInstalledEdit(e) {
       return null;
     }
 
-    // 運行シートのL列（積地）またはM列（降地）を直接編集したら距離を即時反映
-    if (sheetName === '運行' && (col === 12 || col === 13) && row >= 2) {
-      var ss_ = e.source;
-      var id  = String(sheet.getRange(row, 1).getValue() || '').trim();
-      if (id) {
-        var allData_ = sheet.getDataRange().getValues();
-        var picksArr_ = [], dropsArr_ = [];
-        for (var ri_ = 1; ri_ < allData_.length; ri_++) {
-          if (String(allData_[ri_][0] || '').trim() !== id) continue;
-          var pv_ = String(allData_[ri_][11] || '').trim();
-          var dv_ = String(allData_[ri_][12] || '').trim();
-          if (pv_) picksArr_.push(pv_);
-          if (dv_) dropsArr_.push(dv_);
+    // 運行シート編集：集計表を30分トリガー（installedOnEdit_）内でsync
+    if (sheetName === '運行' && row >= 2) {
+      var ss_unk = e.source;
+      var allData_unk = sheet.getDataRange().getValues();
+      // 編集された行のIDを収集
+      var syncIds_set = {}, syncIds_arr = [];
+      var numRows_unk = range.getNumRows();
+      for (var ri_unk = 0; ri_unk < numRows_unk; ri_unk++) {
+        var erow_unk = row + ri_unk;
+        if (erow_unk < 2 || erow_unk > allData_unk.length) continue;
+        var eid_unk = String(allData_unk[erow_unk - 1][0] || '').trim();
+        if (eid_unk && !syncIds_set[eid_unk]) { syncIds_set[eid_unk] = true; syncIds_arr.push(eid_unk); }
+      }
+      if (syncIds_arr.length > 3) {
+        generateSummary(ss_unk);
+      } else {
+        for (var si_unk = 0; si_unk < syncIds_arr.length; si_unk++) {
+          try { syncSummaryForId_(syncIds_arr[si_unk], ss_unk); } catch(e_unk) {}
         }
-        if (picksArr_.length && dropsArr_.length) {
-          lookupAndSetDistanceAfterCreate_(ss_, id, picksArr_, dropsArr_);
+      }
+      // L列（積地）またはM列（降地）の場合は距離も即時反映
+      if (col === 12 || col === 13) {
+        var id_dist = String(sheet.getRange(row, 1).getValue() || '').trim();
+        if (id_dist) {
+          var picksArr_ = [], dropsArr_ = [];
+          for (var ri_ = 1; ri_ < allData_unk.length; ri_++) {
+            if (String(allData_unk[ri_][0] || '').trim() !== id_dist) continue;
+            var pv_ = String(allData_unk[ri_][11] || '').trim();
+            var dv_ = String(allData_unk[ri_][12] || '').trim();
+            if (pv_) picksArr_.push(pv_);
+            if (dv_) dropsArr_.push(dv_);
+          }
+          if (picksArr_.length && dropsArr_.length) {
+            lookupAndSetDistanceAfterCreate_(ss_unk, id_dist, picksArr_, dropsArr_);
+          }
         }
       }
       return null;
@@ -8867,10 +8864,8 @@ function importBulkRows(sheetType, mappedRows, companySsId) {
         formulas.push(['=IF(AND(U' + rn + '="",T' + rn + '=""),"",U' + rn + '-T' + rn + ')']);
       }
       sheet.getRange(startRow, 22, writeRows.length, 1).setFormulas(formulas);
-      // 集計表を即時同期（インポートした全IDを更新）
-      for (var i = 0; i < writeRows.length; i++) {
-        delaySyncSummary_(writeRows[i][0], ss);
-      }
+      // 集計表を一括再生成（行ごとの個別syncより大幅に高速）
+      generateSummary(ss);
       // 支払いが含まれる場合は集計表のAA列(col27)に直接書き込む
       var paymentMap = {};
       for (var i = 0; i < mappedRows.length; i++) {
@@ -11467,10 +11462,10 @@ function generateAuditSheet() {
     { name: '支払い',       src: 26 },
     { name: '経費合計',     src: 27 },
     { name: '利益',         src: 28 },
-    { name: '給料',         src: 31 },
     { name: '有休手当',     src: 33 },
     { name: 'その他手当',   src: 34 },
-    { name: '備考',         src: 29 }
+    { name: '備考',         src: 29 },
+    { name: '警告内容',     src: -2 }
   ];
   var numCols = auditCols.length;
 
@@ -11492,13 +11487,15 @@ function generateAuditSheet() {
   outputRows.push(auditCols.map(function(c) { return c.name; }));
 
   var prevMonth = '';
-  var mt = { u: 0, h: 0, n: 0, p: 0, k: 0, r: 0, g: 0, y: 0, o: 0 };
+  var mt = { u: 0, h: 0, n: 0, p: 0, k: 0, r: 0, y: 0, o: 0 };
+  // 各データ行のシート行番号と元データを保持（時刻色付けに使用）
+  var dataRowNums = [];
 
   function pushMonthTotal(month) {
     var tr = new Array(numCols).fill('');
     tr[0] = month + ' 合計';
     tr[19] = mt.u; tr[20] = mt.h; tr[21] = mt.n; tr[22] = mt.p;
-    tr[23] = mt.k; tr[24] = mt.r; tr[25] = mt.g; tr[26] = mt.y; tr[27] = mt.o;
+    tr[23] = mt.k; tr[24] = mt.r; tr[25] = mt.y; tr[26] = mt.o;
     outputRows.push(tr);
   }
 
@@ -11512,22 +11509,27 @@ function generateAuditSheet() {
     prevMonth = monthKey;
 
     var kosokunJikan = '';
-    var yuido = r[13]; var koka = r[17]; var ks = r[15]; var ke = r[16];
-    // GASの時刻専用値はDec 30 1899基準のため getTime() < 0 になる → > 0チェック不可
-    // isNaN チェックのみで有効判定する
-    if (yuido instanceof Date && !isNaN(yuido.getTime()) && koka instanceof Date && !isNaN(koka.getTime())) {
-      var diffMs = koka.getTime() - yuido.getTime();
-      if (diffMs < 0) diffMs += 24 * 3600000; // 日またぎ補正
-      if (ks instanceof Date && !isNaN(ks.getTime()) && ke instanceof Date && !isNaN(ke.getTime()) && ke.getTime() > ks.getTime()) {
-        diffMs -= (ke.getTime() - ks.getTime());
-      }
-      if (diffMs > 0) kosokunJikan = Math.round(diffMs / 36000) / 100;
+    var tenkoMae = r[35]; var tenkoGo = r[36]; // 点呼前完了・点呼後完了（改善基準告示：始業〜終業点呼）
+    if (tenkoMae instanceof Date && !isNaN(tenkoMae.getTime()) && tenkoGo instanceof Date && !isNaN(tenkoGo.getTime()) && tenkoGo > tenkoMae) {
+      kosokunJikan = Math.round((tenkoGo.getTime() - tenkoMae.getTime()) / 36000) / 100;
     }
+
+    // 警告内容を生成（時刻異常・拘束時間超えの理由を文字で記録）
+    var warnArr = [];
+    var F_w = 4 * 60 * 60 * 1000; var T_w = 30 * 60 * 1000;
+    var pw = r[14], ksw = r[15], kew = r[16], dw = r[17];
+    if (pw instanceof Date && ksw instanceof Date && !isNaN(pw.getTime()) && !isNaN(ksw.getTime()) && (ksw.getTime()-pw.getTime()) > F_w) warnArr.push('積完〜休憩4h超');
+    if (ksw instanceof Date && kew instanceof Date && !isNaN(ksw.getTime()) && !isNaN(kew.getTime()) && (kew.getTime()-ksw.getTime()) < T_w) warnArr.push('休憩30分未満');
+    if (kew instanceof Date && dw instanceof Date && !isNaN(kew.getTime()) && !isNaN(dw.getTime()) && (dw.getTime()-kew.getTime()) > F_w) warnArr.push('休憩後〜降完4h超');
+    if (kosokunJikan !== '' && Number(kosokunJikan) > 13) warnArr.push('拘束13h超');
+    var warnStr = warnArr.join(' / ');
 
     outputRows.push(auditCols.map(function(c) {
       if (c.src === -1) return kosokunJikan;
+      if (c.src === -2) return warnStr;
       return (r[c.src] !== undefined && r[c.src] !== null) ? r[c.src] : '';
     }));
+    dataRowNums.push({ sheetRow: outputRows.length, r: r, kosoku: kosokunJikan }); // setValues後の色付け用
 
     mt.u += Number(r[18]) || 0;
     mt.h += Number(r[21]) || 0;
@@ -11535,7 +11537,6 @@ function generateAuditSheet() {
     mt.p += Number(r[26]) || 0;
     mt.k += Number(r[27]) || 0;
     mt.r += Number(r[28]) || 0;
-    mt.g += Number(r[31]) || 0;
     mt.y += Number(r[33]) || 0;
     mt.o += Number(r[34]) || 0;
   }
@@ -11543,6 +11544,29 @@ function generateAuditSheet() {
 
   if (outputRows.length > 0) {
     auditSheet.getRange(1, 1, outputRows.length, numCols).setValues(outputRows);
+  }
+
+  // 時刻間隔異常の色付け（集計表と同基準）
+  // 積完〜休憩開始 4時間超=黄 / 休憩時間 30分未満=水 / 休憩終了〜降完 4時間超=黄
+  var F_a = 4 * 60 * 60 * 1000; // 4時間（労働時間過超の閾値）
+  var T_a = 30 * 60 * 1000;     // 30分（休憩不足の閾値）
+  for (var ci = 0; ci < dataRowNums.length; ci++) {
+    var sr   = dataRowNums[ci].sheetRow;
+    var dr   = dataRowNums[ci].r;
+    var pick = dr[14]; var ks_a = dr[15]; var ke_a = dr[16]; var drop = dr[17];
+    if (pick instanceof Date && ks_a instanceof Date && !isNaN(pick.getTime()) && !isNaN(ks_a.getTime()) && (ks_a.getTime() - pick.getTime()) > F_a) {
+      auditSheet.getRange(sr, 14, 1, 2).setBackground('#ffd600'); // 積完・休憩開始を黄色
+    }
+    if (ks_a instanceof Date && ke_a instanceof Date && !isNaN(ks_a.getTime()) && !isNaN(ke_a.getTime()) && (ke_a.getTime() - ks_a.getTime()) < T_a) {
+      auditSheet.getRange(sr, 15, 1, 2).setBackground('#4fc3f7'); // 休憩開始・終了を水色
+    }
+    if (ke_a instanceof Date && drop instanceof Date && !isNaN(ke_a.getTime()) && !isNaN(drop.getTime()) && (drop.getTime() - ke_a.getTime()) > F_a) {
+      auditSheet.getRange(sr, 16, 1, 2).setBackground('#ffd600'); // 休憩終了・降完を黄色
+    }
+    // 拘束時間13時間超え：拘束時間セル（col 19）をオレンジ（利益マイナスの赤と区別）
+    if (dataRowNums[ci].kosoku !== '' && Number(dataRowNums[ci].kosoku) > 13) {
+      auditSheet.getRange(sr, 19, 1, 1).setBackground('#ff9800');
+    }
   }
 
   // ヘッダー書式
@@ -11554,10 +11578,13 @@ function generateAuditSheet() {
   if (dataRows > 0) {
     // 日付列書式
     auditSheet.getRange(2, 1, dataRows, 1).setNumberFormat('yyyy/MM/dd');
+    // 点呼前完了（col12）・点呼後完了（col18）の日時書式
+    auditSheet.getRange(2, 12, dataRows, 1).setNumberFormat('M/d H:mm');
+    auditSheet.getRange(2, 18, dataRows, 1).setNumberFormat('M/d H:mm');
     // 時刻列書式（誘導〜降完: 13〜17列目 1-based）
     auditSheet.getRange(2, 13, dataRows, 5).setNumberFormat('M/d H:mm');
-    // 金額列書式（売上〜その他手当: 20〜28列目 1-based）
-    auditSheet.getRange(2, 20, dataRows, 9).setNumberFormat('#,##0');
+    // 金額列書式（売上〜その他手当: 20〜27列目）
+    auditSheet.getRange(2, 20, dataRows, 8).setNumberFormat('#,##0');
   }
 
   // 月次合計行ハイライト

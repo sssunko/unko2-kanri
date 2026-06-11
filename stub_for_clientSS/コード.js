@@ -81,7 +81,8 @@ function installedOnEdit_(e) {
 // ── 画面表示 ──────────────────────────────────────────────────────────
 function showSidebar()            { return UnkouLib.showSidebar(); }
 function showUploadSidebar()      { return UnkouLib.showUploadSidebar(); }
-function reloadMenu()             { return UnkouLib.reloadMenu(); }
+// ライブラリ経由だとライブラリのonOpen()（①メニュー）が実行されるためローカル実装
+function reloadMenu() { onOpen(); SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3); }
 
 // ── 月次処理 ──────────────────────────────────────────────────────────
 function generateCurrentMonth()   { return UnkouLib.generateCurrentMonth(); }
@@ -192,3 +193,6 @@ function getCarInfoByNumber(a,b)         { return UnkouLib.getCarInfoByNumber(a,
 function deleteTerminalFile(a,b,c)       { return UnkouLib.deleteTerminalFile(a,b,c); }
 function replaceTerminalFile(a,b,c,d,e,f){ return UnkouLib.replaceTerminalFile(a,b,c,d,e,f); }
 function saveTermNoticeByDriver(a,b,c)   { return UnkouLib.saveTermNoticeByDriver(a,b,c); }
+function appendAdminFileById(a,b,c,d,e)  { return UnkouLib.appendAdminFileById(a,b,c,d,e); }
+function deleteAdminFileById(a,b,c)      { return UnkouLib.deleteAdminFileById(a,b,c); }
+function replaceAdminFileById(a,b,c,d,e,f){ return UnkouLib.replaceAdminFileById(a,b,c,d,e,f); }
