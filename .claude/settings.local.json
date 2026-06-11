@@ -106,7 +106,14 @@
       "Bash(node deploy.js \"拘束時間を全行表示（点呼なし行は誘導〜降完で代替計算）\")",
       "Bash(node deploy.js \"対象会社に御中追加・setupOneCompanyメールをご担当者様に統一\")",
       "Bash(node deploy.js \"担当管理者列追加・管理者シート作成・集計表に点呼前後担当者2列追加\")",
-      "Bash(node deploy.js \"集計表ヘッダー行AM/AN列の表示修正とロック追加\")"
+      "Bash(node deploy.js \"集計表ヘッダー行AM/AN列の表示修正とロック追加\")",
+      "Bash(node deploy.js \"点呼担当者名は点呼時刻ありの行のみ表示\")",
+      "Bash(node deploy.js \"集計表ヘッダーロックを警告スタイルに修正（シート保護設定から適用）\")",
+      "Bash(node deploy.js \"集計表ヘッダー行：シート保護を元の hard-lock に戻し onEdit で自動リバート追加\")",
+      "Bash(node deploy.js \"全シートヘッダー行（1行目）onEdit自動リバート\")",
+      "Bash(grep -n \"//.*【大\\\\|//.*【中\\\\|// ===\\\\|// ─\\\\|function \" \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\")",
+      "Bash(grep -v \"^.*var \\\\|^.*if \\\\|^.*for \\\\|^.*return \\\\|^.*//.*function\")",
+      "Bash(grep -n \"//.*【大\\\\|// ================================================================\" \"c:\\\\gas\\\\unko2-kanri\\\\コード.js\")"
     ]
   }
 }

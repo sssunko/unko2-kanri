@@ -2214,7 +2214,7 @@ function generateSummary(ss) {
       old.other || '',
       iBefore_g || '', iAfter_g || '',  // 点呼前後完了（Dateに正規化済み）
       kosokuH_g,
-      pc.manager || '', pc.manager || ''  // 点呼前担当者, 点呼後担当者
+      iBefore_g ? (pc.manager || '') : '', iAfter_g ? (pc.manager || '') : ''  // 点呼前担当者, 点呼後担当者（時刻あり時のみ）
     ]);
   }
 
@@ -2306,11 +2306,6 @@ function generateSummary(ss) {
   }
   // ヘッダー行（1行目）の枠線を確実にクリア（データ行の黄色枠が残らないように）
   sumSheet.getRange(1, 1, 1, Math.max(sumSheet.getLastColumn(), 40)).setBorder(false, false, false, false, false, false);
-  // ヘッダー行（1行目）に警告保護をかける（意図しない手動編集を防止）
-  sumSheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).filter(function(p) {
-    return p.getRange().getRow() === 1 && p.getRange().getNumRows() === 1;
-  }).forEach(function(p) { p.remove(); });
-  sumSheet.getRange(1, 1, 1, 40).protect().setDescription('集計表ヘッダー').setWarningOnly(true);
   // 再生成完了 → 次にマスタ編集したとき「いつから？」ダイアログが再表示されるようリセット
   PropertiesService.getScriptProperties().deleteProperty('recalcFromDateSet');
 }
@@ -2534,7 +2529,7 @@ function syncSummaryForId_(targetId, ss) {
     keepOther,   // AI=その他手当（手入力保持）
     iBefore_s || '', iAfter_s || '',  // 点呼前完了, 点呼後完了（Dateに正規化済み）
     kosokuH_s,  // 拘束時間(h)
-    pc.manager || '', pc.manager || ''  // 点呼前担当者, 点呼後担当者
+    iBefore_s ? (pc.manager || '') : '', iAfter_s ? (pc.manager || '') : ''  // 点呼前担当者, 点呼後担当者（時刻あり時のみ）
   ];
 
   // LockServiceで並行実行による集計表重複挿入を防止
@@ -8323,6 +8318,16 @@ function dispatchInstalledEdit(e) {
     var sheetName = sheet.getName();
     var row       = range.getRow();
     var col       = range.getColumn();
+
+    // 全シートのヘッダー行（1行目）が編集された場合は自動リバート
+    if (row === 1) {
+      if (e.oldValue !== undefined && e.oldValue !== null) {
+        range.setValue(e.oldValue);
+      } else {
+        range.clearContent();
+      }
+      return null;
+    }
 
     // 自車専属マスタのB列（運行状態）編集時：適用日確認ポップアップ
     if (sheetName === '自車専属マスタ' && col === 2 && row >= 2) {
