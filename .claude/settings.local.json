@@ -127,7 +127,18 @@
       "Bash(awk 'NR>=555 && NR<=590')",
       "Bash(node deploy.js \"コード番号・TOC整合性修正（コメントのみ）\")",
       "Bash(ls \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\\" 2>/dev/null || ls \"/c/Users/OWNER/.claude/projects/c--gas-unko2-kanri/\")",
-      "Read(//c/Users/OWNER/.claude/projects/c--gas-unko2-kanri\" 2>/dev/null || ls /c/Users/OWNER/.claude/projects/**)"
+      "Read(//c/Users/OWNER/.claude/projects/c--gas-unko2-kanri\" 2>/dev/null || ls /c/Users/OWNER/.claude/projects/**)",
+      "Bash(node deploy.js \"メモ等項目行なしシートのヘッダーリバートを除外（A1で判定）\")",
+      "Bash(node deploy.js \"メニュー大カテゴリ整理（①②③三段階構成・絵文字統一）\")",
+      "Bash(node deploy.js \"②③メニューから反映ボタン削除（反映は①修正用SSのみ）\")",
+      "Bash(node deploy.js \"②③スタブから反映ボタン・セットアップ削除（反映は①修正用SSのみ）\")",
+      "Bash(powershell -Command \"cd 'C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri'; Get-ChildItem -Filter '*.jsonl' | Sort-Object -Property LastWriteTime -Descending | Select-Object -First 6\")",
+      "Bash(powershell -Command ' *)",
+      "Bash(Get-ChildItem -Recurse -Filter '*.html' -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(node deploy.js \"親アプリ（管理画面）新規作成：parent_app.html・getParentSheets・getSheetTableData・saveSheetRowData追加\")",
+      "Bash(node deploy.js \"会社登録メールに管理画面（親アプリ）URLを追加\")",
+      "Bash(node deploy.js \"親アプリ：ssId未設定時の表示を「修正用SS（自SS）」に修正\")"
     ]
   }
 }

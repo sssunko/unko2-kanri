@@ -1,64 +1,62 @@
 // 客SS・テンプレートSS用スタブ（実装はライブラリ UnkouLib にある）
-// ②客用SSには __TEMPLATE_SS__ シートあり → 「各客に反映」メニューを表示
-// ③各客SSには __COMPANY_SS__ シートあり → 業務メニューのみ表示
+// ②客用SS・③各客SS 共通メニュー（業務フルスペック）。反映ボタンは①修正用SSのみ。
+// GASはサブメニュー2階層が上限のため、大カテゴリ＋直接項目の構成で実装。
 function onOpen() {
-  var ss         = SpreadsheetApp.getActiveSpreadsheet();
-  var isTemplate = ss.getSheetByName('__TEMPLATE_SS__') !== null;
-  var ui         = SpreadsheetApp.getUi();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui = SpreadsheetApp.getUi();
 
   var menu = ui.createMenu('メニュー');
   menu
-    .addItem('ホーム画面を表示', 'showSidebar')
-    .addItem('🚚 配車ダッシュボード', 'showDispatchDashboard')
-    .addSeparator()
-    .addItem('🔄 メニュー再生成（メニューが消えたら押す）', 'reloadMenu')
-    .addSeparator()
-    .addItem('📅 今月分生成（途中契約）', 'generateCurrentMonth')
-    .addItem('📅 翌月分生成（前月アーカイブ）', 'generateNextMonth')
-    .addItem('📦 前月分アーカイブ', 'archiveOldMonth')
-    .addSeparator()
-    .addItem('📄 請求書生成', 'showInvoiceDialog')
-    .addItem('📄 支払確認書生成', 'showPaymentDialog')
-    .addSeparator()
-    .addItem('集計表再生成', 'generateSummary')
-    .addItem('📏 距離計算（未計算分）', 'calcDistanceManual')
-    .addItem('🗾 距離マスタ 主要地データ投入', 'initDistanceMasterMajorCities')
-    .addItem('シート再生成', 'expandAndRefreshSheets')
-    .addItem('💴 経費自動入力', 'autoFillExpense')
-    .addItem('🔃 日付順並び替え', 'sortBothSheetsByDate')
-    .addItem('🆔 ID・車番一括補完', 'fillMissingIdsAndCars')
-    .addSeparator()
-    .addItem('📷 写真・ファイル取込', 'showUploadSidebar')
-    .addItem('📖 使い方シート作成', 'createUsageSheet')
-    .addItem('📤 CSV・Excel出力', 'showExportDialog')
-    .addItem('📋 監査用表生成', 'generateAuditSheet')
-    .addItem('🛡 シート保護設定', 'setupSheetProtection')
-    .addItem('🔧 初期設定', 'installTriggers')
-    .addSeparator()
+    // ── 🏠 毎日の配車業務（配車・日次作業） ──────────────────────────
+    .addSubMenu(ui.createMenu('🏠 毎日の配車業務')
+      .addItem('🏠 ホーム画面を表示',           'showSidebar')
+      .addItem('🚚 配車ダッシュボード',          'showDispatchDashboard')
+      .addItem('🔗 チェックした行を配車確定',    'matchAndConfirmDispatch')
+      .addItem('🔓 選択行のマッチング解除',      'cancelDispatch')
+      .addItem('🆔 ID・車番一括補完',            'fillMissingIdsAndCars')
+      .addItem('📏 距離計算（未計算分）',         'calcDistanceManual')
+      .addItem('🔃 日付順並び替え',             'sortBothSheetsByDate')
+      .addItem('💴 経費自動入力',               'autoFillExpense')
+      .addItem('📷 写真・ファイル取込',          'showUploadSidebar'))
+    // ── 📥 データ読み込み（CSV） ──────────────────────────────────────
     .addSubMenu(ui.createMenu('📥 データ読み込み（CSV）')
-      .addItem('運行シート', 'showCsvImportDialogUnkou')
-      .addItem('自車専属マスタ', 'showCsvImportDialogMaster')
-      .addItem('マスタ（取引先）', 'showCsvImportDialogCust')
+      .addItem('🚛 運行シート',                 'showCsvImportDialogUnkou')
+      .addItem('🗄 自車専属マスタ',              'showCsvImportDialogMaster')
+      .addItem('📇 マスタ（取引先）',             'showCsvImportDialogCust')
       .addSeparator()
-      .addItem('⛽ ETC利用明細', 'showEtcImportDialog')
+      .addItem('⛽ ETC利用明細',                'showEtcImportDialog')
       .addSeparator()
-      .addItem('🗑 空インポート行を削除', 'deleteBlankImportRows'))
-    .addSeparator()
-    .addSubMenu(ui.createMenu('📋 帳票・送信メニュー')
+      .addItem('🗑 空インポート行を削除',         'deleteBlankImportRows'))
+    // ── 📨 帳票・送信メニュー ──────────────────────────────────────────
+    .addSubMenu(ui.createMenu('📨 帳票・送信メニュー')
       .addItem('① 発注書・指示書を作成（協力会社・乗務員用）', 'showHatchuDocDialog')
-      .addItem('② 車番連絡を作成（荷主用）', 'showShabanDocDialog')
+      .addItem('② 車番連絡を作成（荷主用）',       'showShabanDocDialog')
       .addSeparator()
-      .addItem('🗒 受領書の耳生成', 'showUketorishoDialog'))
+      .addItem('🗒 受領書の耳生成',              'showUketorishoDialog'))
+    // ── 📒 経理・出力 ──────────────────────────────────────────────────
+    .addSubMenu(ui.createMenu('📒 経理・出力')
+      .addItem('🧾 請求書生成',                 'showInvoiceDialog')
+      .addItem('💳 支払確認書生成',              'showPaymentDialog')
+      .addItem('📋 監査用表生成',               'generateAuditSheet')
+      .addItem('💾 CSV・Excel出力',             'showExportDialog'))
+    // ── 📊 PL管理 ──────────────────────────────────────────────────────
     .addSubMenu(ui.createMenu('📊 PL管理')
-      .addItem('📈 PL作成', 'showPlDialog')
-      .addItem('🗃 PL設定初期化', 'initFixedCostMaster'))
-    .addSeparator()
-    .addItem('🔗 チェックした行を配車確定', 'matchAndConfirmDispatch')
-    .addItem('🔓 選択行のマッチング解除', 'cancelDispatch');
-
-  if (isTemplate) {
-    menu.addSeparator().addItem('📤 各客に反映', 'syncToAllClientSS');
-  }
+      .addItem('📈 PL作成',                    'showPlDialog')
+      .addItem('🗃 PL設定初期化',               'initFixedCostMaster'))
+    // ── 🗓 月またぎ処理 ────────────────────────────────────────────────
+    .addSubMenu(ui.createMenu('🗓 月またぎ処理')
+      .addItem('📆 今月分生成（途中契約）',       'generateCurrentMonth')
+      .addItem('📅 翌月分生成（前月アーカイブ）',  'generateNextMonth')
+      .addItem('📦 前月分アーカイブ',            'archiveOldMonth'))
+    // ── ⚙️ システム設定・保守 ──────────────────────────────────────────
+    .addSubMenu(ui.createMenu('⚙️ システム設定・保守')
+      .addItem('🔧 初期設定',                   'installTriggers')
+      .addItem('🔄 メニュー再生成（メニューが消えたら押す）', 'reloadMenu')
+      .addItem('🗂 シート再生成',               'expandAndRefreshSheets')
+      .addItem('📃 集計表再生成',               'generateSummary')
+      .addItem('🛡 シート保護設定',             'setupSheetProtection')
+      .addItem('📖 使い方シート作成',            'createUsageSheet')
+      .addItem('🗾 距離マスタ 主要地データ投入',  'initDistanceMasterMajorCities'));
 
   menu.addToUi();
   try { UnkouLib.convertLegacyAdminDataUrls_(); } catch(e) {}
@@ -196,3 +194,8 @@ function saveTermNoticeByDriver(a,b,c)   { return UnkouLib.saveTermNoticeByDrive
 function appendAdminFileById(a,b,c,d,e)  { return UnkouLib.appendAdminFileById(a,b,c,d,e); }
 function deleteAdminFileById(a,b,c)      { return UnkouLib.deleteAdminFileById(a,b,c); }
 function replaceAdminFileById(a,b,c,d,e,f){ return UnkouLib.replaceAdminFileById(a,b,c,d,e,f); }
+
+// ── 管理画面（親アプリ）────────────────────────────────────────────────
+function getParentSheets(a)            { return UnkouLib.getParentSheets(a); }
+function getSheetTableData(a,b)        { return UnkouLib.getSheetTableData(a,b); }
+function saveSheetRowData(a,b,c,d)     { return UnkouLib.saveSheetRowData(a,b,c,d); }
