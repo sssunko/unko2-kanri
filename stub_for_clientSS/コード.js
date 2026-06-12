@@ -199,3 +199,7 @@ function replaceAdminFileById(a,b,c,d,e,f){ return UnkouLib.replaceAdminFileById
 function getParentSheets(a)            { return UnkouLib.getParentSheets(a); }
 function getSheetTableData(a,b)        { return UnkouLib.getSheetTableData(a,b); }
 function saveSheetRowData(a,b,c,d)     { return UnkouLib.saveSheetRowData(a,b,c,d); }
+function appendSheetRow(a,b,c)         { return UnkouLib.appendSheetRow(a,b,c); }
+function deleteSheetRow(a,b,c)         { return UnkouLib.deleteSheetRow(a,b,c); }
+function linkAdminEmail(a,b)           { return UnkouLib.linkAdminEmail(a,b); }
+function getLinkedAdminEmail(a)        { return UnkouLib.getLinkedAdminEmail(a); }
