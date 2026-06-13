@@ -33,10 +33,10 @@
     button { transition:all 0.12s ease; cursor:pointer; outline:none; border:none; }
     button:active { transform:translateY(4px) scale(0.95); filter:brightness(0.72); box-shadow:none !important; }
 
-    .home-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px; }
-    .home-btn { padding:28px 10px; border-radius:18px; color:white; font-size:15px; font-weight:900; text-align:center; box-shadow:0 6px 20px rgba(0,0,0,0.5); letter-spacing:1px; border:none; width:100%; }
-    .cat-label { font-size:13px; font-weight:900; color:#aaa; padding:12px 2px 6px; display:flex; align-items:center; gap:6px; cursor:pointer; -webkit-user-select:none; user-select:none; }
-    .cat-label:hover { color:#ccc; }
+    .home-grid { display:block; margin-bottom:4px; }
+    .home-btn { display:block; width:100%; padding:20px 16px; border-radius:15px; color:white; font-size:18px; font-weight:900; text-align:center; box-shadow:0 5px 15px rgba(0,0,0,0.4); letter-spacing:1px; border:none; margin-bottom:10px; }
+    .cat-label { font-size:15px; font-weight:900; color:#bb86fc; padding:16px 4px 8px; display:flex; align-items:center; gap:6px; cursor:pointer; -webkit-user-select:none; user-select:none; }
+    .cat-label:hover { color:#d0a8ff; }
     .cat-arrow { font-size:12px; color:#666; display:inline-block; width:14px; transition:transform 0.2s; }
     .cat-arrow.closed { transform:rotate(-90deg); }
 
@@ -114,6 +114,7 @@
     .edit-lbl { font-size:13px; color:#aaa; min-width:110px; flex-shrink:0; }
     .edit-inp { flex:1; padding:8px; background:#2c2c2c; color:white; border:1px solid #444; border-radius:8px; font-size:14px; min-width:0; }
     .edit-val { font-size:14px; color:#ffffff; flex:1; word-break:break-all; }
+    .edit-val-ro { flex:1; padding:8px; background:#191919; color:#999; border:1px solid #2c2c2c; border-radius:8px; font-size:14px; box-sizing:border-box; word-break:break-all; min-height:38px; }
     .edit-link { color:#bb86fc; text-decoration:none; }
     .edit-btns { display:flex; gap:10px; margin-top:16px; }
     .edit-btn { flex:1; padding:14px; border-radius:12px; font-size:15px; font-weight:900; color:white; border:none; }
@@ -214,10 +215,16 @@
      ================================================================ -->
 <div id="homeScreen" class="screen">
   <div class="header"><h2>管理者メニュー</h2></div>
+  <div class="card" style="padding:12px 18px;margin-bottom:12px;">
+    <div style="display:flex;flex-wrap:wrap;gap:4px 20px;align-items:center;">
+      <div class="info-line"><span class="info-label">名前：</span><span id="homeAdminName" style="color:#fff;font-weight:bold;"></span></div>
+      <div class="info-line"><span class="info-label">メール：</span><span id="homeAdminEmail" style="color:#aaa;font-size:13px;"></span></div>
+    </div>
+  </div>
   <div id="homeButtonGrid">
     <div style="text-align:center;color:#aaa;padding:20px;">読み込み中...</div>
   </div>
-  <div style="text-align:center;margin-top:8px;">
+  <div style="text-align:center;margin-top:12px;">
     <span style="color:#555;font-size:12px;cursor:pointer;" onclick="showLogin()">⚙ ログイン設定</span>
   </div>
 </div>
@@ -291,6 +298,11 @@
   <div class="edit-box" id="editBox"></div>
 </div>
 
+<!-- 端末データ管理モーダル -->
+<div id="termDataOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:400;overflow-y:auto;padding:16px;" onclick="if(event.target===this)closeParentTermDataModal()">
+  <div id="termDataBox" style="max-width:500px;margin:40px auto;background:#1e1e1e;border-radius:16px;padding:20px;"></div>
+</div>
+
 <div id="toast"></div>
 
 <input type="file" id="fileInput" style="display:none" accept="image/*,application/pdf,video/*">
@@ -324,12 +336,12 @@ var currentBgs       = [];
 var currentFcs       = [];
 var currentDropdowns = {};
 
-var monthNavSheets = ['運行'];
+var monthNavSheets = [];
 var noAddSheets    = ['集計表','自車専属運行'];
 var johoCurDate    = null;
 
 // 読み取り専用列（列インデックス0始まり）
-var readOnlyCols = { '運行': [19, 22, 23, 24] };
+var readOnlyCols = { '運行': [21, 23, 24, 25] };
 
 // 金額列キーワード
 var moneyKeywords = ['売上','請求','実費','合計','支払','利益','距離','ガソリン','燃料','給料','高速'];
@@ -339,14 +351,11 @@ var sheetActions = {
   '配車板':       [
     { label:'🔗 チェックした行を配車確定', onclick:'doMatchAndConfirmFromApp()' }
   ],
-  '運行':         [
-    { label:'🔃 日付並び替え',      fn:'sortBothSheetsByDate' },
-    { label:'💴 経費自動入力',      fn:'autoFillExpense' }
-  ],
+  '運行':         [],
   '集計表':       [{ label:'📃 集計表再生成', fn:'generateSummary' }],
   '請求書':       [{ label:'🧾 請求書生成',   fn:'showInvoiceDialog' }],
   '支払確認書':   [{ label:'💳 支払確認書生成', fn:'showPaymentDialog' }],
-  '受領者_耳':    [{ label:'🗒 耳生成',        fn:'showUketorishoDialog' }],
+  '受領書_耳':    [{ label:'🗒 耳生成',        fn:'showUketorishoDialog' }],
   '監査用':       [{ label:'📋 監査用表生成',  fn:'generateAuditSheet' }]
 };
 
@@ -405,9 +414,12 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .withFailureHandler(function(){})
       .getLinkedAdminEmail(_ssId);
-    showScreen('loginScreen', '');
+    document.getElementById('homeAdminName').innerText  = _name;
+    document.getElementById('homeAdminEmail').innerText = _email;
+    showScreen('homeScreen', '管理者メニュー');
+    if (!_homeLoaded) { _homeLoaded = true; renderHomeButtons(); }
   } else {
-    showScreen('loginScreen', '');
+    showScreen('loginScreen', '管理者ログイン');
   }
 });
 
@@ -487,6 +499,8 @@ function goHome() {
     showLogin();
     return;
   }
+  document.getElementById('homeAdminName').innerText  = _name;
+  document.getElementById('homeAdminEmail').innerText = _email;
   showScreen('homeScreen', '管理者メニュー');
   if (!_homeLoaded) { _homeLoaded = true; renderHomeButtons(); }
 }
@@ -514,7 +528,6 @@ function renderHomeButtons() {
           var displayName = sheet.display || sheet;
           html += '<button class="home-btn" style="background:' + bg + ';color:' + fg + '" onclick="loadSheet(\'' + esc(actualName) + '\')">' + esc(displayName) + '</button>';
         });
-        if (cat.sheets.length % 2 !== 0) html += '<div></div>';
         html += '</div>';
       });
       grid.innerHTML = html;
@@ -559,8 +572,9 @@ function loadSheet(sheetName) {
   if (navCard) navCard.style.display = needsMonthNav ? 'block' : 'none';
 
   var isJoho = (sheetName === '配車板');
-  document.getElementById('johoDateNavCard').style.display = isJoho ? 'block' : 'none';
-  if (isJoho) {
+  var usesDateNav = isJoho || (sheetName === '運行');
+  document.getElementById('johoDateNavCard').style.display = usesDateNav ? 'block' : 'none';
+  if (usesDateNav) {
     if (!johoCurDate) johoCurDate = new Date();
     updateJohoDateLabel();
   } else {
@@ -624,14 +638,21 @@ function fetchSheetData() {
       currentFcs       = res.fontColors  || [];
       currentDropdowns = res.dropdowns   || {};
 
-      if (currentSheet === '配車板' && johoCurDate) {
+      if ((currentSheet === '配車板' || currentSheet === '運行') && johoCurDate) {
         var johoDateStr = johoCurDate.getFullYear() + '/' + pad2(johoCurDate.getMonth()+1) + '/' + pad2(johoCurDate.getDate());
-        var johoDateIdx    = currentHeaders.indexOf('日付');       if (johoDateIdx    === -1) johoDateIdx    = 5;
-        var johoVehDateIdx = currentHeaders.indexOf('日付(車両)'); if (johoVehDateIdx === -1) johoVehDateIdx = 19;
-        filteredRows = currentRows.filter(function(row) {
-          return String(row[johoDateIdx]    || '').startsWith(johoDateStr) ||
-                 String(row[johoVehDateIdx] || '').startsWith(johoDateStr);
-        });
+        if (currentSheet === '配車板') {
+          var johoDateIdx    = currentHeaders.indexOf('日付');       if (johoDateIdx    === -1) johoDateIdx    = 5;
+          var johoVehDateIdx = currentHeaders.indexOf('日付(車両)'); if (johoVehDateIdx === -1) johoVehDateIdx = 19;
+          filteredRows = currentRows.filter(function(row) {
+            return String(row[johoDateIdx]    || '').startsWith(johoDateStr) ||
+                   String(row[johoVehDateIdx] || '').startsWith(johoDateStr);
+          });
+        } else {
+          var unkoDateIdx = currentHeaders.indexOf('日付'); if (unkoDateIdx === -1) unkoDateIdx = 9;
+          filteredRows = currentRows.filter(function(row) {
+            return String(row[unkoDateIdx] || '').startsWith(johoDateStr);
+          });
+        }
       } else if (needsMonthNav) {
         var dateIdx = currentHeaders.indexOf('日付');
         if (dateIdx === -1) dateIdx = 9;
@@ -682,6 +703,18 @@ function clearFilter() {
     filteredRows = currentRows.filter(function(row) {
       return String(row[dateIdx] || '').startsWith(prefix);
     });
+  } else if ((currentSheet === '配車板' || currentSheet === '運行') && johoCurDate) {
+    var jds = johoCurDate.getFullYear() + '/' + pad2(johoCurDate.getMonth()+1) + '/' + pad2(johoCurDate.getDate());
+    if (currentSheet === '配車板') {
+      var dIdx = currentHeaders.indexOf('日付'); if (dIdx === -1) dIdx = 5;
+      var vIdx = currentHeaders.indexOf('日付(車両)'); if (vIdx === -1) vIdx = 19;
+      filteredRows = currentRows.filter(function(row) {
+        return String(row[dIdx] || '').startsWith(jds) || String(row[vIdx] || '').startsWith(jds);
+      });
+    } else {
+      var dIdx = currentHeaders.indexOf('日付'); if (dIdx === -1) dIdx = 9;
+      filteredRows = currentRows.filter(function(row) { return String(row[dIdx] || '').startsWith(jds); });
+    }
   } else {
     filteredRows = currentRows.slice();
   }
@@ -947,13 +980,10 @@ function renderTable() {
         if (bg && bg !== '#ffffff' && bg !== '#000000') {
           td.style.backgroundColor = bg;
           var contrast = getContrastColor(bg);
-          if (fc && fc !== '#000000' && fc !== '#ffffff') {
-            td.style.color = fc;
-          } else if (contrast) {
-            td.style.color = contrast;
-          }
+          var useColor = (fc && fc !== '#000000' && fc !== '#ffffff') ? fc : contrast;
+          if (useColor) td.style.setProperty('color', useColor, 'important');
         } else if (fc && fc !== '#000000' && fc !== '#ffffff') {
-          td.style.color = fc;
+          td.style.setProperty('color', fc, 'important');
         }
         // 配車板：進捗色で上書き（貨物側 ci 0〜13、車両側 ci 14〜27）
         if (currentSheet === '配車板') {
@@ -1084,17 +1114,27 @@ function renderTable() {
             })(rn, ci_);
           });
         } else {
-          var urlMatch = strVal.match(/https?:\/\/[^\s,]+/);
-          if (urlMatch) {
-            td.innerHTML = '<a href="' + urlMatch[0] + '" target="_blank" style="color:#bb86fc;">📎リンク</a>';
+          // データ(端末)列はクリックでファイル管理モーダルを開く
+          if (currentSheet === '運行' && currentHeaders[ci] === 'データ(端末)') {
+            var _rowId = String(row[0]).trim();
+            var _cnt   = strVal.split(',').map(function(u){return u.trim();}).filter(function(u){return u;}).length;
+            td.innerHTML = '<span style="color:#bb86fc;cursor:pointer;">' + (_cnt > 0 ? '📎 ' + _cnt + '件' : '＋追加') + '</span>';
+            td.style.cursor = 'pointer';
+            td.title = 'クリックでファイル管理';
+            (function(rid){ td.onclick = function(){ openParentTermDataModal(rid); }; })(_rowId);
           } else {
-            td.innerHTML = disp;
+            var urlMatch = strVal.match(/https?:\/\/[^\s,]+/);
+            if (urlMatch) {
+              td.innerHTML = '<a href="' + urlMatch[0] + '" target="_blank" style="color:#bb86fc;">📎リンク</a>';
+            } else {
+              td.innerHTML = disp;
+            }
           }
         }
         tr.appendChild(td);
       });
 
-      // 操作列（配車板では非表示）
+      // 操作列（配車板のみ非表示）
       if (!isJohoSheet) {
         var tdOp = document.createElement('td');
         tdOp.style.whiteSpace = 'nowrap';
@@ -1174,22 +1214,30 @@ function buildEditModal(vals) {
     var isRO = roCols.indexOf(i) !== -1;
     html += '<div class="edit-row-item"><span class="edit-lbl">' + esc(h) + '</span>';
 
-    // URLリンク表示列（読み取り専用かつURL）
-    if (isRO) {
+    // データ(端末)列：ファイル管理UI（子アプリと同等）
+    if (h === 'データ(端末)' && !editIsNew && rowId) {
+      var termUrls2 = v.split(',').map(function(u){return u.trim();}).filter(function(u){return u;});
+      html += '<div style="flex:1;">';
+      if (termUrls2.length === 0) {
+        html += '<div style="color:#888;font-size:13px;margin-bottom:6px;">なし</div>';
+      } else {
+        termUrls2.forEach(function(url2, idx2) {
+          html += '<div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;">';
+          html += '<a href="' + url2 + '" target="_blank" class="edit-link" style="font-size:13px;flex:1;">ファイル' + (idx2+1) + '</a>';
+          html += '<button onclick="changeParentTermFile(\'' + rowId + '\',this.dataset.url)" data-url="' + url2.replace(/"/g,'&quot;') + '" style="padding:3px 8px;border-radius:6px;background:#555;color:white;font-size:11px;border:none;cursor:pointer;">変更</button>';
+          html += '<button onclick="deleteParentTermFileFromEdit(\'' + rowId + '\',this.dataset.url)" data-url="' + url2.replace(/"/g,'&quot;') + '" style="padding:3px 8px;border-radius:6px;background:#c62828;color:white;font-size:11px;border:none;cursor:pointer;">削除</button>';
+          html += '</div>';
+        });
+      }
+      html += '<button onclick="addParentTermFile(\'' + rowId + '\')" style="margin-top:4px;padding:4px 10px;border-radius:6px;background:#388e3c;color:white;font-size:12px;border:none;cursor:pointer;">ファイル追加</button>';
+      html += '</div>';
+    } else if (isRO) {
+      // 読み取り専用：枠付きグレーボックス
       var urlMatch = v.match(/https?:\/\/[^\s,]+/);
       if (urlMatch) {
-        html += '<span class="edit-val"><a href="' + urlMatch[0] + '" target="_blank" class="edit-link">📎 リンクを開く</a></span>';
+        html += '<div class="edit-val-ro"><a href="' + urlMatch[0] + '" target="_blank" class="edit-link">📎 リンクを開く</a></div>';
       } else {
-        html += '<span class="edit-val">' + esc(v) + '</span>';
-      }
-    } else if (h.indexOf('データ') !== -1 && !editIsNew) {
-      // ファイルアップロード対象列（運行シートのデータ列）
-      var urlMatch2 = v.match(/https?:\/\/[^\s,]+/);
-      html += '<span class="edit-val" style="flex:1;">';
-      if (urlMatch2) html += '<a href="' + urlMatch2[0] + '" target="_blank" class="edit-link">📎 リンク</a> ';
-      html += '</span>';
-      if (currentSheet === '運行' && rowId) {
-        html += '<button class="upload-btn" onclick="openFilePicker(' + (editRowIndex - 2) + ')">📷 選択</button>';
+        html += '<div class="edit-val-ro">' + esc(v) + '</div>';
       }
     } else if (currentDropdowns[i]) {
       // ②ドロップダウン列 → <select>
@@ -1219,6 +1267,127 @@ function buildEditModal(vals) {
 }
 
 function closeEditModal() { document.getElementById('editOverlay').classList.remove('show'); }
+
+// ================================================================
+//  端末データ管理モーダル（親アプリ版）
+// ================================================================
+var parentTermDataId = '';
+function openParentTermDataModal(rowId) {
+  parentTermDataId = rowId;
+  document.getElementById('termDataOverlay').style.display = 'block';
+  refreshParentTermDataModal(rowId);
+}
+function closeParentTermDataModal() { document.getElementById('termDataOverlay').style.display = 'none'; }
+
+function refreshParentTermDataModal(rowId) {
+  var termDataStr = '';
+  for (var i = 0; i < currentRows.length; i++) {
+    if (String(currentRows[i][0] || '').trim() === String(rowId).trim()) {
+      termDataStr = String(currentRows[i][25] || '');
+      break;
+    }
+  }
+  var termUrls = termDataStr.split(',').map(function(u){return u.trim();}).filter(function(u){return u;});
+  var h = '<div style="font-size:16px;font-weight:700;color:#bb86fc;margin-bottom:16px;">データ（端末）</div>';
+  if (termUrls.length === 0) {
+    h += '<div style="color:#888;margin-bottom:12px;">ファイルなし</div>';
+  } else {
+    termUrls.forEach(function(url, idx) {
+      h += '<div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;">';
+      h += '<a href="' + url + '" target="_blank" style="color:#bb86fc;font-size:13px;flex:1;">ファイル' + (idx+1) + '</a>';
+      h += '<button onclick="changeParentTermFile(\'' + rowId + '\',this.dataset.url)" data-url="' + url.replace(/"/g,'&quot;') + '" style="padding:3px 8px;border-radius:6px;background:#555;color:white;font-size:11px;border:none;cursor:pointer;">変更</button>';
+      h += '<button onclick="deleteParentTermFile(\'' + rowId + '\',this.dataset.url)" data-url="' + url.replace(/"/g,'&quot;') + '" style="padding:3px 8px;border-radius:6px;background:#c62828;color:white;font-size:11px;border:none;cursor:pointer;">削除</button>';
+      h += '</div>';
+    });
+  }
+  h += '<div style="margin-top:12px;display:flex;gap:8px;">';
+  h += '<button onclick="addParentTermFile(\'' + rowId + '\')" style="padding:6px 14px;border-radius:8px;background:#388e3c;color:white;font-size:13px;border:none;cursor:pointer;">ファイル追加</button>';
+  h += '<button onclick="closeParentTermDataModal()" style="padding:6px 14px;border-radius:8px;background:#444;color:white;font-size:13px;border:none;cursor:pointer;">閉じる</button>';
+  h += '</div>';
+  document.getElementById('termDataBox').innerHTML = h;
+}
+
+function addParentTermFile(id) {
+  var input = document.createElement('input');
+  input.type = 'file'; input.multiple = true; input.accept = 'image/*,.pdf,.doc,.docx,.xls,.xlsx';
+  input.onchange = function(e) {
+    var files = Array.from(e.target.files); if (!files.length) return;
+    var done = 0;
+    files.forEach(function(file) {
+      if (file.size > 10*1024*1024) {
+        alert(file.name + 'は10MB超のためスキップします');
+        done++; if (done === files.length) { fetchSheetData(); setTimeout(function(){ refreshParentTermDataModal(id); }, 800); }
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        var b64 = ev.target.result.split(',')[1];
+        google.script.run
+          .withSuccessHandler(function() {
+            done++; if (done === files.length) { fetchSheetData(); setTimeout(function(){ refreshParentTermDataModal(id); }, 800); }
+          })
+          .withFailureHandler(function(er) {
+            alert('エラー: ' + er.message);
+            done++; if (done === files.length) { fetchSheetData(); setTimeout(function(){ refreshParentTermDataModal(id); }, 800); }
+          })
+          .appendTerminalFileAdmin(id, file.name, b64, file.type, _ssId);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+  input.click();
+}
+
+function deleteParentTermFile(id, url) {
+  if (!confirm('このファイルを削除しますか？')) return;
+  google.script.run
+    .withSuccessHandler(function() {
+      fetchSheetData();
+      setTimeout(function(){ refreshParentTermDataModal(id); }, 800);
+    })
+    .withFailureHandler(function(er) { alert('エラー: ' + er.message); })
+    .deleteTerminalFile(id, url, _ssId);
+}
+
+function deleteParentTermFileFromEdit(id, url) {
+  if (!confirm('このファイルを削除しますか？')) return;
+  google.script.run
+    .withSuccessHandler(function() {
+      fetchSheetData();
+      var rowIdx = editRowIndex - 2;
+      if (rowIdx >= 0 && rowIdx < currentRows.length) buildEditModal(currentRows[rowIdx]);
+    })
+    .withFailureHandler(function(er) { alert('エラー: ' + er.message); })
+    .deleteTerminalFile(id, url, _ssId);
+}
+
+function changeParentTermFile(id, oldUrl) {
+  var input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*,.pdf,.doc,.docx,.xls,.xlsx';
+  input.onchange = function(e) {
+    var file = e.target.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var b64 = ev.target.result.split(',')[1];
+      google.script.run
+        .withSuccessHandler(function() {
+          fetchSheetData();
+          setTimeout(function(){
+            if (document.getElementById('termDataOverlay').style.display !== 'none') {
+              refreshParentTermDataModal(id);
+            } else {
+              var rowIdx = editRowIndex - 2;
+              if (rowIdx >= 0 && rowIdx < currentRows.length) buildEditModal(currentRows[rowIdx]);
+            }
+          }, 800);
+        })
+        .withFailureHandler(function(er) { alert('エラー: ' + er.message); })
+        .replaceTerminalFile(id, oldUrl, file.name, b64, file.type, _ssId);
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
 
 function saveEditRow() {
   var inputs  = document.querySelectorAll('#editBox .edit-inp');
