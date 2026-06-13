@@ -77,17 +77,34 @@
 
     /* A-5: シートビューア */
     .sheet-table-wrap { max-height:60vh; overflow-y:auto; overflow-x:auto; border-radius:10px; }
+    .sheet-table-joho { max-height:calc(100vh - 260px) !important; }
+    .joho-split-container { display:flex; height:calc(100vh - 260px); overflow:hidden; }
+    .joho-pane-cargo  { flex:0 0 50%; min-width:0; overflow-x:auto; overflow-y:auto; }
+    .joho-pane-divider{ width:5px; background:linear-gradient(to bottom,#bf360c,#e65100); flex:none; cursor:col-resize; }
+    .joho-pane-vehicle{ flex:1; min-width:0; overflow-x:auto; overflow-y:auto; }
+    .joho-split-container table { border-collapse:collapse; font-size:13px; white-space:nowrap; }
+    .joho-split-container thead th { position:sticky; top:0; z-index:2; padding:10px 8px; font-weight:900; text-align:left; border-bottom:2px solid #444; border-right:1px solid rgba(255,255,255,0.2); white-space:nowrap; }
+    .joho-split-container td { padding:4px 8px; border-bottom:1px solid #2a2a2a; border-right:1px solid #333; }
+    .joho-split-container select option { background:#2c2c2c !important; color:#e0e0e0 !important; }
     .sheet-table-wrap table { width:100%; border-collapse:collapse; font-size:13px; white-space:nowrap; }
     .sheet-table-wrap thead th { position:sticky; top:0; background:#2a2a2a; z-index:10; padding:10px 8px; color:#bb86fc; font-weight:900; text-align:left; border-bottom:2px solid #444; cursor:pointer; white-space:nowrap; }
     .sheet-table-wrap thead th:hover { background:#333; }
     .sheet-table-wrap tbody tr { border-bottom:1px solid #333; }
     .sheet-table-wrap tbody tr:hover { background:rgba(187,134,252,0.05) !important; }
     .sheet-table-wrap tbody td { padding:8px; color:#e0e0e0; }
-    .editable-cell { cursor:text; min-width:60px; }
+    .editable-cell { cursor:text; min-width:60px; color:#e0e0e0 !important; }
     .editable-cell:focus { outline:2px solid #bb86fc; border-radius:4px; background:rgba(187,134,252,0.08); }
+    /* 配車板：確定/キャンセル行の文字色を td から継承させる */
+    .sheet-table-joho .cell-select { color:inherit; background:transparent; }
+    .sheet-table-joho .editable-cell { color:inherit !important; }
     .row-act-btn { padding:5px 10px; border-radius:15px; font-size:12px; font-weight:700; color:white; margin-right:4px; border:none; }
     .rab-edit   { background:linear-gradient(135deg,#1565c0,#0d47a1); }
     .rab-delete { background:linear-gradient(135deg,#c62828,#b71c1c); }
+    /* 配車板 日付ナビゲーター */
+    .joho-date-nav { display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; }
+    .joho-nav-btn { padding:8px 14px; border-radius:20px; font-size:13px; font-weight:900; color:#fff; background:#37474f; border:none; cursor:pointer; }
+    .joho-today-btn { background:linear-gradient(135deg,#e65100,#bf360c); }
+    .joho-date-label { font-size:18px; font-weight:900; color:#ffa726; min-width:220px; text-align:center; }
 
     /* A-5: 編集モーダル */
     .edit-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:300; overflow-y:auto; padding:16px; }
@@ -106,7 +123,7 @@
     .upload-btn { padding:8px 14px; border-radius:20px; background:linear-gradient(135deg,#2e7d32,#1b5e20); color:white; font-size:13px; font-weight:700; border:none; flex-shrink:0; }
 
     /* セル内select */
-    .cell-select { width:100%; background:transparent; color:inherit; border:none; font-size:13px; cursor:pointer; padding:2px 0; font-family:inherit; }
+    .cell-select { width:100%; background:#2c2c2c; color:#e0e0e0; border:none; font-size:13px; cursor:pointer; padding:2px 0; font-family:inherit; border-radius:3px; }
     .cell-select:focus { outline:1px solid #bb86fc; border-radius:3px; }
     /* シートアクションバー */
     #sheetActionsBar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
@@ -216,6 +233,16 @@
       <button class="nav-btn" onclick="nextMonth()">次月 ▶</button>
     </div>
   </div>
+  <div class="list-card" id="johoDateNavCard" style="display:none;padding:12px 16px;">
+    <div class="joho-date-nav">
+      <button class="joho-nav-btn" onclick="johoNav('prevMonth')">◀前月</button>
+      <button class="joho-nav-btn" onclick="johoNav('prevDay')">◀前日</button>
+      <button class="joho-nav-btn joho-today-btn" onclick="johoNav('today')">今日</button>
+      <div class="joho-date-label" id="johoDateLabel">―</div>
+      <button class="joho-nav-btn" onclick="johoNav('nextDay')">翌日▶</button>
+      <button class="joho-nav-btn" onclick="johoNav('nextMonth')">翌月▶</button>
+    </div>
+  </div>
   <div class="list-card" id="summaryCard" style="display:none;"></div>
   <div class="list-card">
     <h3 style="cursor:pointer;margin-bottom:0;" onclick="toggleFilter()">絞り込み ▼</h3>
@@ -245,6 +272,8 @@
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
     <button class="action-btn btn-dark" style="width:auto;padding:14px 28px;margin:0;font-size:16px;" onclick="goHome()">ホーム</button>
     <button class="add-row-btn" id="addRowBtn" onclick="openAddRow()">＋ 新規追加</button>
+    <button class="add-row-btn" id="addCargoBtn" style="display:none;background:linear-gradient(135deg,#1565c0,#0d47a1);" onclick="openAddJohoCargo()">＋ 荷物追加</button>
+    <button class="add-row-btn" id="addVehicleBtn" style="display:none;background:linear-gradient(135deg,#e65100,#bf360c);" onclick="openAddJohoVehicle()">＋ 車両追加</button>
     <span id="tblMeta" style="font-size:13px;color:#666;"></span>
   </div>
   <div id="sheetActionsBar"></div>
@@ -297,6 +326,7 @@ var currentDropdowns = {};
 
 var monthNavSheets = ['運行'];
 var noAddSheets    = ['集計表','自車専属運行'];
+var johoCurDate    = null;
 
 // 読み取り専用列（列インデックス0始まり）
 var readOnlyCols = { '運行': [19, 22, 23, 24] };
@@ -307,11 +337,7 @@ var moneyKeywords = ['売上','請求','実費','合計','支払','利益','距�
 // シート別アクションボタン（④対応）
 var sheetActions = {
   '配車板':       [
-    { label:'🚚 配車ダッシュボード', fn:'showDispatchDashboard' },
-    { label:'🔗 配車確定',          fn:'matchAndConfirmDispatch' },
-    { label:'🔓 マッチング解除',    fn:'cancelDispatch' },
-    { label:'🆔 ID・車番補完',      fn:'fillMissingIdsAndCars' },
-    { label:'📏 距離計算',          fn:'calcDistanceManual' }
+    { label:'🔗 チェックした行を配車確定', onclick:'doMatchAndConfirmFromApp()' }
   ],
   '運行':         [
     { label:'🔃 日付並び替え',      fn:'sortBothSheetsByDate' },
@@ -532,8 +558,18 @@ function loadSheet(sheetName) {
   var navCard = document.getElementById('monthNavCard');
   if (navCard) navCard.style.display = needsMonthNav ? 'block' : 'none';
 
-  var addBtn = document.getElementById('addRowBtn');
-  if (addBtn) addBtn.style.display = noAddSheets.indexOf(sheetName) !== -1 ? 'none' : 'inline-block';
+  var isJoho = (sheetName === '配車板');
+  document.getElementById('johoDateNavCard').style.display = isJoho ? 'block' : 'none';
+  if (isJoho) {
+    if (!johoCurDate) johoCurDate = new Date();
+    updateJohoDateLabel();
+  } else {
+    johoCurDate = null;
+  }
+  document.getElementById('addRowBtn').style.display    = (isJoho || noAddSheets.indexOf(sheetName) !== -1) ? 'none' : 'inline-block';
+  document.getElementById('addCargoBtn').style.display  = isJoho ? 'inline-block' : 'none';
+  document.getElementById('addVehicleBtn').style.display = isJoho ? 'inline-block' : 'none';
+  document.getElementById('tblMeta').style.display      = isJoho ? 'none' : '';
 
   updateYMDisplay();
   renderSheetActions(sheetName);
@@ -546,7 +582,8 @@ function renderSheetActions(sn) {
   var acts = sheetActions[sn] || [];
   if (acts.length === 0) { bar.innerHTML = ''; return; }
   bar.innerHTML = acts.map(function(a) {
-    return '<button class="sheet-act-btn" onclick="runSys(\'' + a.fn + '\',\'' + a.label.replace(/'/g,"\\'") + '\')">' + esc(a.label) + '</button>';
+    var oc = a.onclick ? a.onclick : 'runSys(\'' + a.fn + '\',\'' + a.label.replace(/'/g,"\\'") + '\')';
+    return '<button class="sheet-act-btn" onclick="' + oc + '">' + esc(a.label) + '</button>';
   }).join('');
 }
 
@@ -587,7 +624,15 @@ function fetchSheetData() {
       currentFcs       = res.fontColors  || [];
       currentDropdowns = res.dropdowns   || {};
 
-      if (needsMonthNav) {
+      if (currentSheet === '配車板' && johoCurDate) {
+        var johoDateStr = johoCurDate.getFullYear() + '/' + pad2(johoCurDate.getMonth()+1) + '/' + pad2(johoCurDate.getDate());
+        var johoDateIdx    = currentHeaders.indexOf('日付');       if (johoDateIdx    === -1) johoDateIdx    = 5;
+        var johoVehDateIdx = currentHeaders.indexOf('日付(車両)'); if (johoVehDateIdx === -1) johoVehDateIdx = 19;
+        filteredRows = currentRows.filter(function(row) {
+          return String(row[johoDateIdx]    || '').startsWith(johoDateStr) ||
+                 String(row[johoVehDateIdx] || '').startsWith(johoDateStr);
+        });
+      } else if (needsMonthNav) {
         var dateIdx = currentHeaders.indexOf('日付');
         if (dateIdx === -1) dateIdx = 9;
         var prefix = listYear + '/' + pad2(listMonth);
@@ -804,6 +849,17 @@ function renderTable() {
   }
 
   var wrap   = document.getElementById('sheetTableWrap');
+  var isJohoSheet = (currentSheet === '配車板');
+  if (isJohoSheet) {
+    wrap.classList.add('sheet-table-joho');
+    wrap.style.display  = '';
+    wrap.style.overflow = '';
+    renderJohoSplit(filteredRows);
+    return;
+  }
+  wrap.classList.remove('sheet-table-joho');
+  wrap.style.display  = '';
+  wrap.style.overflow = '';
   var roCols = readOnlyCols[currentSheet] || [];
 
   var moneyCols = {};
@@ -817,16 +873,25 @@ function renderTable() {
     var isSorted  = sortColIdx === idx;
     var arrow = isSorted ? (sortAsc ? ' ▲' : ' ▼') : '';
     var dot   = hasFilter ? '<span style="color:#bb86fc;font-size:10px;"> ●</span>' : '';
-    headHtml += '<th onclick="openColFilter(' + idx + ',this,event)">' + esc(h) + arrow + '<span style="color:#555;font-size:11px;"> ▼</span>' + dot + '</th>';
+    var thStyle = '';
+    if (isJohoSheet) {
+      var thBg    = idx <= 13 ? '#1565c0' : '#e65100';
+      var thExtra = (idx === 14 ? 'border-left:3px solid #bf360c;' : '') +
+                    (idx === 0  ? 'position:sticky;left:0;z-index:3;' : '');
+      thStyle = ' style="background:' + thBg + ';color:#fff;' + thExtra + '"';
+    }
+    headHtml += '<th onclick="openColFilter(' + idx + ',this,event)"' + thStyle + '>' + esc(h) + arrow + '<span style="color:rgba(255,255,255,0.4);font-size:11px;"> ▼</span>' + dot + '</th>';
   });
-  headHtml += '<th style="cursor:default;">操作</th></tr></thead><tbody id="sheetTbody"></tbody></table>';
+  if (!isJohoSheet) headHtml += '<th style="cursor:default;">操作</th>';
+  headHtml += '</tr></thead><tbody id="sheetTbody"></tbody></table>';
   wrap.innerHTML = headHtml;
 
   document.getElementById('tblMeta').textContent = filteredRows.length + '件';
 
   if (filteredRows.length === 0) {
+    var _colSpan = currentHeaders.length + (currentSheet === '配車板' ? 0 : 1);
     document.getElementById('sheetTbody').innerHTML =
-      '<tr><td colspan="' + (currentHeaders.length + 1) + '" style="padding:20px;text-align:center;color:#888;">データがありません</td></tr>';
+      '<tr><td colspan="' + _colSpan + '" style="padding:20px;text-align:center;color:#888;">データがありません</td></tr>';
     return;
   }
 
@@ -859,6 +924,15 @@ function renderTable() {
         else if (st === '待機') tr.style.backgroundColor = 'rgba(255,235,59,0.15)';
         else if (st === '故障') tr.style.backgroundColor = 'rgba(76,175,80,0.15)';
       }
+      // 配車板：貨物側(cols 0-13)/車両側(cols 14-27)の進捗色を事前計算
+      var johoCargoBg = '', johoVehBg = '';
+      if (currentSheet === '配車板') {
+        var cpSt = String(row[1] || '').trim();  // B列(index 1)=進捗(貨物)
+        var vpSt = String(row[15] || '').trim(); // P列(index 15)=進捗(車両)
+        var _bc = (cpSt === '確定' && vpSt === '確定');
+        johoCargoBg = _bc ? '#f8bbd0' : (cpSt === '確定' ? '#ffe57f' : (cpSt === 'キャンセル' || cpSt === '終了') ? '#616161' : '');
+        johoVehBg   = _bc ? '#f8bbd0' : (vpSt === '確定' ? '#ffe57f' : (vpSt === 'キャンセル' || vpSt === '終了') ? '#616161' : '');
+      }
 
       var origIdx = currentRows.indexOf(row);
 
@@ -881,6 +955,23 @@ function renderTable() {
         } else if (fc && fc !== '#000000' && fc !== '#ffffff') {
           td.style.color = fc;
         }
+        // 配車板：進捗色で上書き（貨物側 ci 0〜13、車両側 ci 14〜27）
+        if (currentSheet === '配車板') {
+          var jBg = ci <= 13 ? johoCargoBg : johoVehBg;
+          if (jBg) {
+            td.style.backgroundColor = jBg;
+            td.style.color = jBg === '#616161' ? '#ffffff' : '#000000';
+          }
+          // 貨物/車両の境目に太い縦線
+          if (ci === 14) td.style.borderLeft = '3px solid #bf360c';
+          // 先頭列固定（横スクロール時もチェック列が残る）
+          if (ci === 0) {
+            td.style.position = 'sticky';
+            td.style.left = '0';
+            td.style.zIndex = '1';
+            td.style.background = jBg || '#1e1e1e';
+          }
+        }
 
         // チェックボックス列（TRUE/FALSEのみ）
         var strVal = String(val).trim();
@@ -899,10 +990,15 @@ function renderTable() {
             var rowData = currentRows[rowIdx_].slice();
             rowData[ci_] = this.checked ? 'TRUE' : 'FALSE';
             currentRows[rowIdx_][ci_] = rowData[ci_];
-            google.script.run
-              .withSuccessHandler(function(r) { toast(r && r.ok ? '✓' : '保存失敗'); })
-              .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-              .saveSheetRowData(currentSheet, rn, rowData, _ssId);
+            (function(rn_, ci__) {
+              google.script.run
+                .withSuccessHandler(function(r) {
+                  toast(r && r.ok ? '✓' : '保存失敗');
+                  if (currentSheet === '配車板') doAfterSaveJoho(rn_, ci__);
+                })
+                .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
+                .saveSheetRowData(currentSheet, rn_, rowData, _ssId);
+            })(rn, ci_);
           });
           td.style.textAlign = 'center';
           td.appendChild(cb);
@@ -939,11 +1035,21 @@ function renderTable() {
             var rowData = currentRows[rowIdx_].slice();
             rowData[ci_] = this.value;
             currentRows[rowIdx_][ci_] = this.value;
-            google.script.run
-              .withSuccessHandler(function(r) { toast(r && r.ok ? '✓ 保存' : '保存失敗'); })
-              .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-              .saveSheetRowData(currentSheet, rn, rowData, _ssId);
+            (function(rn_, ci__) {
+              google.script.run
+                .withSuccessHandler(function(r) {
+                  toast(r && r.ok ? '✓ 保存' : '保存失敗');
+                  if (currentSheet === '配車板') doAfterSaveJoho(rn_, ci__);
+                })
+                .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
+                .saveSheetRowData(currentSheet, rn_, rowData, _ssId);
+            })(rn, ci_);
           });
+          // 配車板：確定/キャンセル行のselect文字色を直接設定
+          if (currentSheet === '配車板') {
+            var _sjBg = ci <= 13 ? johoCargoBg : johoVehBg;
+            if (_sjBg) sel.style.color = _sjBg === '#616161' ? '#ffffff' : '#000000';
+          }
           td.appendChild(sel);
         } else if (!isRO) {
           td.setAttribute('contenteditable', 'true');
@@ -951,6 +1057,11 @@ function renderTable() {
           td.dataset.origVal = strVal;
           td.dataset.col = ci;
           td.innerHTML = disp;
+          // 配車板：確定/キャンセル行のcontenteditable文字色を直接設定（!importantで強制）
+          if (currentSheet === '配車板') {
+            var _cejBg = ci <= 13 ? johoCargoBg : johoVehBg;
+            if (_cejBg) td.style.setProperty('color', _cejBg === '#616161' ? '#ffffff' : '#000000', 'important');
+          }
           td.addEventListener('blur', function() {
             var newVal = this.innerText.trim();
             if (newVal === this.dataset.origVal) return;
@@ -962,10 +1073,15 @@ function renderTable() {
             rowData[ci_] = newVal;
             currentRows[rowIdx_][ci_] = newVal;
             this.dataset.origVal = newVal;
-            google.script.run
-              .withSuccessHandler(function(r) { toast(r && r.ok ? '✓ 保存' : '保存失敗: ' + (r ? r.msg : '')); })
-              .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-              .saveSheetRowData(currentSheet, rn, rowData, _ssId);
+            (function(rn_, ci__) {
+              google.script.run
+                .withSuccessHandler(function(r) {
+                  toast(r && r.ok ? '✓ 保存' : '保存失敗: ' + (r ? r.msg : ''));
+                  if (currentSheet === '配車板') doAfterSaveJoho(rn_, ci__);
+                })
+                .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
+                .saveSheetRowData(currentSheet, rn_, rowData, _ssId);
+            })(rn, ci_);
           });
         } else {
           var urlMatch = strVal.match(/https?:\/\/[^\s,]+/);
@@ -978,13 +1094,15 @@ function renderTable() {
         tr.appendChild(td);
       });
 
-      // 操作列
-      var tdOp = document.createElement('td');
-      tdOp.style.whiteSpace = 'nowrap';
-      tdOp.innerHTML =
-        '<button class="row-act-btn rab-edit"   onclick="openEditRow(' + rowNum + ')">編集</button>' +
-        '<button class="row-act-btn rab-delete" onclick="deleteRow(' + rowNum + ')">削除</button>';
-      tr.appendChild(tdOp);
+      // 操作列（配車板では非表示）
+      if (!isJohoSheet) {
+        var tdOp = document.createElement('td');
+        tdOp.style.whiteSpace = 'nowrap';
+        tdOp.innerHTML =
+          '<button class="row-act-btn rab-edit"   onclick="openEditRow(' + rowNum + ')">編集</button>' +
+          '<button class="row-act-btn rab-delete" onclick="deleteRow(' + rowNum + ')">削除</button>';
+        tr.appendChild(tdOp);
+      }
       fragment.appendChild(tr);
     }
     tbody.appendChild(fragment);
@@ -1111,21 +1229,35 @@ function saveEditRow() {
   }
   inputs.forEach(function(inp) {
     var ci = parseInt(inp.dataset.col);
-    newData[ci] = inp.value;
+    var v  = inp.value;
+    if (inp.type === 'date' && v) v = v.replace(/-/g, '/');
+    newData[ci] = v;
   });
   closeEditModal();
   toast('保存中...');
 
   if (editIsNew) {
     google.script.run
-      .withSuccessHandler(function(r) { toast(r && r.ok ? '✓ 追加しました' : '追加失敗'); fetchSheetData(); })
+      .withSuccessHandler(function(r) { toast(r && r.ok ? '✓ 追加しました' : '追加失敗: ' + (r ? r.msg : '')); fetchSheetData(); })
       .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
       .appendSheetRow(currentSheet, newData, _ssId);
   } else {
+    var _savedRowIdx = editRowIndex;
+    var _isJohoSave  = (currentSheet === '配車板');
     google.script.run
-      .withSuccessHandler(function(r) { toast(r && r.ok ? '✓ 保存しました' : '保存失敗: ' + (r ? r.msg : '')); fetchSheetData(); })
+      .withSuccessHandler(function(r) {
+        toast(r && r.ok ? '✓ 保存しました' : '保存失敗: ' + (r ? r.msg : ''));
+        if (_isJohoSave) {
+          google.script.run
+            .withSuccessHandler(function() { fetchSheetData(); })
+            .withFailureHandler(function(e) { toast('配車板後処理エラー: ' + e.message); fetchSheetData(); })
+            .afterSaveJohoFull(_ssId, _savedRowIdx);
+        } else {
+          fetchSheetData();
+        }
+      })
       .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-      .saveSheetRowData(currentSheet, editRowIndex, newData, _ssId);
+      .saveSheetRowData(currentSheet, _savedRowIdx, newData, _ssId);
   }
 }
 
@@ -1137,6 +1269,337 @@ function openAddRow() {
   editIsNew = true; editRowIndex = -1;
   buildEditModal(currentHeaders.map(function() { return ''; }));
   document.getElementById('editOverlay').classList.add('show');
+}
+
+// ================================================================
+//  C-13b: 配車板 荷物追加 / 車両追加
+// ================================================================
+var _johoAddMode = '';
+function openAddJohoCargo() {
+  if (!currentHeaders.length) return;
+  editIsNew = true; editRowIndex = -1;
+  _johoAddMode = 'cargo';
+  _buildJohoAddModal('cargo');
+  document.getElementById('editOverlay').classList.add('show');
+}
+function openAddJohoVehicle() {
+  if (!currentHeaders.length) return;
+  editIsNew = true; editRowIndex = -1;
+  _johoAddMode = 'vehicle';
+  _buildJohoAddModal('vehicle');
+  document.getElementById('editOverlay').classList.add('show');
+}
+function _buildJohoAddModal(mode) {
+  var isCargo = mode === 'cargo';
+  // 荷物: index 1〜12（チェック=0・貨物登録ID=13 を除く）
+  // 車両: 日付=5 を先頭に追加 + index 15〜26（チェック=14・車両登録ID=27 を除く）
+  var indices = [];
+  if (isCargo) {
+    for (var j = 1; j <= 12; j++) indices.push(j);
+  } else {
+    for (var j = 15; j <= 27; j++) indices.push(j); // 進捗〜備考(車両)、日付(車両)はindex 19に含まれる
+  }
+  var title    = isCargo ? '＋ 荷物追加' : '＋ 車両追加';
+  var d = new Date();
+  var todayVal = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+  var box  = document.getElementById('editBox');
+  var html = '<h3 style="margin-bottom:16px;">✏️ ' + title + '</h3>';
+  indices.forEach(function(i) {
+    var h = currentHeaders[i] || '';
+    html += '<div class="edit-row-item"><span class="edit-lbl">' + esc(h) + '</span>';
+    if (currentDropdowns[i]) {
+      html += '<select class="edit-inp" data-col="' + i + '">';
+      html += '<option value=""></option>';
+      currentDropdowns[i].forEach(function(opt) {
+        html += '<option value="' + esc(opt) + '">' + esc(opt) + '</option>';
+      });
+      html += '</select>';
+    } else if (h === '日付' || h === '日付(車両)') {
+      html += '<input type="date" class="edit-inp" data-col="' + i + '" value="' + todayVal + '">';
+    } else {
+      html += '<input class="edit-inp" data-col="' + i + '" value="">';
+    }
+    html += '</div>';
+  });
+  html += '<div class="edit-btns">';
+  html += '<button class="edit-btn eb-save" onclick="johoAddSave()">💾 保存</button>';
+  html += '<button class="edit-btn eb-close" onclick="closeEditModal()">✕ 閉じる</button>';
+  html += '</div>';
+  box.innerHTML = html;
+  _setupJohoModalAutoFill(mode);
+}
+// ================================================================
+//  C-10b: 配車板 分割スクロール描画（荷物左/車両右）
+// ================================================================
+function renderJohoSplit(rows) {
+  var wrap = document.getElementById('sheetTableWrap');
+  wrap.innerHTML =
+    '<div class="joho-split-container">' +
+      '<div id="johoPaneCargo" class="joho-pane-cargo">' +
+        '<table id="johoCargoTable"><thead><tr id="johoCargoHead"></tr></thead><tbody id="johoCargoBdy"></tbody></table>' +
+      '</div>' +
+      '<div class="joho-pane-divider"></div>' +
+      '<div id="johoPaneVehicle" class="joho-pane-vehicle">' +
+        '<table id="johoVehicleTable"><thead><tr id="johoVehicleHead"></tr></thead><tbody id="johoVehicleBdy"></tbody></table>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('tblMeta').textContent = rows.length + '件';
+
+  // 空ヘッダー列のみ非表示（余分な空列対策）
+  var JOHO_HIDE = {};
+  currentHeaders.forEach(function(h, idx) {
+    if (h === '') JOHO_HIDE[idx] = true;
+  });
+
+  // ヘッダー生成
+  currentHeaders.forEach(function(h, idx) {
+    if (JOHO_HIDE[idx]) return;
+    var th = document.createElement('th');
+    th.textContent = h;
+    th.style.cssText = idx <= 13
+      ? 'background:#1565c0;color:#fff;'
+      : 'background:#e65100;color:#fff;';
+    (idx <= 13 ? document.getElementById('johoCargoHead') : document.getElementById('johoVehicleHead')).appendChild(th);
+  });
+
+  if (rows.length === 0) {
+    document.getElementById('johoCargoBdy').innerHTML   = '<tr><td colspan="14" style="padding:20px;text-align:center;color:#888;">データがありません</td></tr>';
+    document.getElementById('johoVehicleBdy').innerHTML = '<tr><td colspan="15" style="padding:20px;text-align:center;color:#888;"></td></tr>';
+    return;
+  }
+
+  var moneyCols = {};
+  currentHeaders.forEach(function(h, i) {
+    if (moneyKeywords.some(function(k) { return h.indexOf(k) !== -1; })) moneyCols[i] = true;
+  });
+  var roCols = readOnlyCols[currentSheet] || [];
+  var cargoBdy = document.getElementById('johoCargoBdy');
+  var vehBdy   = document.getElementById('johoVehicleBdy');
+
+  var _ji = 0, CHUNK = 80;
+  function renderSplitChunk() {
+    var end = Math.min(_ji + CHUNK, rows.length);
+    var cf = document.createDocumentFragment();
+    var vf = document.createDocumentFragment();
+    for (var i = _ji; i < end; i++) {
+      var row    = rows[i];
+      var rowNum = currentRows.indexOf(row) + 2;
+      var cpSt   = String(row[1]  || '').trim();
+      var vpSt   = String(row[15] || '').trim();
+      var bothConf = (cpSt === '確定' && vpSt === '確定');
+      var cBg = bothConf ? '#f8bbd0' : (cpSt === '確定' ? '#ffe57f' : (cpSt === 'キャンセル' || cpSt === '終了') ? '#616161' : '');
+      var vBg = bothConf ? '#f8bbd0' : (vpSt === '確定' ? '#ffe57f' : (vpSt === 'キャンセル' || vpSt === '終了') ? '#616161' : '');
+      var trC = document.createElement('tr'); trC.dataset.rowNum = rowNum;
+      var trV = document.createElement('tr'); trV.dataset.rowNum = rowNum;
+
+      for (var ci = 0; ci < currentHeaders.length; ci++) {
+        if (JOHO_HIDE[ci]) continue;
+        var cell = row[ci];
+        var val  = (cell === null || cell === undefined) ? '' : cell;
+        var strV = String(val).trim();
+        var jBg  = ci <= 13 ? cBg : vBg;
+        var isRO = roCols.indexOf(ci) !== -1;
+        var td   = document.createElement('td');
+        if (jBg) { td.style.backgroundColor = jBg; td.style.color = jBg === '#616161' ? '#fff' : '#000'; }
+
+        var isChkCol = (ci === 0 || ci === 14); // チェック列はインデックスで判定（値が空でもチェックボックス表示）
+        if (isChkCol || strV === 'TRUE' || strV === 'FALSE') {
+          var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = (strV === 'TRUE');
+          // チェック可否: ピンク（両側確定）またはキャンセル/終了はチェック不可
+          var cbDisabled = false;
+          if (ci === 0)  cbDisabled = (bothConf || cpSt === 'キャンセル' || cpSt === '終了');
+          if (ci === 14) cbDisabled = (bothConf || vpSt === 'キャンセル' || vpSt === '終了');
+          if (cbDisabled) {
+            cb.disabled = true;
+            cb.style.cssText = 'width:18px;height:18px;display:block;margin:0 auto;cursor:not-allowed;opacity:0.3;';
+          } else {
+            cb.style.cssText = 'width:18px;height:18px;accent-color:#bb86fc;cursor:pointer;display:block;margin:0 auto;';
+            cb.dataset.rowNum = rowNum; cb.dataset.col = ci;
+            cb.addEventListener('change', function() {
+              var rn = parseInt(this.dataset.rowNum), ci_ = parseInt(this.dataset.col);
+              var ridx = rn - 2; if (ridx < 0 || ridx >= currentRows.length) return;
+              var rd = currentRows[ridx].slice(); rd[ci_] = this.checked ? 'TRUE' : 'FALSE';
+              currentRows[ridx][ci_] = rd[ci_];
+              (function(rn_, ci__) {
+                google.script.run
+                  .withSuccessHandler(function(r) { toast(r && r.ok ? '✓' : '保存失敗'); if (r && r.ok) doAfterSaveJoho(rn_, ci__); })
+                  .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
+                  .saveSheetRowData(currentSheet, rn_, rd, _ssId);
+              })(rn, ci_);
+            });
+          }
+          td.style.textAlign = 'center'; td.appendChild(cb);
+        } else if (!isRO && currentDropdowns[ci]) {
+          var sel = document.createElement('select'); sel.className = 'cell-select';
+          sel.dataset.rowNum = rowNum; sel.dataset.col = ci;
+          var ddOpts = currentDropdowns[ci], hasV = false;
+          ddOpts.forEach(function(opt) {
+            var o = document.createElement('option'); o.value = opt; o.textContent = opt;
+            if (opt === strV) { o.selected = true; hasV = true; } sel.appendChild(o);
+          });
+          if (!hasV && strV) { var o0 = document.createElement('option'); o0.value = strV; o0.textContent = strV; o0.selected = true; sel.insertBefore(o0, sel.firstChild); }
+          // selectの背景・文字色を明示設定（color:inheritだとoptionにも伝わって白背景に白字になる）
+          if (jBg === '#616161') { sel.style.backgroundColor = '#616161'; sel.style.color = '#fff'; }
+          else if (jBg)          { sel.style.backgroundColor = jBg;       sel.style.color = '#000'; }
+          else                   { sel.style.backgroundColor = '#2c2c2c'; sel.style.color = '#e0e0e0'; }
+          sel.addEventListener('change', function() {
+            var rn = parseInt(this.dataset.rowNum), ci_ = parseInt(this.dataset.col);
+            var ridx = rn - 2; if (ridx < 0 || ridx >= currentRows.length) return;
+            var rd = currentRows[ridx].slice(); rd[ci_] = this.value; currentRows[ridx][ci_] = this.value;
+            (function(rn_, ci__) {
+              google.script.run
+                .withSuccessHandler(function(r) { toast(r && r.ok ? '✓ 保存' : '保存失敗'); if (r && r.ok) doAfterSaveJoho(rn_, ci__); })
+                .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
+                .saveSheetRowData(currentSheet, rn_, rd, _ssId);
+            })(rn, ci_);
+          });
+          td.appendChild(sel);
+        } else if (!isRO) {
+          td.setAttribute('contenteditable', 'true'); td.classList.add('editable-cell');
+          td.dataset.origVal = strV; td.dataset.col = ci;
+          td.innerHTML = moneyCols[ci] ? formatMoney(val) : esc(strV);
+          if (jBg) td.style.setProperty('color', jBg === '#616161' ? '#fff' : '#000', 'important');
+          td.addEventListener('blur', function() {
+            var newV = this.innerText.trim(); if (newV === this.dataset.origVal) return;
+            var rn = parseInt(this.closest('tr').dataset.rowNum), ci_ = parseInt(this.dataset.col);
+            var ridx = rn - 2; if (ridx < 0 || ridx >= currentRows.length) return;
+            var rd = currentRows[ridx].slice(); rd[ci_] = newV; currentRows[ridx][ci_] = newV; this.dataset.origVal = newV;
+            (function(rn_, ci__) {
+              google.script.run
+                .withSuccessHandler(function(r) { toast(r && r.ok ? '✓ 保存' : '保存失敗'); if (r && r.ok) doAfterSaveJoho(rn_, ci__); })
+                .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
+                .saveSheetRowData(currentSheet, rn_, rd, _ssId);
+            })(rn, ci_);
+          });
+        } else {
+          td.innerHTML = esc(strV);
+        }
+
+        if (ci <= 13) trC.appendChild(td); else trV.appendChild(td);
+      }
+      cf.appendChild(trC); vf.appendChild(trV);
+    }
+    cargoBdy.appendChild(cf); vehBdy.appendChild(vf);
+    _ji = end;
+    if (_ji < rows.length) setTimeout(renderSplitChunk, 0);
+    else setTimeout(syncJohoRowHeights, 60);
+  }
+  renderSplitChunk();
+}
+
+function syncJohoRowHeights() {
+  var cRows = document.querySelectorAll('#johoCargoBdy tr');
+  var vRows = document.querySelectorAll('#johoVehicleBdy tr');
+  var len = Math.min(cRows.length, vRows.length);
+  for (var i = 0; i < len; i++) {
+    var h1 = cRows[i].offsetHeight, h2 = vRows[i].offsetHeight, maxH = Math.max(h1, h2);
+    if (h1 !== maxH) cRows[i].style.height = maxH + 'px';
+    if (h2 !== maxH) vRows[i].style.height = maxH + 'px';
+  }
+}
+
+function johoAddSave() {
+  var n = currentHeaders.length;
+  if (!n) { toast('エラー: ヘッダー未取得。再読み込みしてください'); return; }
+  var rowData = [];
+  for (var k = 0; k < n; k++) rowData.push('');
+  document.querySelectorAll('#editBox .edit-inp').forEach(function(inp) {
+    var ci = parseInt(inp.dataset.col);
+    if (isNaN(ci) || ci < 0 || ci >= n) return;
+    rowData[ci] = inp.type === 'date' ? inp.value.replace(/-/g, '/') : inp.value;
+  });
+  closeEditModal();
+  toast('追加中...');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      toast(r && r.ok ? '✓ 追加しました' : '追加失敗: ' + (r ? r.msg : ''));
+      fetchSheetData();
+    })
+    .withFailureHandler(function(e) { toast('追加エラー: ' + e.message); })
+    .appendJohoRow(rowData, _ssId);
+}
+
+// ================================================================
+//  C-13c: 配車板保存後処理（行色・TEL/FAX補完・運行シート登録）
+// ================================================================
+function doAfterSaveJoho(rn, ci_) {
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok) fetchSheetData();
+    })
+    .withFailureHandler(function(e) { toast('配車板後処理エラー: ' + e.message); })
+    .afterSaveJoho(_ssId, rn, ci_ + 1);
+}
+
+// ================================================================
+//  C-13e: 配車確定（親アプリ版・getUi不使用）
+// ================================================================
+function doMatchAndConfirmFromApp(resolvedType) {
+  toast('配車確定処理中...');
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (!r) { toast('エラー: 応答なし'); return; }
+      if (r.needsTypeConfirm) {
+        var t = prompt('【警告】車種不一致\n貨物要求: ' + r.cargoType + ' / 実車両: ' + r.vehType + '\n\n登録する車種を入力してください（キャンセルで中断）:');
+        if (t === null) { toast('キャンセルしました'); return; }
+        doMatchAndConfirmFromApp(t.trim() || r.vehType);
+        return;
+      }
+      if (r.ok) { toast('✓ 配車確定: ' + r.msg); fetchSheetData(); }
+      else       { toast('⚠ ' + (r.error || '配車確定に失敗しました')); }
+    })
+    .withFailureHandler(function(e) { toast('配車確定エラー: ' + e.message); })
+    .matchAndConfirmDispatchFromApp(_ssId, (resolvedType !== undefined && resolvedType !== null) ? resolvedType : null);
+}
+
+// ================================================================
+//  C-13f: 追加フォームの会社名→TEL/FAX自動補完セットアップ
+// ================================================================
+function _setupJohoModalAutoFill(mode) {
+  var isCargo  = mode === 'cargo';
+  var nameCol  = isCargo ? 2  : 16;
+  var telCol   = isCargo ? 3  : 17;
+  var faxCol   = isCargo ? 4  : 18;
+  var side     = isCargo ? 'cargo' : 'vehicle';
+  var nameInp  = document.querySelector('#editBox .edit-inp[data-col="' + nameCol + '"]');
+  var telInp   = document.querySelector('#editBox .edit-inp[data-col="' + telCol  + '"]');
+  var faxInp   = document.querySelector('#editBox .edit-inp[data-col="' + faxCol  + '"]');
+  if (!nameInp || !_ssId) return;
+  nameInp.addEventListener('blur', function() {
+    var name = this.value.trim();
+    if (!name) return;
+    google.script.run
+      .withSuccessHandler(function(r) {
+        if (!r) return;
+        if (r.tel && telInp) telInp.value = r.tel;
+        if (r.fax && faxInp) faxInp.value = r.fax;
+      })
+      .lookupCompanyContact(_ssId, name, side);
+  });
+}
+
+// ================================================================
+//  C-13d: 配車板 日付ナビゲーター
+// ================================================================
+var _dayNames = ['日','月','火','水','木','金','土'];
+function updateJohoDateLabel() {
+  if (!johoCurDate) return;
+  var d = johoCurDate;
+  var label = d.getFullYear() + '年' + pad2(d.getMonth()+1) + '月' + pad2(d.getDate()) + '日（' + _dayNames[d.getDay()] + '）';
+  document.getElementById('johoDateLabel').textContent = label;
+}
+function johoNav(dir) {
+  if (!johoCurDate) johoCurDate = new Date();
+  var d = new Date(johoCurDate.getTime());
+  if      (dir === 'prevDay')   d.setDate(d.getDate() - 1);
+  else if (dir === 'nextDay')   d.setDate(d.getDate() + 1);
+  else if (dir === 'prevMonth') d.setMonth(d.getMonth() - 1);
+  else if (dir === 'nextMonth') d.setMonth(d.getMonth() + 1);
+  else if (dir === 'today')     d = new Date();
+  johoCurDate = d;
+  updateJohoDateLabel();
+  fetchSheetData();
 }
 
 // ================================================================
