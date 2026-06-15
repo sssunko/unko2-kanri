@@ -63,6 +63,7 @@ function onOpen() {
   try { UnkouLib.convertLegacyAdminDataUrls_(); } catch(e) {}
   try { UnkouLib.applyHolidayRowColors_(); } catch(e) {}
   try { UnkouLib.checkMasterExpiries(); } catch(e) {}
+  try { UnkouLib.backupAllSheets(); } catch(e) {}
 }
 
 function doGet(e)            { return UnkouLib.doGet(e); }

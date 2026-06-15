@@ -169,7 +169,8 @@
       "PowerShell(Select-String -Path \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\6bbef7f8-389f-4be7-a956-d0dcc408bd69.jsonl\" -Pattern \"6151016|スマホ|レスポンシブ\" | Select-Object -First 3 | ForEach-Object { $_.Line.Substring\\(0, [Math]::Min\\(200, $_.Line.Length\\)\\) })",
       "Bash(awk -F: '{print $1, $2}')",
       "Bash(awk '{if\\($1>3205 && $1<3600\\) print}')",
-      "Bash(node deploy.js \"列削除・並び替え後にデータごと正規列順へ自動復元\")"
+      "Bash(node deploy.js \"列削除・並び替え後にデータごと正規列順へ自動復元\")",
+      "Bash(node deploy.js \"列削除後にバックアップからデータも含めて完全復元\")"
     ]
   }
 }
