@@ -106,11 +106,14 @@ function exportPlBundle(a)              { return UnkouLib.exportPlBundle(a); }
 function installTriggers() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ScriptApp.getProjectTriggers().forEach(function(t) {
-    if (t.getHandlerFunction() === 'installedOnEdit_') ScriptApp.deleteTrigger(t);
+    var fn = t.getHandlerFunction();
+    if (fn === 'installedOnEdit_' || fn === 'onStructureChange_') ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();
+  ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();
   ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);
 }
+function onStructureChange_(e)  { UnkouLib.dispatchStructureChange(e); }
 function setRecalcChoice(a)       { return UnkouLib.setRecalcChoice(a); }
 function executeStatusSync(a,b,c){ return UnkouLib.executeStatusSync(a,b,c); }
 function syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }
