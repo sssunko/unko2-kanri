@@ -2,6 +2,7 @@
 <html>
 <head>
   <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <!--
   ================================================================
   運行管理システム index.html
@@ -182,7 +183,7 @@
     /* ============================================================
        A-1: ベーススタイル（背景・フォント・カード・見出し）
        ============================================================ */
-    body { font-family: "Helvetica Neue", Arial, sans-serif; background-color: #121212; color: #e0e0e0; padding: 15px; margin: 0; }
+    body { font-family: "Helvetica Neue", Arial, sans-serif; background-color: #121212; color: #e0e0e0; padding: 12px; margin: 0; box-sizing: border-box; -webkit-text-size-adjust: 100%; }
     .header { text-align: center; margin-bottom: 25px; position: relative; }
     .header h2 { margin: 0; color: #ffffff; font-size: 26px; text-shadow: 0 0 10px rgba(255,255,255,0.3); letter-spacing: 3px; }
     .card { background: #1e1e1e; border-radius: 15px; padding: 18px; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
@@ -191,7 +192,7 @@
     /* ============================================================
        A-2: ボタンエフェクト（共通・ホーム・紐づけ）
        ============================================================ */
-    button { transition: background-color 0.3s ease, box-shadow 0.3s ease; cursor: pointer; outline: none; border: none; }
+    button { transition: background-color 0.3s ease, box-shadow 0.3s ease; cursor: pointer; outline: none; border: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     button:active { transform: translateY(4px) scale(0.95); box-shadow: none !important; transition: transform 0.05s, box-shadow 0.05s; }
     .action-btn { width: 100%; padding: 28px; border-radius: 15px; color: white; font-size: 22px; font-weight: bold; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
     .btn-start { background-color: #1565c0; }
@@ -199,7 +200,7 @@
     .btn-list { background-color: #1b5e20; }
     .btn-list:hover { background-color: #2e7d32; box-shadow: 0 0 20px rgba(46, 125, 50, 0.6); }
     .btn-group { display: flex; gap: 10px; }
-    .mini-btn { flex: 1; padding: 12px; border-radius: 25px; color: white; font-weight: bold; }
+    .mini-btn { flex: 1; padding: 13px 12px; border-radius: 25px; color: white; font-weight: bold; min-height: 44px; }
     .btn-link { background-color: #0d47a1; }
     .btn-unlink { background-color: #880e4f; }
 
@@ -223,9 +224,9 @@
     .big-btn.dark { background-color: #37474f; }
     .big-btn.purple { background-color: #6a1b9a; }
     .big-btn.teal { background-color: #006064; }
-    .chip-btn { padding: 8px 14px; border-radius: 25px; color: white; font-weight: bold; font-size: 14px; background-color: #d32f2f; margin-left: 8px; }
+    .chip-btn { padding: 10px 16px; border-radius: 25px; color: white; font-weight: bold; font-size: 14px; background-color: #d32f2f; margin-left: 8px; min-height: 44px; touch-action: manipulation; }
     .route-row { margin-bottom: 10px; }
-    .reset-small { padding: 8px 14px; font-size: 14px; border-radius: 10px; background-color: #880e4f; color: white; float: right; margin-bottom: 10px; }
+    .reset-small { padding: 10px 16px; font-size: 14px; border-radius: 10px; background-color: #880e4f; color: white; float: right; margin-bottom: 10px; min-height: 44px; }
 
     /* ============================================================
        A-5: 運行一覧用（テーブル・集計・絞り込み・ナビ）
@@ -233,7 +234,7 @@
     .list-card { background: #1e1e1e; border-radius: 15px; padding: 16px; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     .list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
     .ym-display { font-size: 20px; font-weight: 900; color: #fff; cursor: pointer; text-align: center; flex: 1; }
-    .nav-btn { padding: 10px 18px; border-radius: 25px; font-size: 14px; font-weight: 900; color: white; background: #37474f; }
+    .nav-btn { padding: 12px 20px; border-radius: 25px; font-size: 14px; font-weight: 900; color: white; background: #37474f; min-height: 44px; }
     .filter-chip { padding: 8px 16px; border-radius: 25px; font-size: 13px; font-weight: 900; color: white; display: inline-block; margin: 3px; }
     .fc-blue { background: #1565c0; } .fc-pink { background: #880e4f; }
     .fc-green { background: #2e7d32; } .fc-purple { background: #6a1b9a; }
@@ -241,7 +242,7 @@
     .summary-item { background: #2a2a2a; border-radius: 12px; padding: 14px; text-align: center; }
     .summary-label { font-size: 12px; color: #aaa; margin-bottom: 4px; }
     .summary-value { font-size: 20px; font-weight: 900; color: #bb86fc; }
-    .run-act-btn { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; color: white; }
+    .run-act-btn { padding: 10px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; color: white; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
     .rab-blue { background: #1565c0; } .rab-green { background: #2e7d32; }
     .rab-purple { background: #6a1b9a; } .rab-teal { background: #00897b; }
     select { width: 100%; padding: 12px; background: #2c2c2c; color: white; border: 1px solid #444; border-radius: 8px; margin-bottom: 10px; font-size: 15px; }
@@ -253,11 +254,11 @@
     .cal-overlay.show { display:flex; }
     .cal-box { background:#1e1e1e; border-radius:18px; padding:20px; width:320px; max-height:90vh; overflow-y:auto; }
     .cal-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-    .cal-nav-btn { padding:8px 14px; border-radius:20px; background:#37474f; color:white; font-weight:900; font-size:14px; }
+    .cal-nav-btn { padding:11px 16px; border-radius:20px; background:#37474f; color:white; font-weight:900; font-size:14px; min-height:44px; touch-action:manipulation; }
     .cal-title { font-size:18px; font-weight:900; color:#fff; cursor:pointer; }
     .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center; }
     .cal-dow { font-size:12px; color:#888; padding:6px 0; }
-    .cal-day { padding:10px 0; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; color:#e0e0e0; }
+    .cal-day { padding:10px 0; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; color:#e0e0e0; min-height:40px; touch-action:manipulation; }
     .cal-day:hover { background:#333; }
     .cal-day.today { border:2px solid #bb86fc; }
     .cal-day.selected { background:#bb86fc; color:#121212; }
@@ -291,7 +292,7 @@
     .li-inp[type="time"].time-empty::-webkit-datetime-edit { color:transparent; }
     .li-inp[type="time"].time-empty:focus::-webkit-datetime-edit { color:white; }
     .edit-btns { display:flex; gap:10px; margin-top:16px; }
-    .edit-btn { flex:1; padding:14px; border-radius:12px; font-size:16px; font-weight:900; color:white; text-align:center; }
+    .edit-btn { flex:1; padding:14px; border-radius:12px; font-size:16px; font-weight:900; color:white; text-align:center; min-height:50px; }
     .eb-close { background:#37474f; } .eb-save { background:#1565c0; } .eb-delete { background:#d32f2f; }
 
     /* ============================================================
@@ -494,18 +495,24 @@
     </div>
     <!-- 車両・乗務員情報（マスタ初期値・その日の変更可） -->
     <div style="background:#1e1e1e;border-radius:12px;padding:12px 16px;margin-bottom:10px;">
-      <div style="font-size:12px;color:#aaa;margin-bottom:8px;">車両・乗務員情報（当日変更可）</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div><div style="font-size:11px;color:#888;margin-bottom:2px;">トン数</div><input id="step1Tons" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
-        <div><div style="font-size:11px;color:#888;margin-bottom:2px;">車種</div><input id="step1Type" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
+      <div onclick="toggleCrewInfo()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;min-height:44px;">
+        <div style="font-size:13px;color:#aaa;font-weight:700;">車両・乗務員情報（当日変更可）</div>
+        <div id="crewInfoArrow" style="font-size:18px;color:#bb86fc;transition:transform 0.2s;transform:rotate(-90deg);">▼</div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
-        <div><div style="font-size:11px;color:#888;margin-bottom:2px;">看板名</div><input id="step1Kanban" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
-        <div><div style="font-size:11px;color:#888;margin-bottom:2px;">車番</div><input id="step1Car" type="text" onblur="fillCarFromMaster()" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
-        <div><div style="font-size:11px;color:#888;margin-bottom:2px;">乗務員名</div><input id="step1Name" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
-        <div><div style="font-size:11px;color:#888;margin-bottom:2px;">携帯番号</div><input id="step1Tel" type="tel" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
+      <div id="crewInfoBody" style="display:none;">
+        <div style="height:8px;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><div style="font-size:11px;color:#888;margin-bottom:2px;">トン数</div><input id="step1Tons" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
+          <div><div style="font-size:11px;color:#888;margin-bottom:2px;">車種</div><input id="step1Type" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+          <div><div style="font-size:11px;color:#888;margin-bottom:2px;">看板名</div><input id="step1Kanban" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
+          <div><div style="font-size:11px;color:#888;margin-bottom:2px;">車番</div><input id="step1Car" type="text" onblur="fillCarFromMaster()" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+          <div><div style="font-size:11px;color:#888;margin-bottom:2px;">乗務員名</div><input id="step1Name" type="text" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
+          <div><div style="font-size:11px;color:#888;margin-bottom:2px;">携帯番号</div><input id="step1Tel" type="tel" style="width:100%;box-sizing:border-box;padding:8px;background:#2c2c2c;color:white;border:1px solid #444;border-radius:8px;font-size:14px;"></div>
+        </div>
       </div>
     </div>
     <div id="routeArea"></div>
@@ -937,6 +944,13 @@ function showScreen(id, title) {
 function goHome() {
   showScreen('home', '');
   document.getElementById('screenName').style.display = 'none';
+}
+function toggleCrewInfo() {
+  var body = document.getElementById('crewInfoBody');
+  var arrow = document.getElementById('crewInfoArrow');
+  var isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  arrow.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
 }
 
 // ============================================================

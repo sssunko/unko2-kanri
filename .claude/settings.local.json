@@ -144,7 +144,31 @@
       "Bash(node deploy.js \"親アプリ全面刷新（参考コードデザイン適用・全シート動的生成・インライン編集・カラムフィルター）\")",
       "Bash(node deploy.js \"情報→配車板・SSの色反映・チェックボックス対応\")",
       "Bash(node deploy.js \"親アプリ見た目改善・ログイン済みホーム直行・受領書_耳タイポ修正・ホームボタン大型化\")",
-      "Bash(node deploy.js \"運行シート保護列修正・操作列非表示・アクションボタン削除・配車板と同じ純粋データ表示\")"
+      "Bash(node deploy.js \"運行シート保護列修正・操作列非表示・アクションボタン削除・配車板と同じ純粋データ表示\")",
+      "Bash(clasp list *)",
+      "Bash(node deploy.js \"スマホレスポンシブ最終修正（viewport追加・ボタン44px確保・ダブルタップ防止）\")",
+      "Bash(node deploy.js \"行程入力：車両・乗務員情報を折りたたみ対応（デフォルト折り畳み）\")",
+      "Bash(node deploy.js \"onOpen高速化：URL変換処理削除・行着色2分キャッシュ追加\")",
+      "Bash(node deploy.js \"No.2.5 保護設定修正・メモシート保持・構造変化自動リバート実装\")",
+      "Bash(node deploy.js \"列削除リバート修正：REMOVE_COLUMN対応・正確な位置に挿入・ラッパー公開\")",
+      "Bash(node deploy.js \"列削除：シート変更せず警告のみ→Ctrl+Zでデータごと復元できる動作に修正\")",
+      "Bash(node deploy.js \"563_自車専属運行同期バグ修正（完全ロック解除）\")",
+      "Bash(node deploy.js \"564_列削除禁止・自動復元（削除位置特定して正確に復元）\")",
+      "Bash(node deploy.js \"565_564を取り消し563の状態に戻す\")",
+      "Bash(node deploy.js \"566_列削除コード完全削除・保護でブロック方式に統一\")",
+      "Bash(node deploy.js \"567_自車専属マスタ編集時ロック失敗でも自車専属運行に反映\")",
+      "Bash(node deploy.js \"568_自車専属運行の即反映をタイムアウト前に確実に実行\")",
+      "Bash(node deploy.js \"569_各客に反映でinstallTriggersを自動実行\")",
+      "Bash(node deploy.js \"573_REMOVE_COLUMN列削除自動復元・2ポインタ法\")",
+      "Bash(Get-Content \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\582a4ee4-8119-4d93-93f8-e31190b292a5.jsonl\")",
+      "Bash(Select-String -Pattern \"シート保護|保護設定|列.*禁止|削除.*禁止\")",
+      "Bash(Select-Object -First 30)",
+      "Bash(ls \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\\" 2>/dev/null || dir \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\\")",
+      "Read(//c/Users/OWNER/.claude/projects/c--gas-unko2-kanri\" 2>/dev/**)",
+      "PowerShell(Get-Content \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\8771865e-1a6c-4e47-8e2f-20a5c166723c.jsonl\" -TotalCount 3 | ForEach-Object { $_ | ConvertFrom-Json | Select-Object -ExpandProperty content } 2>$null)",
+      "PowerShell(Select-String -Path \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\6bbef7f8-389f-4be7-a956-d0dcc408bd69.jsonl\" -Pattern \"6151016|スマホ|レスポンシブ\" | Select-Object -First 3 | ForEach-Object { $_.Line.Substring\\(0, [Math]::Min\\(200, $_.Line.Length\\)\\) })",
+      "Bash(awk -F: '{print $1, $2}')",
+      "Bash(awk '{if\\($1>3205 && $1<3600\\) print}')"
     ]
   }
 }

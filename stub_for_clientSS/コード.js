@@ -55,6 +55,7 @@ function onOpen() {
       .addItem('🗂 シート再生成',               'expandAndRefreshSheets')
       .addItem('📃 集計表再生成',               'generateSummary')
       .addItem('🛡 シート保護設定',             'setupSheetProtection')
+      .addItem('🔓 保護を全解除',               'removeAllProtections')
       .addItem('📖 使い方シート作成',            'createUsageSheet')
       .addItem('🗾 距離マスタ 主要地データ投入',  'initDistanceMasterMajorCities'));
 
@@ -207,3 +208,4 @@ function afterSaveJohoFull(a,b)        { return UnkouLib.afterSaveJohoFull(a,b);
 function appendJohoRow(a,b)            { return UnkouLib.appendJohoRow(a,b); }
 function linkAdminEmail(a,b)           { return UnkouLib.linkAdminEmail(a,b); }
 function getLinkedAdminEmail(a)        { return UnkouLib.getLinkedAdminEmail(a); }
+function removeAllProtections()        { return UnkouLib.removeAllProtections(); }
