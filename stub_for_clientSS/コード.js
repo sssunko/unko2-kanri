@@ -1,69 +1,26 @@
 // 客SS・テンプレートSS用スタブ（実装はライブラリ UnkouLib にある）
-// ②客用SS・③各客SS 共通メニュー（業務フルスペック）。反映ボタンは①修正用SSのみ。
-// GASはサブメニュー2階層が上限のため、大カテゴリ＋直接項目の構成で実装。
+// ②客用SS・③各客SS 共通。メニュー定義はライブラリ（buildClientMenu）に集約済み。
+// スタブは公開関数の転送のみ担当。反映ボタンは①修正用SSのみ。
 function onOpen() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var ui = SpreadsheetApp.getUi();
-
-  var menu = ui.createMenu('メニュー');
-  menu
-    // ── 🏠 毎日の配車業務（配車・日次作業） ──────────────────────────
-    .addSubMenu(ui.createMenu('🏠 毎日の配車業務')
-      .addItem('🏠 ホーム画面を表示',           'showSidebar')
-      .addItem('🚚 配車ダッシュボード',          'showDispatchDashboard')
-      .addItem('🔗 チェックした行を配車確定',    'matchAndConfirmDispatch')
-      .addItem('🔓 選択行のマッチング解除',      'cancelDispatch')
-      .addItem('🆔 ID・車番一括補完',            'fillMissingIdsAndCars')
-      .addItem('📏 距離計算（未計算分）',         'calcDistanceManual')
-      .addItem('🔃 日付順並び替え',             'sortBothSheetsByDate')
-      .addItem('💴 経費自動入力',               'autoFillExpense')
-      .addItem('📷 写真・ファイル取込',          'showUploadSidebar'))
-    // ── 📥 データ読み込み（CSV） ──────────────────────────────────────
-    .addSubMenu(ui.createMenu('📥 データ読み込み（CSV）')
-      .addItem('🚛 運行シート',                 'showCsvImportDialogUnkou')
-      .addItem('🗄 自車専属マスタ',              'showCsvImportDialogMaster')
-      .addItem('📇 マスタ（取引先）',             'showCsvImportDialogCust')
-      .addSeparator()
-      .addItem('⛽ ETC利用明細',                'showEtcImportDialog')
-      .addSeparator()
-      .addItem('🗑 空インポート行を削除',         'deleteBlankImportRows'))
-    // ── 📨 帳票・送信メニュー ──────────────────────────────────────────
-    .addSubMenu(ui.createMenu('📨 帳票・送信メニュー')
-      .addItem('① 発注書・指示書を作成（協力会社・乗務員用）', 'showHatchuDocDialog')
-      .addItem('② 車番連絡を作成（荷主用）',       'showShabanDocDialog')
-      .addSeparator()
-      .addItem('🗒 受領書の耳生成',              'showUketorishoDialog'))
-    // ── 📒 経理・出力 ──────────────────────────────────────────────────
-    .addSubMenu(ui.createMenu('📒 経理・出力')
-      .addItem('🧾 請求書生成',                 'showInvoiceDialog')
-      .addItem('💳 支払確認書生成',              'showPaymentDialog')
-      .addItem('📋 監査用表生成',               'generateAuditSheet')
-      .addItem('💾 CSV・Excel出力',             'showExportDialog'))
-    // ── 📊 PL管理 ──────────────────────────────────────────────────────
-    .addSubMenu(ui.createMenu('📊 PL管理')
-      .addItem('📈 PL作成',                    'showPlDialog')
-      .addItem('🗃 PL設定初期化',               'initFixedCostMaster'))
-    // ── 🗓 月またぎ処理 ────────────────────────────────────────────────
-    .addSubMenu(ui.createMenu('🗓 月またぎ処理')
-      .addItem('📆 今月分生成（途中契約）',       'generateCurrentMonth')
-      .addItem('📅 翌月分生成（前月アーカイブ）',  'generateNextMonth')
-      .addItem('📦 前月分アーカイブ',            'archiveOldMonth'))
-    // ── ⚙️ システム設定・保守 ──────────────────────────────────────────
-    .addSubMenu(ui.createMenu('⚙️ システム設定・保守')
-      .addItem('🔧 初期設定',                   'installTriggers')
-      .addItem('🔄 メニュー再生成（メニューが消えたら押す）', 'reloadMenu')
-      .addItem('🗂 シート再生成',               'expandAndRefreshSheets')
-      .addItem('📃 集計表再生成',               'generateSummary')
-      .addItem('🛡 シート保護設定',             'setupSheetProtection')
-      .addItem('🔓 保護を全解除',               'removeAllProtections')
-      .addItem('📖 使い方シート作成',            'createUsageSheet')
-      .addItem('🗾 距離マスタ 主要地データ投入',  'initDistanceMasterMajorCities'));
-
-  menu.addToUi();
+  // メニュー定義はライブラリに集約。ライブラリバージョン更新だけでメニューが自動追随する。
+  UnkouLib.buildClientMenu();
   try { UnkouLib.convertLegacyAdminDataUrls_(); } catch(e) {}
   try { UnkouLib.applyHolidayRowColors_(); } catch(e) {}
   try { UnkouLib.checkMasterExpiries(); } catch(e) {}
   try { UnkouLib.backupAllSheets(); } catch(e) {}
+  // トリガー自動インストール（ライブラリ経由はScriptAppが①を向くためローカル実装）
+  try {
+    var _ss = SpreadsheetApp.getActiveSpreadsheet();
+    var _sid = _ss.getId();
+    var _hasEdit = false, _hasChange = false;
+    ScriptApp.getProjectTriggers().forEach(function(t) {
+      if (t.getTriggerSourceId() !== _sid) return;
+      if (t.getHandlerFunction() === 'installedOnEdit_') _hasEdit = true;
+      if (t.getHandlerFunction() === 'onStructureChange_') _hasChange = true;
+    });
+    if (!_hasEdit)   ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss).onEdit().create();
+    if (!_hasChange) ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss).onChange().create();
+  } catch(e) {}
 }
 
 function doGet(e)            { return UnkouLib.doGet(e); }
@@ -82,7 +39,7 @@ function installedOnEdit_(e) {
 function showSidebar()            { return UnkouLib.showSidebar(); }
 function showUploadSidebar()      { return UnkouLib.showUploadSidebar(); }
 // ライブラリ経由だとライブラリのonOpen()（①メニュー）が実行されるためローカル実装
-function reloadMenu() { onOpen(); SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3); }
+function reloadMenu() { UnkouLib.buildClientMenu(); SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3); }
 
 // ── 月次処理 ──────────────────────────────────────────────────────────
 function generateCurrentMonth()   { return UnkouLib.generateCurrentMonth(); }
@@ -98,6 +55,7 @@ function autoFillExpense()        { return UnkouLib.autoFillExpense(); }
 function sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }
 function fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }
 function createUsageSheet()       { return UnkouLib.createUsageSheet(); }
+function createManualSheet()      { return UnkouLib.createManualSheet(); }
 function setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }
 function showExportDialog()             { return UnkouLib.showExportDialog(); }
 function exportSheetAsCsvBase64(a)      { return UnkouLib.exportSheetAsCsvBase64(a); }

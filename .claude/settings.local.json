@@ -170,7 +170,12 @@
       "Bash(awk -F: '{print $1, $2}')",
       "Bash(awk '{if\\($1>3205 && $1<3600\\) print}')",
       "Bash(node deploy.js \"列削除・並び替え後にデータごと正規列順へ自動復元\")",
-      "Bash(node deploy.js \"列削除後にバックアップからデータも含めて完全復元\")"
+      "Bash(node deploy.js \"列削除後にバックアップからデータも含めて完全復元\")",
+      "Bash(node deploy.js \"会社登録スクリプトID列をヘッダー名検索に変更・列ズレ修正\")",
+      "PowerShell(\\(Get-Content \"c:\\\\gas\\\\unko2-kanri\\\\stub_for_clientSS\\\\コード.js\" | Measure-Object -Line\\).Lines)",
+      "Bash(node deploy.js \"連打防止ローディングオーバーレイ実装（No.3）\")",
+      "Bash(node deploy.js \"連打防止loading修正（読み取り系のみ・書き込みは火投げに戻す）\")",
+      "Bash(node deploy.js \"連打防止loading最終修正（紐づけ系のみ残しあとは既存動作に戻す）\")"
     ]
   }
 }

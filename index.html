@@ -327,9 +327,21 @@
     .notice-detail-label { font-size:12px; color:#aaa; margin-bottom:2px; }
     .notice-detail-val { font-size:15px; color:#e0e0e0; word-break:break-all; }
     .notice-detail-link { color:#4caf50; text-decoration:none; }
+
+    /* ============================================================
+       A-11: ローディングオーバーレイ（連打防止・二重送信防止）
+       ============================================================ */
+    #globalLoading { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:9999; justify-content:center; align-items:center; flex-direction:column; gap:16px; pointer-events:all; }
+    #globalLoading.show { display:flex; }
+    .ld-spinner { width:52px; height:52px; border:5px solid #333; border-top-color:#bb86fc; border-radius:50%; animation:ldSpin 0.75s linear infinite; }
+    @keyframes ldSpin { to { transform:rotate(360deg); } }
+    .ld-text { color:#e0e0e0; font-size:15px; font-weight:700; letter-spacing:1px; }
   </style>
 </head>
 <body>
+
+  <!-- ローディングオーバーレイ（通信中の連打・二重送信防止） -->
+  <div id="globalLoading"><div class="ld-spinner"></div><div class="ld-text">通信中...</div></div>
 
   <!-- ============================================================
        B-1: 画面タイトル（各画面の上部に表示）
@@ -373,113 +385,204 @@
   </div>
 
   <!-- ============================================================
-       B-2b: ヘルプ画面（使い方説明・パソコン苦手な方向け）
+       B-2b: ヘルプ画面
        ============================================================ -->
-  <div id="helpScreen" class="screen" style="padding:0;background:#121212;">
-    <div style="background:#1a1a2e;padding:16px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;">
-      <button type="button" onclick="closeHelp()" style="background:#333;border:none;color:#ccc;border-radius:8px;padding:8px 16px;font-size:15px;cursor:pointer;">← 戻る</button>
-      <span style="font-size:20px;font-weight:900;color:#bb86fc;">使い方ガイド</span>
+  <div id="helpScreen" class="screen" style="padding:0;background:#0d0d0d;">
+
+    <!-- ヘッダー固定 -->
+    <div style="background:#111;padding:14px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;border-bottom:1px solid #2a2a2a;">
+      <button type="button" onclick="closeHelp()" style="background:#2a2a2a;border:none;color:#bbb;border-radius:8px;padding:8px 18px;font-size:15px;cursor:pointer;font-weight:700;">← 戻る</button>
+      <span style="font-size:19px;font-weight:900;color:#bb86fc;">📖 使い方ガイド</span>
     </div>
-    <div style="padding:16px;max-width:600px;margin:0 auto;">
 
-      <!-- ① 最初の設定 -->
-      <div style="background:#1e2a1e;border-left:5px solid #66bb6a;border-radius:12px;padding:16px;margin-bottom:16px;">
-        <div style="color:#66bb6a;font-size:13px;font-weight:900;margin-bottom:6px;">★ 最初に1回だけやること</div>
-        <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:10px;">📱 アドレスの紐づけ</div>
-        <div style="color:#ccc;font-size:15px;line-height:1.9;">
-          <div style="margin-bottom:6px;"><span style="background:#66bb6a;color:#000;border-radius:50%;display:inline-block;width:24px;height:24px;text-align:center;line-height:24px;font-weight:900;margin-right:8px;">1</span>ホーム画面を下にスクロール</div>
-          <div style="margin-bottom:6px;"><span style="background:#66bb6a;color:#000;border-radius:50%;display:inline-block;width:24px;height:24px;text-align:center;line-height:24px;font-weight:900;margin-right:8px;">2</span>自分のGmailアドレスを入力</div>
-          <div style="margin-bottom:6px;"><span style="background:#66bb6a;color:#000;border-radius:50%;display:inline-block;width:24px;height:24px;text-align:center;line-height:24px;font-weight:900;margin-right:8px;">3</span>「紐づけ」ボタンを押す</div>
-          <div style="background:#2a3a2a;border-radius:8px;padding:10px 12px;margin-top:8px;color:#aaa;font-size:13px;">✅ 「紐づけOK」と表示されたら完了<br>次回から自動でログインされます</div>
-        </div>
-      </div>
+    <div style="padding:14px 14px 40px;max-width:560px;margin:0 auto;">
 
-      <!-- ② 毎日の使い方 -->
-      <div style="background:#1e1e2e;border-left:5px solid #bb86fc;border-radius:12px;padding:16px;margin-bottom:16px;">
-        <div style="color:#bb86fc;font-size:13px;font-weight:900;margin-bottom:6px;">毎日やること</div>
-        <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:10px;">🚛 運行の記録手順</div>
-        <div style="color:#ccc;font-size:15px;line-height:1.9;">
-          <div style="margin-bottom:10px;">
-            <span style="background:#ffd600;color:#000;border-radius:50%;display:inline-block;width:24px;height:24px;text-align:center;line-height:24px;font-weight:900;margin-right:8px;">1</span>
-            <b style="color:#ffd600;">「運行開始」</b>を押す
-            <div style="color:#888;font-size:13px;margin-left:32px;">積地・降地を入力して「スタート」</div>
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- SECTION 1: 最初に1回だけ -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div style="background:#0f2a0f;border:1.5px solid #388e3c;border-radius:14px;padding:16px;margin-bottom:14px;">
+        <div style="color:#66bb6a;font-size:11px;font-weight:900;letter-spacing:1px;margin-bottom:8px;">★ 最初に1回だけやること</div>
+        <div style="color:#fff;font-size:17px;font-weight:900;margin-bottom:14px;">📱 アドレスの紐づけ</div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div style="background:#388e3c;color:#fff;border-radius:50%;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;">1</div>
+            <div style="color:#ddd;font-size:15px;padding-top:4px;">ホーム画面を<b style="color:#fff;">下にスクロール</b></div>
           </div>
-          <div style="margin-bottom:10px;">
-            <span style="background:#bb86fc;color:#000;border-radius:50%;display:inline-block;width:24px;height:24px;text-align:center;line-height:24px;font-weight:900;margin-right:8px;">2</span>
-            <b style="color:#bb86fc;">「誘導」</b>ボタンを押す
-            <div style="color:#888;font-size:13px;margin-left:32px;">現場に向けて出発するとき</div>
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div style="background:#388e3c;color:#fff;border-radius:50%;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;">2</div>
+            <div style="color:#ddd;font-size:15px;padding-top:4px;"><b style="color:#fff;">自分のGmailアドレス</b>を入力する</div>
           </div>
-          <div style="margin-bottom:10px;">
-            <span style="background:#4fc3f7;color:#000;border-radius:50%;display:inline-block;width:24px;height:24px;text-align:center;line-height:24px;font-weight:900;margin-right:8px;">3</span>
-            <b style="color:#4fc3f7;">「積完」</b>ボタンを押す
-            <div style="color:#888;font-size:13px;margin-left:32px;">荷物の積み込みが終わったとき</div>
-          </div>
-          <div style="margin-bottom:10px;">
-            <span style="background:#ff8a65;color:#000;border-radius:50%;display:inline-block;width:24px;height:24px;text-align:center;line-height:24px;font-weight:900;margin-right:8px;">4</span>
-            <b style="color:#ff8a65;">休憩</b>（あれば）
-            <div style="color:#888;font-size:13px;margin-left:32px;">休憩開始・終了ボタンを押す</div>
-          </div>
-          <div style="margin-bottom:4px;">
-            <span style="background:#ef5350;color:#fff;border-radius:50%;display:inline-block;width:24px;height:24px;text-align:center;line-height:24px;font-weight:900;margin-right:8px;">5</span>
-            <b style="color:#ef5350;">「降完」</b>ボタンを押す
-            <div style="color:#888;font-size:13px;margin-left:32px;">荷降ろしが終わったとき・1日完了</div>
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div style="background:#388e3c;color:#fff;border-radius:50%;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;">3</div>
+            <div style="padding-top:2px;">
+              <div style="background:#388e3c;color:#fff;border-radius:8px;padding:8px 20px;display:inline-block;font-size:15px;font-weight:900;letter-spacing:0.5px;">紐づけ</div>
+              <div style="color:#aaa;font-size:13px;margin-top:4px;">このボタンを押す</div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- ③ よくある質問 -->
-      <div style="background:#2a1e1e;border-left:5px solid #ef5350;border-radius:12px;padding:16px;margin-bottom:16px;">
-        <div style="color:#ef5350;font-size:13px;font-weight:900;margin-bottom:10px;">❓ こんな時は？</div>
-        <div style="color:#ccc;font-size:15px;line-height:1.8;">
-          <div style="border-bottom:1px solid #444;padding-bottom:10px;margin-bottom:10px;">
-            <div style="color:#ffb74d;font-weight:700;margin-bottom:4px;">アプリを閉じてしまった</div>
-            <div style="color:#aaa;font-size:13px;">→ URLを開き直せばOK。途中から再開できます</div>
-          </div>
-          <div style="border-bottom:1px solid #444;padding-bottom:10px;margin-bottom:10px;">
-            <div style="color:#ffb74d;font-weight:700;margin-bottom:4px;">積地・降地を間違えた</div>
-            <div style="color:#aaa;font-size:13px;">→「運行一覧」→「編集」ボタンで修正できます</div>
-          </div>
-          <div style="border-bottom:1px solid #444;padding-bottom:10px;margin-bottom:10px;">
-            <div style="color:#ffb74d;font-weight:700;margin-bottom:4px;">ボタンを押し間違えた</div>
-            <div style="color:#aaa;font-size:13px;">→「戻る」ボタンで1つ前に戻れます</div>
-          </div>
+        <div style="background:#1a3a1a;border-radius:10px;padding:12px 14px;margin-top:14px;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:22px;">✅</span>
           <div>
-            <div style="color:#ffb74d;font-weight:700;margin-bottom:4px;">黄色いセルが一覧にある</div>
-            <div style="color:#aaa;font-size:13px;">→「未配車」です。担当者に確認してください</div>
+            <div style="color:#66bb6a;font-weight:700;font-size:14px;">「紐づけOK」と出たら完了</div>
+            <div style="color:#888;font-size:13px;margin-top:2px;">次回から自動でログインされます</div>
           </div>
         </div>
       </div>
 
-      <!-- ④ 一覧の見方 -->
-      <div style="background:#1e1e1e;border-left:5px solid #78909c;border-radius:12px;padding:16px;margin-bottom:16px;">
-        <div style="color:#78909c;font-size:13px;font-weight:900;margin-bottom:10px;">📋 運行一覧の見方</div>
-        <div style="color:#ccc;font-size:14px;line-height:1.8;">
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-            <span style="background:#ffd600;color:#000;border-radius:6px;padding:2px 8px;font-weight:700;font-size:12px;">運行開始</span>
-            <span>まだ始めていない仕事</span>
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- SECTION 2: 毎日の運行手順 -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div style="background:#111;border:1.5px solid #bb86fc;border-radius:14px;padding:16px;margin-bottom:14px;">
+        <div style="color:#bb86fc;font-size:11px;font-weight:900;letter-spacing:1px;margin-bottom:8px;">毎日やること</div>
+        <div style="color:#fff;font-size:17px;font-weight:900;margin-bottom:16px;">🚛 運行の記録手順</div>
+
+        <!-- STEP 1 運行開始 -->
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+          <div style="background:#ffd600;color:#000;border-radius:50%;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;">1</div>
+          <div style="flex:1;">
+            <div style="background:#ffd600;color:#000;border-radius:10px;padding:12px 18px;font-size:17px;font-weight:900;text-align:center;letter-spacing:0.5px;margin-bottom:6px;">🚀 運行開始</div>
+            <div style="color:#aaa;font-size:13px;">一覧でこのボタンを押す<br>↓ 積地・降地を入力して「誘導へ進む」</div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-            <span style="background:#e65100;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;font-size:12px;">運行再開</span>
-            <span>途中で止まっている仕事</span>
+        </div>
+
+        <!-- 点呼前確認 -->
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+          <div style="background:#5c6bc0;color:#fff;border-radius:50%;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;">✓</div>
+          <div style="flex:1;">
+            <div style="background:#1a1a4e;border:1.5px solid #5c6bc0;color:#9fa8da;border-radius:10px;padding:10px 18px;font-size:16px;font-weight:900;text-align:center;margin-bottom:6px;">📋 業務前点検</div>
+            <div style="color:#aaa;font-size:13px;">チェックリストが表示されます<br>全部にチェックを入れてから出発してください</div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-            <span style="background:#616161;color:#999;border-radius:6px;padding:2px 8px;font-weight:700;font-size:12px;">完了</span>
-            <span>終わった仕事</span>
+        </div>
+
+        <!-- STEP 2 誘導 -->
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+          <div style="background:#00838f;color:#fff;border-radius:50%;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;">2</div>
+          <div style="flex:1;">
+            <div style="background:#00838f;color:#fff;border-radius:10px;padding:12px 18px;font-size:17px;font-weight:900;text-align:center;letter-spacing:0.5px;margin-bottom:6px;">🗺 誘導</div>
+            <div style="color:#aaa;font-size:13px;">積み込み現場に向けて出発するとき押す</div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-            <span style="background:#fff9c4;color:#5d4037;border-radius:6px;padding:2px 8px;font-weight:700;font-size:12px;">未配車</span>
-            <span>積地がまだ決まっていない</span>
+        </div>
+
+        <!-- STEP 3 積完 -->
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+          <div style="background:#0277bd;color:#fff;border-radius:50%;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;">3</div>
+          <div style="flex:1;">
+            <div style="background:#0277bd;color:#fff;border-radius:10px;padding:12px 18px;font-size:17px;font-weight:900;text-align:center;letter-spacing:0.5px;margin-bottom:6px;">📦 積完</div>
+            <div style="color:#aaa;font-size:13px;">荷物の積み込みが終わったとき押す</div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span style="background:#37474f;color:#78909c;border-radius:6px;padding:2px 8px;font-weight:700;font-size:12px;">運行無</span>
-            <span>休み・有休の日</span>
+        </div>
+
+        <!-- STEP 4 休憩 -->
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+          <div style="background:#5d4037;color:#fff;border-radius:50%;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;">4</div>
+          <div style="flex:1;">
+            <div style="display:flex;gap:8px;margin-bottom:6px;">
+              <div style="flex:1;background:#4e342e;border:1.5px solid #ff8a65;color:#ff8a65;border-radius:10px;padding:10px 8px;font-size:15px;font-weight:900;text-align:center;">☕ 休憩開始</div>
+              <div style="flex:1;background:#4e342e;border:1.5px solid #ff8a65;color:#ff8a65;border-radius:10px;padding:10px 8px;font-size:15px;font-weight:900;text-align:center;">▶ 休憩終了</div>
+            </div>
+            <div style="color:#aaa;font-size:13px;">休憩があるときだけ使います（任意）</div>
+          </div>
+        </div>
+
+        <!-- STEP 5 降完 -->
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+          <div style="background:#c62828;color:#fff;border-radius:50%;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;">5</div>
+          <div style="flex:1;">
+            <div style="background:#c62828;color:#fff;border-radius:10px;padding:12px 18px;font-size:17px;font-weight:900;text-align:center;letter-spacing:0.5px;margin-bottom:6px;">🏁 降完</div>
+            <div style="color:#aaa;font-size:13px;">荷降ろしが終わったとき押す<br>複数行程ある場合は次の誘導ボタンが出ます</div>
+          </div>
+        </div>
+
+        <!-- 点呼後確認 -->
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div style="background:#5c6bc0;color:#fff;border-radius:50%;min-width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;">✓</div>
+          <div style="flex:1;">
+            <div style="background:#1a1a4e;border:1.5px solid #5c6bc0;color:#9fa8da;border-radius:10px;padding:10px 18px;font-size:16px;font-weight:900;text-align:center;margin-bottom:6px;">📋 業務後点検</div>
+            <div style="color:#aaa;font-size:13px;">帰庫後のチェックリスト<br>全部にチェックを入れたら1日完了 🎉</div>
           </div>
         </div>
       </div>
 
-      <div style="text-align:center;padding:20px 0;color:#555;font-size:13px;">
-        困ったときは担当者に連絡してください
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- SECTION 3: 一覧ボタンの見方 -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div style="background:#111;border:1.5px solid #455a64;border-radius:14px;padding:16px;margin-bottom:14px;">
+        <div style="color:#90a4ae;font-size:11px;font-weight:900;letter-spacing:1px;margin-bottom:8px;">📋 運行一覧のボタン説明</div>
+        <div style="color:#fff;font-size:17px;font-weight:900;margin-bottom:14px;">ボタンの色と意味</div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="background:#ffd600;color:#000;border-radius:8px;padding:8px 14px;font-weight:900;font-size:14px;min-width:90px;text-align:center;">運行開始</div>
+            <div style="color:#ddd;font-size:14px;">まだ始めていない仕事</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="background:#e65100;color:#fff;border-radius:8px;padding:8px 14px;font-weight:900;font-size:14px;min-width:90px;text-align:center;">運行再開</div>
+            <div style="color:#ddd;font-size:14px;">途中で止まっている仕事<br><span style="color:#888;font-size:12px;">続きから再開できます</span></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="background:#2a2a2a;color:#666;border-radius:8px;padding:8px 14px;font-weight:900;font-size:14px;min-width:90px;text-align:center;border:1px solid #444;">完了</div>
+            <div style="color:#ddd;font-size:14px;">その日の仕事が終わっています</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="background:#fffde7;color:#5d4037;border-radius:8px;padding:8px 14px;font-weight:900;font-size:14px;min-width:90px;text-align:center;">未配車</div>
+            <div style="color:#ddd;font-size:14px;">積地がまだ決まっていない<br><span style="color:#888;font-size:12px;">担当者に確認してください</span></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="background:#263238;color:#546e7a;border-radius:8px;padding:8px 14px;font-weight:900;font-size:14px;min-width:90px;text-align:center;border:1px solid #37474f;">運行無</div>
+            <div style="color:#ddd;font-size:14px;">休み・有休の日</div>
+          </div>
+        </div>
+
+        <!-- 編集・連絡ボタン -->
+        <div style="border-top:1px solid #2a2a2a;margin-top:14px;padding-top:14px;">
+          <div style="color:#90a4ae;font-size:12px;font-weight:700;margin-bottom:10px;">一覧の右側にあるボタン</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="background:#1a237e;color:#7986cb;border-radius:8px;padding:6px 14px;font-weight:700;font-size:13px;min-width:60px;text-align:center;border:1px solid #3949ab;">編集</div>
+              <div style="color:#ccc;font-size:13px;">積地・降地・売上を修正できます</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="background:#1a2a1a;color:#66bb6a;border-radius:8px;padding:6px 14px;font-weight:700;font-size:13px;min-width:60px;text-align:center;border:1px solid #388e3c;">連絡</div>
+              <div style="color:#ccc;font-size:13px;">担当者からのメッセージを確認</div>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- SECTION 4: よくある質問 -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div style="background:#1a0f0f;border:1.5px solid #c62828;border-radius:14px;padding:16px;margin-bottom:14px;">
+        <div style="color:#ef9a9a;font-size:11px;font-weight:900;letter-spacing:1px;margin-bottom:8px;">❓ こんな時は？</div>
+        <div style="color:#fff;font-size:17px;font-weight:900;margin-bottom:14px;">困った時の対処法</div>
+
+        <div style="display:flex;flex-direction:column;gap:0;">
+          <div style="border-bottom:1px solid #2a1a1a;padding:12px 0;">
+            <div style="color:#ffb74d;font-weight:700;font-size:15px;margin-bottom:4px;">📵 アプリを閉じてしまった</div>
+            <div style="color:#aaa;font-size:13px;">URLをもう一度開き直せばOK<br>途中から自動で再開できます</div>
+          </div>
+          <div style="border-bottom:1px solid #2a1a1a;padding:12px 0;">
+            <div style="color:#ffb74d;font-weight:700;font-size:15px;margin-bottom:4px;">✏️ 積地・降地を間違えた</div>
+            <div style="color:#aaa;font-size:13px;">「運行一覧」→ 右側の<span style="background:#1a237e;color:#7986cb;border-radius:4px;padding:1px 8px;font-size:12px;font-weight:700;border:1px solid #3949ab;">編集</span>ボタンで修正できます</div>
+          </div>
+          <div style="border-bottom:1px solid #2a1a1a;padding:12px 0;">
+            <div style="color:#ffb74d;font-weight:700;font-size:15px;margin-bottom:4px;">↩️ ボタンを押し間違えた</div>
+            <div style="color:#aaa;font-size:13px;"><span style="background:#2a2a2a;color:#aaa;border-radius:4px;padding:2px 10px;font-size:13px;font-weight:700;border:1px solid #444;">← 戻る</span> ボタンで1つ前に戻れます</div>
+          </div>
+          <div style="padding:12px 0 0;">
+            <div style="color:#ffb74d;font-weight:700;font-size:15px;margin-bottom:4px;">🖥 画面が固まった</div>
+            <div style="color:#aaa;font-size:13px;">ブラウザを更新（リロード）してください<br>途中のデータは保存されています</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- フッター -->
+      <div style="text-align:center;padding:16px 0 0;color:#444;font-size:12px;">
+        わからないことは担当者に確認してください
+      </div>
+
     </div>
   </div>
 
@@ -816,8 +919,10 @@ function handleLink() {
   var email = document.getElementById('email').value.trim();
   if (!email) return alert('アドレスを入力してください');
   document.getElementById('statusText').innerText = '状態：照会中...';
+  showLoading();
   google.script.run
     .withSuccessHandler(function(data) {
+      hideLoading();
       if (typeof data === 'string') {
         alert(data);
         document.getElementById('statusText').innerText = '状態：' + data;
@@ -837,6 +942,7 @@ function handleLink() {
       }
     })
     .withFailureHandler(function(err) {
+      hideLoading();
       alert('通信エラー：' + err);
       document.getElementById('statusText').innerText = '状態：通信エラー';
     })
@@ -849,8 +955,10 @@ function handleLink() {
 // ============================================================
 function handleUnlink() {
   if (!confirm('紐づけを解除しますか？')) return;
+  showLoading();
   google.script.run
     .withSuccessHandler(function(msg) {
+      hideLoading();
       localStorage.removeItem(LS_EMAIL_KEY);
       document.getElementById('statusText').innerText = '状態：' + msg;
       document.getElementById('email').value = '';
@@ -861,6 +969,7 @@ function handleUnlink() {
       document.getElementById('driverTel').innerText   = '';
     })
     .withFailureHandler(function() {
+      hideLoading();
       document.getElementById('statusText').innerText = '状態：解除エラー';
     })
     .unlinkAddress(COMPANY_SS_ID);
@@ -902,6 +1011,14 @@ var readIds=[];
 var noticeReturnTo='';
 var colFilters={};
 var _cfPopupCol=-1;
+
+// ============================================================
+//  C-6b: ローディング制御（showLoading / hideLoading）
+//  カウンター方式：ネスト呼び出しでも正しく制御する
+// ============================================================
+var _loadCount = 0;
+function showLoading() { _loadCount++; document.getElementById('globalLoading').classList.add('show'); }
+function hideLoading() { _loadCount = Math.max(0, _loadCount - 1); if (_loadCount === 0) document.getElementById('globalLoading').classList.remove('show'); }
 
 // ============================================================
 //  C-7: 画面切り替え（hideAll / showScreen / goHome）
@@ -1458,15 +1575,14 @@ function selectDrop(i) {
 //  C-16b: 全完了リセット（clearRunStateAndHome）
 // ============================================================
 function clearRunStateAndHome() {
-  google.script.run.withSuccessHandler(function() {
-    phase = ''; picks = []; drops = []; runRows = []; runId = '';
-    guideDone = []; pickDone = []; dropDone = [];
-    guideHistory = []; pickHistory = []; dropHistory = [];
-    inspBeforeDone = []; inspAfterDone = [];
-    lastPickIndex = null; guideNotice = null; runReturnTo = '';
-    saveState();
-    goHome();
-  }).clearRunState(getMyEmail(), COMPANY_SS_ID);
+  phase = ''; picks = []; drops = []; runRows = []; runId = '';
+  guideDone = []; pickDone = []; dropDone = [];
+  guideHistory = []; pickHistory = []; dropHistory = [];
+  inspBeforeDone = []; inspAfterDone = [];
+  lastPickIndex = null; guideNotice = null; runReturnTo = '';
+  saveState();
+  goHome();
+  google.script.run.clearRunState(getMyEmail(), COMPANY_SS_ID);
 }
 
 // ============================================================
@@ -2103,7 +2219,8 @@ function sendNoticeModal() {
   var text = document.getElementById('nmInput').value.trim();
   if (!text) return;
   closeNoticeModal();
-  google.script.run.withSuccessHandler(function(){ loadList(true); }).saveTerminalNotice(noticeModalId, text, COMPANY_SS_ID, getMyEmail());
+  loadList(true);
+  google.script.run.withFailureHandler(function(e){ alert('送信エラー: '+(e&&e.message||e)); }).saveTerminalNotice(noticeModalId, text, COMPANY_SS_ID, getMyEmail());
 }
 
 // ============================================================
@@ -2369,7 +2486,7 @@ function openEditModal(id) {
       '</div>';
     document.getElementById('editBox').innerHTML=h;
     document.getElementById('editOverlay').classList.add('show');
-  }).getEditData(id, COMPANY_SS_ID, getMyEmail());
+  }).withFailureHandler(function(){ alert('データの取得に失敗しました'); }).getEditData(id, COMPANY_SS_ID, getMyEmail());
 }
 function closeEditModal(){ document.getElementById('editOverlay').classList.remove('show'); }
 function saveEditModal(){
@@ -2403,14 +2520,16 @@ function saveEditModal(){
     termNotice:document.getElementById('ed_termNotice').value
   };
   closeEditModal();
+  loadList(true);
   google.script.run
-    .withSuccessHandler(function(){ loadList(true); })
     .withFailureHandler(function(e){ alert('保存エラー: '+e.message); })
     .saveEditData(obj, COMPANY_SS_ID, getMyEmail());
 }
 function deleteEditModal(){
   if(!confirm('この運行データを削除しますか？')) return;
-  google.script.run.withSuccessHandler(function(){closeEditModal();loadList(true);}).deleteRunById(editId, COMPANY_SS_ID, getMyEmail());
+  closeEditModal();
+  loadList(true);
+  google.script.run.withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(editId, COMPANY_SS_ID, getMyEmail());
 }
 function addTermFile(id) {
   var input=document.createElement('input'); input.type='file'; input.multiple=true; input.accept='image/*,.pdf,.doc,.docx,.xls,.xlsx';

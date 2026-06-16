@@ -53,7 +53,10 @@ console.log('\n[5/5] スタブpush & appsscript.json バージョン更新...');
 const manifestPath = path.join(ROOT, 'stub_for_clientSS', 'appsscript.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 manifest.dependencies.libraries.forEach(lib => {
-  if (lib.userSymbol === 'UnkouLib') lib.version = String(nextVer);
+  if (lib.userSymbol === 'UnkouLib') {
+    lib.version = String(nextVer);
+    lib.developmentMode = true; // HEADモード：clasp push後にF5で即時反映
+  }
 });
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
 
