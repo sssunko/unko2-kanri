@@ -171,3 +171,7 @@ function appendJohoRow(a,b)            { return UnkouLib.appendJohoRow(a,b); }
 function linkAdminEmail(a,b)           { return UnkouLib.linkAdminEmail(a,b); }
 function getLinkedAdminEmail(a)        { return UnkouLib.getLinkedAdminEmail(a); }
 function removeAllProtections()        { return UnkouLib.removeAllProtections(); }
+
+// ── バックアップ・復旧 ────────────────────────────────────────────────
+function openRestoreDialog()           { return UnkouLib.openRestoreDialog(); }
+function executeRestore(a,b)           { return UnkouLib.executeRestore(a,b); }

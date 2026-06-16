@@ -903,7 +903,11 @@ function onOpen() {
       .addItem('📝 申し込みフォーム作成',         'createSignupForm')
       .addSeparator()
       .addItem('📡 テスト客SS（②）に反映',       'syncToTemplateSS')
-      .addItem('🌐 全客SS（③）に反映',           'syncToAllClientSS'));
+      .addItem('🌐 全客SS（③）に反映',           'syncToAllClientSS'))
+    // ── 🔄 バックアップ・復旧 ────────────────────────────────────────
+    .addSubMenu(ui.createMenu('🔄 バックアップ・復旧')
+      .addItem('🔄 バックアップから復旧（会社選択）', 'openRestoreDialog')
+      .addItem('⏱ バックアップタイマー設定（毎日3時）', 'setupBackupTrigger'));
   menu.addToUi();
 
   try {
@@ -978,7 +982,9 @@ function buildClientMenu() {
       .addItem('🔓 保護を全解除',               'removeAllProtections')
       .addItem('📖 使い方シート作成',            'createUsageSheet')
       .addItem('📘 説明書作成',                 'createManualSheet')
-      .addItem('🗾 距離マスタ 主要地データ投入',  'initDistanceMasterMajorCities'));
+      .addItem('🗾 距離マスタ 主要地データ投入',  'initDistanceMasterMajorCities')
+      .addSeparator()
+      .addItem('🔄 バックアップから復旧',         'openRestoreDialog'));
   menu.addToUi();
 }
 
@@ -7834,7 +7840,7 @@ function deleteSheetRow(sheetName, rowIndex, companySsId) {
 // スタブコードのソース文字列（stub_for_clientSS/コード.js から build_stub.js が自動生成）
 function getClientStubSource_() {
   // === AUTO_GENERATED_STUB_START（手動編集禁止：build_stub.js が生成） ===
-  return "// 客SS・テンプレートSS用スタブ（実装はライブラリ UnkouLib にある）\n// ②客用SS・③各客SS 共通。メニュー定義はライブラリ（buildClientMenu）に集約済み。\n// スタブは公開関数の転送のみ担当。反映ボタンは①修正用SSのみ。\nfunction onOpen() {\n  // メニュー定義はライブラリに集約。ライブラリバージョン更新だけでメニューが自動追随する。\n  UnkouLib.buildClientMenu();\n  try { UnkouLib.convertLegacyAdminDataUrls_(); } catch(e) {}\n  try { UnkouLib.applyHolidayRowColors_(); } catch(e) {}\n  try { UnkouLib.checkMasterExpiries(); } catch(e) {}\n  try { UnkouLib.backupAllSheets(); } catch(e) {}\n  // トリガー自動インストール（ライブラリ経由はScriptAppが①を向くためローカル実装）\n  try {\n    var _ss = SpreadsheetApp.getActiveSpreadsheet();\n    var _sid = _ss.getId();\n    var _hasEdit = false, _hasChange = false;\n    ScriptApp.getProjectTriggers().forEach(function(t) {\n      if (t.getTriggerSourceId() !== _sid) return;\n      if (t.getHandlerFunction() === 'installedOnEdit_') _hasEdit = true;\n      if (t.getHandlerFunction() === 'onStructureChange_') _hasChange = true;\n    });\n    if (!_hasEdit)   ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss).onEdit().create();\n    if (!_hasChange) ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss).onChange().create();\n  } catch(e) {}\n}\n\nfunction doGet(e)            { return UnkouLib.doGet(e); }\nfunction onEdit(e)           { return UnkouLib.onEdit(e); }\nfunction installedOnEdit_(e) {\n  var r = UnkouLib.dispatchInstalledEdit(e);\n  if (r && r.html) {\n    SpreadsheetApp.getUi().showModalDialog(\n      HtmlService.createHtmlOutput(r.html).setWidth(r.width || 300).setHeight(r.height || 290),\n      r.title || ''\n    );\n  }\n}\n\n// ── 画面表示 ──────────────────────────────────────────────────────────\nfunction showSidebar()            { return UnkouLib.showSidebar(); }\nfunction showUploadSidebar()      { return UnkouLib.showUploadSidebar(); }\n// ライブラリ経由だとライブラリのonOpen()（①メニュー）が実行されるためローカル実装\nfunction reloadMenu() { UnkouLib.buildClientMenu(); SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3); }\n\n// ── 月次処理 ──────────────────────────────────────────────────────────\nfunction generateCurrentMonth()   { return UnkouLib.generateCurrentMonth(); }\nfunction generateNextMonth()      { return UnkouLib.generateNextMonth(); }\nfunction archiveOldMonth()        { return UnkouLib.archiveOldMonth(); }\n\n// ── シート管理 ────────────────────────────────────────────────────────\nfunction generateSummary()        { return UnkouLib.generateSummary(); }\nfunction calcDistanceManual()              { return UnkouLib.calcDistanceManual(); }\nfunction initDistanceMasterMajorCities()  { return UnkouLib.initDistanceMasterMajorCities(); }\nfunction expandAndRefreshSheets() { return UnkouLib.expandAndRefreshSheets(); }\nfunction autoFillExpense()        { return UnkouLib.autoFillExpense(); }\nfunction sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }\nfunction fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }\nfunction createUsageSheet()       { return UnkouLib.createUsageSheet(); }\nfunction createManualSheet()      { return UnkouLib.createManualSheet(); }\nfunction setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }\nfunction showExportDialog()             { return UnkouLib.showExportDialog(); }\nfunction exportSheetAsCsvBase64(a)      { return UnkouLib.exportSheetAsCsvBase64(a); }\nfunction exportSelectedSheetsAsExcel(a) { return UnkouLib.exportSelectedSheetsAsExcel(a); }\nfunction exportPlBundle(a)              { return UnkouLib.exportPlBundle(a); }\n// installTriggersはライブラリ経由にするとScriptAppが①を向くためローカル実装\nfunction installTriggers() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  ScriptApp.getProjectTriggers().forEach(function(t) {\n    var fn = t.getHandlerFunction();\n    if (fn === 'installedOnEdit_' || fn === 'onStructureChange_') ScriptApp.deleteTrigger(t);\n  });\n  ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();\n  ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();\n  ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);\n}\nfunction onStructureChange_(e)  { UnkouLib.dispatchStructureChange(e); }\nfunction setRecalcChoice(a)       { return UnkouLib.setRecalcChoice(a); }\nfunction executeStatusSync(a,b,c){ return UnkouLib.executeStatusSync(a,b,c); }\nfunction syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }\n\n// ── CSVインポート ─────────────────────────────────────────────────────\nfunction showCsvImportDialogUnkou()      { return UnkouLib.showCsvImportDialogUnkou(); }\nfunction showCsvImportDialogMaster()     { return UnkouLib.showCsvImportDialogMaster(); }\nfunction showCsvImportDialogCust()       { return UnkouLib.showCsvImportDialogCust(); }\nfunction showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }\nfunction prepareEtcImport(a,b,c)         { return UnkouLib.prepareEtcImport(a,b,c); }\nfunction executeEtcImport(a,b,c,d)       { return UnkouLib.executeEtcImport(a,b,c,d); }\nfunction deleteBlankImportRows()         { return UnkouLib.deleteBlankImportRows(); }\nfunction getImportDictionary(a,b)        { return UnkouLib.getImportDictionary(a,b); }\nfunction importBulkRows(a,b,c)           { return UnkouLib.importBulkRows(a,b,c); }\nfunction saveImportAliases(a,b,c)        { return UnkouLib.saveImportAliases(a,b,c); }\n\n// ── 帳票・送信 ────────────────────────────────────────────────────────\nfunction showHatchuDocDialog()           { return UnkouLib.showHatchuDocDialog(); }\nfunction showShabanDocDialog()           { return UnkouLib.showShabanDocDialog(); }\nfunction showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(); }\nfunction generateUketorishoSheet(a)      { return UnkouLib.generateUketorishoSheet(a); }\nfunction sendDocumentEmail(a,b,c)        { return UnkouLib.sendDocumentEmail(a,b,c); }\nfunction markDocumentIssued(a,b)         { return UnkouLib.markDocumentIssued(a,b); }\nfunction showPlDialog()                  { return UnkouLib.showPlDialog(); }\nfunction getPlFilterOptions()            { return UnkouLib.getPlFilterOptions(); }\nfunction generatePl(a)                   { return UnkouLib.generatePl(a); }\nfunction exportPlJournalCsv()            { return UnkouLib.exportPlJournalCsv(); }\nfunction initFixedCostMaster()           { return UnkouLib.initFixedCostMaster(); }\n\n// ── 請求書・支払確認書 ────────────────────────────────────────────────\nfunction showInvoiceDialog()             { return UnkouLib.showInvoiceDialog(); }\nfunction generateInvoiceSheet(a,b,c,d)   { return UnkouLib.generateInvoiceSheet(a,b,c,d); }\nfunction showPaymentDialog()             { return UnkouLib.showPaymentDialog(); }\nfunction generatePaymentSheet(a,b,c,d,e) { return UnkouLib.generatePaymentSheet(a,b,c,d,e); }\n\n// ── 情報シート・配車確定 ──────────────────────────────────────────────\nfunction matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispatch(); }\nfunction cancelDispatch()               { return UnkouLib.cancelDispatch(); }\nfunction generateAuditSheet()           { return UnkouLib.generateAuditSheet(); }\nfunction checkMasterExpiries()          { return UnkouLib.checkMasterExpiries(); }\nfunction showDispatchDashboard()        { return UnkouLib.showDispatchDashboard(); }\nfunction getDispatchDashboardData()     { return UnkouLib.getDispatchDashboardData(); }\n\n// ── アプリ連携（端末↔SS） ────────────────────────────────────────────\nfunction storeCompanySsId(a)              { return UnkouLib.storeCompanySsId(a); }\nfunction getInitialData(a,b)              { return UnkouLib.getInitialData(a,b); }\nfunction linkAddress(a,b)                 { return UnkouLib.linkAddress(a,b); }\nfunction unlinkAddress(a)                 { return UnkouLib.unlinkAddress(a); }\nfunction saveRunState(a,b,c)              { return UnkouLib.saveRunState(a,b,c); }\nfunction loadRunState()                   { return UnkouLib.loadRunState(); }\nfunction clearRunState(a,b)               { return UnkouLib.clearRunState(a,b); }\nfunction getTodayRoutes(a,b)              { return UnkouLib.getTodayRoutes(a,b); }\nfunction createParentRows(a,b,c,d,e,f)   { return UnkouLib.createParentRows(a,b,c,d,e,f); }\nfunction setPickComplete(a,b,c)           { return UnkouLib.setPickComplete(a,b,c); }\nfunction setRest(a,b,c,d)                { return UnkouLib.setRest(a,b,c,d); }\nfunction setDropComplete(a,b,c)           { return UnkouLib.setDropComplete(a,b,c); }\nfunction updateRouteData(a,b,c,d)         { return UnkouLib.updateRouteData(a,b,c,d); }\nfunction deleteRunRows(a,b,c)             { return UnkouLib.deleteRunRows(a,b,c); }\nfunction clearTimeCell(a,b,c,d,e)         { return UnkouLib.clearTimeCell(a,b,c,d,e); }\nfunction getListData(a,b,c,d)             { return UnkouLib.getListData(a,b,c,d); }\nfunction getEditData(a,b,c)               { return UnkouLib.getEditData(a,b,c); }\nfunction saveEditData(a,b,c)              { return UnkouLib.saveEditData(a,b,c); }\nfunction appendTerminalFile(a,b,c,d,e,f) { return UnkouLib.appendTerminalFile(a,b,c,d,e,f); }\nfunction deleteRunById(a,b,c)             { return UnkouLib.deleteRunById(a,b,c); }\nfunction saveNotice(a,b,c,d)             { return UnkouLib.saveNotice(a,b,c,d); }\nfunction uploadFileToRow(a,b,c,d)         { return UnkouLib.uploadFileToRow(a,b,c,d); }\nfunction saveTerminalNotice(a,b,c,d)      { return UnkouLib.saveTerminalNotice(a,b,c,d); }\nfunction uploadTerminalFile(a,b,c,d)      { return UnkouLib.uploadTerminalFile(a,b,c,d); }\nfunction getMyNotices(a,b)               { return UnkouLib.getMyNotices(a,b); }\nfunction getRoutesById(a,b,c)             { return UnkouLib.getRoutesById(a,b,c); }\nfunction getNoticeByRow(a,b,c)            { return UnkouLib.getNoticeByRow(a,b,c); }\nfunction markAsRead(a,b)                  { return UnkouLib.markAsRead(a,b); }\nfunction getReadNotices(a)               { return UnkouLib.getReadNotices(a); }\nfunction agreeContract(a,b,c,d)          { return UnkouLib.agreeContract(a,b,c,d); }\nfunction queueFileUpload(a,b,c,d)        { return UnkouLib.queueFileUpload(a,b,c,d); }\nfunction recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }\nfunction clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }\nfunction getCarInfoByNumber(a,b)         { return UnkouLib.getCarInfoByNumber(a,b); }\nfunction deleteTerminalFile(a,b,c)       { return UnkouLib.deleteTerminalFile(a,b,c); }\nfunction replaceTerminalFile(a,b,c,d,e,f){ return UnkouLib.replaceTerminalFile(a,b,c,d,e,f); }\nfunction appendTerminalFileAdmin(a,b,c,d,e){ return UnkouLib.appendTerminalFileAdmin(a,b,c,d,e); }\nfunction saveTermNoticeByDriver(a,b,c)   { return UnkouLib.saveTermNoticeByDriver(a,b,c); }\nfunction appendAdminFileById(a,b,c,d,e)  { return UnkouLib.appendAdminFileById(a,b,c,d,e); }\nfunction deleteAdminFileById(a,b,c)      { return UnkouLib.deleteAdminFileById(a,b,c); }\nfunction replaceAdminFileById(a,b,c,d,e,f){ return UnkouLib.replaceAdminFileById(a,b,c,d,e,f); }\n\n// ── 管理画面（親アプリ）────────────────────────────────────────────────\nfunction getParentSheets(a)            { return UnkouLib.getParentSheets(a); }\nfunction getSheetTableData(a,b)        { return UnkouLib.getSheetTableData(a,b); }\nfunction saveSheetRowData(a,b,c,d)     { return UnkouLib.saveSheetRowData(a,b,c,d); }\nfunction appendSheetRow(a,b,c)         { return UnkouLib.appendSheetRow(a,b,c); }\nfunction deleteSheetRow(a,b,c)         { return UnkouLib.deleteSheetRow(a,b,c); }\nfunction afterSaveJoho(a,b,c)          { return UnkouLib.afterSaveJoho(a,b,c); }\nfunction afterSaveJohoFull(a,b)        { return UnkouLib.afterSaveJohoFull(a,b); }\nfunction appendJohoRow(a,b)            { return UnkouLib.appendJohoRow(a,b); }\nfunction linkAdminEmail(a,b)           { return UnkouLib.linkAdminEmail(a,b); }\nfunction getLinkedAdminEmail(a)        { return UnkouLib.getLinkedAdminEmail(a); }\nfunction removeAllProtections()        { return UnkouLib.removeAllProtections(); }\n";
+  return "// 客SS・テンプレートSS用スタブ（実装はライブラリ UnkouLib にある）\n// ②客用SS・③各客SS 共通。メニュー定義はライブラリ（buildClientMenu）に集約済み。\n// スタブは公開関数の転送のみ担当。反映ボタンは①修正用SSのみ。\nfunction onOpen() {\n  // メニュー定義はライブラリに集約。ライブラリバージョン更新だけでメニューが自動追随する。\n  UnkouLib.buildClientMenu();\n  try { UnkouLib.convertLegacyAdminDataUrls_(); } catch(e) {}\n  try { UnkouLib.applyHolidayRowColors_(); } catch(e) {}\n  try { UnkouLib.checkMasterExpiries(); } catch(e) {}\n  try { UnkouLib.backupAllSheets(); } catch(e) {}\n  // トリガー自動インストール（ライブラリ経由はScriptAppが①を向くためローカル実装）\n  try {\n    var _ss = SpreadsheetApp.getActiveSpreadsheet();\n    var _sid = _ss.getId();\n    var _hasEdit = false, _hasChange = false;\n    ScriptApp.getProjectTriggers().forEach(function(t) {\n      if (t.getTriggerSourceId() !== _sid) return;\n      if (t.getHandlerFunction() === 'installedOnEdit_') _hasEdit = true;\n      if (t.getHandlerFunction() === 'onStructureChange_') _hasChange = true;\n    });\n    if (!_hasEdit)   ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss).onEdit().create();\n    if (!_hasChange) ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss).onChange().create();\n  } catch(e) {}\n}\n\nfunction doGet(e)            { return UnkouLib.doGet(e); }\nfunction onEdit(e)           { return UnkouLib.onEdit(e); }\nfunction installedOnEdit_(e) {\n  var r = UnkouLib.dispatchInstalledEdit(e);\n  if (r && r.html) {\n    SpreadsheetApp.getUi().showModalDialog(\n      HtmlService.createHtmlOutput(r.html).setWidth(r.width || 300).setHeight(r.height || 290),\n      r.title || ''\n    );\n  }\n}\n\n// ── 画面表示 ──────────────────────────────────────────────────────────\nfunction showSidebar()            { return UnkouLib.showSidebar(); }\nfunction showUploadSidebar()      { return UnkouLib.showUploadSidebar(); }\n// ライブラリ経由だとライブラリのonOpen()（①メニュー）が実行されるためローカル実装\nfunction reloadMenu() { UnkouLib.buildClientMenu(); SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3); }\n\n// ── 月次処理 ──────────────────────────────────────────────────────────\nfunction generateCurrentMonth()   { return UnkouLib.generateCurrentMonth(); }\nfunction generateNextMonth()      { return UnkouLib.generateNextMonth(); }\nfunction archiveOldMonth()        { return UnkouLib.archiveOldMonth(); }\n\n// ── シート管理 ────────────────────────────────────────────────────────\nfunction generateSummary()        { return UnkouLib.generateSummary(); }\nfunction calcDistanceManual()              { return UnkouLib.calcDistanceManual(); }\nfunction initDistanceMasterMajorCities()  { return UnkouLib.initDistanceMasterMajorCities(); }\nfunction expandAndRefreshSheets() { return UnkouLib.expandAndRefreshSheets(); }\nfunction autoFillExpense()        { return UnkouLib.autoFillExpense(); }\nfunction sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }\nfunction fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }\nfunction createUsageSheet()       { return UnkouLib.createUsageSheet(); }\nfunction createManualSheet()      { return UnkouLib.createManualSheet(); }\nfunction setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }\nfunction showExportDialog()             { return UnkouLib.showExportDialog(); }\nfunction exportSheetAsCsvBase64(a)      { return UnkouLib.exportSheetAsCsvBase64(a); }\nfunction exportSelectedSheetsAsExcel(a) { return UnkouLib.exportSelectedSheetsAsExcel(a); }\nfunction exportPlBundle(a)              { return UnkouLib.exportPlBundle(a); }\n// installTriggersはライブラリ経由にするとScriptAppが①を向くためローカル実装\nfunction installTriggers() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  ScriptApp.getProjectTriggers().forEach(function(t) {\n    var fn = t.getHandlerFunction();\n    if (fn === 'installedOnEdit_' || fn === 'onStructureChange_') ScriptApp.deleteTrigger(t);\n  });\n  ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();\n  ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();\n  ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);\n}\nfunction onStructureChange_(e)  { UnkouLib.dispatchStructureChange(e); }\nfunction setRecalcChoice(a)       { return UnkouLib.setRecalcChoice(a); }\nfunction executeStatusSync(a,b,c){ return UnkouLib.executeStatusSync(a,b,c); }\nfunction syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }\n\n// ── CSVインポート ─────────────────────────────────────────────────────\nfunction showCsvImportDialogUnkou()      { return UnkouLib.showCsvImportDialogUnkou(); }\nfunction showCsvImportDialogMaster()     { return UnkouLib.showCsvImportDialogMaster(); }\nfunction showCsvImportDialogCust()       { return UnkouLib.showCsvImportDialogCust(); }\nfunction showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }\nfunction prepareEtcImport(a,b,c)         { return UnkouLib.prepareEtcImport(a,b,c); }\nfunction executeEtcImport(a,b,c,d)       { return UnkouLib.executeEtcImport(a,b,c,d); }\nfunction deleteBlankImportRows()         { return UnkouLib.deleteBlankImportRows(); }\nfunction getImportDictionary(a,b)        { return UnkouLib.getImportDictionary(a,b); }\nfunction importBulkRows(a,b,c)           { return UnkouLib.importBulkRows(a,b,c); }\nfunction saveImportAliases(a,b,c)        { return UnkouLib.saveImportAliases(a,b,c); }\n\n// ── 帳票・送信 ────────────────────────────────────────────────────────\nfunction showHatchuDocDialog()           { return UnkouLib.showHatchuDocDialog(); }\nfunction showShabanDocDialog()           { return UnkouLib.showShabanDocDialog(); }\nfunction showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(); }\nfunction generateUketorishoSheet(a)      { return UnkouLib.generateUketorishoSheet(a); }\nfunction sendDocumentEmail(a,b,c)        { return UnkouLib.sendDocumentEmail(a,b,c); }\nfunction markDocumentIssued(a,b)         { return UnkouLib.markDocumentIssued(a,b); }\nfunction showPlDialog()                  { return UnkouLib.showPlDialog(); }\nfunction getPlFilterOptions()            { return UnkouLib.getPlFilterOptions(); }\nfunction generatePl(a)                   { return UnkouLib.generatePl(a); }\nfunction exportPlJournalCsv()            { return UnkouLib.exportPlJournalCsv(); }\nfunction initFixedCostMaster()           { return UnkouLib.initFixedCostMaster(); }\n\n// ── 請求書・支払確認書 ────────────────────────────────────────────────\nfunction showInvoiceDialog()             { return UnkouLib.showInvoiceDialog(); }\nfunction generateInvoiceSheet(a,b,c,d)   { return UnkouLib.generateInvoiceSheet(a,b,c,d); }\nfunction showPaymentDialog()             { return UnkouLib.showPaymentDialog(); }\nfunction generatePaymentSheet(a,b,c,d,e) { return UnkouLib.generatePaymentSheet(a,b,c,d,e); }\n\n// ── 情報シート・配車確定 ──────────────────────────────────────────────\nfunction matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispatch(); }\nfunction cancelDispatch()               { return UnkouLib.cancelDispatch(); }\nfunction generateAuditSheet()           { return UnkouLib.generateAuditSheet(); }\nfunction checkMasterExpiries()          { return UnkouLib.checkMasterExpiries(); }\nfunction showDispatchDashboard()        { return UnkouLib.showDispatchDashboard(); }\nfunction getDispatchDashboardData()     { return UnkouLib.getDispatchDashboardData(); }\n\n// ── アプリ連携（端末↔SS） ────────────────────────────────────────────\nfunction storeCompanySsId(a)              { return UnkouLib.storeCompanySsId(a); }\nfunction getInitialData(a,b)              { return UnkouLib.getInitialData(a,b); }\nfunction linkAddress(a,b)                 { return UnkouLib.linkAddress(a,b); }\nfunction unlinkAddress(a)                 { return UnkouLib.unlinkAddress(a); }\nfunction saveRunState(a,b,c)              { return UnkouLib.saveRunState(a,b,c); }\nfunction loadRunState()                   { return UnkouLib.loadRunState(); }\nfunction clearRunState(a,b)               { return UnkouLib.clearRunState(a,b); }\nfunction getTodayRoutes(a,b)              { return UnkouLib.getTodayRoutes(a,b); }\nfunction createParentRows(a,b,c,d,e,f)   { return UnkouLib.createParentRows(a,b,c,d,e,f); }\nfunction setPickComplete(a,b,c)           { return UnkouLib.setPickComplete(a,b,c); }\nfunction setRest(a,b,c,d)                { return UnkouLib.setRest(a,b,c,d); }\nfunction setDropComplete(a,b,c)           { return UnkouLib.setDropComplete(a,b,c); }\nfunction updateRouteData(a,b,c,d)         { return UnkouLib.updateRouteData(a,b,c,d); }\nfunction deleteRunRows(a,b,c)             { return UnkouLib.deleteRunRows(a,b,c); }\nfunction clearTimeCell(a,b,c,d,e)         { return UnkouLib.clearTimeCell(a,b,c,d,e); }\nfunction getListData(a,b,c,d)             { return UnkouLib.getListData(a,b,c,d); }\nfunction getEditData(a,b,c)               { return UnkouLib.getEditData(a,b,c); }\nfunction saveEditData(a,b,c)              { return UnkouLib.saveEditData(a,b,c); }\nfunction appendTerminalFile(a,b,c,d,e,f) { return UnkouLib.appendTerminalFile(a,b,c,d,e,f); }\nfunction deleteRunById(a,b,c)             { return UnkouLib.deleteRunById(a,b,c); }\nfunction saveNotice(a,b,c,d)             { return UnkouLib.saveNotice(a,b,c,d); }\nfunction uploadFileToRow(a,b,c,d)         { return UnkouLib.uploadFileToRow(a,b,c,d); }\nfunction saveTerminalNotice(a,b,c,d)      { return UnkouLib.saveTerminalNotice(a,b,c,d); }\nfunction uploadTerminalFile(a,b,c,d)      { return UnkouLib.uploadTerminalFile(a,b,c,d); }\nfunction getMyNotices(a,b)               { return UnkouLib.getMyNotices(a,b); }\nfunction getRoutesById(a,b,c)             { return UnkouLib.getRoutesById(a,b,c); }\nfunction getNoticeByRow(a,b,c)            { return UnkouLib.getNoticeByRow(a,b,c); }\nfunction markAsRead(a,b)                  { return UnkouLib.markAsRead(a,b); }\nfunction getReadNotices(a)               { return UnkouLib.getReadNotices(a); }\nfunction agreeContract(a,b,c,d)          { return UnkouLib.agreeContract(a,b,c,d); }\nfunction queueFileUpload(a,b,c,d)        { return UnkouLib.queueFileUpload(a,b,c,d); }\nfunction recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }\nfunction clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }\nfunction getCarInfoByNumber(a,b)         { return UnkouLib.getCarInfoByNumber(a,b); }\nfunction deleteTerminalFile(a,b,c)       { return UnkouLib.deleteTerminalFile(a,b,c); }\nfunction replaceTerminalFile(a,b,c,d,e,f){ return UnkouLib.replaceTerminalFile(a,b,c,d,e,f); }\nfunction appendTerminalFileAdmin(a,b,c,d,e){ return UnkouLib.appendTerminalFileAdmin(a,b,c,d,e); }\nfunction saveTermNoticeByDriver(a,b,c)   { return UnkouLib.saveTermNoticeByDriver(a,b,c); }\nfunction appendAdminFileById(a,b,c,d,e)  { return UnkouLib.appendAdminFileById(a,b,c,d,e); }\nfunction deleteAdminFileById(a,b,c)      { return UnkouLib.deleteAdminFileById(a,b,c); }\nfunction replaceAdminFileById(a,b,c,d,e,f){ return UnkouLib.replaceAdminFileById(a,b,c,d,e,f); }\n\n// ── 管理画面（親アプリ）────────────────────────────────────────────────\nfunction getParentSheets(a)            { return UnkouLib.getParentSheets(a); }\nfunction getSheetTableData(a,b)        { return UnkouLib.getSheetTableData(a,b); }\nfunction saveSheetRowData(a,b,c,d)     { return UnkouLib.saveSheetRowData(a,b,c,d); }\nfunction appendSheetRow(a,b,c)         { return UnkouLib.appendSheetRow(a,b,c); }\nfunction deleteSheetRow(a,b,c)         { return UnkouLib.deleteSheetRow(a,b,c); }\nfunction afterSaveJoho(a,b,c)          { return UnkouLib.afterSaveJoho(a,b,c); }\nfunction afterSaveJohoFull(a,b)        { return UnkouLib.afterSaveJohoFull(a,b); }\nfunction appendJohoRow(a,b)            { return UnkouLib.appendJohoRow(a,b); }\nfunction linkAdminEmail(a,b)           { return UnkouLib.linkAdminEmail(a,b); }\nfunction getLinkedAdminEmail(a)        { return UnkouLib.getLinkedAdminEmail(a); }\nfunction removeAllProtections()        { return UnkouLib.removeAllProtections(); }\n\n// ── バックアップ・復旧 ────────────────────────────────────────────────\nfunction openRestoreDialog()           { return UnkouLib.openRestoreDialog(); }\nfunction executeRestore(a,b)           { return UnkouLib.executeRestore(a,b); }\n";
   // === AUTO_GENERATED_STUB_END ===
 }
 
@@ -12752,4 +12758,216 @@ function generateAuditSheet() {
   auditSheet.autoResizeColumns(1, numCols);
   ss.setActiveSheet(auditSheet);
   SpreadsheetApp.getUi().alert('監査用表を生成しました（' + rows.length + '件 / 月次合計付き）');
+}
+
+
+// ================================================================
+//  No.4 自動バックアップ・復旧機能
+//  ・runDailyBackup_()          : タイムトリガーから毎日3時に実行（①修正用SSで設定）
+//  ・setupBackupTrigger()       : ①修正用SSメニューからトリガー設定
+//  ・openRestoreDialog()        : メニューから直接呼ぶ（①=会社選択→復旧 / ③=直接復旧）
+//  ・getBackupListForRestore(a) : 復旧ダイアログから google.script.run 経由
+//  ・executeRestore(a, b)       : 復旧ダイアログから google.script.run 経由
+// ================================================================
+var BACKUP_FOLDER_NAME_ = '運行管理バックアップ';
+var BACKUP_KEEP_DAYS_   = 30;
+
+function getOrCreateBackupRoot_() {
+  var it = DriveApp.getFoldersByName(BACKUP_FOLDER_NAME_);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(BACKUP_FOLDER_NAME_);
+}
+
+function getOrCreateCompanyBackupFolder_(companyName) {
+  var root = getOrCreateBackupRoot_();
+  var it   = root.getFoldersByName(companyName);
+  return it.hasNext() ? it.next() : root.createFolder(companyName);
+}
+
+// タイムトリガーから毎日呼ばれる（①修正用SSで setupBackupTrigger() を1回実行して設定）
+function runDailyBackup_() {
+  var adminSsId = PropertiesService.getScriptProperties().getProperty('masterSsId');
+  if (!adminSsId) { Logger.log('runDailyBackup_: masterSsId未設定。①で setupBackupTrigger を実行してください。'); return; }
+  var ss       = SpreadsheetApp.openById(adminSsId);
+  var regSheet = ss.getSheetByName('会社登録');
+  if (!regSheet || regSheet.getLastRow() < 2) return;
+
+  var today   = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+  var lastRow = regSheet.getLastRow();
+  var rows    = regSheet.getRange(2, 1, lastRow - 1, 6).getValues();
+  var cutoff  = new Date(); cutoff.setDate(cutoff.getDate() - BACKUP_KEEP_DAYS_);
+
+  rows.forEach(function(row) {
+    var companyName = String(row[0] || '').trim();
+    var ssUrl       = String(row[5] || '').trim();
+    if (!companyName || !ssUrl) return;
+    var match = ssUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (!match) return;
+    try {
+      var folder   = getOrCreateCompanyBackupFolder_(companyName);
+      var fileName = today + '_' + companyName;
+      // 同日分が既にあれば削除してから再作成
+      var existing = folder.getFilesByName(fileName);
+      while (existing.hasNext()) existing.next().setTrashed(true);
+      DriveApp.getFileById(match[1]).makeCopy(fileName, folder);
+      // 保持期間を超えた古いファイルを削除
+      var all = folder.getFiles();
+      while (all.hasNext()) {
+        var f = all.next();
+        if (f.getDateCreated() < cutoff) f.setTrashed(true);
+      }
+    } catch(e) {
+      Logger.log('Backup error [' + companyName + ']: ' + e.message);
+    }
+  });
+}
+
+// ①修正用SSのメニューから実行してタイムトリガーを設定する
+function setupBackupTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'runDailyBackup_') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('runDailyBackup_').timeBased().atHour(3).everyDays(1).create();
+  SpreadsheetApp.getUi().alert('バックアップタイマーを設定しました\n毎日深夜3時に③各客SSを自動バックアップします\n（マイドライブ→運行管理バックアップ フォルダに保存）');
+}
+
+// メニューから直接呼ばれる（getActiveSpreadsheet使用可）
+// ①修正用SS→会社選択ダイアログ、③客SS→直接バックアップ一覧ダイアログ
+function openRestoreDialog() {
+  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var ssId   = ss.getId();
+  var ssName = ss.getName();
+  if (ss.getSheetByName('会社登録')) {
+    _showCompanySelectorForRestore_();
+  } else {
+    _showRestoreDialog_(ssId, ssName);
+  }
+}
+
+function _showCompanySelectorForRestore_() {
+  var ss       = SpreadsheetApp.getActiveSpreadsheet();
+  var regSheet = ss.getSheetByName('会社登録');
+  if (!regSheet || regSheet.getLastRow() < 2) { SpreadsheetApp.getUi().alert('会社登録シートにデータがありません'); return; }
+  var rows = regSheet.getRange(2, 1, regSheet.getLastRow() - 1, 6).getValues();
+  var opts = '';
+  rows.forEach(function(row) {
+    var name  = String(row[0] || '').trim();
+    var ssUrl = String(row[5] || '').trim();
+    if (!name || !ssUrl) return;
+    var m = ssUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (!m) return;
+    opts += '<option value="' + m[1] + '|' + name.replace(/[<>"]/g, '') + '">' + name + '</option>';
+  });
+  if (!opts) { SpreadsheetApp.getUi().alert('会社データがありません'); return; }
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+    '<style>body{font-family:sans-serif;padding:16px;background:#1e1e1e;color:#e0e0e0;margin:0;font-size:14px;}' +
+    'select,button{width:100%;padding:10px;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:10px;}' +
+    'select{background:#2c2c2c;color:white;border:1px solid #444;}' +
+    '.btn-next{background:#1565c0;border:none;color:white;cursor:pointer;font-weight:bold;}' +
+    '.btn-do{background:#c62828;border:none;color:white;cursor:pointer;font-weight:bold;}' +
+    '.warn{color:#ff9800;font-size:12px;}</style></head><body>' +
+    '<p style="margin-bottom:8px;">復旧する会社を選んでください</p>' +
+    '<select id="sel">' + opts + '</select>' +
+    '<button class="btn-next" onclick="next()">次へ →</button>' +
+    '<div id="step2"></div>' +
+    '<script>' +
+    'function next(){' +
+    '  var v=document.getElementById("sel").value.split("|");' +
+    '  document.getElementById("step2").innerHTML="<p style=\'color:#aaa;font-size:12px;\'>読み込み中...</p>";' +
+    '  google.script.run.withSuccessHandler(function(list){showList(list,v[0],v[1]);}).getBackupListForRestore(v[0]);' +
+    '}' +
+    'function showList(list,sid,name){' +
+    '  if(!list||!list.length){document.getElementById("step2").innerHTML="<p style=\'color:#ff5252;\'>バックアップがありません。先にタイマー設定を実行してください。</p>";return;}' +
+    '  var h="<hr style=\'border-color:#333;\'><p style=\'margin-bottom:6px;\'>"+name+"　復旧日を選択</p>";' +
+    '  h+="<select id=\'b\'>";' +
+    '  list.forEach(function(b){h+="<option value=\'"+b.id+"\'>"+b.name+"</option>";});' +
+    '  h+="</select><p class=\'warn\'>⚠ 現在のデータが上書きされます</p>";' +
+    '  h+="<button class=\'btn-do\' onclick=\'restore(\\\""+sid+"\\\")\'> 🔄 復旧実行</button>";' +
+    '  document.getElementById("step2").innerHTML=h;' +
+    '}' +
+    'function restore(sid){' +
+    '  var bid=document.getElementById("b").value;' +
+    '  if(!confirm("復旧しますか？\\n現在のデータが上書きされます"))return;' +
+    '  google.script.run.withSuccessHandler(function(){alert("復旧完了しました");google.script.host.close();}).executeRestore(bid,sid);' +
+    '}' +
+    '</script></body></html>';
+
+  SpreadsheetApp.getUi().showModalDialog(
+    HtmlService.createHtmlOutput(html).setWidth(370).setHeight(300),
+    '🔄 バックアップから復旧'
+  );
+}
+
+function _showRestoreDialog_(ssId, ssName) {
+  var root = getOrCreateBackupRoot_();
+  var it   = root.getFoldersByName(ssName);
+  var list = [];
+  if (it.hasNext()) {
+    var folder = it.next(); var files = folder.getFiles();
+    while (files.hasNext()) { var f = files.next(); list.push({ id: f.getId(), name: f.getName() }); }
+    list.sort(function(a, b) { return a.name > b.name ? -1 : 1; });
+  }
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+    '<style>body{font-family:sans-serif;padding:16px;background:#1e1e1e;color:#e0e0e0;margin:0;font-size:14px;}' +
+    'select,button{width:100%;padding:10px;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:10px;}' +
+    'select{background:#2c2c2c;color:white;border:1px solid #444;}' +
+    'button{background:#c62828;border:none;color:white;cursor:pointer;font-weight:bold;}' +
+    '.warn{color:#ff9800;font-size:12px;}</style></head><body>';
+
+  if (list.length === 0) {
+    html += '<p style="color:#ff5252;">バックアップがありません。<br>①修正用SSで「バックアップタイマー設定」を実行してください。</p>';
+  } else {
+    var opts = list.map(function(b) { return '<option value="' + b.id + '">' + b.name + '</option>'; }).join('');
+    html += '<p style="margin-bottom:8px;">' + ssName + '</p>';
+    html += '<select id="b">' + opts + '</select>';
+    html += '<p class="warn">⚠ 現在のデータが上書きされます</p>';
+    html += '<button onclick="restore()">🔄 復旧実行</button>';
+    html += '<script>function restore(){var bid=document.getElementById("b").value;' +
+      'if(!confirm("復旧しますか？\\n現在のデータが上書きされます"))return;' +
+      'google.script.run.withSuccessHandler(function(){alert("復旧完了しました");google.script.host.close();})' +
+      '.executeRestore(bid,"' + ssId + '");}</script>';
+  }
+  html += '</body></html>';
+
+  SpreadsheetApp.getUi().showModalDialog(
+    HtmlService.createHtmlOutput(html).setWidth(360).setHeight(240),
+    '🔄 バックアップから復旧'
+  );
+}
+
+// google.script.run 経由で呼ばれる（①の会社選択ダイアログから）
+function getBackupListForRestore(ssId) {
+  var ss     = getTargetSS_(ssId);
+  var ssName = ss.getName();
+  var root   = getOrCreateBackupRoot_();
+  var it     = root.getFoldersByName(ssName);
+  if (!it.hasNext()) return [];
+  var folder = it.next(); var files = folder.getFiles(); var list = [];
+  while (files.hasNext()) { var f = files.next(); list.push({ id: f.getId(), name: f.getName() }); }
+  list.sort(function(a, b) { return a.name > b.name ? -1 : 1; });
+  return list;
+}
+
+// google.script.run 経由で呼ばれる（復旧ダイアログから）
+// バックアップSSのデータ行を対象SSに上書きコピー（ヘッダー行は変えない）
+function executeRestore(backupFileId, targetSsId) {
+  var targetSs = getTargetSS_(targetSsId);
+  var backupSs = SpreadsheetApp.openById(backupFileId);
+  var sheets   = backupSs.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    var srcSheet  = sheets[i];
+    var sheetName = srcSheet.getName();
+    if (sheetName.charAt(0) === '_') continue; // _BK_等の内部シートはスキップ
+    var tgtSheet = targetSs.getSheetByName(sheetName);
+    if (!tgtSheet) continue;
+    var lastRow = srcSheet.getLastRow();
+    var lastCol = srcSheet.getLastColumn();
+    if (lastRow < 2 || lastCol < 1) continue;
+    var data       = srcSheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var tgtLastRow = tgtSheet.getLastRow();
+    if (tgtLastRow > 1) tgtSheet.getRange(2, 1, tgtLastRow - 1, tgtSheet.getLastColumn()).clearContent();
+    tgtSheet.getRange(2, 1, data.length, lastCol).setValues(data);
+  }
+  return true;
 }
