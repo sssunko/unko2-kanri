@@ -49,6 +49,8 @@ function archiveOldMonth()        { return UnkouLib.archiveOldMonth(); }
 // ── シート管理 ────────────────────────────────────────────────────────
 function generateSummary()        { return UnkouLib.generateSummary(); }
 function calcDistanceManual()              { return UnkouLib.calcDistanceManual(); }
+function resolveAmbiguousAddresses()      { return UnkouLib.resolveAmbiguousAddresses(); }
+function receiveAddressChoice(s)          { return UnkouLib.receiveAddressChoice(s); }
 function initDistanceMasterMajorCities()  { return UnkouLib.initDistanceMasterMajorCities(); }
 function expandAndRefreshSheets() { return UnkouLib.expandAndRefreshSheets(); }
 function autoFillExpense()        { return UnkouLib.autoFillExpense(); }
