@@ -89,5 +89,20 @@ if (!mainSrc.includes('AUTO_GENERATED_STUB_START')) {
   ok('AUTO_GENERATED_STUB マーカー確認 OK');
 }
 
+// 4. buildClientMenu の addItem 関数名がスタブに存在するか確認（onOpen は①専用なので対象外）
+const buildMenuMatch = mainSrc.match(/function buildClientMenu\s*\(\s*\)[\s\S]*?^}/m);
+if (!buildMenuMatch) {
+  err('buildClientMenu() が見つかりません');
+} else {
+  const menuItemFns = [...buildMenuMatch[0].matchAll(/\.addItem\s*\(\s*['"][^'"]*['"]\s*,\s*['"](\w+)['"]\s*\)/g)]
+    .map(m => m[1]);
+  const menuMissing = [...new Set(menuItemFns)].filter(f => !stubFns.has(f));
+  if (menuMissing.length > 0) {
+    err('buildClientMenu の addItem でスタブに未定義の関数:\n  ' + menuMissing.join('\n  '));
+  } else {
+    ok('メニュー→スタブ関数チェック OK (' + new Set(menuItemFns).size + '件すべて存在)');
+  }
+}
+
 console.log(hasError ? '\n整合性チェック失敗。デプロイを中止します。' : '\n✅ 整合性チェック全て OK');
 process.exit(hasError ? 1 : 0);

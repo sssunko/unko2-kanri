@@ -244,7 +244,7 @@
     .summary-value { font-size: 20px; font-weight: 900; color: #bb86fc; }
     .run-act-btn { padding: 10px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; color: white; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
     .rab-blue { background: #1565c0; } .rab-green { background: #2e7d32; }
-    .rab-purple { background: #6a1b9a; } .rab-teal { background: #00897b; }
+    .rab-purple { background: #6a1b9a; } .rab-teal { background: #00897b; } .rab-delete { background: #c62828; }
     select { width: 100%; padding: 12px; background: #2c2c2c; color: white; border: 1px solid #444; border-radius: 8px; margin-bottom: 10px; font-size: 15px; }
 
     /* ============================================================
@@ -623,7 +623,6 @@
     <button class="big-btn teal" onclick="startRunFromInput()">誘導へ進む</button>
     <div style="display:flex;gap:8px;margin-top:4px;">
       <button class="big-btn dark" style="flex:1;" onclick="goHome()">ホーム</button>
-      <button class="big-btn" style="flex:1;background:#b71c1c;" onclick="clearRunStateAndHome()">リセット</button>
     </div>
   </div>
 
@@ -2089,6 +2088,7 @@ function renderTable() {
     html += '<button class="run-act-btn rab-blue" onclick="openNoticeModal(\''+r.id+'\')">連絡</button>';
     html += '<button class="run-act-btn rab-teal" onclick="openTermDataModal(\''+r.id+'\')">データ</button>';
     html += '<button class="run-act-btn rab-purple" onclick="openEditModal(\''+r.id+'\')">編集</button>';
+    html += '<button class="run-act-btn rab-delete" onclick="deleteFromList(\''+r.id+'\')">削除</button>';
     html += '</div></td>';
     html += '</tr>';
   });
@@ -2483,6 +2483,7 @@ function openEditModal(id) {
     h+='<div class="edit-btns">'+
       '<button class="edit-btn eb-save" onclick="saveEditModal()">保存</button>'+
       '<button class="edit-btn eb-close" onclick="closeEditModal()">閉じる</button>'+
+      '<button class="edit-btn eb-delete" onclick="deleteEditModal()">削除</button>'+
       '</div>';
     document.getElementById('editBox').innerHTML=h;
     document.getElementById('editOverlay').classList.add('show');
@@ -2530,6 +2531,11 @@ function deleteEditModal(){
   closeEditModal();
   loadList(true);
   google.script.run.withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(editId, COMPANY_SS_ID, getMyEmail());
+}
+function deleteFromList(id){
+  if(!confirm('この運行データを削除しますか？')) return;
+  loadList(true);
+  google.script.run.withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(id, COMPANY_SS_ID, getMyEmail());
 }
 function addTermFile(id) {
   var input=document.createElement('input'); input.type='file'; input.multiple=true; input.accept='image/*,.pdf,.doc,.docx,.xls,.xlsx';

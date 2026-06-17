@@ -175,7 +175,8 @@
       "PowerShell(\\(Get-Content \"c:\\\\gas\\\\unko2-kanri\\\\stub_for_clientSS\\\\コード.js\" | Measure-Object -Line\\).Lines)",
       "Bash(node deploy.js \"連打防止ローディングオーバーレイ実装（No.3）\")",
       "Bash(node deploy.js \"連打防止loading修正（読み取り系のみ・書き込みは火投げに戻す）\")",
-      "Bash(node deploy.js \"連打防止loading最終修正（紐づけ系のみ残しあとは既存動作に戻す）\")"
+      "Bash(node deploy.js \"連打防止loading最終修正（紐づけ系のみ残しあとは既存動作に戻す）\")",
+      "Bash(node deploy.js \"addEditor復元\")"
     ]
   }
 }

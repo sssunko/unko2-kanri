@@ -98,13 +98,14 @@
   var COMPANY_NAME = '<?= companyName ?>';
   var ADMIN_EMAIL  = '<?= adminEmail ?>';
   var CONTRACT_ROW = '<?= contractRow ?>';
+  var MASTER_SS_ID = '<?= masterSsId ?>';
 
   function doAgree() {
     var btn = document.getElementById('agreeBtn');
     btn.disabled = true;
     document.getElementById('mainContent').style.display = 'none';
     document.getElementById('doneContent').style.display = 'block';
-    google.script.run.agreeContract(SSID, COMPANY_NAME, ADMIN_EMAIL, CONTRACT_ROW);
+    google.script.run.agreeContract(SSID, COMPANY_NAME, ADMIN_EMAIL, CONTRACT_ROW, MASTER_SS_ID);
   }
 </script>
 </body>

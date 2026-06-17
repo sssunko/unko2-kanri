@@ -36,6 +36,13 @@ console.log(`   現在${vLines.length}件、次バージョン: ${nextVer}`);
 console.log('\n[1/5] 整合性チェック...');
 run('node check_integrity.js');
 
+// STUB_VERSION_ を次バージョン番号に更新（checkAndRefreshStub の自己更新トリガー）
+const mainPath = path.join(ROOT, 'コード.js');
+let mainSrc = fs.readFileSync(mainPath, 'utf8');
+mainSrc = mainSrc.replace(/^var STUB_VERSION_\s*=\s*'[^']*';/m, `var STUB_VERSION_ = '${nextVer}';`);
+fs.writeFileSync(mainPath, mainSrc, 'utf8');
+console.log(`✓ STUB_VERSION_ → ${nextVer}`);
+
 // スタブ自動生成
 console.log('\n[2/5] スタブ自動生成 (build_stub.js)...');
 run('node build_stub.js');

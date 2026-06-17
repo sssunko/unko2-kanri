@@ -146,7 +146,7 @@ function getRoutesById(a,b,c)             { return UnkouLib.getRoutesById(a,b,c)
 function getNoticeByRow(a,b,c)            { return UnkouLib.getNoticeByRow(a,b,c); }
 function markAsRead(a,b)                  { return UnkouLib.markAsRead(a,b); }
 function getReadNotices(a)               { return UnkouLib.getReadNotices(a); }
-function agreeContract(a,b,c,d)          { return UnkouLib.agreeContract(a,b,c,d); }
+function agreeContract(a,b,c,d,e)        { return UnkouLib.agreeContract(a,b,c,d,e); }
 function queueFileUpload(a,b,c,d)        { return UnkouLib.queueFileUpload(a,b,c,d); }
 function recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }
 function clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }
