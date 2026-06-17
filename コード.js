@@ -1134,9 +1134,7 @@ function doGet(e) {
     var ctmpl = HtmlService.createTemplateFromFile('contract');
     ctmpl.companySsId  = ssId;
     ctmpl.companyName  = (e && e.parameter && e.parameter.company)     ? e.parameter.company     : '';
-    ctmpl.adminEmail   = (e && e.parameter && e.parameter.adminEmail)  ? e.parameter.adminEmail  : '';
-    ctmpl.contractRow  = (e && e.parameter && e.parameter.row)         ? e.parameter.row         : '';
-    ctmpl.masterSsId   = (e && e.parameter && e.parameter.masterSsId)  ? e.parameter.masterSsId  : '';
+    ctmpl.contractRow  = (e && e.parameter && e.parameter.row) ? e.parameter.row : '';
     return ctmpl.evaluate()
       .setTitle('利用規約 - 運行管理システム')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -8684,9 +8682,8 @@ function processNewCompany_(companyName, adminEmail) {
   var baseUrl = getWebAppBaseUrl_();
   if (baseUrl) {
     contractUrl = baseUrl + '?page=contract' +
-      '&ssId='       + encodeURIComponent(ssId) +
-      '&company='    + encodeURIComponent(companyName) +
-      '&masterSsId=' + encodeURIComponent(masterSsId_) +
+      '&ssId='    + encodeURIComponent(ssId) +
+      '&company=' + encodeURIComponent(companyName) +
       (targetRow > 0 ? '&row=' + targetRow : '');
   }
 
