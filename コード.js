@@ -1083,8 +1083,9 @@ function reloadMenu() {
 //  これにより会社SS作成時のアプリURLが自動で設定される（手動入力不要）。
 // ================================================================
 function doGet(e) {
-  var page  = (e && e.parameter && e.parameter.page)  ? e.parameter.page  : '';
-  var ssId  = (e && e.parameter && e.parameter.ssId)  ? e.parameter.ssId  : '';
+  var page   = (e && e.parameter && e.parameter.page)   ? e.parameter.page   : '';
+  var ssId   = (e && e.parameter && e.parameter.ssId)   ? e.parameter.ssId   : '';
+  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
 
   // 本番デプロイのURLのみ保存（テンプレートSS等からのアクセスで上書きされないよう限定）
   try {
@@ -1094,6 +1095,39 @@ function doGet(e) {
       PropertiesService.getScriptProperties().setProperty('webAppUrl', svcUrl);
     }
   } catch(ex) {}
+
+  // 同意処理（?action=agree）：google.script.run不使用でGoogleセキュリティ通知を回避
+  if (action === 'agree') {
+    var agreeCompany = (e && e.parameter && e.parameter.company) ? e.parameter.company : '';
+    var agreeRow     = (e && e.parameter && e.parameter.row)     ? e.parameter.row     : '';
+    var agreeOk = false;
+    try {
+      agreeContract(ssId, agreeCompany, '', agreeRow, '');
+      agreeOk = true;
+    } catch(ex2) {}
+    var thanksHtml =
+      '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<title>同意完了 - 運行管理システム</title>' +
+      '<style>*{box-sizing:border-box;}body{font-family:-apple-system,BlinkMacSystemFont,\'Hiragino Sans\',sans-serif;' +
+      'background:#f5f5f5;margin:0;padding:16px;min-height:100vh;display:flex;align-items:center;justify-content:center;}' +
+      '.card{background:#fff;border-radius:8px;padding:32px 24px;max-width:480px;width:100%;' +
+      'box-shadow:0 2px 8px rgba(0,0,0,.12);text-align:center;}' +
+      '.icon{font-size:52px;margin-bottom:8px;}' +
+      'h2{margin:0 0 12px;}p{font-size:14px;color:#555;margin:0;line-height:1.7;}</style></head>' +
+      '<body><div class="card">' +
+      (agreeOk
+        ? '<div class="icon">✅</div><h2 style="color:#188038;">同意が完了しました</h2>' +
+          '<p>ご同意ありがとうございます。<br>' +
+          'スプレッドシートとアプリのURLを<br>' +
+          'メールでお送りしましたのでご確認ください。</p>'
+        : '<div class="icon">⚠️</div><h2 style="color:#c62828;">エラーが発生しました</h2>' +
+          '<p>もう一度お試しいただくか、<br>担当者にお問い合わせください。</p>') +
+      '</div></body></html>';
+    return HtmlService.createHtmlOutput(thanksHtml)
+      .setTitle('同意完了 - 運行管理システム')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
 
   // 契約書ページ（?page=contract）
   if (page === 'contract') {
