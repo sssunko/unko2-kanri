@@ -180,7 +180,11 @@
       "Bash(node deploy.js \"①同意書google.script.run廃止→doGetリダイレクト方式に変更\")",
       "Bash(node deploy.js \"No.14 契約URLからmasterSsId除去・contract.htmlのADMIN_EMAIL/MASTER_SS_ID削除\")",
       "Bash(node deploy.js \"コメント更新：doGet action=agree追記・agreeContract設計変更説明追加\")",
-      "Bash(node deploy.js \"説明書作成を客SSメニューから削除（M&A用資料のため客に非表示）\")"
+      "Bash(node deploy.js \"説明書作成を客SSメニューから削除（M&A用資料のため客に非表示）\")",
+      "Bash(ls C:/SSS/project-blog-fixed/)",
+      "Read(//c/SSS/project-blog-fixed/**)",
+      "Bash(ls C:/SSS/)",
+      "Read(//c/SSS/**)"
     ]
   }
 }
