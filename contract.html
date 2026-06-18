@@ -15,23 +15,34 @@
       border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.12);
     }
     h1 { font-size: 20px; margin: 0 0 6px; color: #1a73e8; }
-    .company-label { font-size: 13px; color: #666; margin-bottom: 20px; }
-    .terms-box {
+    .company-label { font-size: 13px; color: #666; margin-bottom: 24px; }
+    .doc-links {
       background: #fafafa; border: 1px solid #ddd; border-radius: 4px;
-      padding: 16px; height: 320px; overflow-y: auto;
-      font-size: 13px; line-height: 1.9; margin-bottom: 20px;
+      padding: 16px 20px; margin-bottom: 20px;
     }
-    .terms-box h2 { font-size: 13px; font-weight: bold; margin: 14px 0 4px; }
-    .terms-box p  { margin: 0 0 8px; }
-    .agree-section { text-align: center; padding: 8px 0 0; }
+    .doc-links p { margin: 0 0 10px; font-size: 13px; color: #555; }
+    .doc-links a {
+      display: block; color: #1a73e8; font-size: 14px; font-weight: bold;
+      text-decoration: none; padding: 6px 0;
+    }
+    .doc-links a:hover { text-decoration: underline; }
+    .doc-links a + a { border-top: 1px solid #eee; margin-top: 4px; padding-top: 10px; }
+    .agree-check {
+      display: flex; align-items: flex-start; gap: 10px;
+      background: #e8f0fe; border: 1px solid #1a73e8; border-radius: 6px;
+      padding: 14px 16px; margin-bottom: 20px; cursor: pointer;
+    }
+    .agree-check input[type="checkbox"] {
+      width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; cursor: pointer;
+    }
+    .agree-check label { font-size: 14px; font-weight: bold; cursor: pointer; }
     .agree-btn {
       background: #1a73e8; color: #fff; border: none; border-radius: 6px;
       padding: 14px 0; font-size: 16px; font-weight: bold;
       cursor: pointer; width: 100%; letter-spacing: 0.05em;
     }
     .agree-btn:disabled { background: #aaa; cursor: not-allowed; }
-    .loading-msg { display: none; color: #666; font-size: 13px; margin-top: 10px; }
-    .error-msg   { display: none; color: #d32f2f; font-size: 13px; margin-top: 10px; }
+    .loading-msg { display: none; color: #666; font-size: 13px; margin-top: 10px; text-align: center; }
     .done-wrap   { display: none; text-align: center; padding: 24px 0; }
     .done-icon   { font-size: 52px; margin-bottom: 8px; }
     .done-wrap h2 { color: #188038; margin: 0 0 10px; }
@@ -42,46 +53,22 @@
 <div class="container">
 
   <div id="mainContent">
-    <h1>運行管理システム 利用規約</h1>
+    <h1>運行管理システム 利用規約への同意</h1>
     <div class="company-label">対象会社：<?= companyName ?> 御中</div>
 
-    <div class="terms-box">
-      <p>本システム（以下「本システム」）をご利用いただくにあたり、以下の利用規約（以下「本規約」）をよくお読みください。同意いただいた場合のみご利用いただけます。</p>
-
-      <h2>第1条（利用目的）</h2>
-      <p>本システムは、貨物運送事業に関わる運行管理業務を支援するためのものです。許可された目的以外での使用はできません。</p>
-
-      <h2>第2条（アカウント管理）</h2>
-      <p>利用者は自己の責任においてアカウント情報を管理するものとし、第三者への譲渡・貸与・共有はできません。</p>
-
-      <h2>第3条（禁止事項）</h2>
-      <p>以下の行為を禁止します。<br>
-      ・本システムのリバースエンジニアリング・改ざん<br>
-      ・法令または公序良俗に違反する行為<br>
-      ・提供者のシステムに過大な負荷をかける行為<br>
-      ・その他、提供者が不適切と判断する行為</p>
-
-      <h2>第4条（データの取り扱い）</h2>
-      <p>ご入力いただいたデータはGoogleスプレッドシート上に保存されます。提供者はデータの内容を無断で第三者に開示しません。ただし、法令に基づく開示請求があった場合を除きます。</p>
-
-      <h2>第5条（免責事項）</h2>
-      <p>本システムの利用により生じた損害について、提供者は一切の責任を負いません。システムの停止・変更・廃止についても同様です。</p>
-
-      <h2>第6条（サービスの変更・終了）</h2>
-      <p>提供者は利用者への事前通知なく、本システムの内容を変更または提供を終了することができます。</p>
-
-      <h2>第7条（規約の変更）</h2>
-      <p>提供者は必要に応じて本規約を変更できます。変更後の規約は本システム上に掲載した時点で効力を生じます。</p>
-
-      <h2>第8条（準拠法・管轄）</h2>
-      <p>本規約は日本法に準拠し、紛争が生じた場合は提供者所在地を管轄する裁判所を専属的合意管轄とします。</p>
+    <div class="doc-links">
+      <p>ご契約の前に、必ず以下の文書をお読みください。</p>
+      <a href="<?= appUrl ?>?page=terms" target="_blank" rel="noopener">📄 利用規約を確認する</a>
+      <a href="<?= appUrl ?>?page=privacy" target="_blank" rel="noopener">📄 プライバシーポリシーを確認する</a>
     </div>
 
-    <div class="agree-section">
-      <button id="agreeBtn" class="agree-btn" onclick="doAgree()">上記の利用規約に同意する</button>
-      <div id="loadingMsg" class="loading-msg">処理中...しばらくお待ちください</div>
-      <div id="errorMsg"  class="error-msg"></div>
-    </div>
+    <label class="agree-check">
+      <input type="checkbox" id="agreeCheck" onchange="toggleBtn()">
+      <span>利用規約およびプライバシーポリシーを確認し、すべての内容に同意します</span>
+    </label>
+
+    <button id="agreeBtn" type="button" class="agree-btn" onclick="doAgree()" disabled>同意して続ける</button>
+    <div id="loadingMsg" class="loading-msg">処理中...しばらくお待ちください</div>
   </div>
 
   <div id="doneContent" class="done-wrap">
@@ -98,13 +85,20 @@
   var COMPANY_NAME = '<?= companyName ?>';
   var CONTRACT_ROW = '<?= contractRow ?>';
 
+  function toggleBtn() {
+    var checked = document.getElementById('agreeCheck').checked;
+    document.getElementById('agreeBtn').disabled = !checked;
+  }
+
   function doAgree() {
+    if (!document.getElementById('agreeCheck').checked) return;
     var btn = document.getElementById('agreeBtn');
     btn.disabled = true;
     document.getElementById('loadingMsg').style.display = 'block';
     var base = location.href.split('?')[0];
     window.location.href = base +
       '?action=agree' +
+      '&agreed=true' +
       '&ssId='    + encodeURIComponent(SSID) +
       '&company=' + encodeURIComponent(COMPANY_NAME) +
       '&row='     + encodeURIComponent(CONTRACT_ROW);

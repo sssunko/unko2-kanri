@@ -1100,6 +1100,16 @@ function doGet(e) {
 
   // 同意処理（?action=agree）：google.script.run不使用でGoogleセキュリティ通知を回避
   if (action === 'agree') {
+    // サーバー側バリデーション：agreed=true がない場合はフロント改ざん等として弾く
+    if (!e || !e.parameter || e.parameter.agreed !== 'true') {
+      return HtmlService.createHtmlOutput(
+        '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+        '<meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+        '<body style="font-family:sans-serif;padding:24px;text-align:center;">' +
+        '<p>同意チェックが確認できませんでした。前のページに戻って再度お試しください。</p>' +
+        '</body></html>'
+      ).setTitle('エラー - 運行管理システム');
+    }
     var agreeCompany = (e && e.parameter && e.parameter.company) ? e.parameter.company : '';
     var agreeRow     = (e && e.parameter && e.parameter.row)     ? e.parameter.row     : '';
     var agreeOk = false;
@@ -1137,8 +1147,23 @@ function doGet(e) {
     ctmpl.companySsId  = ssId;
     ctmpl.companyName  = (e && e.parameter && e.parameter.company)     ? e.parameter.company     : '';
     ctmpl.contractRow  = (e && e.parameter && e.parameter.row) ? e.parameter.row : '';
+    ctmpl.appUrl       = PropertiesService.getScriptProperties().getProperty('webAppUrl') || ScriptApp.getService().getUrl();
     return ctmpl.evaluate()
       .setTitle('利用規約 - 運行管理システム')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  // 利用規約ページ（?page=terms）
+  if (page === 'terms') {
+    return HtmlService.createHtmlOutputFromFile('terms')
+      .setTitle('利用規約 - 運行管理システム')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+
+  // プライバシーポリシーページ（?page=privacy）
+  if (page === 'privacy') {
+    return HtmlService.createHtmlOutputFromFile('privacy')
+      .setTitle('プライバシーポリシー - 運行管理システム')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }
 
