@@ -42,7 +42,10 @@
 //            ・convertLegacyAdminDataUrls_を呼び出してW列の古いURL形式を自動変換
 //   2-2  : doGet()
 //            WebアプリのURLにアクセスした時に実行される関数
-//            ・index.htmlをテンプレートとして返しWebアプリを表示する
+//            ・?action=agree → 同意処理を実行してお礼ページを返す（google.script.run不使用）
+//            ・?page=contract → 利用規約・同意フォームページを返す
+//            ・?page=parent → 管理画面ページを返す
+//            ・それ以外 → index.htmlをテンプレートとして返しWebアプリを表示する
 //   2-3  : showSidebar()
 //            スプレッドシート右側のサイドバーとしてWebアプリを表示する
 //            ・スプレッドシート上で「ホーム画面を表示」メニューを選んだ時に実行
@@ -910,6 +913,7 @@ function onOpen() {
       .addItem('🔓 保護を全解除',               'removeAllProtections')
       .addItem('📖 使い方シート作成',            'createUsageSheet')
       .addItem('📘 説明書作成',                 'createManualSheet')
+      .addItem('📋 サポートテンプレ作成',         'createSupportSheet')
       .addItem('🗾 距離マスタ 主要地データ投入',  'initDistanceMasterMajorCities'))
     // ── 🏢 管理者・セットアップ（開発専用） ────────────────────────────
     .addSubMenu(ui.createMenu('🏢 管理者・セットアップ（開発専用）')
@@ -998,7 +1002,6 @@ function buildClientMenu() {
       .addItem('🛡 シート保護設定',             'setupSheetProtection')
       .addItem('🔓 保護を全解除',               'removeAllProtections')
       .addItem('📖 使い方シート作成',            'createUsageSheet')
-      .addItem('📘 説明書作成',                 'createManualSheet')
       .addItem('🗾 距離マスタ 主要地データ投入',  'initDistanceMasterMajorCities')
       .addSeparator()
       .addItem('🔄 バックアップから復旧',         'openRestoreDialog'));
@@ -3415,16 +3418,69 @@ function restoreSheetColumnOrder_(sheet, canonHdr, bkSheet) {
   sheet.getRange(1, 1, newData.length, nc).setValues(newData);
 }
 
-// onChange トリガーハンドラ（列削除・並び替えを検知して復元）
+// onChange トリガーハンドラ（列削除・並び替え・シート追加削除を検知して復元）
 function dispatchStructureChange(e) {
   try {
     var ct = e.changeType;
-    if (['INSERT_ROW','REMOVE_ROW','INSERT_GRID','REMOVE_GRID'].indexOf(ct) !== -1) return;
+    if (['INSERT_ROW','REMOVE_ROW'].indexOf(ct) !== -1) return;
     var cache = CacheService.getScriptCache();
     if (cache.get('__structureRestoring')) return;
     cache.put('__structureRestoring', '1', 60);
     try {
       var ss = e.source;
+
+      // 必須シートが削除されたら _BK_ から全データを即復元
+      if (ct === 'REMOVE_GRID') {
+        var reqNames = ['運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定'];
+        var curNames = [];
+        var allSheets = ss.getSheets();
+        for (var si = 0; si < allSheets.length; si++) {
+          try { curNames.push(allSheets[si].getName()); } catch(e2) {}
+        }
+        for (var ri = 0; ri < reqNames.length; ri++) {
+          try {
+            var rname = reqNames[ri];
+            if (curNames.indexOf(rname) !== -1) continue;
+            if (ss.getSheetByName(rname)) continue;
+            var bk = ss.getSheetByName('_BK_' + rname);
+            var newSheet = ss.insertSheet(rname);
+            if (bk && bk.getLastRow() > 0) {
+              var lr = bk.getLastRow(), lc = bk.getLastColumn();
+              var data = bk.getRange(1, 1, lr, lc).getValues();
+              if (newSheet.getMaxRows() < lr) newSheet.insertRowsAfter(newSheet.getMaxRows(), lr - newSheet.getMaxRows());
+              if (newSheet.getMaxColumns() < lc) newSheet.insertColumnsAfter(newSheet.getMaxColumns(), lc - newSheet.getMaxColumns());
+              newSheet.getRange(1, 1, lr, lc).setValues(data);
+            }
+            ss.toast('「' + rname + '」は削除できません。元に戻しました', '🔄', 5);
+          } catch(e2) {}
+        }
+        return;
+      }
+
+      // ユーザーが追加した不正なシートを即削除
+      if (ct === 'INSERT_GRID') {
+        var allowed = [
+          '運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定','メモ',
+          '使い方','説明書','配車板','距離マスタ','受領書_耳',
+          'PL','PL設定','仕訳表','監査用','自社設定','管理者',
+          '請求書','支払確認書','サポート','_ErrorLog_'
+        ];
+        var curSheets = ss.getSheets();
+        for (var ci = 0; ci < curSheets.length; ci++) {
+          try {
+            var sh = curSheets[ci];
+            var sname = sh.getName();
+            if (sname.indexOf('_BK_') === 0) continue;
+            if (sname.indexOf('__') === 0) continue;
+            if (allowed.indexOf(sname) !== -1) continue;
+            ss.deleteSheet(sh);
+            ss.toast('シートの追加はできません', '🚫', 4);
+          } catch(e2) {}
+        }
+        return;
+      }
+
+      // 列並び替え・削除を検知して復元
       var restored = false;
       var names = ['運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定'];
       names.forEach(function(name) {
@@ -3903,6 +3959,7 @@ function expandAndRefreshSheets() {
 
   applyHolidayRowColors_();
   refreshJohoColors_(ss);
+  if (!ss.getSheetByName('メモ')) ss.insertSheet('メモ');
   SpreadsheetApp.getUi().alert('シート再生成が完了しました。');
 }
 
@@ -6976,8 +7033,19 @@ function createUsageSheet() {
   sheet.setColumnWidth(3, 420);
   sheet.setColumnWidth(4, 20);
 
-  var row = 1;
+  var sheetId = sheet.getSheetId();
+  var TOC_ROWS = 13;
+  var row = TOC_ROWS + 1;
+  var sections = [];
+
+  function mainTitle(text, bg) {
+    sheet.getRange(row,1,1,4).merge().setValue(text)
+      .setBackground(bg||'#1a237e').setFontColor('#fff')
+      .setFontSize(15).setFontWeight('bold').setVerticalAlignment('middle');
+    sheet.setRowHeight(row, 44); row++;
+  }
   function title(text, bg) {
+    sections.push({ label: text.trim().replace(/^　+|　+$/g, ''), row: row });
     sheet.getRange(row,1,1,4).merge().setValue(text)
       .setBackground(bg||'#1a237e').setFontColor('#fff')
       .setFontSize(15).setFontWeight('bold').setVerticalAlignment('middle');
@@ -7005,7 +7073,7 @@ function createUsageSheet() {
   function sp() { sheet.setRowHeight(row, 10); row++; }
 
   // ─── タイトル ───────────────────────────────
-  title('　運行管理システム　使い方ガイド', '#1a237e');
+  mainTitle('　運行管理システム　使い方ガイド', '#1a237e');
   sp();
 
   // ─── PART 1: 初回セットアップ ───────────────
@@ -7131,7 +7199,7 @@ function createUsageSheet() {
   item('🔄 メニュー再生成',
     'メニューバーが消えた時に押します\n（または F5 でページ更新でも再表示されます）', '#cfd8dc');
   item('🗂 シート再生成',
-    '全シートのヘッダー・列構成を最新に整備します\n列がズレた・消えた場合もここで修復できます', '#cfd8dc');
+    '全シートのヘッダー・列構成を最新に整備します\n列がズレた・消えた場合もここで修復できます\nメモシートがない場合は自動作成します（既存の内容は消えません）', '#cfd8dc');
   item('📃 集計表再生成',
     '集計表の内容が運行シートとずれた時に使います\n運行シートから全件再計算します', '#cfd8dc');
   item('🛡 シート保護設定',
@@ -7140,12 +7208,24 @@ function createUsageSheet() {
     '全シートの保護を一時解除します\n解除後は再度「シート保護設定」を実行してください', '#cfd8dc');
   item('📖 使い方シート作成',
     'この使い方シートを最新状態で再作成します', '#cfd8dc');
-  item('📘 説明書作成',
-    'システムの詳細仕様・設計方針・計算ルールを記載した説明書を作成します', '#cfd8dc');
   item('🔄 バックアップから復旧',
     '過去のデータを復旧します\n毎日深夜3時に自動バックアップ → 最大30日前まで戻せます\n①修正用SS：会社を選んで日付を選択 → 各客SS：そのSSの復旧日を選択して実行\n※ 現在のデータは上書きされます', '#cfd8dc');
   item('🗾 距離マスタ 主要地データ投入',
     '都市間距離の初期データを投入します\n初回のみ実行してください', '#cfd8dc');
+  sp();
+
+  // ─── シートの操作ルール ──────────────────────
+  title('　【シートの操作ルール】 メモ・追加・削除', '#37474f');
+  sp();
+  section('シートについての注意事項', '#455a64');
+  item('📌 メモシート',
+    '「メモ」シートは自由に書き込めるメモ用シートです\n初期設定・シート再生成後も書いた内容は消えません', '#cfd8dc');
+  item('🚫 シートの追加',
+    'システムにないシートを追加しようとすると自動で削除されます\n「シートの追加はできません」というメッセージが出ます', '#cfd8dc');
+  item('🔄 必須シートの削除',
+    '運行・集計表・自車専属マスタ・自車専属運行・マスタ・設定の6枚は削除できません\n削除しようとしても1〜3秒で全データごと自動で元に戻ります\n「「○○」は削除できません。元に戻しました」というメッセージが出ます', '#cfd8dc');
+  item('✅ 削除してよいシート',
+    '請求書・支払確認書・使い方・監査用・PL・PL設定・受領書_耳・距離マスタなどは削除OKです\nメニューから再生成できます', '#cfd8dc');
   sp();
 
   // ─── PART 9: ドライバー（アプリ） ───────────
@@ -7196,6 +7276,22 @@ function createUsageSheet() {
     .setHorizontalAlignment('center');
   sheet.setRowHeight(row, 28);
 
+  // ─── 目次を先頭に書き込む ────────────────────
+  sheet.getRange(1,1,1,4).merge().setValue('📋　目次（クリックで各セクションへ移動）')
+    .setBackground('#1a237e').setFontColor('#fff')
+    .setFontSize(13).setFontWeight('bold').setHorizontalAlignment('center');
+  sheet.setRowHeight(1, 36);
+  sheet.setRowHeight(2, 6);
+  for (var ti = 0; ti < sections.length && ti + 3 <= TOC_ROWS - 1; ti++) {
+    var tr = ti + 3;
+    sheet.getRange(tr,2,1,2).merge()
+      .setFormula('=HYPERLINK("#gid=' + sheetId + '&range=A' + sections[ti].row + '","  ▷  ' + sections[ti].label + '")')
+      .setFontColor('#1565c0').setFontSize(11)
+      .setBackground('#e8f0fe').setVerticalAlignment('middle');
+    sheet.setRowHeight(tr, 30);
+  }
+  sheet.setRowHeight(TOC_ROWS, 8);
+
   sheet.setFrozenRows(0);
   sheet.setTabColor('#ffd600');
   ui.alert('「使い方」シートを作成しました。');
@@ -7218,8 +7314,19 @@ function createManualSheet() {
   sheet.setColumnWidth(3, 460);
   sheet.setColumnWidth(4, 20);
 
-  var row = 1;
+  var sheetId = sheet.getSheetId();
+  var TOC_ROWS = 11;
+  var row = TOC_ROWS + 1;
+  var sections = [];
+
+  function mainTitle(text, bg) {
+    sheet.getRange(row,1,1,4).merge().setValue(text)
+      .setBackground(bg||'#1a237e').setFontColor('#fff')
+      .setFontSize(15).setFontWeight('bold').setVerticalAlignment('middle');
+    sheet.setRowHeight(row, 44); row++;
+  }
   function title(text, bg) {
+    sections.push({ label: text.trim().replace(/^　+|　+$/g, ''), row: row });
     sheet.getRange(row,1,1,4).merge().setValue(text)
       .setBackground(bg||'#1a237e').setFontColor('#fff')
       .setFontSize(15).setFontWeight('bold').setVerticalAlignment('middle');
@@ -7246,7 +7353,7 @@ function createManualSheet() {
   }
   function sp() { sheet.setRowHeight(row, 10); row++; }
 
-  title('　運行管理システム　詳細説明書', '#1a237e');
+  mainTitle('　運行管理システム　詳細説明書', '#1a237e');
   sp();
 
   // ── 1. システム概要 ───────────────────────────
@@ -7331,8 +7438,17 @@ function createManualSheet() {
   item('列削除・並び替えの自動復元',
     '「🔧 初期設定」を実行後、列を誤って削除・並び替えした場合でも自動で元の列順に戻します\nバックアップシート（_BK_シート名）にデータを毎回保存しているため、削除された列のデータも含めて復元します', '#e0f7fa');
   item('シート再生成での復元',
-    '「🗂 シート再生成」を押すと、ズレた列をデータごと正規位置に戻してからヘッダーを再設定します\n自動復元が動かない場合の手動修復としても使えます', '#e0f7fa');
+    '「🗂 シート再生成」を押すと、ズレた列をデータごと正規位置に戻してからヘッダーを再設定します\n自動復元が動かない場合の手動修復としても使えます\nメモシートがない場合は空のシートを新規作成します（既存の内容は消えません）', '#e0f7fa');
   warn('「初期設定」を押す前は自動復元が動きません。新しいSSを開いたら必ず初期設定を実行してください');
+  sp();
+
+  section('シートの追加・削除防止', '#00838f');
+  item('必須シート削除の自動復元',
+    '運行・集計表・自車専属マスタ・自車専属運行・マスタ・設定の6シートはonChangeトリガー（REMOVE_GRID）で削除を検知し、_BK_バックアップから全データを即復元します\n_BK_シートは①SSを開くたびに全件上書き＋行編集のたびに該当行をリアルタイム更新するため常に最新状態です\nメッセージ：「「〇〇」は削除できません。元に戻しました」', '#e0f7fa');
+  item('シート追加の防止',
+    '許可リスト外のシートが追加されると、onChangeトリガー（INSERT_GRID）が即削除します\n許可シート：運行・集計表・自車専属マスタ・自車専属運行・マスタ・設定・メモ・使い方・説明書・配車板・請求書・支払確認書・監査用・PL・PL設定・仕訳表・距離マスタ・自社設定・管理者・受領書_耳・_ErrorLog_\nパターン許可：_BK_で始まるシート・__で始まるシート（システム内部用マーカー）\nメッセージ：「シートの追加はできません」', '#e0f7fa');
+  item('メモシート',
+    '各客SSに「メモ」シートを1枚自動作成します（初回はinitClientSSSheets_・以降はexpandAndRefreshSheetsで作成）\n既存のメモシートがある場合はgetSheetByNameで存在確認→insertSheetをスキップするため内容は消えません\n許可リストにも含まれているためシート追加防止の対象外', '#e0f7fa');
   sp();
 
   section('外部バックアップ（Driveへの自動保存）', '#00838f');
@@ -7385,9 +7501,238 @@ function createManualSheet() {
     .setHorizontalAlignment('center');
   sheet.setRowHeight(row, 28);
 
+  // ─── 目次を先頭に書き込む ────────────────────
+  sheet.getRange(1,1,1,4).merge().setValue('📋　目次（クリックで各セクションへ移動）')
+    .setBackground('#1a237e').setFontColor('#fff')
+    .setFontSize(13).setFontWeight('bold').setHorizontalAlignment('center');
+  sheet.setRowHeight(1, 36);
+  sheet.setRowHeight(2, 6);
+  for (var ti = 0; ti < sections.length && ti + 3 <= TOC_ROWS - 1; ti++) {
+    var tr = ti + 3;
+    sheet.getRange(tr,2,1,2).merge()
+      .setFormula('=HYPERLINK("#gid=' + sheetId + '&range=A' + sections[ti].row + '","  ▷  ' + sections[ti].label + '")')
+      .setFontColor('#1565c0').setFontSize(11)
+      .setBackground('#e8eaf6').setVerticalAlignment('middle');
+    sheet.setRowHeight(tr, 30);
+  }
+  sheet.setRowHeight(TOC_ROWS, 8);
+
   sheet.setFrozenRows(0);
   sheet.setTabColor('#5c6bc0');
   ui.alert('「説明書」シートを作成しました。');
+}
+
+
+// ================================================================
+//  11-8: サポートテンプレートシート作成（createSupportSheet）
+//  問い合わせ対応の返信テンプレと管理者向けFAQを一覧化。
+//  M&A引き継ぎ資料兼サポート運用マニュアルとして機能する。
+// ================================================================
+function createSupportSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui = SpreadsheetApp.getUi();
+  var sheet = ss.getSheetByName('サポート');
+  if (sheet) { ss.deleteSheet(sheet); }
+  sheet = ss.insertSheet('サポート');
+  ss.setActiveSheet(sheet);
+
+  sheet.setColumnWidth(1, 20);
+  sheet.setColumnWidth(2, 240);
+  sheet.setColumnWidth(3, 500);
+  sheet.setColumnWidth(4, 20);
+
+  var row = 1;
+  function title(text, bg) {
+    sheet.getRange(row,1,1,4).merge().setValue(text)
+      .setBackground(bg||'#1b5e20').setFontColor('#fff')
+      .setFontSize(14).setFontWeight('bold').setVerticalAlignment('middle');
+    sheet.setRowHeight(row, 40); row++;
+  }
+  function section(text, bg) {
+    sheet.getRange(row,2,1,2).merge().setValue('▶ '+text)
+      .setBackground(bg||'#2e7d32').setFontColor('#fff')
+      .setFontSize(12).setFontWeight('bold');
+    sheet.setRowHeight(row, 30); row++;
+  }
+  function item(label, val, bg) {
+    sheet.getRange(row,2).setValue(label)
+      .setBackground(bg||'#e8f5e9').setFontSize(11).setFontWeight('bold')
+      .setVerticalAlignment('top').setWrap(true);
+    sheet.getRange(row,3).setValue(val)
+      .setFontSize(11).setVerticalAlignment('top').setWrap(true);
+    sheet.setRowHeight(row, 90); row++;
+  }
+  function note(text) {
+    sheet.getRange(row,2,1,2).merge().setValue('💡 '+text)
+      .setBackground('#fff9c4').setFontSize(10).setFontColor('#5d4037').setWrap(true);
+    sheet.setRowHeight(row, 32); row++;
+  }
+  function sp() { sheet.setRowHeight(row, 8); row++; }
+
+  // ─── タイトル ─────────────────────────────────
+  title('　サポート返信テンプレート ／ 運用マニュアル', '#1b5e20');
+  sp();
+
+  // ─── 1. 問い合わせ受付テンプレ ─────────────────
+  section('問い合わせ受付・基本テンプレ', '#2e7d32');
+  item('📬 受付完了返信',
+    '件名：【受付完了】お問い合わせありがとうございます\n\n' +
+    '○○様\n\n' +
+    'お問い合わせいただきありがとうございます。\n' +
+    '内容を確認のうえ、1〜2営業日以内にご返信いたします。\n\n' +
+    'しばらくお待ちいただけますと幸いです。\n\n' +
+    '引き続きよろしくお願いいたします。', '#c8e6c9');
+  item('✅ 解決済み確認返信',
+    '件名：Re: 【解決確認】○○について\n\n' +
+    '○○様\n\n' +
+    'ご確認いただきありがとうございます。\n' +
+    '問題が解決されたとのこと、安心いたしました。\n\n' +
+    '引き続きご不明な点がございましたら、いつでもご連絡ください。\n' +
+    'どうぞよろしくお願いいたします。', '#c8e6c9');
+  item('⏳ 対応中返信',
+    '件名：Re: ○○について（対応中）\n\n' +
+    '○○様\n\n' +
+    'お問い合わせありがとうございます。\n' +
+    'ただいま内容を確認・対応中です。\n' +
+    '今しばらくお待ちいただけますでしょうか。\n\n' +
+    '進捗があり次第、改めてご連絡いたします。', '#c8e6c9');
+  sp();
+
+  // ─── 2. アプリ系トラブル ────────────────────────
+  title('　アプリ系トラブル', '#0d47a1');
+  sp();
+  section('アプリ接続・表示', '#1565c0');
+  item('🔴 アプリが開かない・真っ白',
+    '【原因】ブラウザのキャッシュ、通信不安定、URLの開き方\n\n' +
+    '【確認手順】\n' +
+    '① ホーム画面のアイコンから開いているか確認（ブラウザURL直打ち不可）\n' +
+    '② 一度アプリを完全に閉じて再起動\n' +
+    '③ Wi-Fi・モバイル通信を切り替えて再試行\n\n' +
+    '【返信テンプレ】\n' +
+    'ご不便をおかけしております。\n' +
+    '以下をお試しください。\n' +
+    '① ホーム画面のアイコンから開く（ブラウザのURL欄から直接入力しない）\n' +
+    '② アプリを完全に閉じてから再起動する\n' +
+    '③ Wi-Fi／モバイル通信を切り替えて再試行する\n' +
+    '上記で解決しない場合は再度ご連絡ください。', '#bbdefb');
+  item('🔴 ログインできない・別の画面が出る',
+    '【原因】URLが古い、アドレス紐づけ未完了\n\n' +
+    '【確認手順】\n' +
+    '① 最新のアプリURLを案内（再送する）\n' +
+    '② アドレス紐づけが完了しているか確認\n\n' +
+    '【返信テンプレ】\n' +
+    'ご不便をおかけしております。\n' +
+    '最新のアプリURLを再度お送りします。\n' +
+    '（URLをここに貼り付け）\n\n' +
+    'ホーム画面に追加し直してからお試しください。\n' +
+    'アドレスの紐づけ画面が出た場合は、GmailアドレスをそのままEへ入力してください。', '#bbdefb');
+  item('🟡 入力したデータが表示されない',
+    '【原因】画面の更新が必要、通信遅延（最大2〜3分）\n\n' +
+    '【確認手順】\n' +
+    '① 画面を下に引っ張ってリフレッシュ\n' +
+    '② 2〜3分待ってから再確認\n\n' +
+    '【返信テンプレ】\n' +
+    '画面を下に引っ張って更新してみてください。\n' +
+    'それでも表示されない場合は、2〜3分待ってから再度ご確認ください。\n' +
+    'データは正常に保存されていることがほとんどですのでご安心ください。', '#bbdefb');
+  sp();
+
+  // ─── 3. スプレッドシート系トラブル ─────────────
+  title('　スプレッドシート系トラブル', '#4a148c');
+  sp();
+  section('集計・シート操作', '#6a1b9a');
+  item('🟡 集計の数字がおかしい',
+    '【原因】集計表が最新データと同期されていない\n\n' +
+    '【対応手順】\n' +
+    'メニュー「運行管理」→「集計表を更新する」を実行\n\n' +
+    '【返信テンプレ】\n' +
+    'スプレッドシートのメニューから\n' +
+    '「運行管理」→「集計表を更新する」\n' +
+    'を実行してみてください。最新データに更新されます。\n' +
+    'それでも解決しない場合は詳細をお知らせください。', '#e1bee7');
+  item('🟡 メニューが消えた',
+    '【原因】スプレッドシートをリロードしていない\n\n' +
+    '【対応手順】\n' +
+    'F5キー（または画面更新ボタン）でページを再読み込み\n\n' +
+    '【返信テンプレ】\n' +
+    'F5キーでページを更新するとメニューが戻ります。\n' +
+    '更新しても出ない場合は「拡張機能」→「Apps Script」の実行権限を確認してください。', '#e1bee7');
+  item('🔴 シートの列がズレた・消えた',
+    '【原因】誤操作で列を移動・削除\n\n' +
+    '【対応手順】\n' +
+    '① メニュー「⚙️ システム設定・保守」→「🗂 シート再生成」を実行\n' +
+    '② データは消えず、列構成のみ修復される\n\n' +
+    '【返信テンプレ】\n' +
+    'メニューの「⚙️ システム設定・保守」→「🗂 シート再生成」\n' +
+    'を実行してください。データはそのままで列の並びが元に戻ります。', '#e1bee7');
+  item('🔴 シートを誤って消してしまった',
+    '【原因】必須シートを削除（自動復元済みのはず）\n\n' +
+    '【確認手順】\n' +
+    '① 自動復元されているか確認（1〜3秒で戻るはず）\n' +
+    '② 自動復元されていない場合はバックアップから復旧\n' +
+    '③ メニュー「🔄 バックアップ・復旧」→「🔄 バックアップから復旧」\n\n' +
+    '【返信テンプレ】\n' +
+    '必須シートは自動的に元に戻ります（1〜3秒）。\n' +
+    '戻っていない場合はメニューの「🔄 バックアップから復旧」で復元できます。\n' +
+    '対応が難しい場合は遠隔でサポートします。ご連絡ください。', '#e1bee7');
+  sp();
+
+  // ─── 4. メール・通知系トラブル ──────────────────
+  title('　メール・通知系トラブル', '#e65100');
+  sp();
+  section('メール送受信', '#ef6c00');
+  item('🟡 指示書・車番連絡のメールが届かない（受信側）',
+    '【原因】迷惑メールフォルダ振り分け、メールアドレス誤登録\n\n' +
+    '【確認手順】\n' +
+    '① 受信者に迷惑メールフォルダを確認してもらう\n' +
+    '② マスタシートのメールアドレスに誤りがないか確認\n\n' +
+    '【返信テンプレ】\n' +
+    '迷惑メールフォルダをご確認いただけますか？\n' +
+    'そちらにも届いていない場合は、登録メールアドレスを確認しますので\n' +
+    '正しいアドレスをお知らせください。', '#ffe0b2');
+  item('🔴 指示書・車番連絡が送信できない（送信側）',
+    '【原因】マスタにメールアドレス未登録、GmailのAPI制限\n\n' +
+    '【確認手順】\n' +
+    '① マスタ（取引先）シートにメールアドレスが登録されているか確認\n' +
+    '② 1日の送信上数（Gmail: 500通/日）に達していないか確認\n\n' +
+    '【返信テンプレ】\n' +
+    'マスタ（取引先）シートにメールアドレスが登録されているかご確認ください。\n' +
+    '登録済みの場合は送信ログをこちらで確認しますので、\n' +
+    'いつ・誰に送ろうとしたかをお知らせください。', '#ffe0b2');
+  sp();
+
+  // ─── 5. 対応チェックリスト ──────────────────────
+  title('　問い合わせ対応チェックリスト', '#37474f');
+  sp();
+  section('対応フロー', '#455a64');
+  item('① 受付確認',
+    '□ 問い合わせ内容を正確に把握した\n' +
+    '□ 受付完了の返信を送った\n' +
+    '□ 緊急度を判断した（業務に支障あり？）', '#cfd8dc');
+  item('② 一次対応（自己解決できるか確認）',
+    '□ 上記テンプレで解決できる内容か\n' +
+    '□ アプリ系 → 再起動・URL確認を案内\n' +
+    '□ シート系 → シート再生成・集計更新を案内\n' +
+    '□ メール系 → 迷惑メール・アドレス確認を案内', '#cfd8dc');
+  item('③ 二次対応（解決しない場合）',
+    '□ スプレッドシートへのアクセス権をもらって直接確認\n' +
+    '□ バックアップから復旧が必要かを判断\n' +
+    '□ コード修正が必要な場合はバグとして記録', '#cfd8dc');
+  item('④ クローズ確認',
+    '□ 解決済み確認の返信を送った\n' +
+    '□ 同じ問い合わせが繰り返される場合は使い方シートのFAQに追記', '#cfd8dc');
+  sp();
+
+  // フッター
+  sheet.getRange(row,1,1,4).merge()
+    .setValue('メニュー →「⚙️ システム設定・保守」→「📋 サポートテンプレ作成」で最新版に更新できます')
+    .setBackground('#263238').setFontColor('#546e7a').setFontSize(10)
+    .setHorizontalAlignment('center');
+  sheet.setRowHeight(row, 28);
+
+  sheet.setFrozenRows(0);
+  sheet.setTabColor('#4caf50');
+  ui.alert('「サポート」シートを作成しました。');
 }
 
 
@@ -8030,12 +8375,13 @@ function initClientSSSheets_(ss, companyName) {
   if (!marker.isSheetHidden()) marker.hideSheet();
 
   // 不要シートを削除（取引先マスタ・会社登録・Sheet1 等）
-  var validNames = ['運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定','__COMPANY_SS__'];
+  var validNames = ['運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定','__COMPANY_SS__','メモ'];
   ss.getSheets().forEach(function(s) {
     if (validNames.indexOf(s.getName()) === -1 && ss.getSheets().length > 1) {
       try { ss.deleteSheet(s); } catch(e) {}
     }
   });
+  if (!ss.getSheetByName('メモ')) ss.insertSheet('メモ');
 
   // 自車専属マスタの各行に運行状態に応じた背景色を付ける（onEditは発火しないので手動で実行）
   var mLastRow = masterSheet.getLastRow();
@@ -8739,7 +9085,9 @@ function processNewCompany_(companyName, adminEmail) {
 
 // ================================================================
 //  12-4b: 契約書同意処理（agreeContract）  【大B / 中12 / 小12-4b】
-//  contract.html の「同意する」ボタンから google.script.run で呼ばれる。
+//  doGet(?action=agree) から呼ばれる。google.script.runは使用しない（Googleセキュリティ通知回避のため）。
+//  masterSsId はURLパラメータに含めず PropertiesService から取得する（URL機密情報除去のため）。
+//  adminEmail はURLパラメータに含めず会社登録シートのB列から取得する（同上）。
 //  ① 会社登録シートのJ列(10)に同意時刻を記録・C列を「同意済」に更新
 //  ② 管理Gmail宛にSS URLとアプリURLをメール送信
 //  ③ H列(8)に送信済ステータスを記録
