@@ -92,16 +92,10 @@
 
   function doAgree() {
     if (!document.getElementById('agreeCheck').checked) return;
-    var btn = document.getElementById('agreeBtn');
-    btn.disabled = true;
-    document.getElementById('loadingMsg').style.display = 'block';
-    var base = location.href.split('?')[0];
-    window.location.href = base +
-      '?action=agree' +
-      '&agreed=true' +
-      '&ssId='    + encodeURIComponent(SSID) +
-      '&company=' + encodeURIComponent(COMPANY_NAME) +
-      '&row='     + encodeURIComponent(CONTRACT_ROW);
+    document.getElementById('agreeBtn').disabled = true;
+    document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('doneContent').style.display = 'block';
+    google.script.run.agreeContract(SSID, COMPANY_NAME, '', CONTRACT_ROW, '');
   }
 </script>
 </body>

@@ -184,7 +184,16 @@
       "Bash(ls C:/SSS/project-blog-fixed/)",
       "Read(//c/SSS/project-blog-fixed/**)",
       "Bash(ls C:/SSS/)",
-      "Read(//c/SSS/**)"
+      "Read(//c/SSS/**)",
+      "PowerShell(Set-Location c:\\\\gas\\\\unko2-kanri; powershell -ExecutionPolicy Bypass -File deploy.ps1)",
+      "PowerShell(Stop-Process -Name powershell -ErrorAction SilentlyContinue)",
+      "PowerShell(exit 0)",
+      "Bash(git -C \"c:\\\\gas\\\\unko2-kanri\" log --oneline --all)",
+      "Bash(python -c \"import sys; data=sys.stdin.read\\(\\); print\\(data[:5000]\\)\")",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import sys; print\\(sys.stdin.read\\(\\)[:3000]\\)\")",
+      "Bash(grep -la \"返信.*雛形\\\\|雛形.*返信\\\\|よくある質問\\\\|FAQ\\\\|サポートテンプレ\" \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\\"*.jsonl 2>/dev/null)",
+      "Read(//c/Users/OWNER/.claude/projects/**)"
     ]
   }
 }

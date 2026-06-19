@@ -8866,6 +8866,17 @@ function processNewCompany_(companyName, adminEmail) {
       (targetRow > 0 ? '&row=' + targetRow : '');
   }
 
+  // 客SSにmasterSsIdとcontractRowを保存（doGetのaction=agreeで①②どちらからでも正しいSSを特定するため）
+  if (ssId && targetRow > 0 && masterSsId_) {
+    try {
+      var metaClientSs_ = SpreadsheetApp.openById(ssId);
+      var metaSheet_ = metaClientSs_.getSheetByName('__AGREE_META__') || metaClientSs_.insertSheet('__AGREE_META__');
+      metaSheet_.getRange(1, 1).setValue(masterSsId_);
+      metaSheet_.getRange(1, 2).setValue(targetRow);
+      if (!metaSheet_.isSheetHidden()) metaSheet_.hideSheet();
+    } catch(e_) {}
+  }
+
   // ⑤ 会社登録シートに記録
   if (targetRow > 0) {
     regSheet.getRange(targetRow, 3).setValue('契約書送信済').setBackground('#fff9c4').clearNote();
@@ -8926,7 +8937,23 @@ function processNewCompany_(companyName, adminEmail) {
 //  ③ H列(8)に送信済ステータスを記録
 // ================================================================
 function agreeContract(ssId, companyName, adminEmail, contractRow, masterSsIdParam) {
-  var masterSsId = masterSsIdParam || PropertiesService.getScriptProperties().getProperty('masterSsId');
+  var masterSsId = masterSsIdParam || '';
+
+  // 客SSの__AGREE_META__シートからmasterSsIdとcontractRowを取得（①doGet経由時はScript Propertiesが違うSSを指すため）
+  if (!masterSsId && ssId) {
+    try {
+      var agreeMetaSs_ = SpreadsheetApp.openById(ssId);
+      var agreeMetaSheet_ = agreeMetaSs_.getSheetByName('__AGREE_META__');
+      if (agreeMetaSheet_) {
+        masterSsId = String(agreeMetaSheet_.getRange(1, 1).getValue() || '');
+        var metaRow_ = String(agreeMetaSheet_.getRange(1, 2).getValue() || '');
+        if (metaRow_ && (!contractRow || contractRow === '')) contractRow = metaRow_;
+      }
+    } catch(e_) {}
+  }
+
+  // フォールバック: Script Propertiesから取得
+  if (!masterSsId) masterSsId = PropertiesService.getScriptProperties().getProperty('masterSsId');
   if (!masterSsId) throw new Error('マスターSSが見つかりません');
 
   var ss = SpreadsheetApp.openById(masterSsId);
@@ -8990,13 +9017,23 @@ function agreeContract(ssId, companyName, adminEmail, contractRow, masterSsIdPar
     regSheet.getRange(row, 8).setValue('送信済(' + now + ')').setBackground('#c8e6c9');
   }
 
-  // 同意後にSSとフォルダを共有（Drive通知はここで初めて届く）
+  // 同意後にSSとフォルダを共有（Drive通知メールなし）
   if (ssId && adminEmail) {
     try {
-      var sharedFile = DriveApp.getFileById(ssId);
-      sharedFile.addEditor(adminEmail);
-      var pi = sharedFile.getParents();
-      if (pi.hasNext()) { pi.next().addEditor(adminEmail); }
+      var oauthToken_  = ScriptApp.getOAuthToken();
+      var reqHeaders_  = { Authorization: 'Bearer ' + oauthToken_, 'Content-Type': 'application/json' };
+      var permPayload_ = JSON.stringify({ role: 'writer', type: 'user', emailAddress: adminEmail });
+      UrlFetchApp.fetch(
+        'https://www.googleapis.com/drive/v3/files/' + ssId + '/permissions?sendNotificationEmail=false',
+        { method: 'post', headers: reqHeaders_, payload: permPayload_, muteHttpExceptions: true }
+      );
+      var parentIter_ = DriveApp.getFileById(ssId).getParents();
+      if (parentIter_.hasNext()) {
+        UrlFetchApp.fetch(
+          'https://www.googleapis.com/drive/v3/files/' + parentIter_.next().getId() + '/permissions?sendNotificationEmail=false',
+          { method: 'post', headers: reqHeaders_, payload: permPayload_, muteHttpExceptions: true }
+        );
+      }
     } catch(e) {}
   }
 
