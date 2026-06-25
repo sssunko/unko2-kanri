@@ -1061,6 +1061,18 @@ function goHome() {
   showScreen('home', '');
   document.getElementById('screenName').style.display = 'none';
 }
+function nowHHmm() {
+  var n = new Date();
+  return ('0'+n.getHours()).slice(-2) + ':' + ('0'+n.getMinutes()).slice(-2);
+}
+function showTimeToast(msg) {
+  var t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(40,40,40,0.93);color:#fff;padding:10px 24px;border-radius:24px;font-size:17px;font-weight:bold;z-index:9999;white-space:nowrap;opacity:0;transition:opacity 0.25s;';
+  t.innerText = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(function() { t.style.opacity = '1'; });
+  setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { if (t.parentNode) t.parentNode.removeChild(t); }, 300); }, 2500);
+}
 function toggleCrewInfo() {
   var body = document.getElementById('crewInfoBody');
   var arrow = document.getElementById('crewInfoArrow');
@@ -1411,6 +1423,7 @@ function restStart() {
 //  C-15: 休憩終了（restEnd）
 // ============================================================
 function restEnd() {
+  showTimeToast(nowHHmm() + ' 休憩終了');
   var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
   phase='inspAfter'; inspAfterDone=new Array(inspAfterItems.length).fill(false); showInspScreen('after');
   if (runId) {
@@ -1492,6 +1505,7 @@ function inspComplete() {
     if (runId) { google.script.run.recordAction('inspBefore', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
     else        { _pendingActions.push({type:'inspBefore', idx:0}); }
   } else {
+    showTimeToast(nowHHmm() + ' 点呼後完了');
     phase = 'drop'; showDropScreen();
     if (runId) { google.script.run.recordAction('inspAfter', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
     else        { _pendingActions.push({type:'inspAfter', idx:0}); }
@@ -1560,6 +1574,7 @@ function showDropScreen() {
 //  GASの完了を待たずにすぐ画面を更新する
 // ============================================================
 function selectDrop(i) {
+  showTimeToast(nowHHmm() + ' 行程' + (i + 1) + ' 降完');
   dropDone[i] = true;
   dropHistory.push(i);
   showDropScreen();

@@ -195,7 +195,10 @@
       "Bash(grep -la \"返信.*雛形\\\\|雛形.*返信\\\\|よくある質問\\\\|FAQ\\\\|サポートテンプレ\" \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\\"*.jsonl 2>/dev/null)",
       "Read(//c/Users/OWNER/.claude/projects/**)",
       "Bash(node deploy.js \"経費列・給料・日付列のフォーマット修正（#,##0・yyyy/MM/dd）\")",
-      "Bash(node deploy.js \"配車板 列ズレ修復関数追加・移行コードの誤実行防止\")"
+      "Bash(node deploy.js \"配車板 列ズレ修復関数追加・移行コードの誤実行防止\")",
+      "Bash(node deploy.js \"休憩終了・点呼後・降完ボタンに時刻トースト表示\")",
+      "Bash(xargs '-I{}' sh -c 'hash=$\\(echo {} | cut -d\" \" -f1\\); git show \"$hash\" -- \"index.html\" | grep \"^[+-]\" | grep -v \"^---\\\\|^+++\" | grep -q \"時刻\\\\|toast\\\\|restEnd.*time\\\\|時刻表示\" && echo \"{}\"')",
+      "Bash(grep -v \"^.*//.*col\\\\|var col\")"
     ]
   }
 }
