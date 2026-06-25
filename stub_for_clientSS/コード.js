@@ -113,6 +113,7 @@ function generatePaymentSheet(a,b,c,d,e) { return UnkouLib.generatePaymentSheet(
 // ── 情報シート・配車確定 ──────────────────────────────────────────────
 function matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispatch(); }
 function cancelDispatch()               { return UnkouLib.cancelDispatch(); }
+function repairJohoSheet()              { return UnkouLib.repairJohoSheet(); }
 function generateAuditSheet()           { return UnkouLib.generateAuditSheet(); }
 function checkMasterExpiries()          { return UnkouLib.checkMasterExpiries(); }
 function showDispatchDashboard()        { return UnkouLib.showDispatchDashboard(); }
