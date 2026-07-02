@@ -81,9 +81,9 @@
 
 </div>
 <script>
-  var SSID         = '<?= companySsId ?>';
-  var COMPANY_NAME = '<?= companyName ?>';
-  var CONTRACT_ROW = '<?= contractRow ?>';
+  var SSID         = <?!= JSON.stringify(companySsId).replace(/</g, '\\u003c') ?>;
+  var COMPANY_NAME = <?!= JSON.stringify(companyName).replace(/</g, '\\u003c') ?>;
+  var CONTRACT_ROW = <?!= JSON.stringify(contractRow).replace(/</g, '\\u003c') ?>;
 
   function toggleBtn() {
     var checked = document.getElementById('agreeCheck').checked;

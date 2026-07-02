@@ -3312,6 +3312,7 @@ function showDateTimePicker() {
     ? Utilities.formatDate(val, 'Asia/Tokyo', "yyyy-MM-dd'T'HH:mm")
     : '';
   var colName = sheet.getRange(1, cell.getColumn()).getValue() || ('列' + cell.getColumn());
+  var safeColName = String(colName).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   var cellAddr = cell.getA1Notation();
 
   var html = HtmlService.createHtmlOutput(
@@ -3323,7 +3324,7 @@ function showDateTimePicker() {
     'button{padding:8px 18px;font-size:14px;border:none;border-radius:6px;cursor:pointer;margin-right:8px}' +
     '.ok{background:#1976d2;color:#fff}.cl{background:#555;color:#fff}' +
     '</style></head><body>' +
-    '<label>📍 セル: ' + cellAddr + ' （' + colName + '）</label>' +
+    '<label>📍 セル: ' + cellAddr + ' （' + safeColName + '）</label>' +
     '<label>日時を選択してください</label>' +
     '<input type="datetime-local" id="dt" value="' + cur + '">' +
     '<div><button class="ok" onclick="ok()">✅ セット</button>' +
@@ -5558,7 +5559,8 @@ function clearInspTime(id, type, companySsId, email) {
 //  8-1: 行程データ更新（updateRouteData）  【大A / 中8 / 小8-1】
 //  戻るボタン用：IDで行を動的検索してL列（積地）・M列（降地）を更新し集計表を同期する
 // ================================================================
-function updateRouteData(id, picks, drops, companySsId) {
+function updateRouteData(id, picks, drops, companySsId, email) {
+  if (email) validateDriverEmail_(email, companySsId);
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
@@ -9114,10 +9116,11 @@ function agreeContract(ssId, companyName, adminEmail, contractRow, masterSsIdPar
       '・各乗務員に上記アプリURLを共有してください\n' +
       'ご不明な点はお気軽にお問い合わせください。\n' +
       'よろしくお願いいたします。';
+    var safeCompanyName = companyName.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     var htmlBody2 =
       '<html><head><meta charset="utf-8"></head><body>' +
       '<div style="font-family:sans-serif;font-size:14px;color:#212121;max-width:520px;">' +
-      '<p>' + companyName + ' ご担当者様</p>' +
+      '<p>' + safeCompanyName + ' ご担当者様</p>' +
       '<p>利用規約へのご同意ありがとうございます。<br>以下よりご利用を開始いただけます。</p>' +
       '<table style="border-collapse:collapse;width:100%;margin:16px 0;">' +
       '<tr><td style="padding:12px;background:#e3f2fd;border-left:4px solid #1565c0;vertical-align:top;">' +
