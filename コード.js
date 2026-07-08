@@ -3486,6 +3486,7 @@ function dispatchStructureChange(e) {
 
       // ユーザーが追加した不正なシートを即削除
       if (ct === 'INSERT_GRID') {
+        if (PropertiesService.getDocumentProperties().getProperty('__NO_SHEET_GUARD__') === 'true') return;
         var allowed = [
           '運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定','メモ',
           '使い方','説明書','配車板','距離マスタ','受領書_耳',
@@ -3500,6 +3501,7 @@ function dispatchStructureChange(e) {
             if (sname.indexOf('_BK_') === 0) continue;
             if (sname.indexOf('__') === 0) continue;
             if (allowed.indexOf(sname) !== -1) continue;
+            if (sname.indexOf('メモ') === 0) continue;
             ss.deleteSheet(sh);
             ss.toast('シートの追加はできません', '🚫', 4);
           } catch(e2) {}
@@ -3538,6 +3540,11 @@ function dispatchStructureChange(e) {
 }
 
 function onStructureChange_(e) { dispatchStructureChange(e); }
+
+function setNoSheetGuard_() {
+  PropertiesService.getDocumentProperties().setProperty('__NO_SHEET_GUARD__', 'true');
+  SpreadsheetApp.getActiveSpreadsheet().toast('このSSのシート追加保護を解除しました', '✅', 3);
+}
 
 // ================================================================
 //  列バックアップ（隠しシート _BK_xxx）
