@@ -219,7 +219,19 @@
       "Bash(python -c \"from PIL import Image, ImageDraw; print\\('PIL ok'\\)\")",
       "Bash(python 'C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\f279f744-dcf2-44c0-aa7d-84db2b9089a7\\\\scratchpad\\\\annotate.py' 'c:\\\\gas\\\\unko2-kanri\\\\project-blog\\\\images\\\\スクリーンショット 2026-07-09 120523.png' 'c:\\\\gas\\\\unko2-kanri\\\\project-blog\\\\images\\\\使い方_01_メニュー.png' '[{'\\\\''type'\\\\'':'\\\\''box'\\\\'','\\\\''x1'\\\\'':0,'\\\\''y1'\\\\'':0,'\\\\''x2'\\\\'':224,'\\\\''y2'\\\\'':22,'\\\\''label'\\\\'':'\\\\''①'\\\\''},{'\\\\''type'\\\\'':'\\\\''arrow'\\\\'','\\\\''x1'\\\\'':0,'\\\\''y1'\\\\'':156,'\\\\''x2'\\\\'':200,'\\\\''y2'\\\\'':178,'\\\\''label'\\\\'':'\\\\''② クリック'\\\\''}]')",
       "Bash(node deploy.js \"車番補完：B-I既入力時はマスタ上書き禁止に戻す\")",
-      "Bash(node deploy.js \"反映バグ修正：シート削除リストとヘッダー同期対象を正しく拡張\")"
+      "Bash(node deploy.js \"反映バグ修正：シート削除リストとヘッダー同期対象を正しく拡張\")",
+      "Bash(grep -n \"// [0-9]\" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(grep -n \"// ===.*[0-9]\" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(grep \"\\\\/\\\\/\")",
+      "Bash(grep -n \"//   1-7\\\\|//   14-2\\\\|//   15-1\\\\|//   2-1\\\\|//   3-5a\\\\|//   14-4\\\\|//   14-5\\\\|//   1-10\\\\|//   3-2\\\\|//   9-2\\\\|//   8-6c\\\\|//   13-\" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(grep -n \"//   1-7\\\\|//   14-2\\\\|//   14-4\\\\|//   14-5\\\\|//   1-10\\\\|//   4-2b\\\\|//   4-3b\" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(grep -n \"//   15-1\\\\|//  15-1\\\\|15-1:\" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(grep -n \"//   4-3 \\\\|//   4-4 \\\\|//   4-5 \\\\|//  4-3 \\\\|//  4-4 \\\\|//  4-5 \" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(node deploy.js \"説明書・使い方・サポートシートを全面刷新\")",
+      "Bash(node deploy.js \"使い方シートを運行シート専用に全面刷新\")",
+      "Bash(node deploy.js \"使い方シート：F列車番の説明を正しい動作に修正\")",
+      "Bash(node deploy.js \"使い方シート：F列説明の表現修正（F列の車番以外）\")",
+      "Bash(node deploy.js \"使い方シート：F列の注意文言を指定通りに修正\")"
     ]
   }
 }
