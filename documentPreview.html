@@ -35,6 +35,7 @@ table.doc-tbl td.num{text-align:right;}
 @page{size:landscape;margin:0;}
 @media print{
   .toolbar{display:none!important;}
+  .sec-ttl button{display:none!important;}
   body{background:#fff;}
   .page{box-shadow:none;border:none;margin:0;padding:12px 16px;width:100%;}
 }
@@ -46,8 +47,27 @@ table.doc-tbl td.num{text-align:right;}
   <button type="button" class="tbtn tbtn-print" onclick="onPrint()">🖨️ 印刷 / PDF保存</button>
   <button type="button" class="tbtn tbtn-email" id="btn-email" onclick="onEmailSend()">✉️ メール送信</button>
   <button type="button" class="tbtn tbtn-fax"   id="btn-fax"   onclick="onFaxSend()">📠 FAX送信</button>
+  <button type="button" class="tbtn" style="background:#546e7a;color:#fff;" onclick="requestClose()">✕ 閉じる</button>
 </div>
 <div class="page" id="page"></div>
+
+<div id="close-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;"></div>
+<div id="close-confirm" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:8px;padding:24px;z-index:1001;text-align:center;min-width:320px;box-shadow:0 4px 24px rgba(0,0,0,.4);">
+  <p style="font-size:13px;margin-bottom:18px;">指示書の入力内容を保存しますか？</p>
+  <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+    <button type="button" onclick="saveAndClose()" style="padding:8px 16px;background:#388e3c;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">💾 保存して閉じる</button>
+    <button type="button" onclick="discardAndClose()" style="padding:8px 16px;background:#c62828;color:#fff;border:none;border-radius:4px;cursor:pointer;">保存せずに閉じる</button>
+    <button type="button" onclick="cancelClose()" style="padding:8px 16px;background:#546e7a;color:#fff;border:none;border-radius:4px;cursor:pointer;">キャンセル</button>
+  </div>
+</div>
+<div id="sh-overlay" onclick="closeHistory()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:900;"></div>
+<div id="sh-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:8px;padding:18px;min-width:540px;max-width:750px;max-height:70vh;overflow-y:auto;z-index:901;box-shadow:0 4px 24px rgba(0,0,0,.35);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <b style="font-size:13px;">📋 指示先履歴</b>
+    <button onclick="closeHistory()" style="border:none;background:none;cursor:pointer;font-size:18px;line-height:1;">✕</button>
+  </div>
+  <div id="sh-list"></div>
+</div>
 
 <script>
 var DATA = <?!= docData ?>;
@@ -87,8 +107,8 @@ function buildDoc(d, isHatchu){
   // 1段目: 積日/曜日/積地/降日/曜日/降地
   html += '<div class="section"><div class="sec-ttl">■ 運行情報</div>'
     + '<table class="doc-tbl"><thead><tr>'
-    + '<th style="width:8%">積　日</th><th style="width:5%">曜日</th><th style="width:18%">積　込　地</th>'
-    + '<th style="width:8%">降　日</th><th style="width:5%">曜日</th><th style="width:18%">降ろし地</th>'
+    + '<th style="width:8%">積　日</th><th style="width:5%">曜日</th><th style="width:18%">積　地</th>'
+    + '<th style="width:8%">降　日</th><th style="width:5%">曜日</th><th style="width:18%">降　地</th>'
     + '</tr></thead><tbody><tr>'
     + '<td class="ctr"'+ce(d.dateStr)+'>'+esc(d.dateStr)+'</td>'
     + '<td class="ctr"'+ce(d.wdStr)+'>'+esc(d.wdStr)+'</td>'
@@ -98,16 +118,34 @@ function buildDoc(d, isHatchu){
     + '<td'+ce(d.dropPlace)+'>'+esc(d.dropPlace)+'</td>'
     + '</tr></tbody></table></div>';
 
-  // 2段目: 金額/品名/トン数/車種/装備その他
+  // 2段目: 金額/装備その他（品名列は廃止）
   html += '<div class="section"><div class="sec-ttl">■ 詳細情報</div>'
     + '<table class="doc-tbl"><thead><tr>'
-    + '<th style="width:16%">金　額</th><th style="width:22%">品　名</th>'
+    + '<th style="width:16%">金　額</th>'
     + '<th>装備・その他</th>'
     + '</tr></thead><tbody><tr>'
     + '<td class="num"'+ce(kinGaku)+'>'+esc(kinGaku)+'</td>'
-    + '<td'+ce(d.client)+'>'+esc(d.client)+'</td>'
     + '<td'+ce(d.sobiSonota||d.memo)+'>'+esc(d.sobiSonota||d.memo)+'</td>'
     + '</tr></tbody></table></div>';
+
+  // 2.5段目: 指示書（発注書のみ）
+  if (isHatchu) {
+    html += '<div class="section"><div class="sec-ttl" style="display:flex;align-items:center;gap:6px;">■ 指示書'
+      + '<button type="button" id="btn-save-sj" onclick="onSaveShijisaki()" '
+      + 'style="padding:2px 10px;font-size:10px;background:#388e3c;color:#fff;border:none;border-radius:3px;cursor:pointer;font-weight:bold;">💾 保存</button>'
+      + '<button type="button" onclick="loadHistory()" '
+      + 'style="padding:2px 10px;font-size:10px;background:#fff;color:#455a64;border:1px solid #90a4ae;border-radius:3px;cursor:pointer;font-weight:bold;">📋 履歴</button>'
+      + '</div>'
+      + '<table class="doc-tbl"><thead><tr>'
+      + '<th style="width:25%">会社名</th><th style="width:20%">電話番号</th>'
+      + '<th style="width:18%">担当者名</th><th>住所</th>'
+      + '</tr></thead><tbody><tr>'
+      + '<td id="sj-company" contenteditable="true" oninput="markUnsaved()"></td>'
+      + '<td id="sj-tel" contenteditable="true" oninput="markUnsaved()"></td>'
+      + '<td id="sj-person" contenteditable="true" oninput="markUnsaved()"></td>'
+      + '<td id="sj-addr" contenteditable="true" oninput="markUnsaved()"></td>'
+      + '</tr></tbody></table></div>';
+  }
 
   // 3段目: 看板名/車番/乗務員名/携帯番号
   html += '<div class="section"><div class="sec-ttl">■ 車両・乗務員情報</div>'
@@ -128,8 +166,138 @@ function buildDoc(d, isHatchu){
   return html;
 }
 
+function getShijisaki() {
+  function t(id) { var e = document.getElementById(id); return e ? e.textContent.trim() : ''; }
+  return { company: t('sj-company'), tel: t('sj-tel'), person: t('sj-person'), addr: t('sj-addr') };
+}
+
+function loadHistory() {
+  document.getElementById('sh-overlay').style.display = 'block';
+  document.getElementById('sh-modal').style.display = 'block';
+  document.getElementById('sh-list').innerHTML = '<div style="text-align:center;padding:20px;color:#888;">読み込み中…</div>';
+  google.script.run
+    .withSuccessHandler(renderHistory)
+    .withFailureHandler(function(e) { document.getElementById('sh-list').innerHTML = '<div style="color:red;">エラー: ' + e.message + '</div>'; })
+    .getShijisakiHistory(DATA.client, DATA.ssId);
+}
+
+function renderHistory(list) {
+  window._sjHistory = list;
+  if (!list || list.length === 0) {
+    document.getElementById('sh-list').innerHTML = '<div style="text-align:center;padding:20px;color:#888;">履歴がありません</div>';
+    return;
+  }
+  var h = '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#455a64;color:#fff;">'
+    + '<th style="padding:6px 8px;text-align:left;white-space:nowrap;">会社名</th>'
+    + '<th style="padding:6px 8px;text-align:left;white-space:nowrap;">電話番号</th>'
+    + '<th style="padding:6px 8px;text-align:left;white-space:nowrap;">担当者名</th>'
+    + '<th style="padding:6px 8px;text-align:left;">住所</th>'
+    + '<th style="padding:6px 8px;text-align:left;white-space:nowrap;">最終使用</th>'
+    + '<th style="width:44px;"></th>'
+    + '</tr></thead><tbody>';
+  list.forEach(function(r, i) {
+    h += '<tr style="cursor:pointer;border-bottom:1px solid #eee;" '
+      + 'onmouseover="this.style.background=\'#e3f2fd\'" onmouseout="this.style.background=\'\'" '
+      + 'onclick="pickHistory(' + i + ')">'
+      + '<td style="padding:5px 8px;">' + esc(r.company) + '</td>'
+      + '<td style="padding:5px 8px;">' + esc(r.tel) + '</td>'
+      + '<td style="padding:5px 8px;">' + esc(r.person) + '</td>'
+      + '<td style="padding:5px 8px;">' + esc(r.addr) + '</td>'
+      + '<td style="padding:5px 8px;color:#888;font-size:10px;">' + esc(r.lastUsed) + '</td>'
+      + '<td style="padding:3px 4px;text-align:center;">'
+      + '<button type="button" onclick="event.stopPropagation();deleteHistory(' + i + ')" '
+      + 'style="padding:2px 7px;background:#c62828;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:10px;">削除</button>'
+      + '</td>'
+      + '</tr>';
+  });
+  document.getElementById('sh-list').innerHTML = h + '</tbody></table>';
+}
+
+function deleteHistory(i) {
+  if (!confirm('この履歴を削除しますか？')) return;
+  var r = window._sjHistory[i];
+  google.script.run
+    .withSuccessHandler(function() {
+      window._sjHistory.splice(i, 1);
+      renderHistory(window._sjHistory);
+    })
+    .withFailureHandler(function(err) { alert('削除に失敗しました: ' + err.message); })
+    .deleteShijisakiHistory(DATA.client, r.company, r.tel, r.person, r.addr, DATA.ssId);
+}
+
+function pickHistory(i) {
+  var r = window._sjHistory[i];
+  document.getElementById('sj-company').textContent = r.company;
+  document.getElementById('sj-tel').textContent = r.tel;
+  document.getElementById('sj-person').textContent = r.person;
+  document.getElementById('sj-addr').textContent = r.addr;
+  closeHistory();
+  markUnsaved();
+}
+
+var _hasUnsaved = false;
+function markUnsaved() { _hasUnsaved = true; }
+
+function onSaveShijisaki() {
+  var sj = getShijisaki();
+  var btn = document.getElementById('btn-save-sj');
+  if (btn) { btn.disabled = true; btn.textContent = '保存中…'; }
+  google.script.run
+    .withSuccessHandler(function() {
+      _hasUnsaved = false;
+      if (btn) { btn.disabled = false; btn.textContent = '✅ 保存完了'; setTimeout(function(){ btn.textContent = '💾 保存'; }, 2000); }
+    })
+    .withFailureHandler(function(err) {
+      if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
+      alert('保存に失敗しました: ' + err.message);
+    })
+    .saveShijisakiByRowId(DATA.id, sj, DATA.client, DATA.ssId);
+}
+
+function requestClose() {
+  if (_hasUnsaved) {
+    document.getElementById('close-overlay').style.display = 'block';
+    document.getElementById('close-confirm').style.display = 'block';
+  } else {
+    google.script.host.close();
+  }
+}
+
+function saveAndClose() {
+  var sj = getShijisaki();
+  google.script.run
+    .withSuccessHandler(function() { _hasUnsaved = false; google.script.host.close(); })
+    .withFailureHandler(function() { google.script.host.close(); })
+    .saveShijisakiByRowId(DATA.id, sj, DATA.client, DATA.ssId);
+}
+
+function discardAndClose() {
+  _hasUnsaved = false;
+  google.script.host.close();
+}
+
+function cancelClose() {
+  document.getElementById('close-overlay').style.display = 'none';
+  document.getElementById('close-confirm').style.display = 'none';
+}
+
+window.addEventListener('beforeunload', function(e) {
+  if (_hasUnsaved) { e.preventDefault(); e.returnValue = ''; return ''; }
+});
+
+function closeHistory() {
+  document.getElementById('sh-overlay').style.display = 'none';
+  document.getElementById('sh-modal').style.display = 'none';
+}
+
 function onPrint() {
   window.print();
+  if (TYPE === 'hatchu') {
+    var sj = getShijisaki();
+    if (sj.company || sj.tel || sj.person || sj.addr) {
+      google.script.run.saveShijisakiHistory(DATA.client, sj, DATA.ssId);
+    }
+  }
   google.script.run.markDocumentIssued(DATA.id, TYPE);
 }
 
@@ -141,9 +309,11 @@ function onEmailSend() {
   if (!confirm('この宛先に送信してもよろしいですか？\n\n宛先：' + DATA.clientEmail)) return;
   var btn = document.getElementById('btn-email');
   btn.disabled = true; btn.textContent = '送信中...';
+  if (TYPE === 'hatchu') DATA.shijisaki = getShijisaki();
   google.script.run
     .withSuccessHandler(function(r) {
       if (r && r.ok) {
+        _hasUnsaved = false;
         alert(r.msg);
         btn.textContent = '✅ 送信完了'; btn.className = 'tbtn tbtn-sent';
       } else {
@@ -166,9 +336,11 @@ function onFaxSend() {
   if (!confirm('この宛先にFAX送信してもよろしいですか？\n\n宛先：' + DATA.clientFax)) return;
   var btn = document.getElementById('btn-fax');
   btn.disabled = true; btn.textContent = '送信中...';
+  if (TYPE === 'hatchu') DATA.shijisaki = getShijisaki();
   google.script.run
     .withSuccessHandler(function(r) {
       if (r && r.ok) {
+        _hasUnsaved = false;
         alert(r.msg);
         btn.textContent = '✅ 送信完了'; btn.className = 'tbtn tbtn-sent';
       } else {
@@ -187,6 +359,17 @@ function onFaxSend() {
   var isHatchu = (TYPE === 'hatchu');
   document.getElementById('doc-type-label').textContent = isHatchu ? '発注書・指示書' : '車番連絡';
   document.getElementById('page').innerHTML = buildDoc(DATA, isHatchu);
+  if (isHatchu) {
+    google.script.run
+      .withSuccessHandler(function(d) {
+        if (!d) return;
+        document.getElementById('sj-company').textContent = d.company||'';
+        document.getElementById('sj-tel').textContent     = d.tel    ||'';
+        document.getElementById('sj-person').textContent  = d.person ||'';
+        document.getElementById('sj-addr').textContent    = d.addr   ||'';
+      })
+      .getShijisakiByRowId(DATA.id, DATA.ssId);
+  }
 })();
 </script>
 </body>

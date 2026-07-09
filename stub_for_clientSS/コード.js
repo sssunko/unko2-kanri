@@ -7,19 +7,20 @@ function onOpen() {
   try { UnkouLib.convertLegacyAdminDataUrls_(); } catch(e) {}
   try { UnkouLib.applyHolidayRowColors_(); } catch(e) {}
   try { UnkouLib.checkMasterExpiries(); } catch(e) {}
+  try { UnkouLib.applyExpiryWarningColors_(); } catch(e) {}
   try { UnkouLib.backupAllSheets(); } catch(e) {}
   // トリガー自動インストール（ライブラリ経由はScriptAppが①を向くためローカル実装）
+  // 重複トリガーを全削除してから再登録（過去の多重インストールによるポップアップ多重表示・画面真っ暗を解消）
   try {
     var _ss = SpreadsheetApp.getActiveSpreadsheet();
-    var _sid = _ss.getId();
-    var _hasEdit = false, _hasChange = false;
     ScriptApp.getProjectTriggers().forEach(function(t) {
-      if (t.getTriggerSourceId() !== _sid) return;
-      if (t.getHandlerFunction() === 'installedOnEdit_') _hasEdit = true;
-      if (t.getHandlerFunction() === 'onStructureChange_') _hasChange = true;
+      var fn = t.getHandlerFunction();
+      if (fn === 'installedOnEdit_' || fn === 'onStructureChange_') {
+        try { ScriptApp.deleteTrigger(t); } catch(e2) {}
+      }
     });
-    if (!_hasEdit)   ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss).onEdit().create();
-    if (!_hasChange) ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss).onChange().create();
+    ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss).onEdit().create();
+    ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss).onChange().create();
   } catch(e) {}
 }
 
@@ -58,6 +59,7 @@ function sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }
 function fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }
 function createUsageSheet()       { return UnkouLib.createUsageSheet(); }
 function createManualSheet()      { return UnkouLib.createManualSheet(); }
+function createSupportSheet()     { return UnkouLib.createSupportSheet(); }
 function setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }
 function showExportDialog()             { return UnkouLib.showExportDialog(); }
 function exportSheetAsCsvBase64(a)      { return UnkouLib.exportSheetAsCsvBase64(a); }
@@ -98,6 +100,11 @@ function showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(
 function generateUketorishoSheet(a)      { return UnkouLib.generateUketorishoSheet(a); }
 function sendDocumentEmail(a,b,c)        { return UnkouLib.sendDocumentEmail(a,b,c); }
 function markDocumentIssued(a,b)         { return UnkouLib.markDocumentIssued(a,b); }
+function getShijisakiHistory(a,b)        { return UnkouLib.getShijisakiHistory(a,b); }
+function saveShijisakiHistory(a,b,c)     { return UnkouLib.saveShijisakiHistory(a,b,c); }
+function getShijisakiByRowId(a,b)           { return UnkouLib.getShijisakiByRowId(a,b); }
+function saveShijisakiByRowId(a,b,c,d)     { return UnkouLib.saveShijisakiByRowId(a,b,c,d); }
+function deleteShijisakiHistory(a,b,c,d,e,f){ return UnkouLib.deleteShijisakiHistory(a,b,c,d,e,f); }
 function showPlDialog()                  { return UnkouLib.showPlDialog(); }
 function getPlFilterOptions()            { return UnkouLib.getPlFilterOptions(); }
 function generatePl(a)                   { return UnkouLib.generatePl(a); }

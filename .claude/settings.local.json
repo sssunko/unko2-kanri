@@ -198,7 +198,28 @@
       "Bash(node deploy.js \"配車板 列ズレ修復関数追加・移行コードの誤実行防止\")",
       "Bash(node deploy.js \"休憩終了・点呼後・降完ボタンに時刻トースト表示\")",
       "Bash(xargs '-I{}' sh -c 'hash=$\\(echo {} | cut -d\" \" -f1\\); git show \"$hash\" -- \"index.html\" | grep \"^[+-]\" | grep -v \"^---\\\\|^+++\" | grep -q \"時刻\\\\|toast\\\\|restEnd.*time\\\\|時刻表示\" && echo \"{}\"')",
-      "Bash(grep -v \"^.*//.*col\\\\|var col\")"
+      "Bash(grep -v \"^.*//.*col\\\\|var col\")",
+      "Bash(awk 'NR>=10140 && NR<=10180')",
+      "Bash(grep -n \"//.*showHatchuDoc\\\\|//.*showShabanDoc\\\\|//.*showDispatchDashboard\\\\|//.*calcDistanceManual\\\\|//.*resolveAmbiguous\\\\|//.*generateAuditSheet\\\\|//.*showExportDialog\\\\|//.*sortBothSheets\\\\|//.*sortUnkouByDate\\\\|//.*markIdCollision\\\\|//.*1-7b\\\\|//.*1-8\\\\|//.*1-9\\\\|//.*1-10\\\\|//.*距離.*【\\\\|//.*ダッシュボード.*【\\\\|//.*監査.*【\\\\|//.*並び替え.*【\\\\|//.*住所.*【\" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(grep -n \"//.*【.*発注書\\\\|//.*【.*車番連絡\\\\|//.*【.*Hatchu\\\\|//.*【.*Shaban\\\\|//.*【.*ダッシュボード\\\\|//.*【.*calcDist\\\\|//.*【.*resolveAmb\\\\|//.*【.*監査\\\\|//.*【.*13-10\\\\|//.*showHatchuDoc.*【\\\\|//.*showShabanDoc.*【\\\\|//.*距離計算.*【\\\\|//.*住所.*確認.*【\\\\|//.*generateAudit.*【\" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(grep -n \"//  [0-9]\" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(grep -n \"//  [0-9][0-9]*-[0-9].*【\" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(grep -n \"//  [0-9][0-9]*-[0-9].*【\\\\|// .*showHatchu\\\\|// .*showShaban\\\\|// .*Dispatch\\\\|// .*Dashboard\\\\|// .*calcDist\\\\|// .*resolveAmb\\\\|// .*generateAudit\\\\|// .*fillMissing\\\\|// .*4-2b\" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(grep -n \"//.*距離.*【\\\\|//.*calcDist.*【\\\\|//.*resolveAmb.*【\\\\|//.*住所確認.*【\\\\|//.*generateAudit.*【\\\\|//.*監査.*【\\\\|//.*ダッシュボード.*【\\\\|//.*Dispatch.*Dashboard.*【\" \"c:/gas/unko2-kanri/コード.js\")",
+      "Bash(node deploy.js \"発注書・指示書：積地/降地修正・品名削除・指示先情報+履歴機能追加\")",
+      "Bash(node deploy.js \"発注書：指示先情報を入力即時自動保存・ID別保持・別IDは空白で履歴から選択\")",
+      "Bash(node deploy.js \"onStructureChange_: 指示先履歴・指示先ID別をallowedリストに追加（自動削除バグ修正）\")",
+      "Bash(node deploy.js \"onStructureChange_: __COMPANY_SS__で①②③を確実に判定・①は追加削除自由・②③は全シート保護\")",
+      "Bash(node deploy.js \"発注書：指示先情報→指示書・保存ボタン追加・閉じる時に保存確認ダイアログ\")",
+      "Bash(node deploy.js \"発注書：指示書履歴に行ごと削除ボタン追加\")",
+      "Bash(node deploy.js \"サポートシートをallowedリストに復活\")",
+      "Bash(awk '/function createManualSheet/,/^function [a-z]/' \"コード.js\")",
+      "Bash(grep -n \"// [A-Z]列\\\\|// F列\\\\|// B列\\\\|// C列\\\\|// D列\\\\|// E列\\\\|// G列\\\\|// H列\\\\|// I列\\\\|// J列\\\\|// N列\\\\|// K列\\\\|// L列\\\\|// M列\\\\|// P列\\\\|// Q列\\\\|// R列\\\\|// S列\\\\|// T列\\\\|// U列\\\\|// V列\\\\|// AB列\\\\|// AC列\" \"コード.js\")",
+      "Bash(node deploy.js \"車番補完常時反映・サポートシート復元・説明書運行機能一覧追加\")",
+      "Bash(python -c \"from PIL import Image, ImageDraw; print\\('PIL ok'\\)\")",
+      "Bash(python 'C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\f279f744-dcf2-44c0-aa7d-84db2b9089a7\\\\scratchpad\\\\annotate.py' 'c:\\\\gas\\\\unko2-kanri\\\\project-blog\\\\images\\\\スクリーンショット 2026-07-09 120523.png' 'c:\\\\gas\\\\unko2-kanri\\\\project-blog\\\\images\\\\使い方_01_メニュー.png' '[{'\\\\''type'\\\\'':'\\\\''box'\\\\'','\\\\''x1'\\\\'':0,'\\\\''y1'\\\\'':0,'\\\\''x2'\\\\'':224,'\\\\''y2'\\\\'':22,'\\\\''label'\\\\'':'\\\\''①'\\\\''},{'\\\\''type'\\\\'':'\\\\''arrow'\\\\'','\\\\''x1'\\\\'':0,'\\\\''y1'\\\\'':156,'\\\\''x2'\\\\'':200,'\\\\''y2'\\\\'':178,'\\\\''label'\\\\'':'\\\\''② クリック'\\\\''}]')",
+      "Bash(node deploy.js \"車番補完：B-I既入力時はマスタ上書き禁止に戻す\")",
+      "Bash(node deploy.js \"反映バグ修正：シート削除リストとヘッダー同期対象を正しく拡張\")"
     ]
   }
 }
