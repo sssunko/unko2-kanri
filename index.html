@@ -2284,7 +2284,7 @@ function addTermFileDirect(id) {
         var b64=ev.target.result.split(',')[1];
         google.script.run
           .withSuccessHandler(function(){done++;if(done===files.length)openTermDataModal(id);})
-          .withFailureHandler(function(err){alert('エラー: '+err.message);done++;if(done===files.length)openTermDataModal(id);})
+          .withFailureHandler(function(err){alert('ファイルの送信に失敗しました。\n理由：'+err.message+'\n再度アップロードしてください。');done++;if(done===files.length)openTermDataModal(id);})
           .appendTerminalFile(id,file.name,b64,file.type, COMPANY_SS_ID, getMyEmail());
       };
       reader.readAsDataURL(file);
@@ -2564,7 +2564,7 @@ function addTermFile(id) {
         var b64=ev.target.result.split(',')[1];
         google.script.run
           .withSuccessHandler(function(){done++;if(done===files.length)openEditModal(id);})
-          .withFailureHandler(function(err){alert('エラー: '+err.message);done++;if(done===files.length)openEditModal(id);})
+          .withFailureHandler(function(err){alert('ファイルの送信に失敗しました。\n理由：'+err.message+'\n再度アップロードしてください。');done++;if(done===files.length)openEditModal(id);})
           .appendTerminalFile(id,file.name,b64,file.type, COMPANY_SS_ID, getMyEmail());
       };
       reader.readAsDataURL(file);

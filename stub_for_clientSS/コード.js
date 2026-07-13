@@ -15,12 +15,23 @@ function onOpen() {
     var _ss = SpreadsheetApp.getActiveSpreadsheet();
     ScriptApp.getProjectTriggers().forEach(function(t) {
       var fn = t.getHandlerFunction();
-      if (fn === 'installedOnEdit_' || fn === 'onStructureChange_') {
+      if (fn === 'installedOnEdit_' || fn === 'onStructureChange_' || fn === 'checkMasterExpiries') {
         try { ScriptApp.deleteTrigger(t); } catch(e2) {}
       }
     });
     ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss).onEdit().create();
     ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss).onChange().create();
+  } catch(e) {}
+  try {
+    var _ss2 = SpreadsheetApp.getActiveSpreadsheet();
+    var _errSh = _ss2.getSheetByName('_ErrorLog_');
+    if (_errSh) {
+      var _a1 = String(_errSh.getRange(1, 1).getValue());
+      if (_a1.indexOf('⚠️ 要確認') === 0) {
+        SpreadsheetApp.getUi().alert(_a1);
+        _errSh.getRange(1, 1).setValue('日時');
+      }
+    }
   } catch(e) {}
 }
 
@@ -70,7 +81,7 @@ function installTriggers() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ScriptApp.getProjectTriggers().forEach(function(t) {
     var fn = t.getHandlerFunction();
-    if (fn === 'installedOnEdit_' || fn === 'onStructureChange_') ScriptApp.deleteTrigger(t);
+    if (fn === 'installedOnEdit_' || fn === 'onStructureChange_' || fn === 'checkMasterExpiries') ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();
   ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();
@@ -185,3 +196,24 @@ function removeAllProtections()        { return UnkouLib.removeAllProtections();
 // ── バックアップ・復旧 ────────────────────────────────────────────────
 function openRestoreDialog()           { return UnkouLib.openRestoreDialog(); }
 function executeRestore(a,b)           { return UnkouLib.executeRestore(a,b); }
+
+// ── 保守ユーティリティ（ローカル実装：ScriptApp・SpreadsheetApp は呼び出し元SS文脈で動かす必要あり）────
+function cleanupStaleTriggers() {
+  var ss       = SpreadsheetApp.getActiveSpreadsheet();
+  var staleFns = ['checkMasterExpiries', 'onOpen', 'checkExpiryDates'];
+  var removed  = 0;
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (staleFns.indexOf(t.getHandlerFunction()) !== -1) {
+      try { ScriptApp.deleteTrigger(t); removed++; } catch(e) {}
+    }
+  });
+  ['指示先履歴', '指示先ID別'].forEach(function(name) {
+    var sh = ss.getSheetByName(name);
+    if (sh && !sh.isSheetHidden()) { try { sh.hideSheet(); } catch(e) {} }
+  });
+  SpreadsheetApp.getUi().alert(
+    '✅ クリーンアップ完了\n\n' +
+    '・削除したトリガー：' + removed + '件\n' +
+    '・システムシート（指示先履歴・指示先ID別）を非表示にしました'
+  );
+}

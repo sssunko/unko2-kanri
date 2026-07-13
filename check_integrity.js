@@ -68,7 +68,7 @@ if (missing.length > 0) {
 // 2. 禁止パターンチェック（コード.js）
 const mainSrc = fs.readFileSync(path.join(ROOT, 'コード.js'), 'utf8');
 
-const execMatch = mainSrc.match(/function executeStatusSync\b[\s\S]*?^}/m);
+const execMatch = mainSrc.match(/^function executeStatusSync\b[\s\S]*?^}/m);
 if (execMatch && execMatch[0].includes('SpreadsheetApp.getActiveSpreadsheet()')) {
   err('executeStatusSync 内で getActiveSpreadsheet() 使用。ssId引数を使え。');
 } else {

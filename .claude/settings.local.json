@@ -231,7 +231,15 @@
       "Bash(node deploy.js \"使い方シートを運行シート専用に全面刷新\")",
       "Bash(node deploy.js \"使い方シート：F列車番の説明を正しい動作に修正\")",
       "Bash(node deploy.js \"使い方シート：F列説明の表現修正（F列の車番以外）\")",
-      "Bash(node deploy.js \"使い方シート：F列の注意文言を指定通りに修正\")"
+      "Bash(node deploy.js \"使い方シート：F列の注意文言を指定通りに修正\")",
+      "Bash(ls \"C:\\\\SSS\\\\project-blog-fixed\")",
+      "Bash(Get-Content \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\f279f744-dcf2-44c0-aa7d-84db2b9089a7.jsonl\")",
+      "Bash(Select-String -Pattern \"terms|規約|privacy\")",
+      "Bash(Select-Object -Last 50)",
+      "Bash(node deploy.js \"使い方シートデザインブランド統一（紺ゴールド配色・目次階層化）\")",
+      "Bash(node deploy.js \"対応1_期限アラート多重表示修正+対応2_システムシート非表示化+対応3_説明書サポートシートブランド配色統一\")",
+      "Bash(node deploy.js \"高-3修正: tryLock戻り値未確認バグ修正（saveEditData/appendTerminalFile/appendTerminalFileAdmin）\")",
+      "Bash(node deploy.js \"高-2修正: processUploadQueueのアップロード失敗握り潰しバグ修正（retryCount管理・logError_・3回失敗時のみキュー削除）\")"
     ]
   }
 }
