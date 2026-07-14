@@ -8,7 +8,14 @@ function onOpen() {
   try { UnkouLib.applyHolidayRowColors_(); } catch(e) {}
   try { UnkouLib.checkMasterExpiries(); } catch(e) {}
   try { UnkouLib.applyExpiryWarningColors_(); } catch(e) {}
-  try { UnkouLib.backupAllSheets(); } catch(e) {}
+  try {
+    var _bkProps = PropertiesService.getDocumentProperties();
+    var _bkLast  = Number(_bkProps.getProperty('LAST_BACKUP_TS') || 0);
+    if (Date.now() - _bkLast > 24 * 60 * 60 * 1000) {
+      UnkouLib.backupAllSheets();
+      _bkProps.setProperty('LAST_BACKUP_TS', String(Date.now()));
+    }
+  } catch(e) {}
   // トリガー自動インストール（ライブラリ経由はScriptAppが①を向くためローカル実装）
   // 重複トリガーを全削除してから再登録（過去の多重インストールによるポップアップ多重表示・画面真っ暗を解消）
   try {
@@ -21,6 +28,12 @@ function onOpen() {
     });
     ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss).onEdit().create();
     ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss).onChange().create();
+    ScriptApp.getProjectTriggers().forEach(function(t) {
+      if (t.getHandlerFunction() === 'calcDistanceTrigger_') {
+        try { ScriptApp.deleteTrigger(t); } catch(e2) {}
+      }
+    });
+    ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();
   } catch(e) {}
   try {
     var _ss2 = SpreadsheetApp.getActiveSpreadsheet();
@@ -86,6 +99,14 @@ function installTriggers() {
   ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();
   ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();
   ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);
+}
+
+function calcDistanceTrigger_() {
+  try {
+    var parents = DriveApp.getFileById(ScriptApp.getScriptId()).getParents();
+    if (!parents.hasNext()) return;
+    UnkouLib.calcDistanceForSS(parents.next().getId());
+  } catch(e) {}
 }
 function onStructureChange_(e)  { UnkouLib.dispatchStructureChange(e); }
 function setRecalcChoice(a)       { return UnkouLib.setRecalcChoice(a); }
