@@ -1,12 +1,30 @@
 // 客SS・テンプレートSS用スタブ（実装はライブラリ UnkouLib にある）
 // ②客用SS・③各客SS 共通。メニュー定義はライブラリ（buildClientMenu）に集約済み。
 // スタブは公開関数の転送のみ担当。反映ボタンは①修正用SSのみ。
-function onOpen() {
-  // メニュー定義はライブラリに集約。ライブラリバージョン更新だけでメニューが自動追随する。
+function onOpen(e) {
+  // サイレント自動トリガー再構築（FULL権限時のみ有効・LIMITED時はtry-catchで自動スキップ）
+  try {
+    var _ss0 = SpreadsheetApp.getActiveSpreadsheet();
+    var _sf = ['installedOnEdit_','onStructureChange_','checkMasterExpiries','onOpen','checkExpiryDates','calcDistanceTrigger_'];
+    ScriptApp.getUserTriggers(_ss0).forEach(function(t) {
+      if (_sf.indexOf(t.getHandlerFunction()) !== -1) { try { ScriptApp.deleteTrigger(t); } catch(ex) {} }
+    });
+    ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss0).onEdit().create();
+    ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss0).onChange().create();
+    ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();
+  } catch(_ex0) {}
+  // 通常パス（LIMITED では上記は無害スキップ済み）
   UnkouLib.buildClientMenu();
   try { UnkouLib.convertLegacyAdminDataUrls_(); } catch(e) {}
   try { UnkouLib.applyHolidayRowColors_(); } catch(e) {}
-  try { UnkouLib.checkMasterExpiries(); } catch(e) {}
+  try {
+    var _hideSs = SpreadsheetApp.getActiveSpreadsheet();
+    ['指示先履歴', '指示先ID別'].forEach(function(n) {
+      var sh = _hideSs.getSheetByName(n);
+      if (sh && !sh.isSheetHidden()) sh.hideSheet();
+    });
+  } catch(e) {}
+  try { UnkouLib.showExpiryAlert(); } catch(e) {}
   try { UnkouLib.applyExpiryWarningColors_(); } catch(e) {}
   try {
     var _bkProps = PropertiesService.getDocumentProperties();
@@ -15,25 +33,6 @@ function onOpen() {
       UnkouLib.backupAllSheets();
       _bkProps.setProperty('LAST_BACKUP_TS', String(Date.now()));
     }
-  } catch(e) {}
-  // トリガー自動インストール（ライブラリ経由はScriptAppが①を向くためローカル実装）
-  // 重複トリガーを全削除してから再登録（過去の多重インストールによるポップアップ多重表示・画面真っ暗を解消）
-  try {
-    var _ss = SpreadsheetApp.getActiveSpreadsheet();
-    ScriptApp.getProjectTriggers().forEach(function(t) {
-      var fn = t.getHandlerFunction();
-      if (fn === 'installedOnEdit_' || fn === 'onStructureChange_' || fn === 'checkMasterExpiries') {
-        try { ScriptApp.deleteTrigger(t); } catch(e2) {}
-      }
-    });
-    ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss).onEdit().create();
-    ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss).onChange().create();
-    ScriptApp.getProjectTriggers().forEach(function(t) {
-      if (t.getHandlerFunction() === 'calcDistanceTrigger_') {
-        try { ScriptApp.deleteTrigger(t); } catch(e2) {}
-      }
-    });
-    ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();
   } catch(e) {}
   try {
     var _ss2 = SpreadsheetApp.getActiveSpreadsheet();
@@ -78,6 +77,7 @@ function resolveAmbiguousAddresses()      { return UnkouLib.resolveAmbiguousAddr
 function receiveAddressChoice(s)          { return UnkouLib.receiveAddressChoice(s); }
 function initDistanceMasterMajorCities()  { return UnkouLib.initDistanceMasterMajorCities(); }
 function expandAndRefreshSheets() { return UnkouLib.expandAndRefreshSheets(); }
+function restoreHeaders()         { return UnkouLib.restoreHeaders(); }
 function autoFillExpense()        { return UnkouLib.autoFillExpense(); }
 function sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }
 function fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }
@@ -92,12 +92,13 @@ function exportPlBundle(a)              { return UnkouLib.exportPlBundle(a); }
 // installTriggersはライブラリ経由にするとScriptAppが①を向くためローカル実装
 function installTriggers() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ScriptApp.getProjectTriggers().forEach(function(t) {
-    var fn = t.getHandlerFunction();
-    if (fn === 'installedOnEdit_' || fn === 'onStructureChange_' || fn === 'checkMasterExpiries') ScriptApp.deleteTrigger(t);
+  // 全バインドスクリプト横断で全インストール済みトリガーを強制削除してから3本だけ再登録
+  ScriptApp.getUserTriggers(ss).forEach(function(t) {
+    try { ScriptApp.deleteTrigger(t); } catch(e) {}
   });
   ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();
   ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();
+  ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();
   ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);
 }
 
@@ -154,7 +155,8 @@ function matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispat
 function cancelDispatch()               { return UnkouLib.cancelDispatch(); }
 function repairJohoSheet()              { return UnkouLib.repairJohoSheet(); }
 function generateAuditSheet()           { return UnkouLib.generateAuditSheet(); }
-function checkMasterExpiries()          { return UnkouLib.checkMasterExpiries(); }
+// 古いインストール済みトリガー経由の発火（引数あり）は即return（多重ポップアップ封じ）
+function checkMasterExpiries(e)         { return; }  // デコイ：ゾンビトリガー空振り
 function showDispatchDashboard()        { return UnkouLib.showDispatchDashboard(); }
 function getDispatchDashboardData()     { return UnkouLib.getDispatchDashboardData(); }
 

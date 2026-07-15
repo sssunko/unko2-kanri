@@ -240,7 +240,14 @@
       "Bash(node deploy.js \"対応1_期限アラート多重表示修正+対応2_システムシート非表示化+対応3_説明書サポートシートブランド配色統一\")",
       "Bash(node deploy.js \"高-3修正: tryLock戻り値未確認バグ修正（saveEditData/appendTerminalFile/appendTerminalFileAdmin）\")",
       "Bash(node deploy.js \"高-2修正: processUploadQueueのアップロード失敗握り潰しバグ修正（retryCount管理・logError_・3回失敗時のみキュー削除）\")",
-      "Bash(node deploy.js \"中-10 withFailureHandler全件追加\")"
+      "Bash(node deploy.js \"中-10 withFailureHandler全件追加\")",
+      "Bash(node deploy.js \"LockService追加・CLAUDE.md正式名称修正\")",
+      "PowerShell(node deploy.js \"v739 �e�q���f�őS�o�C���h�X�N���v�g�񋓁E�]���X�N���v�g�������iA�^�A�X�N���v�g2���̍��{�C���j\")",
+      "Bash(node \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\2936215d-675d-4dcc-88df-b095c29759ed\\\\scratchpad\\\\compare_stub.js\")",
+      "PowerShell(node deploy.js \"v741 �Â��C���X�g�[���ς݃g���K�[�̔��΂𖳊Q���ionOpen�t���������͑|���̂݁EcheckMasterExpiries�g���K�[���΂͑�return�j\")",
+      "WebFetch(domain:developers.google.com)",
+      "PowerShell(node deploy.js \"v743 �o�C���h�X�N���v�g�S�񋓂�projects.get�����ɍ��V�E�������R�[�h����֐����EinstallTriggers���ȑ|������\")",
+      "PowerShell(Get-Content \"$env:USERPROFILE\\\\.clasprc.json\" 2>$null | Select-Object -First 5)"
     ]
   }
 }
