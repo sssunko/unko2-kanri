@@ -255,7 +255,13 @@
       "Bash(node deploy.js \"v766 A1凡例メモ全色追加・セクション分け（ID列/行全体/マスタ）・HEXコード明記\")",
       "Bash(node deploy.js \"v767 A1凡例メモHEXコード削除・薄黄を積地列のみセクションに分離\")",
       "Bash(node deploy.js \"v768 A1凡例メモ薄黄を行全体に戻し積地列のみ注記追加\")",
-      "Bash(node deploy.js \"v769 色凡例ノートを該当セルに分散配置（A1=ID列/行全体・L1=積地配車漏れ・マスタB1=運行状態）\")"
+      "Bash(node deploy.js \"v769 色凡例ノートを該当セルに分散配置（A1=ID列/行全体・L1=積地配車漏れ・マスタB1=運行状態）\")",
+      "Bash(node deploy.js \"v770 車番補完: 全角英数→半角正規化・マスタが入力を含む条件を削除（1で101に誤マッチするバグ修正）\")",
+      "Bash(node deploy.js \"v771 車番補完: 正規化値をセルに書き戻し・数字部分完全一致マッチ（101→大阪か101補完、1→101補完しない）\")",
+      "Bash(node deploy.js \"v772 onEdit高速化: 編集列に応じた条件実行復元（マスタ読み・A列読み・ロックはID必要時のみ・ループ内flush削除・背景/書式は該当列編集時のみ）\")",
+      "Bash(node deploy.js \"v774 保護色まだら修正: onEditの行背景書き込みが保護色#eceff1を消すバグ修正・F5でIDあり行のV/Y/Z列保護色を自動復元\")",
+      "PowerShell(node deploy.js \"v775 �ی�F��ID����s�݂̂Ɍ���EID�Ȃ��s�Ǝc�[�F��F5�Ŏ�������\")",
+      "PowerShell(node deploy.js \"v777 �f�[�^�ŏI�s��艺�̎c�[�F�i�ی�F�E�O���[�E���j��F5�Ŏ�������\")"
     ]
   }
 }

@@ -588,19 +588,41 @@ function applyHolidayRowColors_() {
       var pickV = String(r[11] || ''); // L列=積地
       if (pickV.indexOf('有休') !== -1) return new Array(lastCol).fill('#e0e0e0');
       if (pickV.indexOf('休み') !== -1) return new Array(lastCol).fill('#9e9e9e');
-      // 通常行: 既存背景を保護し、有休/休み色だけクリア
+      // 通常行: 既存背景を保護し、有休/休み色と保護色を一旦クリア（残骸・IDなし行の保護色もF5で消える）
       var rowArr = curBgs[idx].slice();
       for (var ci = 0; ci < rowArr.length; ci++) {
-        if (rowArr[ci] === '#e0e0e0' || rowArr[ci] === '#9e9e9e') rowArr[ci] = null;
+        if (rowArr[ci] === '#e0e0e0' || rowArr[ci] === '#9e9e9e' || rowArr[ci] === '#eceff1') rowArr[ci] = null;
       }
       if (pickV === '' && idV !== '') {
         rowArr[11] = '#fff9c4'; // IDがあって積地空→常に黄色
       } else if (pickV !== '' && rowArr[11] === '#fff9c4') {
         rowArr[11] = null; // 積地入力あり→黄色解除
       }
+      // 保護列（V=22, Y=25, Z=26）の保護色をIDあり行に自動復元（F5だけで直る）
+      if (idV !== '') {
+        if (lastCol >= 22) rowArr[21] = '#eceff1';
+        if (lastCol >= 25) rowArr[24] = '#eceff1';
+        if (lastCol >= 26) rowArr[25] = '#eceff1';
+      }
       return rowArr;
     });
     sheet.getRange(2, 1, lr - 1, lastCol).setBackgrounds(bgs2D);
+    // データ最終行より下の残骸色（過去バージョンの塗り跡）もF5で自動除去
+    var maxR = sheet.getMaxRows();
+    if (maxR > lr) {
+      var tailBgs = sheet.getRange(lr + 1, 1, maxR - lr, lastCol).getBackgrounds();
+      var tailDirty = false;
+      for (var tr = 0; tr < tailBgs.length; tr++) {
+        for (var tc = 0; tc < tailBgs[tr].length; tc++) {
+          var tv = tailBgs[tr][tc];
+          if (tv === '#eceff1' || tv === '#e0e0e0' || tv === '#9e9e9e' || tv === '#fff9c4') {
+            tailBgs[tr][tc] = null;
+            tailDirty = true;
+          }
+        }
+      }
+      if (tailDirty) sheet.getRange(lr + 1, 1, maxR - lr, lastCol).setBackgrounds(tailBgs);
+    }
     sheet.getRange(1, 12).setNote('🟡 薄黄: 配車漏れ（IDあり積地空）');
   }
 
@@ -1525,45 +1547,74 @@ function onEditUnkou_(sheet, range, ss) {
   var startRow = range.getRow();
   var numRows = range.getNumRows();
   var editedCol = range.getColumn();
+  var editedEndCol = editedCol + range.getNumColumns() - 1;
   if (startRow <= 1) return;
   if (!ss) ss = sheet.getParent();
-  var master = ss.getSheetByName('自車専属マスタ');
-  var mData = master ? master.getDataRange().getValues() : [];
-  // ScriptLockでID採番を排他制御（並列アクセス時のV-番号重複を根絶）
-  var idLock = LockService.getScriptLock();
-  try { idLock.waitLock(10000); } catch(e) {
-    SpreadsheetApp.getActiveSpreadsheet().toast('ロック取得失敗。再度お試しください。', '⚠️', 5);
-    return;
-  }
-  var vNextIdNum = getNextIdNum_(sheet, 'V-');
-  for (var pi = 0; pi < numRows; pi++) {
-    var prow = startRow + pi;
-    if (prow <= 1) continue;
-    var pidCell = sheet.getRange(prow, 1);
-    if (!pidCell.getValue()) {
-      var phd = sheet.getRange(prow, 2, 1, 10).getValues()[0].some(function(v) { return v !== ''; });
-      if (phd) { pidCell.setValue('V-' + String(vNextIdNum).padStart(4, '0')); vNextIdNum++; }
-    }
-  }
-  SpreadsheetApp.flush();
-  idLock.releaseLock();
 
   var lastColU = Math.max(sheet.getLastColumn(), 22);
   var _oeUnkouSyncIds = [];
   var _allRowsData = sheet.getRange(startRow, 1, numRows, lastColU).getValues(); // 一括先読み（個別読みのキャッシュずれ防止）
-  // D列(4)=トン数 一括正規化
-  if (startRow >= 2) {
+
+  // ── ID採番：IDが必要な行がある時だけロック取得・A列読み込みを行う ──
+  var _needIdIdx = [];
+  for (var pi = 0; pi < numRows; pi++) {
+    if (startRow + pi <= 1) continue;
+    var _pr = _allRowsData[pi];
+    if (!_pr[0]) {
+      for (var pc = 1; pc <= 10; pc++) { // B〜K列
+        if (_pr[pc] !== '') { _needIdIdx.push(pi); break; }
+      }
+    }
+  }
+  var _idAssignedIdx = {};
+  if (_needIdIdx.length > 0) {
+    // ScriptLockでID採番を排他制御（並列アクセス時のV-番号重複を根絶）
+    var idLock = LockService.getScriptLock();
+    try { idLock.waitLock(10000); } catch(e) {
+      SpreadsheetApp.getActiveSpreadsheet().toast('ロック取得失敗。再度お試しください。', '⚠️', 5);
+      return;
+    }
+    var vNextIdNum = getNextIdNum_(sheet, 'V-');
+    for (var ni = 0; ni < _needIdIdx.length; ni++) {
+      var nIdx = _needIdIdx[ni];
+      var pidCell = sheet.getRange(startRow + nIdx, 1);
+      var pidCur = pidCell.getValue(); // ロック待ちの間に他プロセスが採番した可能性があるため直前再確認
+      if (!pidCur) {
+        var newId = 'V-' + String(vNextIdNum).padStart(4, '0');
+        pidCell.setValue(newId);
+        _allRowsData[nIdx][0] = newId;
+        _idAssignedIdx[nIdx] = true;
+        vNextIdNum++;
+      } else {
+        _allRowsData[nIdx][0] = pidCur;
+      }
+    }
+    SpreadsheetApp.flush();
+    idLock.releaseLock();
+  }
+
+  // D列(4)=トン数 一括正規化（D列が編集範囲に含まれる時だけ）
+  if (startRow >= 2 && editedCol <= 4 && editedEndCol >= 4) {
     var _uTons = _allRowsData.map(function(r) { return [normalizeTons_(r[3])]; }); // D=index3
     var _uChg  = _uTons.some(function(v, i) { return String(v[0]) !== String(_allRowsData[i][3]); });
     if (_uChg) sheet.getRange(startRow, 4, numRows, 1).setValues(_uTons);
   }
-  // 点呼前完了・点呼後完了の列番号を動的取得（積完時刻と同じ正規化を適用するため）
-  var _unkHdr0 = sheet.getRange(1, 1, 1, lastColU).getValues()[0];
-  var _inspBColNum = _unkHdr0.indexOf('点呼前完了') + 1; // 1-based、見つからなければ0
-  var _inspAColNum = _unkHdr0.indexOf('点呼後完了') + 1;
+  // 点呼前完了・点呼後完了の列番号を動的取得（該当しうる列（23列目以降）が編集された時だけヘッダーを読む）
   var _timeCols = [14, 15, 16, 17, 18];
-  if (_inspBColNum > 0) _timeCols.push(_inspBColNum);
-  if (_inspAColNum > 0) _timeCols.push(_inspAColNum);
+  if (editedEndCol >= 23) {
+    var _unkHdr0 = sheet.getRange(1, 1, 1, lastColU).getValues()[0];
+    var _inspBColNum = _unkHdr0.indexOf('点呼前完了') + 1; // 1-based、見つからなければ0
+    var _inspAColNum = _unkHdr0.indexOf('点呼後完了') + 1;
+    if (_inspBColNum > 0) _timeCols.push(_inspBColNum);
+    if (_inspAColNum > 0) _timeCols.push(_inspAColNum);
+  }
+  // 車番補完用マスタ読み込み（F列が編集範囲に含まれる時だけ全読み）
+  var _fInRange = (editedCol <= 6 && editedEndCol >= 6);
+  var mData = [];
+  if (_fInRange) {
+    var master = ss.getSheetByName('自車専属マスタ');
+    mData = master ? master.getDataRange().getValues() : [];
+  }
   for (var i = 0; i < numRows; i++) {
     var row = startRow + i;
     if (row <= 1) continue;
@@ -1571,23 +1622,30 @@ function onEditUnkou_(sheet, range, ss) {
     var currentId = String(rowData[0] || '').trim();
     var dateVal   = rowData[9]; // J列(10)=日付 0-indexed:9
 
-    // J列(10)の日付：時刻部分が 0:00:00 なら現在時刻を付与（日付のみ入力に対応）
-    if (dateVal instanceof Date) {
-      if (dateVal.getHours() === 0 && dateVal.getMinutes() === 0 && dateVal.getSeconds() === 0) {
-        var now = new Date();
-        var merged = new Date(dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDate(),
-                              now.getHours(), now.getMinutes(), now.getSeconds());
-        sheet.getRange(row, 10).setValue(merged);
-        rowData[9] = merged;
+    // J列(10)の日付：時刻部分が 0:00:00 なら現在時刻を付与（J列が編集範囲に含まれる時だけ）
+    if (editedCol <= 10 && editedEndCol >= 10) {
+      if (dateVal instanceof Date) {
+        if (dateVal.getHours() === 0 && dateVal.getMinutes() === 0 && dateVal.getSeconds() === 0) {
+          var now = new Date();
+          var merged = new Date(dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDate(),
+                                now.getHours(), now.getMinutes(), now.getSeconds());
+          sheet.getRange(row, 10).setValue(merged);
+          rowData[9] = merged;
+        }
       }
+      sheet.getRange(row, 10).setNumberFormat('yyyy/MM/dd');
     }
-    sheet.getRange(row, 10).setNumberFormat('yyyy/MM/dd');
 
     // F列(6)：車番を入力→自車専属マスタと部分一致で8列一括補完
     // range.getNumColumns()制限を撤廃：複数列貼り付け・Ctrl+Enter一括入力にも対応
-    var _fInRange = (editedCol <= 6 && editedCol + range.getNumColumns() - 1 >= 6);
     if (_fInRange) {
-      var inputCar = String(rowData[5] || '').trim(); // F列 0-indexed:5
+      var rawCar   = String(rowData[5] || '').trim(); // F列 0-indexed:5
+      var inputCar = rawCar.replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }); // 全角英数→半角
+      if (inputCar !== rawCar) { // 正規化した値をセルに書き戻す（１０１→101が見た目にも反映される）
+        sheet.getRange(row, 6).setValue(inputCar);
+        rowData[5] = inputCar;
+      }
+      var inputCarDigits = (inputCar.match(/\d+/g) || []).join('');
       if (inputCar && mData.length > 1) {
         // B〜I列（F=車番=index5を除く）に何か入力済みなら手入力を保護してマスタ補完しない
         // 例：会社名・乗務員名など別会社の同じ車番がある場合に自動上書きを防ぐ
@@ -1596,10 +1654,12 @@ function onEditUnkou_(sheet, range, ss) {
         });
         if (!hasOtherInput) {
           for (var m2 = 1; m2 < mData.length; m2++) {
-            var masterCar = String(mData[m2][7] || '').trim();
+            var masterCar = String(mData[m2][7] || '').trim().replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
             var masterStatus = String(mData[m2][1] || '').trim();
             if (masterStatus === '故障' || masterStatus === '待機') continue;
-            if (masterCar === inputCar || masterCar.indexOf(inputCar) !== -1 || inputCar.indexOf(masterCar) !== -1) {
+            // マッチ条件：完全一致 or 数字部分の完全一致（101→大阪か101は補完、1→101は補完しない）
+            var masterCarDigits = (masterCar.match(/\d+/g) || []).join('');
+            if (masterCar === inputCar || (inputCarDigits !== '' && inputCarDigits === masterCarDigits)) {
               // B〜I列を1回のsetValuesで一括書き込み（8個→1回）
               sheet.getRange(row, 2, 1, 8).setValues([[
                 mData[m2][2], mData[m2][3], mData[m2][5], mData[m2][6],
@@ -1662,17 +1722,34 @@ function onEditUnkou_(sheet, range, ss) {
       }
     }
 
-    // 積地(L=col12)の背景色を即座に設定（単一setBackgroundsで確実に反映）
-    var pvK = String(rowData[11] || ''); // L列 0-indexed:11
-    var rowBgNew = new Array(lastColU).fill(null);
-    if (pvK.indexOf('有休') !== -1) {
-      rowBgNew = new Array(lastColU).fill('#e0e0e0');
-    } else if (pvK.indexOf('休み') !== -1) {
-      rowBgNew = new Array(lastColU).fill('#9e9e9e');
-    } else if (pvK === '' && currentId) {
-      rowBgNew[11] = '#fff9c4'; // L列のみ黄色
+    // 積地(L=col12)の背景色を即座に設定（L列編集・A列編集・ID新規採番の時だけ書き込み）
+    if ((editedCol <= 12 && editedEndCol >= 12) || (editedCol <= 1 && editedEndCol >= 1) || _idAssignedIdx[i]) {
+      var pvK = String(rowData[11] || ''); // L列 0-indexed:11
+      var rowBgNew;
+      if (pvK.indexOf('有休') !== -1) {
+        rowBgNew = new Array(lastColU).fill('#e0e0e0');
+      } else if (pvK.indexOf('休み') !== -1) {
+        rowBgNew = new Array(lastColU).fill('#9e9e9e');
+      } else {
+        // 通常行: 既存背景（期限色など）を保護し、有休/休み色・保護色を一旦クリアして塗り直す
+        rowBgNew = sheet.getRange(row, 1, 1, lastColU).getBackgrounds()[0];
+        for (var bci = 0; bci < rowBgNew.length; bci++) {
+          if (rowBgNew[bci] === '#e0e0e0' || rowBgNew[bci] === '#9e9e9e' || rowBgNew[bci] === '#eceff1') rowBgNew[bci] = null;
+        }
+        if (pvK === '' && currentId) {
+          rowBgNew[11] = '#fff9c4'; // L列のみ黄色
+        } else if (pvK !== '' && rowBgNew[11] === '#fff9c4') {
+          rowBgNew[11] = null; // 積地入力あり→黄色解除
+        }
+        // 保護列（V=22, Y=25, Z=26）の保護色をIDあり行に維持・復元
+        if (currentId) {
+          if (lastColU >= 22) rowBgNew[21] = '#eceff1';
+          if (lastColU >= 25) rowBgNew[24] = '#eceff1';
+          if (lastColU >= 26) rowBgNew[25] = '#eceff1';
+        }
+      }
+      sheet.getRange(row, 1, 1, lastColU).setBackgrounds([rowBgNew]);
     }
-    sheet.getRange(row, 1, 1, lastColU).setBackgrounds([rowBgNew]);
 
     // T列(20)=請求高速 を入力したとき U列(21)=実費高速 が空なら自動コピー（オレンジ色）
     if (editedCol === 20 && (rowData[20] === '' || rowData[20] === null)) {
@@ -1687,15 +1764,22 @@ function onEditUnkou_(sheet, range, ss) {
       sheet.getRange(row, 21).setFontColor(null);
     }
 
-    // V列(22)の合計高速数式
-    if (!sheet.getRange(row, 22).getFormula()) {
-      sheet.getRange(row, 22).setFormula('=IF(AND(U' + row + '="",T' + row + '=""),"",U' + row + '-T' + row + ')');
+    // V列(22)の合計高速数式（T/U列編集・ID新規採番の時だけチェック）
+    if (_idAssignedIdx[i] || (editedCol <= 21 && editedEndCol >= 20)) {
+      if (!sheet.getRange(row, 22).getFormula()) {
+        sheet.getRange(row, 22).setFormula('=IF(AND(U' + row + '="",T' + row + '=""),"",U' + row + '-T' + row + ')');
+      }
     }
-    SpreadsheetApp.flush();
     if (currentId && _oeUnkouSyncIds.indexOf(currentId) === -1) _oeUnkouSyncIds.push(currentId);
   }
-  applyMoneyFormat_(sheet, startRow, numRows, 'unkou');
-  applyDateTimeFormat_(sheet, startRow, numRows);
+  // 金額書式：金額列(S〜V=19〜22)が編集範囲に含まれる時、またはID新規採番時だけ
+  if ((editedCol <= 22 && editedEndCol >= 19) || _needIdIdx.length > 0) {
+    applyMoneyFormat_(sheet, startRow, numRows, 'unkou');
+  }
+  // 時刻書式：時刻列(N〜R=14〜18)または点呼列(23列目以降)が編集範囲に含まれる時だけ
+  if ((editedCol <= 18 && editedEndCol >= 14) || editedEndCol >= 23) {
+    applyDateTimeFormat_(sheet, startRow, numRows);
+  }
   // 日付列(J=col10)が編集された場合は両シートをソート（色はsortUnkouByDate_内で一緒に移動）
   if (editedCol === 10) {
     sortUnkouByDate_();
@@ -6246,10 +6330,15 @@ function applySheetColors_(ss) {
   if (unkouSheet) {
     var unkouLastRow = Math.max(unkouSheet.getLastRow(), 2);
     var protectedUnkouCols = [22, 25, 26];
+    // IDあり行のみ保護色を塗る（IDなし行はnull）
+    var unkouIdVals = unkouSheet.getRange(2, 1, unkouLastRow - 1, 1).getValues();
+    var protBgs = unkouIdVals.map(function(r) {
+      return [String(r[0] || '').trim() !== '' ? '#eceff1' : null];
+    });
     for (var pc = 0; pc < protectedUnkouCols.length; pc++) {
       var pcol = protectedUnkouCols[pc];
       unkouSheet.getRange(1, pcol).setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
-      unkouSheet.getRange(2, pcol, unkouLastRow - 1, 1).setBackground('#eceff1');
+      unkouSheet.getRange(2, pcol, unkouLastRow - 1, 1).setBackgrounds(protBgs);
     }
     // T列(col20=請求高速)ヘッダーは編集可のため保護色をリセット（データ行はapplyHolidayRowColors_に委ねる）
     unkouSheet.getRange(1, 20).setBackground(null).setFontColor(null).setFontWeight('normal');
