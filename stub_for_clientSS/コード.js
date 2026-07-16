@@ -15,8 +15,8 @@ function onOpen(e) {
   } catch(_ex0) {}
   // 通常パス（LIMITED では上記は無害スキップ済み）
   UnkouLib.buildClientMenu();
-  try { UnkouLib.convertLegacyAdminDataUrls_(); } catch(e) {}
-  try { UnkouLib.applyHolidayRowColors_(); } catch(e) {}
+  try { UnkouLib.convertLegacyAdminDataUrls(); } catch(e) {}
+  try { UnkouLib.applyHolidayRowColors(); } catch(e) {}
   try {
     var _hideSs = SpreadsheetApp.getActiveSpreadsheet();
     ['指示先履歴', '指示先ID別'].forEach(function(n) {
@@ -25,7 +25,7 @@ function onOpen(e) {
     });
   } catch(e) {}
   try { UnkouLib.showExpiryAlert(); } catch(e) {}
-  try { UnkouLib.applyExpiryWarningColors_(); } catch(e) {}
+  try { UnkouLib.applyExpiryWarningColors(); } catch(e) {}
   try {
     var _bkProps = PropertiesService.getDocumentProperties();
     var _bkLast  = Number(_bkProps.getProperty('LAST_BACKUP_TS') || 0);
@@ -225,7 +225,7 @@ function cleanupStaleTriggers() {
   var ss       = SpreadsheetApp.getActiveSpreadsheet();
   var staleFns = ['checkMasterExpiries', 'onOpen', 'checkExpiryDates'];
   var removed  = 0;
-  ScriptApp.getProjectTriggers().forEach(function(t) {
+  ScriptApp.getUserTriggers(ss).forEach(function(t) {
     if (staleFns.indexOf(t.getHandlerFunction()) !== -1) {
       try { ScriptApp.deleteTrigger(t); removed++; } catch(e) {}
     }

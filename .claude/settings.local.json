@@ -247,7 +247,15 @@
       "PowerShell(node deploy.js \"v741 �Â��C���X�g�[���ς݃g���K�[�̔��΂𖳊Q���ionOpen�t���������͑|���̂݁EcheckMasterExpiries�g���K�[���΂͑�return�j\")",
       "WebFetch(domain:developers.google.com)",
       "PowerShell(node deploy.js \"v743 �o�C���h�X�N���v�g�S�񋓂�projects.get�����ɍ��V�E�������R�[�h����֐����EinstallTriggers���ȑ|������\")",
-      "PowerShell(Get-Content \"$env:USERPROFILE\\\\.clasprc.json\" 2>$null | Select-Object -First 5)"
+      "PowerShell(Get-Content \"$env:USERPROFILE\\\\.clasprc.json\" 2>$null | Select-Object -First 5)",
+      "Bash(node deploy.js \"v759 プライベート関数呼び出し修正（applyHolidayRowColors_/applyExpiryWarningColors_/convertLegacyAdminDataUrls_をstubから呼べなかった問題→公開ラッパー追加）\")",
+      "Bash(node deploy.js \"v760 A1凡例メモ更新（ID衝突赤追加・全4色emoji付き・説明補完）\")",
+      "Bash(node deploy.js \"v763 A1凡例メモ記号を〇に統一\")",
+      "Bash(node deploy.js \"v764 完全ノータッチ原則対応：B列ステータス変更をsimpleトリガー直呼び・A1メモ色付き丸・check_integrity#6プライベート関数禁止チェック追加\")",
+      "Bash(node deploy.js \"v766 A1凡例メモ全色追加・セクション分け（ID列/行全体/マスタ）・HEXコード明記\")",
+      "Bash(node deploy.js \"v767 A1凡例メモHEXコード削除・薄黄を積地列のみセクションに分離\")",
+      "Bash(node deploy.js \"v768 A1凡例メモ薄黄を行全体に戻し積地列のみ注記追加\")",
+      "Bash(node deploy.js \"v769 色凡例ノートを該当セルに分散配置（A1=ID列/行全体・L1=積地配車漏れ・マスタB1=運行状態）\")"
     ]
   }
 }

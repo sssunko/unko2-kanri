@@ -104,5 +104,22 @@ if (!buildMenuMatch) {
   }
 }
 
+// 5. スタブ内の getProjectTriggers 使用禁止チェック（ゾンビトリガー漏れ防止）
+if (stubSrc.includes('getProjectTriggers')) {
+  err('stub_for_clientSS/コード.js 内に getProjectTriggers が含まれています。必ず getUserTriggers(ss) を使用してください。');
+} else {
+  ok('スタブ内 getProjectTriggers 使用なし (getUserTriggers 強制)');
+}
+
+// 6. スタブ内の UnkouLib.xxx_() プライベート関数呼び出し禁止チェック
+//    GASライブラリ仕様：末尾_関数は外部から呼び出し不可（サイレント失敗する）
+const privateCalls = [...stubSrc.matchAll(/UnkouLib\.(\w+_)\s*\(/g)].map(m => m[1]);
+const uniquePrivate = [...new Set(privateCalls)];
+if (uniquePrivate.length > 0) {
+  err('スタブ内でプライベート関数（末尾_）を呼び出しています。GASではライブラリ外から呼び出し不可（サイレント失敗）:\n  ' + uniquePrivate.join('\n  ') + '\n  → 公開ラッパー関数をコード.jsに追加してアンダースコアなしで呼ぶこと');
+} else {
+  ok('スタブ内 UnkouLib プライベート関数呼び出しなし');
+}
+
 console.log(hasError ? '\n整合性チェック失敗。デプロイを中止します。' : '\n✅ 整合性チェック全て OK');
 process.exit(hasError ? 1 : 0);
