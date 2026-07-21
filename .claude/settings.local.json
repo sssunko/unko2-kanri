@@ -280,7 +280,8 @@
       "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -S\"gotLock\" --oneline -- �R�[�h.js)",
       "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -S\"syncSumSheet_\" --oneline -- �R�[�h.js)",
       "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -S\"clearListCache_\" --oneline -- �R�[�h.js)",
-      "PowerShell(node deploy.js \"v781 �A�v���C��: �ҏW�ۑ���2�s�ڏ㏑������E�s���ύX�̍폜���쐬�p�~\\(�����s�ێ�+�ǉ��̂�\\)�E�����L�^�̏W�v��������ǂ������ō������E�t�@�C���������M�E�ꗗ�T�C�����g�X�V\")"
+      "PowerShell(node deploy.js \"v781 �A�v���C��: �ҏW�ۑ���2�s�ڏ㏑������E�s���ύX�̍폜���쐬�p�~\\(�����s�ێ�+�ǉ��̂�\\)�E�����L�^�̏W�v��������ǂ������ō������E�t�@�C���������M�E�ꗗ�T�C�����g�X�V\")",
+      "Bash(node deploy.js \"v730 ①編集データ30秒キャッシュ②連絡事前取得・即時表示③運行再開時点呼前スキップ④複数行程降ろし完判定修正⑤有効期限4件表示\")"
     ]
   }
 }

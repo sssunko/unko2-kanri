@@ -365,6 +365,7 @@
         <div class="info-line"><span class="info-label">名前：</span><span id="driverName"></span></div>
         <div class="info-line"><span class="info-label">携帯番号：</span><span id="driverTel"></span></div>
         <div id="expiryWarning" style="display:none;margin-top:8px;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:bold;"></div>
+        <div id="expiryDates" style="display:none;margin-top:8px;"></div>
       </div>
     </div>
     <div class="card">
@@ -872,6 +873,26 @@ window.onload = function() {
               ewDiv.style.display = 'none';
             }
           }
+          // 有効期限4件を表示
+          var edDiv = document.getElementById('expiryDates');
+          if (edDiv && init.expiryDates && init.expiryDates.length) {
+            var _shortL = {'免許証有効期限':'免許証','安全教育次回予定日':'安全教育','健康診断次回予定日':'健康診断','適性診断次回予定日':'適性診断'};
+            var _h = '<div style="font-size:11px;font-weight:700;color:#888;margin-bottom:4px;">有効期限</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">';
+            init.expiryDates.forEach(function(e) {
+              var sh = _shortL[e.label] || e.label;
+              var bg = e.status==='expired'?'#ffcdd2':e.status==='soon'?'#fff9c4':'#2c2c2c';
+              var co = e.status==='expired'?'#b71c1c':e.status==='soon'?'#e65100':'#aaa';
+              var dt = e.days===null?'未設定':e.days<0?'期限切れ':e.days===0?'今日':e.days+'日後';
+              _h += '<div style="background:'+bg+';border-radius:6px;padding:5px 8px;">';
+              _h += '<div style="font-size:10px;color:'+co+';font-weight:700;">'+sh+'</div>';
+              _h += '<div style="font-size:11px;color:'+co+';">'+(e.dateStr||'—')+'</div>';
+              _h += '<div style="font-size:10px;color:'+co+';">'+dt+'</div>';
+              _h += '</div>';
+            });
+            _h += '</div>';
+            edDiv.innerHTML = _h;
+            edDiv.style.display = 'block';
+          }
         } else {
           document.getElementById('statusText').innerText = '状態：マスタ未登録';
         }
@@ -1001,6 +1022,7 @@ var inspBeforeDone = [], inspAfterDone = [];
 var _inspType = '', _inspNextPhase = '';
 var guideHistory=[], pickHistory=[], dropHistory=[];
 var guideNotice=null;
+var _noticeFetching=false;
 var listYear, listMonth, filterCar='';
 var filterDateFrom='', filterDateTo='';
 var sortCol=0, sortAsc=false;
@@ -1024,6 +1046,7 @@ function hideLoading() { _loadCount = Math.max(0, _loadCount - 1); if (_loadCoun
 // ============================================================
 var _listRefreshTimer = null;
 var _listDataCache = {}; // { 'YYYY_M': { data, ts } } 60秒クライアントキャッシュ
+var _editDataCache = {}; // { id: { data, ts } } 30秒クライアントキャッシュ
 function hideAll() {
   // リスト自動更新タイマーを停止
   if (_listRefreshTimer) { clearInterval(_listRefreshTimer); _listRefreshTimer = null; }
@@ -1352,13 +1375,11 @@ function showGuideScreen() {
   if (rem===0) { phase='pick'; saveState(); showPickScreen(); return; }
   document.getElementById('stepGuide').style.display='block';
 
-  if (guideNotice === null && runRows.length > 0) {
-    var noticeArea=document.getElementById('guideNoticeArea');
-    noticeArea.innerHTML='<div style="color:#aaa;font-size:14px;">読み込み中...</div>';
-    noticeArea.style.display='block';
+  if (guideNotice === null && runRows.length > 0 && !_noticeFetching) {
+    _noticeFetching=true;
     google.script.run
-      .withSuccessHandler(function(n){ guideNotice=n||{notice:'',dataUrl:''}; updateGuideNoticeArea(); })
-      .withFailureHandler(function(){ guideNotice={notice:'',dataUrl:''}; updateGuideNoticeArea(); })
+      .withSuccessHandler(function(n){ _noticeFetching=false; guideNotice=n||{notice:'',dataUrl:''}; updateGuideNoticeArea(); })
+      .withFailureHandler(function(){ _noticeFetching=false; guideNotice={notice:'',dataUrl:''}; updateGuideNoticeArea(); })
       .getNoticeByRow(runId, COMPANY_SS_ID, getMyEmail());
   } else {
     updateGuideNoticeArea();
@@ -2224,7 +2245,7 @@ function saveListRowAuto(id) {
   if (inspBEl)     obj.inspBefore = extractHmm_(inspBEl.value);
   if (inspAEl)     obj.inspAfter  = extractHmm_(inspAEl.value);
   google.script.run
-    .withSuccessHandler(function() { refreshListSilent(false); })
+    .withSuccessHandler(function() { delete _editDataCache[id]; refreshListSilent(false); })
     .withFailureHandler(function(e) { console.error('自動保存エラー: ' + e.message); })
     .saveEditData(obj, COMPANY_SS_ID, getMyEmail());
 }
@@ -2266,30 +2287,36 @@ var termDataModalId = '';
 function openTermDataModal(id) {
   termDataModalId = id;
   document.getElementById('termDataOverlay').style.display = 'block';
+  var _ec=_editDataCache[id];
+  if(_ec && (Date.now()-_ec.ts)<30000){ _applyTermDataModal(id,_ec.data); return; }
   document.getElementById('termDataBox').innerHTML = '<div style="color:#aaa;padding:20px;text-align:center;">読み込み中...</div>';
   google.script.run.withSuccessHandler(function(d) {
-    var termUrls = (d.termData||'').split(',').map(function(u){return u.trim();}).filter(function(u){return u;});
-    var h = '<div style="font-size:16px;font-weight:700;color:#bb86fc;margin-bottom:16px;">データ（端末）</div>';
-    if (termUrls.length === 0) {
-      h += '<div style="color:#888;margin-bottom:12px;">ファイルなし</div>';
-    } else {
-      termUrls.forEach(function(url, idx) {
-        var enc = encodeURIComponent(url);
-        h += '<div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;">';
-        h += '<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;flex:1;">ファイル'+(idx+1)+'</a>';
-        h += '<button onclick="changeTermFileDirect(\''+id+'\',\''+url+'\')" style="padding:3px 8px;border-radius:6px;background:#555;color:white;font-size:11px;">変更</button>';
-        h += '<button onclick="deleteTermFileDirect(\''+id+'\',\''+enc+'\')" style="padding:3px 8px;border-radius:6px;background:#c62828;color:white;font-size:11px;">削除</button>';
-        h += '</div>';
-      });
-    }
-    h += '<div style="margin-top:12px;display:flex;gap:8px;">';
-    h += '<button onclick="addTermFileDirect(\''+id+'\')" style="padding:6px 14px;border-radius:8px;background:#388e3c;color:white;font-size:13px;">ファイル追加</button>';
-    h += '<button onclick="closeTermDataModal()" style="padding:6px 14px;border-radius:8px;background:#444;color:white;font-size:13px;">閉じる</button>';
-    h += '</div>';
-    document.getElementById('termDataBox').innerHTML = h;
+    _editDataCache[id]={data:d,ts:Date.now()};
+    _applyTermDataModal(id,d);
   }).withFailureHandler(function(err){
     document.getElementById('termDataBox').innerHTML = '<div style="color:#ff5252;padding:16px;">エラー: '+err+'</div>';
   }).getEditData(id, COMPANY_SS_ID, getMyEmail());
+}
+function _applyTermDataModal(id, d) {
+  var termUrls = (d.termData||'').split(',').map(function(u){return u.trim();}).filter(function(u){return u;});
+  var h = '<div style="font-size:16px;font-weight:700;color:#bb86fc;margin-bottom:16px;">データ（端末）</div>';
+  if (termUrls.length === 0) {
+    h += '<div style="color:#888;margin-bottom:12px;">ファイルなし</div>';
+  } else {
+    termUrls.forEach(function(url, idx) {
+      var enc = encodeURIComponent(url);
+      h += '<div style="margin-bottom:8px;display:flex;align-items:center;gap:6px;">';
+      h += '<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;flex:1;">ファイル'+(idx+1)+'</a>';
+      h += '<button onclick="changeTermFileDirect(\''+id+'\',\''+url+'\')" style="padding:3px 8px;border-radius:6px;background:#555;color:white;font-size:11px;">変更</button>';
+      h += '<button onclick="deleteTermFileDirect(\''+id+'\',\''+enc+'\')" style="padding:3px 8px;border-radius:6px;background:#c62828;color:white;font-size:11px;">削除</button>';
+      h += '</div>';
+    });
+  }
+  h += '<div style="margin-top:12px;display:flex;gap:8px;">';
+  h += '<button onclick="addTermFileDirect(\''+id+'\')" style="padding:6px 14px;border-radius:8px;background:#388e3c;color:white;font-size:13px;">ファイル追加</button>';
+  h += '<button onclick="closeTermDataModal()" style="padding:6px 14px;border-radius:8px;background:#444;color:white;font-size:13px;">閉じる</button>';
+  h += '</div>';
+  document.getElementById('termDataBox').innerHTML = h;
 }
 function closeTermDataModal() { document.getElementById('termDataOverlay').style.display = 'none'; }
 function addTermFileDirect(id) {
@@ -2305,7 +2332,7 @@ function addTermFileDirect(id) {
     function upNext(){
       if(upIdx>=ok.length){
         if(upFails.length) alert(upFails.join('\n')+'\nの送信に失敗しました。このファイルだけ再度アップロードしてください。');
-        openTermDataModal(id);
+        delete _editDataCache[id]; openTermDataModal(id);
         return;
       }
       var file=ok[upIdx++];
@@ -2326,7 +2353,7 @@ function addTermFileDirect(id) {
 function deleteTermFileDirect(id, encodedUrl) {
   if(!confirm('このファイルを削除しますか？')) return;
   google.script.run
-    .withSuccessHandler(function(){openTermDataModal(id);})
+    .withSuccessHandler(function(){ delete _editDataCache[id]; openTermDataModal(id);})
     .withFailureHandler(function(e){alert('処理に失敗しました。通信状況を確認して再度お試しください。\n（エラー：'+e.message+'）');})
     .deleteTerminalFile(id, decodeURIComponent(encodedUrl), COMPANY_SS_ID);
 }
@@ -2338,7 +2365,7 @@ function changeTermFileDirect(id, oldUrl) {
     reader.onload=function(ev){
       var b64=ev.target.result.split(',')[1];
       google.script.run
-        .withSuccessHandler(function(){openTermDataModal(id);})
+        .withSuccessHandler(function(){ delete _editDataCache[id]; openTermDataModal(id);})
         .withFailureHandler(function(e){alert('エラー: '+e.message);})
         .replaceTerminalFile(id,oldUrl,file.name,b64,file.type, COMPANY_SS_ID);
     };
@@ -2359,7 +2386,7 @@ function addAdminFile(id) {
     function upNext(){
       if(upIdx>=ok.length){
         if(upFails.length) alert(upFails.join('\n')+'\nの送信に失敗しました。このファイルだけ再度アップロードしてください。');
-        openEditModal(id);
+        delete _editDataCache[id]; openEditModal(id);
         return;
       }
       var file=ok[upIdx++];
@@ -2380,7 +2407,7 @@ function addAdminFile(id) {
 function deleteAdminFile(id, encodedUrl) {
   if(!confirm('このファイルを削除しますか？')) return;
   google.script.run
-    .withSuccessHandler(function(){openEditModal(id);})
+    .withSuccessHandler(function(){ delete _editDataCache[id]; openEditModal(id);})
     .withFailureHandler(function(e){alert('処理に失敗しました。通信状況を確認して再度お試しください。\n（エラー：'+e.message+'）');})
     .deleteAdminFileById(id, decodeURIComponent(encodedUrl), COMPANY_SS_ID);
 }
@@ -2392,7 +2419,7 @@ function changeAdminFile(id, oldUrl) {
     reader.onload=function(ev){
       var b64=ev.target.result.split(',')[1];
       google.script.run
-        .withSuccessHandler(function(){openEditModal(id);})
+        .withSuccessHandler(function(){ delete _editDataCache[id]; openEditModal(id);})
         .withFailureHandler(function(e){alert('エラー: '+e.message);})
         .replaceAdminFileById(id,oldUrl,file.name,b64,file.type, COMPANY_SS_ID);
     };
@@ -2480,70 +2507,77 @@ function selectCalYear(y){listYear=y;calMode='month';renderCalendar();}
 var editId='';
 function openEditModal(id) {
   editId=id;
+  var _ec=_editDataCache[id];
+  if(_ec && (Date.now()-_ec.ts)<30000){ _applyEditData(id,_ec.data); return; }
+  document.getElementById('editBox').innerHTML='<div style="padding:20px;text-align:center;color:#aaa;">読み込み中...</div>';
+  document.getElementById('editOverlay').classList.add('show');
   google.script.run.withSuccessHandler(function(d) {
     if (!d) { alert('データが見つかりません'); return; }
-    d.sales    = (d.sales    !== '' && d.sales    !== null && d.sales    !== undefined) ? Math.trunc(Number(d.sales))    : '';
-    d.tollReq  = (d.tollReq  !== '' && d.tollReq  !== null && d.tollReq  !== undefined) ? Math.trunc(Number(d.tollReq))  : '';
-    d.tollReal = (d.tollReal !== '' && d.tollReal !== null && d.tollReal !== undefined) ? Math.trunc(Number(d.tollReal)) : '';
-    d.tollTotal= (d.tollTotal!== '' && d.tollTotal!== null && d.tollTotal!== undefined) ? Math.trunc(Number(d.tollTotal)): '';
-    d.pay      = (d.pay      !== '' && d.pay      !== null && d.pay      !== undefined) ? Math.trunc(Number(d.pay))      : '';
-
-    var h='<h3 style="color:#bb86fc;margin-bottom:16px;">運行編集</h3>';
-    function ro(label,val){return '<div class="edit-row"><div class="edit-label">'+label+'</div><div class="edit-val-ro">'+(val||'')+'</div></div>';}
-    function ed(label,name,val,type){
-      type=type||'text';
-      var v=(val===null||val===undefined)?'':val;
-      return '<div class="edit-row"><div class="edit-label">'+label+'</div><input class="edit-input" id="ed_'+name+'" type="'+type+'" value="'+v+'"></div>';
-    }
-    h+=ed('ID','id',d.id)+ed('区分','kubun',d.kubun)+ed('会社名','company',d.company);
-    h+=ed('トン数','tons',d.tons)+ed('車種','type',d.type)+ed('看板名','kanban',d.kanban)+ed('車番','car',d.car)+ed('乗務員名','name',d.name)+ed('携帯番号','tel',d.tel);
-    h+=ed('日付','date',d.date)+ed('荷主名','client',d.client)+ed('積地','pick',d.pick)+ed('降地','drop',d.drop);
-    h+=ed('誘導時刻','guideTime',d.guideTime,'time')+ed('積完時刻','pickTime',d.pickTime,'time')+ed('休憩開始','restStart',d.restStart,'time')+ed('休憩終了','restEnd',d.restEnd,'time')+ed('降完時刻','dropTime',d.dropTime,'time');
-    h+=ed('売上','sales',d.sales!==''&&d.sales!==null?Math.trunc(Number(d.sales)).toLocaleString():'');
-    h+=ed('請求高速','tollReq',d.tollReq!==''&&d.tollReq!==null?Math.trunc(Number(d.tollReq)).toLocaleString():'');
-    h+=ed('実費高速','tollReal',d.tollReal!==''&&d.tollReal!==null?Math.trunc(Number(d.tollReal)).toLocaleString():'');
-    h+=ro('高速計（自動）', d.tollTotal!==''&&d.tollTotal!==null ? Math.trunc(Number(d.tollTotal)).toLocaleString() : '');
-    h+=ro('支払（自動）', d.pay!==''&&d.pay!==null ? Math.trunc(Number(d.pay)).toLocaleString() : '');
-    h+=ro('有休手当（自動）', (d.yukyu!==''&&d.yukyu!==null&&d.yukyu!==undefined&&d.yukyu!==0)?'¥'+Math.trunc(Number(d.yukyu)).toLocaleString():'—');
-    h+=ed('その他手当','other',(d.other!==''&&d.other!==null&&d.other!==undefined&&d.other!==0)?Math.trunc(Number(d.other)).toLocaleString():'');
-    h+=ed('点呼前完了','inspBefore',d.inspBefore||'','time')+ed('点呼後完了','inspAfter',d.inspAfter||'','time');
-    h+=ro('連絡事項',d.notice||'なし');
-    var adminUrls=(d.dataUrl||'').split(',').map(function(u){return u.trim();}).filter(function(u){return u;});
-    h+='<div class="edit-row"><div class="edit-label">データ</div><div class="edit-val">';
-    if(adminUrls.length===0){h+='<div style="color:#888;margin-bottom:6px;">なし</div>';}
-    else{
-      adminUrls.forEach(function(url,idx){
-        h+='<div style="margin-bottom:6px;">';
-        h+='<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;">ファイル'+(idx+1)+'</a>';
-        h+='</div>';
-      });
-    }
-    h+='</div></div>';
-    h+=ed('連絡(端末)','termNotice',d.termNotice||'');
-    // データ(端末): 追加・変更・削除可能
-    var termUrls=(d.termData||'').split(',').map(function(u){return u.trim();}).filter(function(u){return u;});
-    h+='<div class="edit-row"><div class="edit-label">データ(端末)</div><div class="edit-val">';
-    if(termUrls.length===0){h+='<div style="color:#888;margin-bottom:6px;">なし</div>';}
-    else{
-      termUrls.forEach(function(url,idx){
-        var enc=encodeURIComponent(url);
-        h+='<div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;">';
-        h+='<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;flex:1;">ファイル'+(idx+1)+'</a>';
-        h+='<button onclick="changeTermFile(\''+id+'\',\''+url+'\')" style="padding:3px 8px;border-radius:6px;background:#555;color:white;font-size:11px;">変更</button>';
-        h+='<button onclick="deleteTermFile(\''+id+'\',\''+enc+'\')" style="padding:3px 8px;border-radius:6px;background:#c62828;color:white;font-size:11px;">削除</button>';
-        h+='</div>';
-      });
-    }
-    h+='<button onclick="addTermFile(\''+id+'\')" style="margin-top:6px;padding:4px 10px;border-radius:6px;background:#388e3c;color:white;font-size:12px;">ファイル追加</button>';
-    h+='</div></div>';
-    h+='<div class="edit-btns">'+
-      '<button class="edit-btn eb-save" onclick="saveEditModal()">保存</button>'+
-      '<button class="edit-btn eb-close" onclick="closeEditModal()">閉じる</button>'+
-      '<button class="edit-btn eb-delete" onclick="deleteEditModal()">削除</button>'+
-      '</div>';
-    document.getElementById('editBox').innerHTML=h;
-    document.getElementById('editOverlay').classList.add('show');
+    _editDataCache[id]={data:d,ts:Date.now()};
+    _applyEditData(id,d);
   }).withFailureHandler(function(){ alert('データの取得に失敗しました'); }).getEditData(id, COMPANY_SS_ID, getMyEmail());
+}
+function _applyEditData(id, d) {
+  d.sales    = (d.sales    !== '' && d.sales    !== null && d.sales    !== undefined) ? Math.trunc(Number(d.sales))    : '';
+  d.tollReq  = (d.tollReq  !== '' && d.tollReq  !== null && d.tollReq  !== undefined) ? Math.trunc(Number(d.tollReq))  : '';
+  d.tollReal = (d.tollReal !== '' && d.tollReal !== null && d.tollReal !== undefined) ? Math.trunc(Number(d.tollReal)) : '';
+  d.tollTotal= (d.tollTotal!== '' && d.tollTotal!== null && d.tollTotal!== undefined) ? Math.trunc(Number(d.tollTotal)): '';
+  d.pay      = (d.pay      !== '' && d.pay      !== null && d.pay      !== undefined) ? Math.trunc(Number(d.pay))      : '';
+  var h='<h3 style="color:#bb86fc;margin-bottom:16px;">運行編集</h3>';
+  function ro(label,val){return '<div class="edit-row"><div class="edit-label">'+label+'</div><div class="edit-val-ro">'+(val||'')+'</div></div>';}
+  function ed(label,name,val,type){
+    type=type||'text';
+    var v=(val===null||val===undefined)?'':val;
+    return '<div class="edit-row"><div class="edit-label">'+label+'</div><input class="edit-input" id="ed_'+name+'" type="'+type+'" value="'+v+'"></div>';
+  }
+  h+=ed('ID','id',d.id)+ed('区分','kubun',d.kubun)+ed('会社名','company',d.company);
+  h+=ed('トン数','tons',d.tons)+ed('車種','type',d.type)+ed('看板名','kanban',d.kanban)+ed('車番','car',d.car)+ed('乗務員名','name',d.name)+ed('携帯番号','tel',d.tel);
+  h+=ed('日付','date',d.date)+ed('荷主名','client',d.client)+ed('積地','pick',d.pick)+ed('降地','drop',d.drop);
+  h+=ed('誘導時刻','guideTime',d.guideTime,'time')+ed('積完時刻','pickTime',d.pickTime,'time')+ed('休憩開始','restStart',d.restStart,'time')+ed('休憩終了','restEnd',d.restEnd,'time')+ed('降完時刻','dropTime',d.dropTime,'time');
+  h+=ed('売上','sales',d.sales!==''&&d.sales!==null?Math.trunc(Number(d.sales)).toLocaleString():'');
+  h+=ed('請求高速','tollReq',d.tollReq!==''&&d.tollReq!==null?Math.trunc(Number(d.tollReq)).toLocaleString():'');
+  h+=ed('実費高速','tollReal',d.tollReal!==''&&d.tollReal!==null?Math.trunc(Number(d.tollReal)).toLocaleString():'');
+  h+=ro('高速計（自動）', d.tollTotal!==''&&d.tollTotal!==null ? Math.trunc(Number(d.tollTotal)).toLocaleString() : '');
+  h+=ro('支払（自動）', d.pay!==''&&d.pay!==null ? Math.trunc(Number(d.pay)).toLocaleString() : '');
+  h+=ro('有休手当（自動）', (d.yukyu!==''&&d.yukyu!==null&&d.yukyu!==undefined&&d.yukyu!==0)?'¥'+Math.trunc(Number(d.yukyu)).toLocaleString():'—');
+  h+=ed('その他手当','other',(d.other!==''&&d.other!==null&&d.other!==undefined&&d.other!==0)?Math.trunc(Number(d.other)).toLocaleString():'');
+  h+=ed('点呼前完了','inspBefore',d.inspBefore||'','time')+ed('点呼後完了','inspAfter',d.inspAfter||'','time');
+  h+=ro('連絡事項',d.notice||'なし');
+  var adminUrls=(d.dataUrl||'').split(',').map(function(u){return u.trim();}).filter(function(u){return u;});
+  h+='<div class="edit-row"><div class="edit-label">データ</div><div class="edit-val">';
+  if(adminUrls.length===0){h+='<div style="color:#888;margin-bottom:6px;">なし</div>';}
+  else{
+    adminUrls.forEach(function(url,idx){
+      h+='<div style="margin-bottom:6px;">';
+      h+='<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;">ファイル'+(idx+1)+'</a>';
+      h+='</div>';
+    });
+  }
+  h+='</div></div>';
+  h+=ed('連絡(端末)','termNotice',d.termNotice||'');
+  // データ(端末): 追加・変更・削除可能
+  var termUrls=(d.termData||'').split(',').map(function(u){return u.trim();}).filter(function(u){return u;});
+  h+='<div class="edit-row"><div class="edit-label">データ(端末)</div><div class="edit-val">';
+  if(termUrls.length===0){h+='<div style="color:#888;margin-bottom:6px;">なし</div>';}
+  else{
+    termUrls.forEach(function(url,idx){
+      var enc=encodeURIComponent(url);
+      h+='<div style="margin-bottom:6px;display:flex;align-items:center;gap:6px;">';
+      h+='<a href="'+url+'" target="_blank" style="color:#bb86fc;font-size:13px;flex:1;">ファイル'+(idx+1)+'</a>';
+      h+='<button onclick="changeTermFile(\''+id+'\',\''+url+'\')" style="padding:3px 8px;border-radius:6px;background:#555;color:white;font-size:11px;">変更</button>';
+      h+='<button onclick="deleteTermFile(\''+id+'\',\''+enc+'\')" style="padding:3px 8px;border-radius:6px;background:#c62828;color:white;font-size:11px;">削除</button>';
+      h+='</div>';
+    });
+  }
+  h+='<button onclick="addTermFile(\''+id+'\')" style="margin-top:6px;padding:4px 10px;border-radius:6px;background:#388e3c;color:white;font-size:12px;">ファイル追加</button>';
+  h+='</div></div>';
+  h+='<div class="edit-btns">'+
+    '<button class="edit-btn eb-save" onclick="saveEditModal()">保存</button>'+
+    '<button class="edit-btn eb-close" onclick="closeEditModal()">閉じる</button>'+
+    '<button class="edit-btn eb-delete" onclick="deleteEditModal()">削除</button>'+
+    '</div>';
+  document.getElementById('editBox').innerHTML=h;
+  document.getElementById('editOverlay').classList.add('show');
 }
 function closeEditModal(){ document.getElementById('editOverlay').classList.remove('show'); }
 function saveEditModal(){
@@ -2578,18 +2612,18 @@ function saveEditModal(){
   };
   closeEditModal();
   google.script.run
-    .withSuccessHandler(function(){ refreshListSilent(true); })
+    .withSuccessHandler(function(){ delete _editDataCache[editId]; refreshListSilent(true); })
     .withFailureHandler(function(e){ alert('保存エラー: '+e.message); })
     .saveEditData(obj, COMPANY_SS_ID, getMyEmail());
 }
 function deleteEditModal(){
   if(!confirm('この運行データを削除しますか？')) return;
   closeEditModal();
-  google.script.run.withSuccessHandler(function(){ refreshListSilent(true); }).withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(editId, COMPANY_SS_ID, getMyEmail());
+  google.script.run.withSuccessHandler(function(){ delete _editDataCache[editId]; refreshListSilent(true); }).withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(editId, COMPANY_SS_ID, getMyEmail());
 }
 function deleteFromList(id){
   if(!confirm('この運行データを削除しますか？')) return;
-  google.script.run.withSuccessHandler(function(){ refreshListSilent(true); }).withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(id, COMPANY_SS_ID, getMyEmail());
+  google.script.run.withSuccessHandler(function(){ delete _editDataCache[id]; refreshListSilent(true); }).withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(id, COMPANY_SS_ID, getMyEmail());
 }
 function addTermFile(id) {
   var input=document.createElement('input'); input.type='file'; input.multiple=true; input.accept='image/*,.pdf,.doc,.docx,.xls,.xlsx';
@@ -2604,7 +2638,7 @@ function addTermFile(id) {
     function upNext(){
       if(upIdx>=ok.length){
         if(upFails.length) alert(upFails.join('\n')+'\nの送信に失敗しました。このファイルだけ再度アップロードしてください。');
-        openEditModal(id);
+        delete _editDataCache[id]; openEditModal(id);
         return;
       }
       var file=ok[upIdx++];
@@ -2626,7 +2660,7 @@ function deleteTermFile(id, encodedUrl) {
   var url=decodeURIComponent(encodedUrl);
   if(!confirm('このファイルを削除しますか？')) return;
   google.script.run
-    .withSuccessHandler(function(){openEditModal(id);})
+    .withSuccessHandler(function(){ delete _editDataCache[id]; openEditModal(id);})
     .withFailureHandler(function(e){alert('処理に失敗しました。通信状況を確認して再度お試しください。\n（エラー：'+e.message+'）');})
     .deleteTerminalFile(id, url, COMPANY_SS_ID);
 }
@@ -2638,7 +2672,7 @@ function changeTermFile(id, oldUrl) {
     reader.onload=function(ev){
       var b64=ev.target.result.split(',')[1];
       google.script.run
-        .withSuccessHandler(function(){openEditModal(id);})
+        .withSuccessHandler(function(){ delete _editDataCache[id]; openEditModal(id);})
         .withFailureHandler(function(e){alert('エラー: '+e.message);})
         .replaceTerminalFile(id,oldUrl,file.name,b64,file.type, COMPANY_SS_ID);
     };
@@ -2651,6 +2685,7 @@ function saveTermNoticeFromEdit(id) {
   closeEditModal();
   google.script.run
     .withSuccessHandler(function(){
+      delete _editDataCache[id];
       refreshListSilent(true);
       var t=document.createElement('div');
       t.style.cssText='position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#388e3c;color:white;padding:10px 28px;border-radius:20px;font-size:15px;font-weight:700;z-index:9999;';
@@ -2675,19 +2710,40 @@ function startRunFromList(id) {
     if (data.progress==='complete' && !data.firstGap) return;
     picks=data.routes.map(function(r){return r.pick;});
     drops=data.routes.map(function(r){return r.drop;});
-    runRows=data.routes.map(function(r){return r.row;}); runId=id;
+    runRows=data.routes.map(function(r){return r.row;}); var _prevRunId=runId; runId=id;
     guideDone=data.routes.map(function(r){return !!r.guideDone;});
     pickDone=data.routes.map(function(r){return !!r.pickDone;});
     dropDone=data.routes.map(function(r){return !!r.dropDone;});
     driverCreatedRows=false; runReturnTo='list'; // 一覧から来たことを記録
-    guideHistory=[]; pickHistory=[]; dropHistory=[]; lastPickIndex=null; guideNotice=null;
+    guideHistory=[]; pickHistory=[]; dropHistory=[]; lastPickIndex=null;
+    if(_prevRunId !== id) guideNotice=null;
     for(var i=0;i<guideDone.length;i++){if(guideDone[i]) guideHistory.push(i);}
     for(var i=0;i<pickDone.length;i++){if(pickDone[i]){pickHistory.push(i);lastPickIndex=i;}}
     for(var i=0;i<dropDone.length;i++){if(dropDone[i]) dropHistory.push(i);}
-    // 一覧から起動時は常に点呼前チェックを経由する
-    _inspNextPhase = data.firstGap || data.progress;
-    phase='inspBefore'; inspBeforeDone=new Array(inspBeforeItems.length).fill(false); saveState();
-    showInspScreen('before');
+    // 連絡を事前取得（guideScreenで即時表示するため）
+    if(guideNotice===null && !_noticeFetching) {
+      _noticeFetching=true;
+      google.script.run
+        .withSuccessHandler(function(n){ _noticeFetching=false; guideNotice=n||{notice:'',dataUrl:''}; updateGuideNoticeArea(); })
+        .withFailureHandler(function(){ _noticeFetching=false; guideNotice={notice:'',dataUrl:''}; })
+        .getNoticeByRow(id, COMPANY_SS_ID, getMyEmail());
+    }
+    // 進捗がある場合（再開）は点呼前スキップ、初回のみ点呼前チェックを経由する
+    var _hasProgress = guideDone.some(function(v){return v;}) || pickDone.some(function(v){return v;}) || dropDone.some(function(v){return v;});
+    if(_hasProgress) {
+      var _next = data.firstGap || data.progress || 'guide';
+      if      (_next === 'guide')     { phase='guide';     saveState(); showGuideScreen(); }
+      else if (_next === 'pick')      { phase='pick';      saveState(); showPickScreen(); }
+      else if (_next === 'restStart') { phase='restStart'; saveState(); showScreen('step3','休憩開始'); }
+      else if (_next === 'restEnd')   { phase='restEnd';   saveState(); showScreen('step4','休憩終了'); }
+      else if (_next === 'inspAfter') { phase='inspAfter'; saveState(); showInspScreen('after'); }
+      else if (_next === 'drop')      { phase='drop';      saveState(); showDropScreen(); }
+      else                            { phase='guide';     saveState(); showGuideScreen(); }
+    } else {
+      _inspNextPhase = data.firstGap || data.progress;
+      phase='inspBefore'; inspBeforeDone=new Array(inspBeforeItems.length).fill(false); saveState();
+      showInspScreen('before');
+    }
   }).withFailureHandler(function(){alert('通信エラー');}).getRoutesById(id, COMPANY_SS_ID, getMyEmail());
 }
 

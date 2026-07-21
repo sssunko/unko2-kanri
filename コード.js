@@ -5289,6 +5289,20 @@ function getInitialData(hintEmail, companySsId) {
         var status = minDays < 0 ? 'expired' : minDays === 0 ? 'today' : 'soon';
         result.expiryWarning = { minDays: minDays, label: minLabel, status: status };
       }
+      var allExpiry = [];
+      for (var ci2 = 0; ci2 < expiCols.length; ci2++) {
+        var dt3 = data[i][expiCols[ci2]], label3 = String(headers[expiCols[ci2]]);
+        if (dt3 instanceof Date && !isNaN(dt3.getTime())) {
+          var exp3 = new Date(dt3); exp3.setHours(0,0,0,0);
+          var days3 = Math.round((exp3.getTime()-today.getTime())/86400000);
+          var ds3 = exp3.getFullYear()+'/'+String(exp3.getMonth()+1).padStart(2,'0')+'/'+String(exp3.getDate()).padStart(2,'0');
+          var st3 = days3<0?'expired':days3<=7?'soon':'ok';
+          allExpiry.push({label:label3, days:days3, dateStr:ds3, status:st3});
+        } else {
+          allExpiry.push({label:label3, days:null, dateStr:'', status:'none'});
+        }
+      }
+      result.expiryDates = allExpiry;
       break;
     }
   }
@@ -6013,7 +6027,7 @@ function getListData(year, month, companySsId, email) {
         id:id, car:String(r[5]||'').trim(), date:ds,
         dateSort: baseDateSort,
         dateDisp:'', picks:[], drops:[],
-        guideTime:'', pickTime:'', restStart:'', restEnd:'', dropTime:'',
+        guideTime:'', pickTime:'', restStart:'', restEnd:'', dropTime:'', allDropsDone:true,
         sales:0, tollReq:0, tollReal:0, tollTotal:0, pay:0, expense:0, yukyu:0, other:0,
         inspBefore:'', inspAfter:'',
         notice:r[22]||'', dataUrls:du23, dataUrl:du23[0]||'',
@@ -6048,6 +6062,7 @@ function getListData(year, month, companySsId, email) {
       var dt2 = r[17] instanceof Date ? r[17] : new Date(r[17]);
       if (!isNaN(dt2.getTime())) g.dropTime = String(dt2.getHours()).padStart(2,'0')+':'+String(dt2.getMinutes()).padStart(2,'0');
     }
+    if (!r[17]) g.allDropsDone = false;
     g.sales   += Number(r[18]) || 0;
     g.tollReq += Number(r[19]) || 0;
     g.tollReal+= Number(r[20]) || 0;
@@ -6098,7 +6113,7 @@ function getListData(year, month, companySsId, email) {
       pay:g.pay, expense:g.expense, yukyu:g.yukyu, other:g.other,
       inspBefore:g.inspBefore, inspAfter:g.inspAfter,
       notice:g.notice, dataUrl:g.dataUrl, hasNotice:g.hasNotice,
-      isComplete: !!(g.guideTime && g.pickTime && g.restStart && g.restEnd && g.dropTime && g.inspBefore && g.inspAfter),
+      isComplete: !!(g.guideTime && g.pickTime && g.restStart && g.restEnd && g.allDropsDone && g.inspBefore && g.inspAfter),
       isNew:      !g.guideTime && !g.pickTime && !g.restStart && !g.restEnd && !g.dropTime && !g.inspBefore && !g.inspAfter
     });
     totalSales += g.sales; totalToll += g.tollTotal; totalPay += g.pay;
