@@ -365,9 +365,9 @@
         <div class="info-line"><span class="info-label">名前：</span><span id="driverName"></span></div>
         <div class="info-line"><span class="info-label">携帯番号：</span><span id="driverTel"></span></div>
         <div id="expiryWarning" style="display:none;margin-top:8px;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:bold;"></div>
-        <div id="expiryDates" style="display:none;margin-top:8px;"></div>
       </div>
     </div>
+    <div id="expiryDates" class="card" style="display:none;"></div>
     <div class="card">
       <h3>連絡事項</h3>
       <div id="noticeArea"><div style="color:#888;">連絡事項はありません。</div></div>
@@ -862,16 +862,16 @@ window.onload = function() {
           var edDiv = document.getElementById('expiryDates');
           if (edDiv && init.expiryDates && init.expiryDates.length) {
             var _shortL = {'免許証有効期限':'免許証','安全教育次回予定日':'安全教育','健康診断次回予定日':'健康診断','適性診断次回予定日':'適性診断'};
-            var _h = '<div style="font-size:11px;font-weight:700;color:#888;margin-bottom:4px;">有効期限</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">';
+            var _h = '<h3 style="margin:0 0 10px;">有効期限</h3><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">';
             init.expiryDates.forEach(function(e) {
               var sh = _shortL[e.label] || e.label;
               var bg = e.status==='expired'?'#ffcdd2':e.status==='soon'?'#fff9c4':'#2c2c2c';
               var co = e.status==='expired'?'#b71c1c':e.status==='soon'?'#e65100':'#aaa';
               var dt = e.days==null?'未設定':e.days<0?'期限切れ':e.days===0?'今日':e.days+'日後';
-              _h += '<div style="background:'+bg+';border-radius:6px;padding:5px 8px;">';
-              _h += '<div style="font-size:10px;color:'+co+';font-weight:700;">'+sh+'</div>';
-              _h += '<div style="font-size:11px;color:'+co+';">'+(e.dateStr||'—')+'</div>';
-              _h += '<div style="font-size:10px;color:'+co+';">'+dt+'</div>';
+              _h += '<div style="background:'+bg+';border-radius:8px;padding:10px 14px;">';
+              _h += '<div style="font-size:13px;font-weight:700;color:'+co+';margin-bottom:4px;">'+sh+'</div>';
+              _h += '<div style="font-size:15px;font-weight:700;color:'+co+';margin-bottom:2px;">'+(e.dateStr||'—')+'</div>';
+              _h += '<div style="font-size:13px;color:'+co+';">'+dt+'</div>';
               _h += '</div>';
             });
             _h += '</div>';

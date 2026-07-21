@@ -285,7 +285,8 @@
       "Bash(node deploy.js \"v731 積完等アクション後に一覧キャッシュクリア・有効期限undefined修正・重複警告非表示\")",
       "Bash(node deploy.js \"v732 積完等アクション後に一覧を即時再描画（bgSyncSummaryでrefreshListSilent再描画あり）\")",
       "Bash(node deploy.js \"v733 楽観的一覧更新・モーダルキャッシュ無限化・連絡モーダルキャッシュ追加\")",
-      "Bash(node deploy.js \"v734 SSが書いた時刻を返してアプリの一覧を更新・楽観的更新を廃止\")"
+      "Bash(node deploy.js \"v734 SSが書いた時刻を返してアプリの一覧を更新・楽観的更新を廃止\")",
+      "Bash(node deploy.js \"有効期限表示を独立cardに移動・文字サイズ拡大\")"
     ]
   }
 }
