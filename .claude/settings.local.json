@@ -261,7 +261,26 @@
       "Bash(node deploy.js \"v772 onEdit高速化: 編集列に応じた条件実行復元（マスタ読み・A列読み・ロックはID必要時のみ・ループ内flush削除・背景/書式は該当列編集時のみ）\")",
       "Bash(node deploy.js \"v774 保護色まだら修正: onEditの行背景書き込みが保護色#eceff1を消すバグ修正・F5でIDあり行のV/Y/Z列保護色を自動復元\")",
       "PowerShell(node deploy.js \"v775 �ی�F��ID����s�݂̂Ɍ���EID�Ȃ��s�Ǝc�[�F��F5�Ŏ�������\")",
-      "PowerShell(node deploy.js \"v777 �f�[�^�ŏI�s��艺�̎c�[�F�i�ی�F�E�O���[�E���j��F5�Ŏ�������\")"
+      "PowerShell(node deploy.js \"v777 �f�[�^�ŏI�s��艺�̎c�[�F�i�ی�F�E�O���[�E���j��F5�Ŏ�������\")",
+      "PowerShell(node \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\2936215d-675d-4dcc-88df-b095c29759ed\\\\scratchpad\\\\stub_audit.js\")",
+      "PowerShell(node \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\2936215d-675d-4dcc-88df-b095c29759ed\\\\scratchpad\\\\menu_sheet_audit.js\")",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -S\"�Ԏ�\" --oneline -- �R�[�h.js)",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -S\"rowData[4]\" --oneline -- �R�[�h.js)",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -S\"������\" --oneline -- �R�[�h.js)",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri grep -n \"������\" e593d91 -- �R�[�h.js)",
+      "PowerShell(node deploy.js \"v779 �Ԏ��iE��j�̑啶���E�S�p�����������p�����ǉ�\")",
+      "PowerShell(node deploy.js \"v780 ID���S�ʂ��ԍ����i��A�j�폜�E�A�[�J�C�u����ԍ��ė��p�Ȃ��ECSV�捞��5��ID�؂�̂ăo�O�C��\")",
+      "PowerShell(node deploy.js \"v780 ID���S�ʂ��ԍ����i���s�ςݍő�ԍ���SS�����^�f�[�^�ɋL�^�E�폜�A�[�J�C�u����ė��p���Ȃ��j�ECSV�C���|�[�gID��4�����؂�̂ďC��\")",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -G\"obj.pick\" --oneline -- �R�[�h.js)",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -G\"deleteRunRows\" --oneline -- index.html)",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -G\"saveEditData\" --oneline -- index.html)",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -G\"li_pick_\" --oneline -- index.html)",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log --oneline -- index.html)",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri diff 5473e08 1c9fe7a -- index.html)",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -S\"gotLock\" --oneline -- �R�[�h.js)",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -S\"syncSumSheet_\" --oneline -- �R�[�h.js)",
+      "PowerShell(git -C c:\\\\gas\\\\unko2-kanri log -S\"clearListCache_\" --oneline -- �R�[�h.js)",
+      "PowerShell(node deploy.js \"v781 �A�v���C��: �ҏW�ۑ���2�s�ڏ㏑������E�s���ύX�̍폜���쐬�p�~\\(�����s�ێ�+�ǉ��̂�\\)�E�����L�^�̏W�v��������ǂ������ō������E�t�@�C���������M�E�ꗗ�T�C�����g�X�V\")"
     ]
   }
 }

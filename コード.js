@@ -438,18 +438,43 @@
 // ================================================================
 function getNextIdNum_(sheet, prefix) {
   var lastRow = sheet.getLastRow();
-  var nextNum = 1;
+  var maxNum = 0;
   if (lastRow >= 2) {
     var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
     for (var k = 0; k < ids.length; k++) {
       var match = String(ids[k][0]).match(/(\d+)$/);
       if (match) {
         var n = parseInt(match[1], 10);
-        if (n >= nextNum) nextNum = n + 1;
+        if (n > maxNum) maxNum = n;
       }
     }
   }
-  return nextNum;
+  // 完全通し番号：発行済み最大番号をSS内の開発者メタデータに記録し、
+  // 行削除・アーカイブ後も一度使った番号は二度と再利用しない
+  var stored = 0;
+  try {
+    var mdKey = 'MAX_ID_NUM_' + String(prefix || '').replace(/-$/, '');
+    var md = sheet.getParent().createDeveloperMetadataFinder().withKey(mdKey).find();
+    if (md.length > 0) stored = parseInt(md[0].getValue(), 10) || 0;
+  } catch (e) {}
+  var next = Math.max(maxNum, stored) + 1;
+  commitLastId_(sheet, prefix, next);
+  return next;
+}
+
+// 発行済み最大番号の帳簿更新（現在の記録より大きい時だけ書き込む・失敗しても採番は継続）
+function commitLastId_(sheet, prefix, lastUsedNum) {
+  if (!lastUsedNum || lastUsedNum <= 0) return;
+  try {
+    var key = 'MAX_ID_NUM_' + String(prefix || '').replace(/-$/, '');
+    var ss = sheet.getParent();
+    var md = ss.createDeveloperMetadataFinder().withKey(key).find();
+    if (md.length > 0) {
+      if ((parseInt(md[0].getValue(), 10) || 0) < lastUsedNum) md[0].setValue(String(lastUsedNum));
+    } else {
+      ss.addDeveloperMetadata(key, String(lastUsedNum));
+    }
+  } catch (e) {}
 }
 
 // トン数を「4t」形式に正規化。全角数字・大文字T対応。数字のみ入力→t付加。
@@ -1589,6 +1614,7 @@ function onEditUnkou_(sheet, range, ss) {
         _allRowsData[nIdx][0] = pidCur;
       }
     }
+    commitLastId_(sheet, 'V-', vNextIdNum - 1);
     SpreadsheetApp.flush();
     idLock.releaseLock();
   }
@@ -1598,6 +1624,19 @@ function onEditUnkou_(sheet, range, ss) {
     var _uTons = _allRowsData.map(function(r) { return [normalizeTons_(r[3])]; }); // D=index3
     var _uChg  = _uTons.some(function(v, i) { return String(v[0]) !== String(_allRowsData[i][3]); });
     if (_uChg) sheet.getRange(startRow, 4, numRows, 1).setValues(_uTons);
+  }
+  // E列(5)=車種 小文字統一（全角Ｗ→半角・大文字→小文字。E列が編集範囲に含まれる時だけ）
+  if (startRow >= 2 && editedCol <= 5 && editedEndCol >= 5) {
+    var _uType = _allRowsData.map(function(r) {
+      var tv = String(r[4] || '');
+      var tn = tv.replace(/[Ａ-Ｚａ-ｚ]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).toLowerCase();
+      return [tn];
+    });
+    var _uTypeChg = _uType.some(function(v, i) { return String(v[0]) !== String(_allRowsData[i][4]); });
+    if (_uTypeChg) {
+      sheet.getRange(startRow, 5, numRows, 1).setValues(_uType);
+      for (var _ti = 0; _ti < numRows; _ti++) _allRowsData[_ti][4] = _uType[_ti][0];
+    }
   }
   // 点呼前完了・点呼後完了の列番号を動的取得（該当しうる列（23列目以降）が編集された時だけヘッダーを読む）
   var _timeCols = [14, 15, 16, 17, 18];
@@ -1843,6 +1882,7 @@ function onEditMasterVehicle_(sheet, range, ss) {
       if (sphd) { spCell.setValue('S-' + String(sNextIdNum).padStart(4, '0')); sNextIdNum++; }
     }
   }
+  commitLastId_(sheet, 'S-', sNextIdNum - 1);
   SpreadsheetApp.flush();
   sIdLock.releaseLock();
 
@@ -2101,6 +2141,7 @@ function syncVehicleToCurrentMonth_(veh, skipSort, applyDate, ss) {
         sheet.getRange(insertRow, 10, rowsData.length, 1).setNumberFormat('yyyy/MM/dd');
         sheet.getRange(insertRow, 12, rowsData.length, 2).setNumberFormat('@');
       }
+      commitLastId_(sheet, 'V-', nextNum - 1);
       SpreadsheetApp.flush();
     } finally { lock.releaseLock(); }
   }
@@ -2154,6 +2195,7 @@ function onEditMasterCustomer_(sheet, range) {
         }
       }
     }
+    commitLastId_(sheet, 'M-', mNextIdNum - 1);
     SpreadsheetApp.flush();
   } finally {
     mIdLock.releaseLock();
@@ -3425,6 +3467,7 @@ function fillMissingIdsAndCars() {
     nextIdNum++;
     idCount++;
   }
+  commitLastId_(sheet, 'V-', nextIdNum - 1);
   // A列を一括書き込み（ロック保持中）
   if (idCount > 0) {
     sheet.getRange(2, 1, data.length, 1).setValues(data.map(function(r) { return [r[0]]; }));
@@ -4827,6 +4870,7 @@ function generateCurrentMonth() {
     sheet.getRange(insertRow, 22, formulas.length, 1).setFormulas(formulas);
     sheet.getRange(insertRow, 10, rowsData.length, 1).setNumberFormat('yyyy/MM/dd');
     sheet.getRange(insertRow, 12, rowsData.length, 2).setNumberFormat('@');
+    commitLastId_(sheet, 'V-', nextNum - 1);
     SpreadsheetApp.flush();
   } finally {
     lock.releaseLock();
@@ -4931,6 +4975,7 @@ function generateNextMonth() {
     sheet.getRange(insertRow, 10, rowsData.length, 1).setNumberFormat('yyyy/MM/dd');
     // 積地・降地列をテキスト書式（数値化防止）
     sheet.getRange(insertRow, 12, rowsData.length, 2).setNumberFormat('@');
+    commitLastId_(sheet, 'V-', nextNum - 1);
     SpreadsheetApp.flush();
 
   } finally {
@@ -5650,7 +5695,7 @@ function setGuideComplete(id, routeIndex, companySsId) {
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id, ss);
+  // 集計同期はアプリからの後追い呼び出し（syncSummary）で実行（応答を待たせない）
 }
 
 
@@ -5667,7 +5712,6 @@ function setPickComplete(id, routeIndex, companySsId) {
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -5687,7 +5731,6 @@ function setRest(id, routeIndex, type, companySsId) {
     cell.setNumberFormat('M/d HH:mm');
   }
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -5704,7 +5747,6 @@ function setDropComplete(id, routeIndex, companySsId) {
   cell.setValue(new Date());
   cell.setNumberFormat('M/d HH:mm');
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -5715,7 +5757,7 @@ function setDropComplete(id, routeIndex, companySsId) {
 // ================================================================
 function recordAction(actionType, id, routeIndex, stateObj, companySsId, email) {
   validateDriverEmail_(email, companySsId);
-  saveRunState(stateObj, email, companySsId);
+  if (stateObj) saveRunState(stateObj, email, companySsId);
   if      (actionType === 'guide')      setGuideComplete(id, routeIndex, companySsId);
   else if (actionType === 'pick')       setPickComplete(id, routeIndex, companySsId);
   else if (actionType === 'restStart')  setRest(id, routeIndex, 'start', companySsId);
@@ -5723,6 +5765,11 @@ function recordAction(actionType, id, routeIndex, stateObj, companySsId, email) 
   else if (actionType === 'drop')       setDropComplete(id, routeIndex, companySsId);
   else if (actionType === 'inspBefore') setInspectionComplete_(id, 'before', companySsId);
   else if (actionType === 'inspAfter')  setInspectionComplete_(id, 'after',  companySsId);
+  else if (actionType === 'syncSummary') {
+    // アプリからの後追い同期専用：時刻書き込みの応答を待たせないための分離呼び出し
+    var ssS = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
+    if (id) delaySyncSummary_(id, ssS);
+  }
   clearListCache_(email);
 }
 
@@ -5752,7 +5799,6 @@ function setInspectionComplete_(id, type, companySsId) {
     }
   }
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -5779,7 +5825,6 @@ function clearInspTime(id, type, companySsId, email) {
     }
   }
   SpreadsheetApp.flush();
-  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -5791,18 +5836,40 @@ function updateRouteData(id, picks, drops, companySsId, email) {
   if (email) validateDriverEmail_(email, companySsId);
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
-  if (!sheet) return;
+  if (!sheet) return null;
   var all = sheet.getDataRange().getValues();
   var ri = 0;
+  var rows = [];
+  var firstRowData = null;
   for (var i = 1; i < all.length; i++) {
     if (String(all[i][0] || '').trim() !== String(id).trim()) continue;
+    if (!firstRowData) firstRowData = all[i];
     if (ri < picks.length) {
       sheet.getRange(i + 1, 12).setValue(picks[ri] || '');
       sheet.getRange(i + 1, 13).setValue(drops[ri] || '');
+      rows.push(i + 1);
       ri++;
     }
   }
+  // 行程が増えた分は同IDで末尾に追加（既存行は絶対に削除しない・上書きしない）
+  if (firstRowData && ri < picks.length) {
+    var addStart = sheet.getLastRow() + 1;
+    var addData  = [];
+    for (var a = ri; a < picks.length; a++) {
+      addData.push([
+        id, firstRowData[1], firstRowData[2], firstRowData[3], firstRowData[4], firstRowData[5],
+        firstRowData[6], firstRowData[7], firstRowData[8], firstRowData[9], firstRowData[10],
+        picks[a] || '', drops[a] || '', '', '', '', '', '', '', '', '', '', '', '', '', ''
+      ]);
+    }
+    sheet.getRange(addStart, 1, addData.length, 26).setValues(addData);
+    sheet.getRange(addStart, 12, addData.length, 2).setNumberFormat('@');
+    if (firstRowData[9] instanceof Date) sheet.getRange(addStart, 10, addData.length, 1).setNumberFormat('yyyy/MM/dd');
+    for (var b = 0; b < addData.length; b++) rows.push(addStart + b);
+  }
+  SpreadsheetApp.flush();
   if (id) delaySyncSummary_(id, ss);
+  return { rows: rows, id: id };
 }
 
 
@@ -5839,7 +5906,6 @@ function clearTimeCell(id, routeIndex, col, companySsId, email) {
   var row = findRowByIdAndIndex_(sheet, id, routeIndex);
   if (row < 0) return;
   sheet.getRange(row, col).clearContent();
-  if (id) delaySyncSummary_(id, ss);
 }
 
 
@@ -6222,19 +6288,22 @@ function saveEditData(obj, companySsId, email) {
       sheet.getRange(r, 10).setValue(d);
     }
 
-    // client/pick/dropはnullでなければ書き込む（空でも上書き可）
-    if (obj.client !== undefined && obj.client !== null) sheet.getRange(r, 11).setValue(obj.client);
-    if (obj.pick   !== undefined && obj.pick   !== null) sheet.getRange(r, 12).setValue(obj.pick);
-    if (obj.drop   !== undefined && obj.drop   !== null) sheet.getRange(r, 13).setValue(obj.drop);
+    // 行ごとの項目（荷主・積地・降地・時刻）は最初の行のみ書き込む
+    // ※同IDの2行目以降は別行程（2箇所積み下ろし等）のため絶対に上書きしない
+    if (!written) {
+      if (obj.client !== undefined && obj.client !== null) sheet.getRange(r, 11).setValue(obj.client);
+      if (obj.pick   !== undefined && obj.pick   !== null) sheet.getRange(r, 12).setValue(obj.pick);
+      if (obj.drop   !== undefined && obj.drop   !== null) sheet.getRange(r, 13).setValue(obj.drop);
 
-    var timeFmt = 'M/d HH:mm';
-    var rowDateVal = all[i][9];
-    var dateStr = obj.date || (rowDateVal instanceof Date ? Utilities.formatDate(rowDateVal, Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(rowDateVal || ''));
-    if (obj.guideTime !== undefined) { if (obj.guideTime) { var c14=sheet.getRange(r,14); c14.setValue(new Date(dateStr+' '+obj.guideTime)); c14.setNumberFormat(timeFmt); } else sheet.getRange(r,14).clearContent(); }
-    if (obj.pickTime  !== undefined) { if (obj.pickTime)  { var c15=sheet.getRange(r,15); c15.setValue(new Date(dateStr+' '+obj.pickTime));  c15.setNumberFormat(timeFmt); } else sheet.getRange(r,15).clearContent(); }
-    if (obj.restStart !== undefined) { if (obj.restStart) { var c16=sheet.getRange(r,16); c16.setValue(new Date(dateStr+' '+obj.restStart)); c16.setNumberFormat(timeFmt); } else sheet.getRange(r,16).clearContent(); }
-    if (obj.restEnd   !== undefined) { if (obj.restEnd)   { var c17=sheet.getRange(r,17); c17.setValue(new Date(dateStr+' '+obj.restEnd));   c17.setNumberFormat(timeFmt); } else sheet.getRange(r,17).clearContent(); }
-    if (obj.dropTime  !== undefined) { if (obj.dropTime)  { var c18=sheet.getRange(r,18); c18.setValue(new Date(dateStr+' '+obj.dropTime));  c18.setNumberFormat(timeFmt); } else sheet.getRange(r,18).clearContent(); }
+      var timeFmt = 'M/d HH:mm';
+      var rowDateVal = all[i][9];
+      var dateStr = obj.date || (rowDateVal instanceof Date ? Utilities.formatDate(rowDateVal, Session.getScriptTimeZone(), 'yyyy-MM-dd') : String(rowDateVal || ''));
+      if (obj.guideTime !== undefined) { if (obj.guideTime) { var c14=sheet.getRange(r,14); c14.setValue(new Date(dateStr+' '+obj.guideTime)); c14.setNumberFormat(timeFmt); } else sheet.getRange(r,14).clearContent(); }
+      if (obj.pickTime  !== undefined) { if (obj.pickTime)  { var c15=sheet.getRange(r,15); c15.setValue(new Date(dateStr+' '+obj.pickTime));  c15.setNumberFormat(timeFmt); } else sheet.getRange(r,15).clearContent(); }
+      if (obj.restStart !== undefined) { if (obj.restStart) { var c16=sheet.getRange(r,16); c16.setValue(new Date(dateStr+' '+obj.restStart)); c16.setNumberFormat(timeFmt); } else sheet.getRange(r,16).clearContent(); }
+      if (obj.restEnd   !== undefined) { if (obj.restEnd)   { var c17=sheet.getRange(r,17); c17.setValue(new Date(dateStr+' '+obj.restEnd));   c17.setNumberFormat(timeFmt); } else sheet.getRange(r,17).clearContent(); }
+      if (obj.dropTime  !== undefined) { if (obj.dropTime)  { var c18=sheet.getRange(r,18); c18.setValue(new Date(dateStr+' '+obj.dropTime));  c18.setNumberFormat(timeFmt); } else sheet.getRange(r,18).clearContent(); }
+    }
 
     // 売上・高速・点呼前後は最初の行のみ書き込む
     if (!written) {
@@ -11376,9 +11445,10 @@ function importBulkRows(sheetType, mappedRows, companySsId) {
     var nextNum   = getNextIdNum_(sheet, prefix);
     var writeRows = [];
     for (var i = 0; i < mappedRows.length; i++) {
-      var id = prefix + '-' + ('0000' + (nextNum + i)).slice(-4);
+      var id = prefix + '-' + String(nextNum + i).padStart(4, '0'); // padStartは4桁超も切り捨てない
       writeRows.push(buildSheetRow_(sheetType, id, mappedRows[i], ss));
     }
+    commitLastId_(sheet, prefix, nextNum + mappedRows.length - 1);
     var startRow = Math.max(sheet.getLastRow() + 1, 2);
     var numCols  = writeRows[0].length;
     sheet.getRange(startRow, 1, writeRows.length, numCols).setValues(writeRows);
@@ -14457,6 +14527,7 @@ function generateNextMonthSilent_(ss) {
     sheet.getRange(insertRow, 22, formulas.length, 1).setFormulas(formulas);
     sheet.getRange(insertRow, 10, rowsData.length, 1).setNumberFormat('yyyy/MM/dd');
     sheet.getRange(insertRow, 12, rowsData.length, 2).setNumberFormat('@');
+    commitLastId_(sheet, 'V-', nextNum - 1);
     SpreadsheetApp.flush();
   } finally {
     lock.releaseLock();

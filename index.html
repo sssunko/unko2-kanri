@@ -1108,7 +1108,7 @@ function goBack() {
   if (phase === 'guide') {
     if (guideHistory.length > 0) {
       var li = guideHistory.pop(); guideDone[li] = false;
-      google.script.run.withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, li, 14, COMPANY_SS_ID, getMyEmail());
+      google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, li, 14, COMPANY_SS_ID, getMyEmail());
       saveState(); showGuideScreen(); return;
     }
     if (driverCreatedRows) {
@@ -1130,34 +1130,34 @@ function goBack() {
   if (phase === 'pick') {
     if (pickHistory.length > 0) {
       var li = pickHistory.pop(); pickDone[li] = false;
-      google.script.run.withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, li, 15, COMPANY_SS_ID, getMyEmail());
+      google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, li, 15, COMPANY_SS_ID, getMyEmail());
       lastPickIndex = pickHistory.length > 0 ? pickHistory[pickHistory.length-1] : null;
       saveState(); showPickScreen(); return;
     }
     // 積完を全部取り消したら、誘導を1つ取り消してから誘導画面へ
     if (guideHistory.length > 0) {
       var gi = guideHistory.pop(); guideDone[gi] = false;
-      google.script.run.withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, gi, 14, COMPANY_SS_ID, getMyEmail());
+      google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, gi, 14, COMPANY_SS_ID, getMyEmail());
     }
     phase='guide'; saveState(); showGuideScreen(); return;
   }
   if (phase === 'restStart') {
     var li = pickHistory.pop(); pickDone[li] = false;
-    google.script.run.withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, li, 15, COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, li, 15, COMPANY_SS_ID, getMyEmail());
     lastPickIndex = pickHistory.length > 0 ? pickHistory[pickHistory.length-1] : null;
     phase='pick'; saveState(); showPickScreen(); return;
   }
   if (phase === 'restEnd') {
-    google.script.run.withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, lastPickIndex, 16, COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, lastPickIndex, 16, COMPANY_SS_ID, getMyEmail());
     phase='restStart'; saveState(); showScreen('step3','休憩開始'); return;
   }
   if (phase === 'drop') {
     if (dropHistory.length > 0) {
       var li = dropHistory.pop(); dropDone[li] = false;
-      google.script.run.withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, li, 18, COMPANY_SS_ID, getMyEmail());
+      google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, li, 18, COMPANY_SS_ID, getMyEmail());
       saveState(); showDropScreen(); return;
     }
-    google.script.run.withFailureHandler(function(e){console.error(e);}).clearInspTime(runId, 'after', COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).clearInspTime(runId, 'after', COMPANY_SS_ID, getMyEmail());
     phase='inspAfter'; inspAfterDone=new Array(inspAfterItems.length).fill(false); saveState(); showInspScreen('after'); return;
   }
   goHome();
@@ -1288,32 +1288,32 @@ function startRunFromInput() {
   inspAfterDone=new Array(inspAfterItems.length).fill(false);
   guideNotice=null; runRows=[]; runId=''; _pendingActions=[];
   showInspScreen('before');
-  function createNew() {
+  function afterRows(r) {
+    if (r && r.rows) { runRows=r.rows; runId=r.id; }
+    else { runRows=oldRunRows; runId=oldRunId; }
+    saveState();
+    while (_pendingActions.length>0) {
+      var a=_pendingActions.shift();
+      google.script.run.withSuccessHandler(function(){ bgSyncSummary(); }).withFailureHandler(function(err){ console.error(err); }).recordAction(a.type, runId, a.idx, getStateObj(), COMPANY_SS_ID, getMyEmail());
+    }
+    if (guideNotice===null && runId) {
+      google.script.run
+        .withSuccessHandler(function(n){ guideNotice=n||{notice:'',dataUrl:''}; updateGuideNoticeArea(); })
+        .withFailureHandler(function(){ guideNotice={notice:'',dataUrl:''}; updateGuideNoticeArea(); })
+        .getNoticeByRow(runId, COMPANY_SS_ID, getMyEmail());
+    }
+  }
+  if (oldRunRows.length>0 && oldRunId) {
+    // 既存行程は絶対に削除しない：積地・降地を書き換え、増えた分だけ同IDで末尾に追加
     google.script.run
-      .withSuccessHandler(function(r) {
-        runRows=r.rows; runId=r.id;
-        saveState();
-        while (_pendingActions.length>0) {
-          var a=_pendingActions.shift();
-          google.script.run.withFailureHandler(function(e){console.error(e);}).recordAction(a.type, runId, a.idx, getStateObj(), COMPANY_SS_ID, getMyEmail());
-        }
-        if (guideNotice===null && runId) {
-          google.script.run
-            .withSuccessHandler(function(n){ guideNotice=n||{notice:'',dataUrl:''}; updateGuideNoticeArea(); })
-            .withFailureHandler(function(){ guideNotice={notice:'',dataUrl:''}; updateGuideNoticeArea(); })
-            .getNoticeByRow(runId, COMPANY_SS_ID, getMyEmail());
-        }
-      })
+      .withSuccessHandler(afterRows)
+      .withFailureHandler(function(e){ alert('エラー：'+e.message); })
+      .updateRouteData(oldRunId, np, nd, COMPANY_SS_ID, getMyEmail());
+  } else {
+    google.script.run
+      .withSuccessHandler(afterRows)
       .withFailureHandler(function(e){ alert('エラー：'+e.message); })
       .createParentRows(np, nd, runDate, overrideInfo, COMPANY_SS_ID, getMyEmail());
-  }
-  if (oldRunRows.length>0) {
-    google.script.run
-      .withSuccessHandler(function(){ createNew(); })
-      .withFailureHandler(function(){ createNew(); })
-      .deleteRunRows(oldRunId, COMPANY_SS_ID, getMyEmail());
-  } else {
-    createNew();
   }
 }
 
@@ -1368,7 +1368,7 @@ function selectGuide(i) {
   guideDone[i]=true; guideHistory.push(i);
   showGuideScreen();
   if (runId) {
-    google.script.run.withFailureHandler(function(e){console.error(e);}).recordAction('guide', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('guide', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
     _pendingActions.push({type:'guide', idx:i});
   }
@@ -1399,7 +1399,7 @@ function selectPick(i) {
   lastPickIndex=i; pickDone[i]=true; pickHistory.push(i);
   showPickScreen();
   if (runId) {
-    google.script.run.withFailureHandler(function(e){console.error(e);}).recordAction('pick', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('pick', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
     _pendingActions.push({type:'pick', idx:i});
   }
@@ -1413,7 +1413,7 @@ function restStart() {
   var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
   phase='restEnd'; showScreen('step4','休憩終了');
   if (runId) {
-    google.script.run.withFailureHandler(function(e){console.error(e);}).recordAction('restStart', runId, targetIndex, getStateObj(), COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('restStart', runId, targetIndex, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
     _pendingActions.push({type:'restStart', idx:targetIndex});
   }
@@ -1427,7 +1427,7 @@ function restEnd() {
   var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
   phase='inspAfter'; inspAfterDone=new Array(inspAfterItems.length).fill(false); showInspScreen('after');
   if (runId) {
-    google.script.run.withFailureHandler(function(e){console.error(e);}).recordAction('restEnd', runId, targetIndex, getStateObj(), COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('restEnd', runId, targetIndex, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
     _pendingActions.push({type:'restEnd', idx:targetIndex});
   }
@@ -1502,12 +1502,12 @@ function inspComplete() {
     else if (next === 'inspAfter') { phase='inspAfter'; showInspScreen('after'); }
     else if (next === 'drop')      { phase='drop';      showDropScreen(); }
     else                           { phase='guide';     showGuideScreen(); }
-    if (runId) { google.script.run.withFailureHandler(function(e){console.error(e);}).recordAction('inspBefore', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
+    if (runId) { google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('inspBefore', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
     else        { _pendingActions.push({type:'inspBefore', idx:0}); }
   } else {
     showTimeToast(nowHHmm() + ' 点呼後完了');
     phase = 'drop'; showDropScreen();
-    if (runId) { google.script.run.withFailureHandler(function(e){console.error(e);}).recordAction('inspAfter', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
+    if (runId) { google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('inspAfter', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
     else        { _pendingActions.push({type:'inspAfter', idx:0}); }
   }
 }
@@ -1534,7 +1534,7 @@ function inspBack() {
     }
   } else {
     var tIdx = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
-    google.script.run.withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, tIdx, 17, COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).clearTimeCell(runId, tIdx, 17, COMPANY_SS_ID, getMyEmail());
     phase='restEnd'; saveState(); showScreen('step4','休憩終了');
   }
 }
@@ -1579,7 +1579,7 @@ function selectDrop(i) {
   dropHistory.push(i);
   showDropScreen();
   if (runId) {
-    google.script.run.withFailureHandler(function(e){console.error(e);}).recordAction('drop', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('drop', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
     _pendingActions.push({type:'drop', idx:i});
   }
@@ -1740,6 +1740,26 @@ function loadList(forceRefresh) {
       document.getElementById('listBody').innerHTML = '<div style="padding:20px;color:#ff5252;">データ取得エラー: '+err+'</div>';
     })
     .getListData(listYear, listMonth, COMPANY_SS_ID, getMyEmail());
+}
+
+// 一覧のサイレント更新：画面を「読み込み中」にせず裏でデータだけ差し替える
+function refreshListSilent(rerender) {
+  google.script.run
+    .withSuccessHandler(function(data){
+      _listDataCache[listYear+'_'+listMonth]={data:data,ts:Date.now()};
+      listRows=(data.rows||[]);
+      if (rerender) renderTable();
+    })
+    .withFailureHandler(function(){})
+    .getListData(listYear, listMonth, COMPANY_SS_ID, getMyEmail());
+}
+
+// 時刻書き込み成功後の後追い集計同期（応答を待たせず裏で実行）
+function bgSyncSummary() {
+  if (!runId) return;
+  google.script.run
+    .withFailureHandler(function(err){ console.error(err); })
+    .recordAction('syncSummary', runId, 0, null, COMPANY_SS_ID, getMyEmail());
 }
 
 // ============================================================
@@ -2204,7 +2224,7 @@ function saveListRowAuto(id) {
   if (inspBEl)     obj.inspBefore = extractHmm_(inspBEl.value);
   if (inspAEl)     obj.inspAfter  = extractHmm_(inspAEl.value);
   google.script.run
-    .withSuccessHandler(function() { loadList(true); })
+    .withSuccessHandler(function() { refreshListSilent(false); })
     .withFailureHandler(function(e) { console.error('自動保存エラー: ' + e.message); })
     .saveEditData(obj, COMPANY_SS_ID, getMyEmail());
 }
@@ -2276,19 +2296,30 @@ function addTermFileDirect(id) {
   var input=document.createElement('input'); input.type='file'; input.multiple=true; input.accept='image/*,.pdf,.doc,.docx,.xls,.xlsx';
   input.onchange=function(e){
     var files=Array.from(e.target.files); if(!files.length) return;
-    var done=0;
-    files.forEach(function(file){
-      if(file.size>10*1024*1024){alert(file.name+'は10MB超のためスキップします');done++;if(done===files.length)openTermDataModal(id);return;}
+    var ng=files.filter(function(f){return f.size>10*1024*1024;});
+    if(ng.length) alert(ng.map(function(f){return f.name;}).join('\n')+'\nは10MB超のためスキップします');
+    var ok=files.filter(function(f){return f.size<=10*1024*1024;});
+    if(!ok.length) return;
+    // 1枚ずつ順番に裏で送信（同時送信の衝突エラーを根絶・失敗しても行データには一切触らない）
+    var upIdx=0, upFails=[];
+    function upNext(){
+      if(upIdx>=ok.length){
+        if(upFails.length) alert(upFails.join('\n')+'\nの送信に失敗しました。このファイルだけ再度アップロードしてください。');
+        openTermDataModal(id);
+        return;
+      }
+      var file=ok[upIdx++];
       var reader=new FileReader();
       reader.onload=function(ev){
         var b64=ev.target.result.split(',')[1];
         google.script.run
-          .withSuccessHandler(function(){done++;if(done===files.length)openTermDataModal(id);})
-          .withFailureHandler(function(err){alert('ファイルの送信に失敗しました。\n理由：'+err.message+'\n再度アップロードしてください。');done++;if(done===files.length)openTermDataModal(id);})
+          .withSuccessHandler(function(){ upNext(); })
+          .withFailureHandler(function(err){ upFails.push(file.name); upNext(); })
           .appendTerminalFile(id,file.name,b64,file.type, COMPANY_SS_ID, getMyEmail());
       };
       reader.readAsDataURL(file);
-    });
+    }
+    upNext();
   };
   input.click();
 }
@@ -2323,18 +2354,26 @@ function addAdminFile(id) {
     var ng=files.filter(function(f){return f.size>10*1024*1024;});
     if(ng.length) alert(ng.length+'件は10MB超のためスキップします');
     if(!ok.length) return;
-    var done=0;
-    ok.forEach(function(file){
+    // 1枚ずつ順番に裏で送信（同時送信の衝突エラーを根絶）
+    var upIdx=0, upFails=[];
+    function upNext(){
+      if(upIdx>=ok.length){
+        if(upFails.length) alert(upFails.join('\n')+'\nの送信に失敗しました。このファイルだけ再度アップロードしてください。');
+        openEditModal(id);
+        return;
+      }
+      var file=ok[upIdx++];
       var reader=new FileReader();
       reader.onload=function(ev){
         var b64=ev.target.result.split(',')[1];
         google.script.run
-          .withSuccessHandler(function(){done++;if(done===ok.length)openEditModal(id);})
-          .withFailureHandler(function(err){alert('エラー：'+err.message);done++;if(done===ok.length)openEditModal(id);})
+          .withSuccessHandler(function(){ upNext(); })
+          .withFailureHandler(function(err){ upFails.push(file.name); upNext(); })
           .appendAdminFileById(id,file.name,b64,file.type, COMPANY_SS_ID);
       };
       reader.readAsDataURL(file);
-    });
+    }
+    upNext();
   };
   input.click();
 }
@@ -2538,39 +2577,48 @@ function saveEditModal(){
     termNotice:document.getElementById('ed_termNotice').value
   };
   closeEditModal();
-  loadList(true);
   google.script.run
+    .withSuccessHandler(function(){ refreshListSilent(true); })
     .withFailureHandler(function(e){ alert('保存エラー: '+e.message); })
     .saveEditData(obj, COMPANY_SS_ID, getMyEmail());
 }
 function deleteEditModal(){
   if(!confirm('この運行データを削除しますか？')) return;
   closeEditModal();
-  loadList(true);
-  google.script.run.withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(editId, COMPANY_SS_ID, getMyEmail());
+  google.script.run.withSuccessHandler(function(){ refreshListSilent(true); }).withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(editId, COMPANY_SS_ID, getMyEmail());
 }
 function deleteFromList(id){
   if(!confirm('この運行データを削除しますか？')) return;
-  loadList(true);
-  google.script.run.withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(id, COMPANY_SS_ID, getMyEmail());
+  google.script.run.withSuccessHandler(function(){ refreshListSilent(true); }).withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(id, COMPANY_SS_ID, getMyEmail());
 }
 function addTermFile(id) {
   var input=document.createElement('input'); input.type='file'; input.multiple=true; input.accept='image/*,.pdf,.doc,.docx,.xls,.xlsx';
   input.onchange=function(e){
     var files=Array.from(e.target.files); if(!files.length) return;
-    var done=0;
-    files.forEach(function(file){
-      if(file.size>10*1024*1024){done++;if(done===files.length)openEditModal(id);return;}
+    var ng=files.filter(function(f){return f.size>10*1024*1024;});
+    if(ng.length) alert(ng.length+'件は10MB超のためスキップします');
+    var ok=files.filter(function(f){return f.size<=10*1024*1024;});
+    if(!ok.length) return;
+    // 1枚ずつ順番に裏で送信（同時送信の衝突エラーを根絶）
+    var upIdx=0, upFails=[];
+    function upNext(){
+      if(upIdx>=ok.length){
+        if(upFails.length) alert(upFails.join('\n')+'\nの送信に失敗しました。このファイルだけ再度アップロードしてください。');
+        openEditModal(id);
+        return;
+      }
+      var file=ok[upIdx++];
       var reader=new FileReader();
       reader.onload=function(ev){
         var b64=ev.target.result.split(',')[1];
         google.script.run
-          .withSuccessHandler(function(){done++;if(done===files.length)openEditModal(id);})
-          .withFailureHandler(function(err){alert('ファイルの送信に失敗しました。\n理由：'+err.message+'\n再度アップロードしてください。');done++;if(done===files.length)openEditModal(id);})
+          .withSuccessHandler(function(){ upNext(); })
+          .withFailureHandler(function(err){ upFails.push(file.name); upNext(); })
           .appendTerminalFile(id,file.name,b64,file.type, COMPANY_SS_ID, getMyEmail());
       };
       reader.readAsDataURL(file);
-    });
+    }
+    upNext();
   };
   input.click();
 }
@@ -2603,7 +2651,7 @@ function saveTermNoticeFromEdit(id) {
   closeEditModal();
   google.script.run
     .withSuccessHandler(function(){
-      loadList(true);
+      refreshListSilent(true);
       var t=document.createElement('div');
       t.style.cssText='position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#388e3c;color:white;padding:10px 28px;border-radius:20px;font-size:15px;font-weight:700;z-index:9999;';
       t.innerText='保存完了';
