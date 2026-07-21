@@ -5772,19 +5772,23 @@ function setDropComplete(id, routeIndex, companySsId) {
 function recordAction(actionType, id, routeIndex, stateObj, companySsId, email) {
   validateDriverEmail_(email, companySsId);
   if (stateObj) saveRunState(stateObj, email, companySsId);
-  if      (actionType === 'guide')      setGuideComplete(id, routeIndex, companySsId);
-  else if (actionType === 'pick')       setPickComplete(id, routeIndex, companySsId);
-  else if (actionType === 'restStart')  setRest(id, routeIndex, 'start', companySsId);
-  else if (actionType === 'restEnd')    setRest(id, routeIndex, 'end',   companySsId);
-  else if (actionType === 'drop')       setDropComplete(id, routeIndex, companySsId);
-  else if (actionType === 'inspBefore') setInspectionComplete_(id, 'before', companySsId);
-  else if (actionType === 'inspAfter')  setInspectionComplete_(id, 'after',  companySsId);
+  var now = new Date();
+  var hhmm = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  var timeField = null;
+  if      (actionType === 'guide')      { setGuideComplete(id, routeIndex, companySsId); timeField = 'guideTime'; }
+  else if (actionType === 'pick')       { setPickComplete(id, routeIndex, companySsId);  timeField = 'pickTime'; }
+  else if (actionType === 'restStart')  { setRest(id, routeIndex, 'start', companySsId); timeField = 'restStart'; }
+  else if (actionType === 'restEnd')    { setRest(id, routeIndex, 'end',   companySsId); timeField = 'restEnd'; }
+  else if (actionType === 'drop')       { setDropComplete(id, routeIndex, companySsId);  timeField = 'dropTime'; }
+  else if (actionType === 'inspBefore') { setInspectionComplete_(id, 'before', companySsId); timeField = 'inspBefore'; }
+  else if (actionType === 'inspAfter')  { setInspectionComplete_(id, 'after',  companySsId); timeField = 'inspAfter'; }
   else if (actionType === 'syncSummary') {
     // アプリからの後追い同期専用：時刻書き込みの応答を待たせないための分離呼び出し
     var ssS = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
     if (id) delaySyncSummary_(id, ssS);
   }
   clearListCache_(email);
+  return timeField ? {field: timeField, time: hhmm} : null;
 }
 
 

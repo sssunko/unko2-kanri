@@ -857,22 +857,7 @@ window.onload = function() {
           localStorage.setItem(LS_EMAIL_KEY, init.email);
           // 期限アラート表示
           var ewDiv = document.getElementById('expiryWarning');
-          if (ewDiv) {
-            if (init.expiryWarning) {
-              var ew = init.expiryWarning;
-              var ewMsg = ew.status === 'expired' ? '⚠️ ' + ew.label + ' が期限切れです！' :
-                          ew.status === 'today'   ? '⚠️ ' + ew.label + ' が本日期限です' :
-                                                    '⚠️ ' + ew.label + ' まで' + ew.minDays + '日';
-              var ewBg  = ew.status === 'expired' ? '#ffcdd2' : ew.status === 'today' ? '#bbdefb' : '#c8e6c9';
-              var ewCol = ew.status === 'expired' ? '#b71c1c' : ew.status === 'today' ? '#0d47a1' : '#1b5e20';
-              ewDiv.innerText = ewMsg;
-              ewDiv.style.background = ewBg;
-              ewDiv.style.color = ewCol;
-              ewDiv.style.display = 'block';
-            } else {
-              ewDiv.style.display = 'none';
-            }
-          }
+          if (ewDiv) ewDiv.style.display = 'none';
           // 有効期限4件を表示
           var edDiv = document.getElementById('expiryDates');
           if (edDiv && init.expiryDates && init.expiryDates.length) {
@@ -882,7 +867,7 @@ window.onload = function() {
               var sh = _shortL[e.label] || e.label;
               var bg = e.status==='expired'?'#ffcdd2':e.status==='soon'?'#fff9c4':'#2c2c2c';
               var co = e.status==='expired'?'#b71c1c':e.status==='soon'?'#e65100':'#aaa';
-              var dt = e.days===null?'未設定':e.days<0?'期限切れ':e.days===0?'今日':e.days+'日後';
+              var dt = e.days==null?'未設定':e.days<0?'期限切れ':e.days===0?'今日':e.days+'日後';
               _h += '<div style="background:'+bg+';border-radius:6px;padding:5px 8px;">';
               _h += '<div style="font-size:10px;color:'+co+';font-weight:700;">'+sh+'</div>';
               _h += '<div style="font-size:11px;color:'+co+';">'+(e.dateStr||'—')+'</div>';
@@ -1317,7 +1302,7 @@ function startRunFromInput() {
     saveState();
     while (_pendingActions.length>0) {
       var a=_pendingActions.shift();
-      google.script.run.withSuccessHandler(function(){ bgSyncSummary(); }).withFailureHandler(function(err){ console.error(err); }).recordAction(a.type, runId, a.idx, getStateObj(), COMPANY_SS_ID, getMyEmail());
+      google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(err){ console.error(err); }).recordAction(a.type, runId, a.idx, getStateObj(), COMPANY_SS_ID, getMyEmail());
     }
     if (guideNotice===null && runId) {
       google.script.run
@@ -1389,7 +1374,7 @@ function selectGuide(i) {
   guideDone[i]=true; guideHistory.push(i);
   showGuideScreen();
   if (runId) {
-    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('guide', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('guide', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
     _pendingActions.push({type:'guide', idx:i});
   }
@@ -1420,7 +1405,7 @@ function selectPick(i) {
   lastPickIndex=i; pickDone[i]=true; pickHistory.push(i);
   showPickScreen();
   if (runId) {
-    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('pick', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('pick', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
     _pendingActions.push({type:'pick', idx:i});
   }
@@ -1434,7 +1419,7 @@ function restStart() {
   var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
   phase='restEnd'; showScreen('step4','休憩終了');
   if (runId) {
-    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('restStart', runId, targetIndex, getStateObj(), COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('restStart', runId, targetIndex, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
     _pendingActions.push({type:'restStart', idx:targetIndex});
   }
@@ -1448,7 +1433,7 @@ function restEnd() {
   var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
   phase='inspAfter'; inspAfterDone=new Array(inspAfterItems.length).fill(false); showInspScreen('after');
   if (runId) {
-    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('restEnd', runId, targetIndex, getStateObj(), COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('restEnd', runId, targetIndex, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
     _pendingActions.push({type:'restEnd', idx:targetIndex});
   }
@@ -1523,12 +1508,12 @@ function inspComplete() {
     else if (next === 'inspAfter') { phase='inspAfter'; showInspScreen('after'); }
     else if (next === 'drop')      { phase='drop';      showDropScreen(); }
     else                           { phase='guide';     showGuideScreen(); }
-    if (runId) { google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('inspBefore', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
+    if (runId) { google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('inspBefore', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
     else        { _pendingActions.push({type:'inspBefore', idx:0}); }
   } else {
     showTimeToast(nowHHmm() + ' 点呼後完了');
     phase = 'drop'; showDropScreen();
-    if (runId) { google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('inspAfter', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
+    if (runId) { google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('inspAfter', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
     else        { _pendingActions.push({type:'inspAfter', idx:0}); }
   }
 }
@@ -1600,7 +1585,7 @@ function selectDrop(i) {
   dropHistory.push(i);
   showDropScreen();
   if (runId) {
-    google.script.run.withSuccessHandler(function(){bgSyncSummary();}).withFailureHandler(function(e){console.error(e);}).recordAction('drop', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
+    google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('drop', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
     _pendingActions.push({type:'drop', idx:i});
   }
@@ -1778,9 +1763,20 @@ function refreshListSilent(rerender) {
 // 時刻書き込み成功後の後追い集計同期（応答を待たせず裏で実行）
 function bgSyncSummary() {
   if (!runId) return;
+  _listDataCache = {};
+  if (listYear && listMonth) refreshListSilent(true);
   google.script.run
     .withFailureHandler(function(err){ console.error(err); })
     .recordAction('syncSummary', runId, 0, null, COMPANY_SS_ID, getMyEmail());
+}
+function _onActionSuccess(result) {
+  if (result && result.field && result.time) {
+    for (var _j = 0; _j < listRows.length; _j++) {
+      if (String(listRows[_j].id) === String(runId)) { listRows[_j][result.field] = result.time; }
+    }
+    if (listRows.length) renderTable();
+  }
+  bgSyncSummary();
 }
 
 // ============================================================
@@ -2261,19 +2257,26 @@ function openNoticeModal(id) {
   overlay.style.display = 'block';
   document.getElementById('nmExistingWrap').style.display = 'none';
   document.getElementById('nmInput').value = '';
+  var _ec=_editDataCache[id];
+  if(_ec){ _applyNoticeModal(_ec.data); return; }
   google.script.run.withSuccessHandler(function(d) {
-    var existing = d ? (d.termNotice || '') : '';
-    if (existing) {
-      document.getElementById('nmExistingText').textContent = existing;
-      document.getElementById('nmExistingWrap').style.display = 'block';
-      document.getElementById('nmInput').value = existing;
-    }
+    if(d) _editDataCache[id]={data:d,ts:Date.now()};
+    _applyNoticeModal(d);
   }).withFailureHandler(function(e){console.error(e);}).getEditData(id, COMPANY_SS_ID, getMyEmail());
+}
+function _applyNoticeModal(d) {
+  var existing = d ? (d.termNotice || '') : '';
+  if (existing) {
+    document.getElementById('nmExistingText').textContent = existing;
+    document.getElementById('nmExistingWrap').style.display = 'block';
+    document.getElementById('nmInput').value = existing;
+  }
 }
 function closeNoticeModal() { document.getElementById('noticeModalOverlay').style.display = 'none'; }
 function sendNoticeModal() {
   var text = document.getElementById('nmInput').value.trim();
   if (!text) return;
+  delete _editDataCache[noticeModalId];
   closeNoticeModal();
   loadList(true);
   google.script.run.withFailureHandler(function(e){ alert('送信エラー: '+(e&&e.message||e)); }).saveTerminalNotice(noticeModalId, text, COMPANY_SS_ID, getMyEmail());
@@ -2288,7 +2291,7 @@ function openTermDataModal(id) {
   termDataModalId = id;
   document.getElementById('termDataOverlay').style.display = 'block';
   var _ec=_editDataCache[id];
-  if(_ec && (Date.now()-_ec.ts)<30000){ _applyTermDataModal(id,_ec.data); return; }
+  if(_ec){ _applyTermDataModal(id,_ec.data); return; }
   document.getElementById('termDataBox').innerHTML = '<div style="color:#aaa;padding:20px;text-align:center;">読み込み中...</div>';
   google.script.run.withSuccessHandler(function(d) {
     _editDataCache[id]={data:d,ts:Date.now()};
@@ -2508,7 +2511,7 @@ var editId='';
 function openEditModal(id) {
   editId=id;
   var _ec=_editDataCache[id];
-  if(_ec && (Date.now()-_ec.ts)<30000){ _applyEditData(id,_ec.data); return; }
+  if(_ec){ _applyEditData(id,_ec.data); return; }
   document.getElementById('editBox').innerHTML='<div style="padding:20px;text-align:center;color:#aaa;">読み込み中...</div>';
   document.getElementById('editOverlay').classList.add('show');
   google.script.run.withSuccessHandler(function(d) {
