@@ -286,7 +286,10 @@
       "Bash(node deploy.js \"v732 積完等アクション後に一覧を即時再描画（bgSyncSummaryでrefreshListSilent再描画あり）\")",
       "Bash(node deploy.js \"v733 楽観的一覧更新・モーダルキャッシュ無限化・連絡モーダルキャッシュ追加\")",
       "Bash(node deploy.js \"v734 SSが書いた時刻を返してアプリの一覧を更新・楽観的更新を廃止\")",
-      "Bash(node deploy.js \"有効期限表示を独立cardに移動・文字サイズ拡大\")"
+      "Bash(node deploy.js \"有効期限表示を独立cardに移動・文字サイズ拡大\")",
+      "Bash(node deploy.js \"③B列変更の同期を①②③同一動作に修正（ss渡し漏れ解消）・20日以降は翌月分も自動生成\")",
+      "Bash(node deploy.js \"ゾンビトリガー自己根絶：installedOnEdit_冒頭にダブルチェックロック＋フラグ制御で初回1回限りクリーンアップ\")",
+      "Bash(node deploy.js \"1-7b/1-7c: markIdCollisions_・applyExpiryWarningColors_ にss引数追加。applyHolidayRowColors_からssリレー完結\")"
     ]
   }
 }

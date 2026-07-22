@@ -50,6 +50,22 @@ function onOpen(e) {
 function doGet(e)            { return UnkouLib.doGet(e); }
 function onEdit(e)           { return UnkouLib.onEdit(e); }
 function installedOnEdit_(e) {
+  var _FLAG = 'ZOMBIE_CLEANED_V792';
+  var _dp = PropertiesService.getDocumentProperties();
+  if (!_dp.getProperty(_FLAG)) {
+    var _lck = LockService.getDocumentLock();
+    if (!_lck.tryLock(3000)) return;
+    try {
+      if (!_dp.getProperty(_FLAG)) {
+        var _ss1 = e.source;
+        ScriptApp.getUserTriggers(_ss1).forEach(function(t) { try { ScriptApp.deleteTrigger(t); } catch(ex) {} });
+        ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss1).onEdit().create();
+        ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss1).onChange().create();
+        ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();
+        _dp.setProperty(_FLAG, '1');
+      }
+    } finally { _lck.releaseLock(); }
+  }
   var r = UnkouLib.dispatchInstalledEdit(e);
   if (r && r.html) {
     SpreadsheetApp.getUi().showModalDialog(
