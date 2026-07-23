@@ -24,7 +24,14 @@ function onOpen(e) {
       if (sh && !sh.isSheetHidden()) sh.hideSheet();
     });
   } catch(e) {}
-  try { UnkouLib.showExpiryAlert(); } catch(e) {}
+  try {
+    var _epDp = PropertiesService.getDocumentProperties();
+    var _epTs = Number(_epDp.getProperty('EXPIRY_POPUP_TS') || 0);
+    if (Date.now() - _epTs >= 30000) {
+      _epDp.setProperty('EXPIRY_POPUP_TS', String(Date.now()));
+      UnkouLib.showExpiryAlert();
+    }
+  } catch(_epEx) {}
   try { UnkouLib.applyExpiryWarningColors(); } catch(e) {}
   try {
     var _bkProps = PropertiesService.getDocumentProperties();

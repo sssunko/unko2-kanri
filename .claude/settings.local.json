@@ -289,7 +289,16 @@
       "Bash(node deploy.js \"有効期限表示を独立cardに移動・文字サイズ拡大\")",
       "Bash(node deploy.js \"③B列変更の同期を①②③同一動作に修正（ss渡し漏れ解消）・20日以降は翌月分も自動生成\")",
       "Bash(node deploy.js \"ゾンビトリガー自己根絶：installedOnEdit_冒頭にダブルチェックロック＋フラグ制御で初回1回限りクリーンアップ\")",
-      "Bash(node deploy.js \"1-7b/1-7c: markIdCollisions_・applyExpiryWarningColors_ にss引数追加。applyHolidayRowColors_からssリレー完結\")"
+      "Bash(node deploy.js \"1-7b/1-7c: markIdCollisions_・applyExpiryWarningColors_ にss引数追加。applyHolidayRowColors_からssリレー完結\")",
+      "Bash(node deploy.js \"3-3b: existingDatesの構築をScriptLock内に移動（並走による重複生成バグ修正）\")",
+      "Bash(node deploy.js \"3-3b: getDocumentLockに変更（SS単位排他制御）/ 12-3c-2: updateStubVersion_サイレントエラー修正（appsscript未取得時にマニフェスト強制push）\")",
+      "Bash(node deploy.js \"802_12-3c-2: updateStubVersion_を完全上書き方式に変更（GET廃止・2ファイルPUT・webapp込み）\")",
+      "Bash(node deploy.js \"804_stub: ゾンビ自己修復をステートレス化（フラグ廃止・getUserTriggers本数チェック＋全削除再登録）\")",
+      "Bash(node deploy.js \"807_stub: ゾンビ間引き（全削除廃止・ハンドラ関数ごとに1本目を残し重複分のみ削除）\")",
+      "Bash(node deploy.js \"808_12-3c-3: selfUpdateManifest追加（onOpenで自SSのappsscript.jsonを最新版に自己修復）\")",
+      "Bash(node deploy.js \"810_浄化: selfUpdateManifest削除・installedOnEdit_原状回復・updateStubVersion_は2ファイル完全上書きPUTのみ維持\")",
+      "Bash(node deploy.js \"811_ss引数渡し漏れ修正: generateSummary・expandAndRefresh・saveEditData・applySheetColors_の4箇所\")",
+      "Bash(node deploy.js \"v815: ポップアップ多重表示修正 - スタブonOpenに30秒ガードを追加\")"
     ]
   }
 }
