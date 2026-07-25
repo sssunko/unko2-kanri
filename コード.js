@@ -885,7 +885,7 @@ function sortUnkouByDate_(companySsId) {
   var formulas = [];
   for (var i = 0; i < numRows; i++) {
     var rn = i + 2;
-    formulas.push(['=IF(AND(U' + rn + '="",T' + rn + '=""),"",U' + rn + '-T' + rn + ')']);
+    formulas.push(['=IF(T' + rn + '=U' + rn + ',"",T' + rn + '-U' + rn + ')']);
   }
   sheet.getRange(2, 22, numRows, 1).setFormulas(formulas);
 
@@ -1503,7 +1503,7 @@ function onEdit(e) {
     // 合計高速は「実費高速 - 請求高速」の自動計算列なので直接編集を禁止する
     // 編集されたら即座に数式を復元する
     if (sheetName === '運行' && row > 1 && col === 22) {
-      range.setFormula('=IF(AND(U'+row+'="",T'+row+'=""),"",U'+row+'-T'+row+')');
+      range.setFormula('=IF(U'+row+'=T'+row+',"",T'+row+'-U'+row+')');
       ss.toast('合計高速は自動計算列です', '⛔ 保護', 3);
       return;
     }
@@ -1824,15 +1824,21 @@ function onEditUnkou_(sheet, range, ss) {
         uAutoCell.setFontColor('#E65100');
       }
     }
-    // U列(21)=実費高速 を手入力したとき黒字に戻す
+    // U列(21)=実費高速 を手入力したとき黒字に戻す／空欄に戻したときT列を再コピー
     if (editedCol === 21) {
-      sheet.getRange(row, 21).setFontColor(null);
+      var uCell21 = sheet.getRange(row, 21);
+      if ((rowData[20] === '' || rowData[20] === null) && (rowData[19] !== '' && rowData[19] !== null)) {
+        uCell21.setValue(rowData[19]);
+        uCell21.setFontColor('#E65100');
+      } else {
+        uCell21.setFontColor(null);
+      }
     }
 
     // V列(22)の合計高速数式（T/U列編集・ID新規採番の時だけチェック）
     if (_idAssignedIdx[i] || (editedCol <= 21 && editedEndCol >= 20)) {
       if (!sheet.getRange(row, 22).getFormula()) {
-        sheet.getRange(row, 22).setFormula('=IF(AND(U' + row + '="",T' + row + '=""),"",U' + row + '-T' + row + ')');
+        sheet.getRange(row, 22).setFormula('=IF(U' + row + '=T' + row + ',"",T' + row + '-U' + row + ')');
       }
     }
     if (currentId && _oeUnkouSyncIds.indexOf(currentId) === -1) _oeUnkouSyncIds.push(currentId);

@@ -314,7 +314,13 @@
       "Bash(node deploy.js \"4番：E列車種を大文字・半角統一、F列補完後もE列変換、マスタ一括クレンジング関数追加\")",
       "Bash(node deploy.js \"マスタ車種一括大文字化をシステム設定メニューに追加\")",
       "Bash(node deploy.js \"マスタ車種一括大文字化を修正用SS専用メニューに追加\")",
-      "Bash(node deploy.js \"マスタ車種一括大文字化メニュー項目を削除\")"
+      "Bash(node deploy.js \"マスタ車種一括大文字化メニュー項目を削除\")",
+      "Bash(node deploy.js \"8番バグ修正：U列実費高速を空欄に戻したときT列請求高速を再コピー\")",
+      "Bash(node deploy.js \"9番バグ修正：合計高速数式をIF\\(U=T\\)方式に変更・差額0を空白表示\")",
+      "Bash(node deploy.js \"9番追加修正：合計高速数式をT-U（請求-実費）に変更・黒赤表示を正しい方向に修正\")",
+      "Bash(node deploy.js \"9番追加修正②：合計高速V列全行修正メニュー追加（fixV22Formulas）\")",
+      "Bash(node deploy.js \"9番クリーンアップ：fixV22Formulasメニュー・関数を削除（移行完了のため）\")",
+      "Bash(node deploy.js \"10番バグ修正：ソート後のV列数式を正しい方向（T-U）・正しい条件（T=U）に統一\")"
     ]
   }
 }
