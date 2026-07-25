@@ -857,8 +857,8 @@ function sortUnkouByDate_(companySsId) {
 
   // J列(index[9]=日付)昇順 → G列(index[6]=乗務員名)昇順 でソート
   indexed.sort(function(a, b) {
-    var da = (a.row[9] instanceof Date) ? a.row[9].getTime() : 0;
-    var db = (b.row[9] instanceof Date) ? b.row[9].getTime() : 0;
+    var da = (a.row[9] instanceof Date) ? a.row[9].getTime() : Infinity;
+    var db = (b.row[9] instanceof Date) ? b.row[9].getTime() : Infinity;
     if (da !== db) return da - db;
     return String(a.row[6] || '').localeCompare(String(b.row[6] || ''));
   });
@@ -894,6 +894,14 @@ function sortUnkouByDate_(companySsId) {
   sheet.getRange(2, 12, numRows, 2).setNumberFormat('@');
   applyMoneyFormat_(sheet, 2, numRows, 'unkou');
   applyDateTimeFormat_(sheet, 2, numRows);
+  // ソート後、ID（A列）・日付（J列）が共に空の完全空白行を物理削除
+  var blankRows = [];
+  for (var bi = 0; bi < writeData.length; bi++) {
+    var bId = String(writeData[bi][0] || '').trim();
+    var bDate = writeData[bi][9];
+    if (!bId && !(bDate instanceof Date) && !String(bDate || '').trim()) blankRows.push(bi + 2);
+  }
+  if (blankRows.length > 0) deleteRowsGrouped_(sheet, blankRows);
 }
 
 
@@ -1629,7 +1637,7 @@ function onEditUnkou_(sheet, range, ss) {
   if (startRow >= 2 && editedCol <= 5 && editedEndCol >= 5) {
     var _uType = _allRowsData.map(function(r) {
       var tv = String(r[4] || '');
-      var tn = tv.replace(/[Ａ-Ｚａ-ｚ]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).toLowerCase();
+      var tn = tv.replace(/[Ａ-Ｚａ-ｚ]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).toUpperCase();
       return [tn];
     });
     var _uTypeChg = _uType.some(function(v, i) { return String(v[0]) !== String(_allRowsData[i][4]); });
@@ -1640,7 +1648,7 @@ function onEditUnkou_(sheet, range, ss) {
   }
   // 点呼前完了・点呼後完了の列番号を動的取得（該当しうる列（23列目以降）が編集された時だけヘッダーを読む）
   var _timeCols = [14, 15, 16, 17, 18];
-  if (editedEndCol >= 23) {
+  if (editedEndCol >= 23 || editedCol === 18 || editedCol === 14) {
     var _unkHdr0 = sheet.getRange(1, 1, 1, lastColU).getValues()[0];
     var _inspBColNum = _unkHdr0.indexOf('点呼前完了') + 1; // 1-based、見つからなければ0
     var _inspAColNum = _unkHdr0.indexOf('点呼後完了') + 1;
@@ -1663,6 +1671,20 @@ function onEditUnkou_(sheet, range, ss) {
 
     // J列(10)の日付：時刻部分が 0:00:00 なら現在時刻を付与（J列が編集範囲に含まれる時だけ）
     if (editedCol <= 10 && editedEndCol >= 10) {
+      if (typeof dateVal === 'string' && dateVal.trim() !== '') {
+        var jStr = dateVal
+          .replace(/[０-９]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+          .replace(/[／]/g, '/')
+          .replace(/\s/g, '');
+        var jM = jStr.match(/^(\d{1,2})\/(\d{1,2})$/);
+        if (jM) {
+          var nowJ = new Date();
+          dateVal = new Date(nowJ.getFullYear(), parseInt(jM[1]) - 1, parseInt(jM[2]),
+                             nowJ.getHours(), nowJ.getMinutes(), nowJ.getSeconds());
+          sheet.getRange(row, 10).setValue(dateVal);
+          rowData[9] = dateVal;
+        }
+      }
       if (dateVal instanceof Date) {
         if (dateVal.getHours() === 0 && dateVal.getMinutes() === 0 && dateVal.getSeconds() === 0) {
           var now = new Date();
@@ -1723,7 +1745,7 @@ function onEditUnkou_(sheet, range, ss) {
       var baseDateObj = (rowData[9] instanceof Date) ? rowData[9] : null;
       var mergedT = null;
       if (typeof tv === 'string' && tv.trim() !== '') {
-        var s = tv.trim().replace(/[：]/g, ':').replace(/[　]/g, ' ');
+        var s = tv.trim().replace(/[：]/g, ':').replace(/[　]/g, ' ').replace(/[０-９]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
         var m1 = s.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
         if (m1) {
           var yr = baseDateObj ? baseDateObj.getFullYear() : new Date().getFullYear();
@@ -1747,11 +1769,15 @@ function onEditUnkou_(sheet, range, ss) {
         if (range.getNumRows() === 1 && range.getNumColumns() === 1) {
           var rowTimes = sheet.getRange(row, 14, 1, 5).getValues()[0];
           var gv2=rowTimes[0], pv2=rowTimes[1], rsv2=rowTimes[2], rev2=rowTimes[3];
+          var bv2 = (_inspBColNum > 0) ? sheet.getRange(row, _inspBColNum).getValue() : null;
+          var av2 = (_inspAColNum > 0) ? sheet.getRange(row, _inspAColNum).getValue() : null;
           var gapMsg = null;
-          if (editedCol===15 && !gv2) gapMsg='先に誘導時刻を入力してください';
+          if (editedCol===14 && _inspBColNum > 0 && !bv2) gapMsg = '先に点呼前完了を入力してください';
+          else if (editedCol===15 && !gv2) gapMsg='先に誘導時刻を入力してください';
           else if (editedCol===16) gapMsg = !gv2?'先に誘導時刻を入力してください':!pv2?'先に積完時刻を入力してください':null;
           else if (editedCol===17) gapMsg = !gv2?'先に誘導時刻を入力してください':!pv2?'先に積完時刻を入力してください':!rsv2?'先に休憩開始を入力してください':null;
-          else if (editedCol===18) gapMsg = !gv2?'先に誘導時刻を入力してください':!pv2?'先に積完時刻を入力してください':!rsv2?'先に休憩開始を入力してください':!rev2?'先に休憩終了を入力してください':null;
+          else if (editedCol===18) gapMsg = !gv2?'先に誘導時刻を入力してください':!pv2?'先に積完時刻を入力してください':!rsv2?'先に休憩開始を入力してください':!rev2?'先に休憩終了を入力してください':(_inspAColNum>0&&!av2)?'先に点呼後完了を入力してください':null;
+          else if (_inspAColNum > 0 && editedCol===_inspAColNum) gapMsg = !gv2?'先に誘導時刻を入力してください':!pv2?'先に積完時刻を入力してください':!rsv2?'先に休憩開始を入力してください':!rev2?'先に休憩終了を入力してください':null;
           if (gapMsg) {
             timeCell.clearContent();
             SpreadsheetApp.getActiveSpreadsheet().toast(gapMsg, '⛔ 順序エラー', 4);
@@ -1811,6 +1837,17 @@ function onEditUnkou_(sheet, range, ss) {
     }
     if (currentId && _oeUnkouSyncIds.indexOf(currentId) === -1) _oeUnkouSyncIds.push(currentId);
   }
+  // F列補完後のE列（車種）大文字・半角一括変換
+  if (_fInRange && startRow >= 2) {
+    var _postFType = sheet.getRange(startRow, 5, numRows, 1).getValues();
+    var _postFTypeNew = _postFType.map(function(r) {
+      var tv = String(r[0] || '');
+      return [tv.replace(/[Ａ-Ｚａ-ｚ]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).toUpperCase()];
+    });
+    if (_postFTypeNew.some(function(v, i) { return String(v[0]) !== String(_postFType[i][0]); })) {
+      sheet.getRange(startRow, 5, numRows, 1).setValues(_postFTypeNew);
+    }
+  }
   // 金額書式：金額列(S〜V=19〜22)が編集範囲に含まれる時、またはID新規採番時だけ
   if ((editedCol <= 22 && editedEndCol >= 19) || _needIdIdx.length > 0) {
     applyMoneyFormat_(sheet, startRow, numRows, 'unkou');
@@ -1825,6 +1862,25 @@ function onEditUnkou_(sheet, range, ss) {
     sortSummaryByDate_();
   }
   // 集計表syncはinstalledOnEdit_（30分トリガー）で処理するためここでは行わない
+}
+
+
+// ================================================================
+//  3-2b: 自車専属マスタ車種列の大文字・半角一括クレンジング（cleanMasterCarType）
+//  1回限りの手動実行用。G列（車種）を大文字・半角に統一する。
+// ================================================================
+function cleanMasterCarType() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var master = ss.getSheetByName('自車専属マスタ');
+  if (!master || master.getLastRow() < 2) return;
+  var lastRow = master.getLastRow();
+  var vals = master.getRange(2, 7, lastRow - 1, 1).getValues();
+  var newVals = vals.map(function(r) {
+    var tv = String(r[0] || '');
+    return [tv.replace(/[Ａ-Ｚａ-ｚ]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).toUpperCase()];
+  });
+  master.getRange(2, 7, lastRow - 1, 1).setValues(newVals);
+  ss.toast('自車専属マスタの車種を大文字・半角に変換しました', '✅', 5);
 }
 
 
