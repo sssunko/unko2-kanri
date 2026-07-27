@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>運行シート 操作説明書 — 現場スタッフ向け</title>
+<style>
+/* ── CSS変数 ── */
+:root {
+  --bg:            #0b1623;
+  --surface:       #0f1e30;
+  --card:          #122035;
+  --card-hover:    #152540;
+  --border:        #1d3350;
+  --border-hi:     #2a4d72;
+  --gold:          #c9a84c;
+  --gold-text:     #e0c878;
+  --text:          #dde8f2;
+  --muted:         #7a9ab8;
+  --dim:           #4a6580;
+  --cat-input-bg:  #1a3558;  --cat-input-tx:  #60b0ff;
+  --cat-calc-bg:   #0d2c18;  --cat-calc-tx:   #4ade80;
+  --cat-color-bg:  #271845;  --cat-color-tx:  #c084fc;
+  --cat-guard-bg:  #3a2000;  --cat-guard-tx:  #fb923c;
+  --cat-menu-bg:   #082d38;  --cat-menu-tx:   #22d3ee;
+  --cat-doc-bg:    #352800;  --cat-doc-tx:    #fbbf24;
+  --cat-import-bg: #3a0a28;  --cat-import-tx: #f472b6;
+  --cat-infra-bg:  #1a2535;  --cat-infra-tx:  #94a3b8;
+  --warn-bg:       #3d1a00;  --warn-tx:       #fca5a5;
+  --tip-bg:        #0d2e1a;  --tip-tx:        #6ee7b7;
+  --auto-bg:       #0d253d;  --auto-tx:       #7dd3fc;
+}
+:root[data-theme="light"] {
+  --bg: #eff4f9; --surface: #fff; --card: #fff; --card-hover: #f5f9ff;
+  --border: #cdd8e8; --border-hi: #9ab0cc; --gold: #9a7830; --gold-text: #7a5e20;
+  --text: #1a2d3d; --muted: #4a6580; --dim: #8aa8c0;
+  --cat-input-bg:#dbeafe; --cat-input-tx:#1d4ed8;
+  --cat-calc-bg:#dcfce7; --cat-calc-tx:#15803d;
+  --cat-color-bg:#f3e8ff; --cat-color-tx:#7e22ce;
+  --cat-guard-bg:#fff7ed; --cat-guard-tx:#c2410c;
+  --cat-menu-bg:#cffafe; --cat-menu-tx:#0e7490;
+  --cat-doc-bg:#fef9c3; --cat-doc-tx:#a16207;
+  --cat-import-bg:#fce7f3; --cat-import-tx:#be185d;
+  --cat-infra-bg:#f1f5f9; --cat-infra-tx:#475569;
+  --warn-bg:#fff1f1; --warn-tx:#c0392b;
+  --tip-bg:#f0fdf4; --tip-tx:#15803d;
+  --auto-bg:#eff9ff; --auto-tx:#1d6fa8;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:#eff4f9; --surface:#fff; --card:#fff; --card-hover:#f5f9ff;
+    --border:#cdd8e8; --border-hi:#9ab0cc; --gold:#9a7830; --gold-text:#7a5e20;
+    --text:#1a2d3d; --muted:#4a6580; --dim:#8aa8c0;
+    --cat-input-bg:#dbeafe; --cat-input-tx:#1d4ed8;
+    --cat-calc-bg:#dcfce7; --cat-calc-tx:#15803d;
+    --cat-color-bg:#f3e8ff; --cat-color-tx:#7e22ce;
+    --cat-guard-bg:#fff7ed; --cat-guard-tx:#c2410c;
+    --cat-menu-bg:#cffafe; --cat-menu-tx:#0e7490;
+    --cat-doc-bg:#fef9c3; --cat-doc-tx:#a16207;
+    --cat-import-bg:#fce7f3; --cat-import-tx:#be185d;
+    --cat-infra-bg:#f1f5f9; --cat-infra-tx:#475569;
+    --warn-bg:#fff1f1; --warn-tx:#c0392b;
+    --tip-bg:#f0fdf4; --tip-tx:#15803d;
+    --auto-bg:#eff9ff; --auto-tx:#1d6fa8;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Meiryo UI",system-ui,sans-serif;
+  font-size: 14px;
+  line-height: 1.75;
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+.hdr {
+  background: var(--surface);
+  border-bottom: 2px solid var(--gold);
+  padding: 28px 40px 24px;
+  position: sticky; top: 0; z-index: 100;
+}
+.hdr-inner {
+  max-width: 1120px; margin: 0 auto;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
+}
+.hdr-label {
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--gold); font-weight: 700; margin-bottom: 5px;
+}
+.hdr-title { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.25; }
+.hdr-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.theme-btn {
+  background: var(--border); border: none; color: var(--muted);
+  padding: 5px 12px; border-radius: 6px; cursor: pointer;
+  font-size: 11px; font-family: inherit; flex-shrink: 0; margin-top: 4px;
+}
+.theme-btn:hover { background: var(--border-hi); color: var(--text); }
+
+/* ── INTRO BANNER ── */
+.intro {
+  background: linear-gradient(135deg, #0c2040 0%, #122035 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 40px;
+}
+.intro-inner {
+  max-width: 1120px; margin: 0 auto;
+  display: flex; align-items: center; gap: 14px;
+}
+.intro-icon { font-size: 22px; }
+.intro-text { font-size: 13px; color: var(--muted); }
+.intro-text strong { color: var(--text); }
+
+/* ── MAIN ── */
+.main { max-width: 1120px; margin: 0 auto; padding: 32px 40px 72px; }
+
+/* ── SECTION TITLE ── */
+.sec-title {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--gold); font-weight: 800;
+  margin: 40px 0 18px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.sec-badge {
+  background: var(--gold); color: var(--bg);
+  font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 9px; letter-spacing: 0;
+}
+.sec-badge.gray { background: var(--dim); }
+
+/* ── CARDS GRID ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+  transition: border-color .15s, background .15s;
+}
+.card:hover { border-color: var(--border-hi); background: var(--card-hover); }
+
+.card-hdr {
+  display: flex; align-items: center; gap: 9px;
+  padding: 13px 18px 11px; border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.num { font-size: 10px; font-weight: 800; color: var(--dim); min-width: 20px; font-variant-numeric: tabular-nums; }
+
+.cat { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: .04em; flex-shrink: 0; white-space: nowrap; }
+.cat-input  { background: var(--cat-input-bg);  color: var(--cat-input-tx);  }
+.cat-calc   { background: var(--cat-calc-bg);   color: var(--cat-calc-tx);   }
+.cat-color  { background: var(--cat-color-bg);  color: var(--cat-color-tx);  }
+.cat-guard  { background: var(--cat-guard-bg);  color: var(--cat-guard-tx);  }
+.cat-menu   { background: var(--cat-menu-bg);   color: var(--cat-menu-tx);   }
+.cat-doc    { background: var(--cat-doc-bg);    color: var(--cat-doc-tx);    }
+.cat-import { background: var(--cat-import-bg); color: var(--cat-import-tx); }
+.cat-infra  { background: var(--cat-infra-bg);  color: var(--cat-infra-tx);  }
+
+.feat-name { font-size: 14px; font-weight: 700; flex: 1; color: var(--text); }
+.color-chip {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 10px; color: var(--muted); flex-shrink: 0;
+}
+.chip-dot {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,.18); flex-shrink: 0;
+}
+
+.card-body { padding: 14px 18px 16px; }
+
+/* ── BLOCK TYPES ── */
+.block { margin-bottom: 10px; }
+.block:last-child { margin-bottom: 0; }
+
+.blk-label {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  margin-bottom: 6px; padding: 2px 8px; border-radius: 4px;
+}
+.blk-label.auto { background: var(--auto-bg); color: var(--auto-tx); }
+.blk-label.warn { background: var(--warn-bg); color: var(--warn-tx); }
+.blk-label.tip  { background: var(--tip-bg);  color: var(--tip-tx);  }
+
+.pts { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.pts li {
+  font-size: 13px; color: var(--text); padding-left: 13px;
+  position: relative; line-height: 1.65;
+}
+.pts li::before {
+  content: "·"; position: absolute; left: 0; top: 0;
+  color: var(--muted); font-size: 17px; line-height: 1.25;
+}
+
+/* ── MENU OP BADGE ── */
+.menu-op {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+  background: var(--cat-menu-bg); color: var(--cat-menu-tx);
+  border: 1px solid rgba(6,182,212,.25); border-radius: 5px;
+  padding: 4px 10px; font-size: 12px;
+}
+
+/* ── PENDING ── */
+.pending-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 8px;
+}
+.pitem {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 13px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 7px; opacity: .75;
+}
+.pnum { font-size: 10px; color: var(--dim); font-weight: 800; min-width: 18px; font-variant-numeric: tabular-nums; }
+.pname { font-size: 12px; color: var(--muted); flex: 1; }
+.pcolor { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--dim); flex-shrink: 0; }
+.pchip { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,.15); flex-shrink: 0; }
+
+/* ── FOOTER ── */
+.ftr {
+  text-align: center; padding: 20px; font-size: 11px; color: var(--dim);
+  border-top: 1px solid var(--border);
+}
+
+/* ── TOC ── */
+html { scroll-behavior: smooth; }
+.toc-wrap {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 28px 40px 32px;
+}
+.toc-inner { max-width: 1120px; margin: 0 auto; }
+.toc-heading {
+  text-align: center; font-size: 15px; font-weight: 800;
+  color: var(--text); margin-bottom: 20px; letter-spacing: .05em;
+}
+.toc-heading .hi { color: var(--gold); }
+.toc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.toc-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px; background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 7px; text-decoration: none; color: var(--dim);
+  font-size: 12px; line-height: 1.35;
+  transition: background .12s, border-color .12s;
+}
+.toc-item.done { border-left-color: var(--gold); color: var(--text); }
+.toc-item:hover { background: var(--card-hover); }
+.toc-item.done:hover { border-left-color: var(--gold-text); }
+.toc-n { font-size: 14px; flex-shrink: 0; line-height: 1; }
+.toc-name { flex: 1; }
+.card { scroll-margin-top: 90px; }
+#pending { scroll-margin-top: 90px; }
+
+@media (max-width: 680px) {
+  .hdr { padding: 18px 16px; }
+  .hdr-inner { flex-direction: column; }
+  .intro { padding: 14px 16px; }
+  .main { padding: 24px 16px 48px; }
+  .grid { grid-template-columns: 1fr; }
+  .pending-grid { grid-template-columns: 1fr; }
+  .toc-wrap { padding: 18px 16px; }
+  .toc-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-inner">
+    <div>
+      <div class="hdr-label">unko2-kanri — 現場スタッフ向け</div>
+      <div class="hdr-title">運行シート 操作説明書</div>
+      <div class="hdr-sub">自動入力・気をつけること・困ったときの操作 — 2026-07-27</div>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()">☀ / ☾</button>
+  </div>
+</header>
+
+<div class="intro">
+  <div class="intro-inner">
+    <span class="intro-icon">💡</span>
+    <p class="intro-text">
+      <strong>「🔵 自動」</strong>と書いてある項目は操作不要です。入力するだけで自動処理されます。<br>
+      <strong>「⚠️ 注意」</strong>と書いてある項目は、間違えやすい点を説明しています。
+    </p>
+  </div>
+</div>
+
+<div class="toc-wrap">
+  <div class="toc-inner">
+    <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 29</span>」の機能一覧</div>
+    <div class="toc-grid">
+      <a class="toc-item done" href="#feat-01"><span class="toc-n">①</span> 👑 <span class="toc-name">ID自動採番</span></a>
+      <a class="toc-item done" href="#feat-02"><span class="toc-n">②</span> 👑 <span class="toc-name">トン数正規化</span></a>
+      <a class="toc-item done" href="#feat-03"><span class="toc-n">③</span> 👑 <span class="toc-name">車番自動補完</span></a>
+      <a class="toc-item done" href="#feat-04"><span class="toc-n">④</span> 👑 <span class="toc-name">車種変換</span></a>
+      <a class="toc-item done" href="#feat-05"><span class="toc-n">⑤</span> 👑 <span class="toc-name">時刻の正規化と日付合成</span></a>
+      <a class="toc-item done" href="#feat-06"><span class="toc-n">⑥</span> 👑 <span class="toc-name">車番全角→半角変換</span></a>
+      <a class="toc-item done" href="#feat-07"><span class="toc-n">⑦</span> 👑 <span class="toc-name">書式自動設定</span></a>
+      <a class="toc-item done" href="#feat-08"><span class="toc-n">⑧</span> 👑 <span class="toc-name">請求→実費高速コピー 🟠</span></a>
+      <a class="toc-item done" href="#feat-09"><span class="toc-n">⑨</span> 👑 <span class="toc-name">合計高速代 自動計算</span></a>
+      <a class="toc-item done" href="#feat-10"><span class="toc-n">⑩</span> 👑 <span class="toc-name">日付変更時の自動ソート</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">⑪</span><span class="toc-name">有休行の色付け</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">⑫</span><span class="toc-name">休み行の色付け</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">⑬</span><span class="toc-name">配車漏れ警告色</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">⑭</span><span class="toc-name">資格期限アラート色</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">⑮</span><span class="toc-name">ID重複・車番不一致の警告</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">⑯</span><span class="toc-name">保護列の色</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">⑰</span><span class="toc-name">色凡例メモの自動設定</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">⑱</span><span class="toc-name">時刻入力の順序チェック</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">⑲</span><span class="toc-name">ヘッダー行の自動復元</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">⑳</span><span class="toc-name">ID・車番一括補完（手動）</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">㉑</span><span class="toc-name">手動の日付順並び替え</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">㉒</span><span class="toc-name">今月分の行一括生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">㉓</span><span class="toc-name">翌月分の行一括生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">㉔</span><span class="toc-name">前月分アーカイブ</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">㉕</span><span class="toc-name">車番連絡のメール送信</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">㉖</span><span class="toc-name">ファイル添付</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">㉗</span><span class="toc-name">配車表CSV/Excel取込</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">㉘</span><span class="toc-name">onEdit処理の高速化</span></a>
+      <a class="toc-item done" href="#feat-29"><span class="toc-n">㉙</span> 👑 <span class="toc-name">日付への現在時刻付与</span></a>
+    </div>
+  </div>
+</div>
+
+<main class="main">
+
+  <!-- ──────── 確認済み機能 ──────── -->
+  <div class="sec-title">確認済み機能 <span class="sec-badge">11 / 29</span></div>
+  <div class="grid">
+
+    <!-- 1 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">01</span>
+        <span class="cat cat-input">入力補助</span>
+        <span class="feat-name">ID自動採番</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>B〜K列のどこかに入力すると、A列に「V-0001」のような番号が自動で付く</li>
+            <li>複数人が同時に入力しても番号は重複しない</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label tip">💡 困ったときは</div>
+          <ul class="pts">
+            <li>IDが抜けている行がある場合は下記メニューで一括修正できる</li>
+          </ul>
+          <div class="menu-op">📋 毎日の配車業務 → 🆔 ID・車番一括補完</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">02</span>
+        <span class="cat cat-input">入力補助</span>
+        <span class="feat-name">トン数正規化</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>D列（トン数）に「4t」「4トン」「4.0」などで入力しても「4」に自動変換される</li>
+            <li>操作は不要。どの書き方でも正しく集計される</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">03</span>
+        <span class="cat cat-input">入力補助</span>
+        <span class="feat-name">車番自動補完</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>F列（車番）に番号を入力すると、乗務員名・携帯番号・看板名・トン数などが自動で埋まる</li>
+            <li>車番は「101」のみ入力でOK（「大阪か101」まで入れなくてよい）</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label tip">💡 ポイント</div>
+          <ul class="pts">
+            <li>協力会社の車両など、同じ車番でも別の会社名を使う場合は「会社名」欄を先に入力してから車番を入れると補完されない（手動で入力できる）</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label tip">💡 困ったときは</div>
+          <ul class="pts"><li>補完が抜けた行がある場合</li></ul>
+          <div class="menu-op">📋 毎日の配車業務 → 🆔 ID・車番一括補完</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">04</span>
+        <span class="cat cat-input">入力補助</span>
+        <span class="feat-name">車種 全角→半角・大文字統一変換</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>E列（車種）に「truck」「Ｗ翼」など小文字・全角で入力しても「TRUCK」「W翼」に自動変換される</li>
+            <li>操作は不要</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">05</span>
+        <span class="cat cat-input">入力補助</span>
+        <span class="feat-name">時刻の正規化と日付合成</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>時刻欄（誘導・積完・休憩・降完など）に「9:30」と入力するだけで、その日の日付と自動合成されて「7/24 9:30」形式になる</li>
+            <li>全角コロン「：」や全角数字も自動で変換される</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label warn">⚠️ 注意</div>
+          <ul class="pts">
+            <li>「19：40ｌ」のように数字以外の文字（英字など）が混じると変換されずそのまま保存される</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">06</span>
+        <span class="cat cat-input">入力補助</span>
+        <span class="feat-name">車番 全角→半角自動変換</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>F列（車番）に「１０１」など全角で入力しても「101」に自動変換される</li>
+            <li>操作は不要</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">07</span>
+        <span class="cat cat-calc">自動計算</span>
+        <span class="feat-name">書式自動設定</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>金額欄（売上・高速代など）は自動で「1,000」形式のカンマ区切りになる</li>
+            <li>時刻欄は自動で「7/24 9:30」形式になる</li>
+            <li>操作は不要。書式が崩れても入力し直すと自動で修復される</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 8 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">08</span>
+        <span class="cat cat-calc">自動計算</span>
+        <span class="feat-name">請求高速 → 実費高速 コピー</span>
+        <div class="color-chip">
+          <div class="chip-dot" style="background:#E65100;border-color:#ff9a60;"></div>
+          <span>🟠 オレンジ文字</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>T列（請求高速）に金額を入力すると、U列（実費高速）に<span style="color:#E65100;font-weight:700;">オレンジ色</span>で同じ値が自動コピーされる</li>
+            <li>実費が請求と同じ場合はそのままでOK（オレンジのまま自動処理される）</li>
+            <li>実費が異なる場合は U列を直接入力 → 黒字になり T列には追従しなくなる</li>
+            <li>U列を削除（Delete）すると T列の値が再コピーされる</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label warn">⚠️ 注意</div>
+          <ul class="pts">
+            <li>実費が本当に0円の場合は空欄にせず「0」と入力すること（空欄のままにすると T列の値が再コピーされてしまう）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">09</span>
+        <span class="cat cat-calc">自動計算</span>
+        <span class="feat-name">合計高速代 自動計算</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>V列（合計高速）は自動計算列。入力は不要</li>
+            <li>請求 ＞ 実費 のとき黒字でプラス表示</li>
+            <li>請求 ＜ 実費 のとき赤字でマイナス表示</li>
+            <li>同額または両方空欄のときは空白（0は出さない）</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label warn">⚠️ 注意</div>
+          <ul class="pts">
+            <li>V列に直接入力しようとすると自動で元に戻り「合計高速は自動計算列です」と表示される</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">10</span>
+        <span class="cat cat-calc">自動計算</span>
+        <span class="feat-name">日付変更時の自動ソート</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>J列（日付）を変更すると自動で「日付の早い順 → 同じ日は乗務員名の五十音順」に並び替わる</li>
+            <li>並び替えで行の色やファイルのリンクがズレることはない</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label tip">💡 手動でも実行できる</div>
+          <div class="menu-op">📋 毎日の配車業務 → 🔃 日付順並び替え</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 29 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">29</span>
+        <span class="cat cat-input">入力補助</span>
+        <span class="feat-name">日付への現在時刻付与</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>J列（日付）に「7/24」や「７/２４」など簡単な書き方で入力しても、今年の正しい日付として保存される</li>
+            <li>時刻なしで入力すると自動で現在時刻が追加される（例：「7/24」→「7/24 14:35」）</li>
+            <li>操作は不要</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+
+  <!-- ──────── 今後の対応予定 ──────── -->
+  <div class="sec-title" id="pending" style="margin-top:52px;">
+    今後の対応予定（未確認）
+    <span class="sec-badge gray">18 件</span>
+  </div>
+
+  <div class="pending-grid">
+
+    <div class="pitem">
+      <span class="pnum">11</span>
+      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
+      <span class="pname">有休行の色付け</span>
+      <div class="pcolor"><div class="pchip" style="background:#e0e0e0;border-color:#bbb;"></div>薄グレー</div>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">12</span>
+      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
+      <span class="pname">休み行の色付け</span>
+      <div class="pcolor"><div class="pchip" style="background:#9e9e9e;"></div>濃グレー</div>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">13</span>
+      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
+      <span class="pname">配車漏れ警告色</span>
+      <div class="pcolor"><div class="pchip" style="background:#fff9c4;border-color:#ccc;"></div>薄黄</div>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">14</span>
+      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
+      <span class="pname">資格期限アラート色（A列）</span>
+      <div class="pcolor">
+        <div class="pchip" style="background:#ffcdd2;border-color:#e88;"></div>
+        <div class="pchip" style="background:#bbdefb;border-color:#8ac;"></div>
+        <div class="pchip" style="background:#c8e6c9;border-color:#8b8;"></div>
+        🔴🔵🟢
+      </div>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">15</span>
+      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
+      <span class="pname">ID重複・車番不一致の警告</span>
+      <div class="pcolor"><div class="pchip" style="background:#ff1744;"></div>🔴 濃い赤</div>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">16</span>
+      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
+      <span class="pname">保護列の色</span>
+      <div class="pcolor"><div class="pchip" style="background:#eceff1;border-color:#bbb;"></div>薄青グレー</div>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">17</span>
+      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
+      <span class="pname">色凡例メモの自動設定</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">18</span>
+      <span class="cat cat-guard" style="font-size:9px;padding:1px 6px;flex-shrink:0;">警告・保護</span>
+      <span class="pname">時刻入力の順序チェック</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">19</span>
+      <span class="cat cat-guard" style="font-size:9px;padding:1px 6px;flex-shrink:0;">警告・保護</span>
+      <span class="pname">ヘッダー行の自動復元</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">20</span>
+      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
+      <span class="pname">ID・車番の一括補完（手動）</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">21</span>
+      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
+      <span class="pname">手動の日付順並び替え</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">22</span>
+      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
+      <span class="pname">今月分の行一括生成</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">23</span>
+      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
+      <span class="pname">翌月分の行一括生成</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">24</span>
+      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
+      <span class="pname">前月分アーカイブ</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">25</span>
+      <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
+      <span class="pname">車番連絡のメール送信</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">26</span>
+      <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
+      <span class="pname">ファイル添付</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">27</span>
+      <span class="cat cat-import" style="font-size:9px;padding:1px 6px;flex-shrink:0;">データ取込</span>
+      <span class="pname">配車表CSV/Excelの取込</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">28</span>
+      <span class="cat cat-infra" style="font-size:9px;padding:1px 6px;flex-shrink:0;">インフラ</span>
+      <span class="pname">onEdit処理の高速化</span>
+    </div>
+
+  </div><!-- /pending-grid -->
+
+</main>
+
+<footer class="ftr">運行シート 操作説明書 — 現場スタッフ向け — v836 — 2026-07-27</footer>
+
+<script>
+// カードに feat-XX のIDを自動付与（TOCリンク用）
+document.querySelectorAll('.grid .card').forEach(function(c) {
+  var n = c.querySelector('.num');
+  if (n) c.id = 'feat-' + n.textContent.trim();
+});
+
+function toggleTheme() {
+  var r = document.documentElement;
+  r.setAttribute('data-theme', r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+}
+</script>
+</body>
+</html>
