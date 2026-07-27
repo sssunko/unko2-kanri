@@ -483,7 +483,7 @@ function normalizeTons_(val) {
     .replace(/[０-９]/g, function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);})
     .replace(/[ｔＴ]/g, 't');
   if (!s) return val;
-  var m = s.match(/^([\d.]+)[tT]?$/);
+  var m = s.match(/^([\d.]+)(?:[tT]|トン|ｔｏｎ|ton)?$/);
   if (m) return m[1] + 't';
   return val;
 }
@@ -1655,10 +1655,11 @@ function onEditUnkou_(sheet, range, ss) {
     if (_inspBColNum > 0) _timeCols.push(_inspBColNum);
     if (_inspAColNum > 0) _timeCols.push(_inspAColNum);
   }
-  // 車番補完用マスタ読み込み（F列が編集範囲に含まれる時だけ全読み）
+  // 車番補完・J列キャッシュクリア用マスタ読み込み
   var _fInRange = (editedCol <= 6 && editedEndCol >= 6);
+  var _jInRange = (editedCol <= 10 && editedEndCol >= 10);
   var mData = [];
-  if (_fInRange) {
+  if (_fInRange || _jInRange) {
     var master = ss.getSheetByName('自車専属マスタ');
     mData = master ? master.getDataRange().getValues() : [];
   }
@@ -1695,6 +1696,15 @@ function onEditUnkou_(sheet, range, ss) {
         }
       }
       sheet.getRange(row, 10).setNumberFormat('yyyy/MM/dd');
+      // J列更新後、該当ドライバーのリストキャッシュをクリア（アプリに即時反映）
+      var _jDrName = String(rowData[6] || '').trim();
+      for (var _jm = 1; _jm < mData.length; _jm++) {
+        if (String(mData[_jm][8] || '').trim() === _jDrName) {
+          var _jEmail = String(mData[_jm][10] || '').trim();
+          if (_jEmail) { clearListCache_(_jEmail); }
+          break;
+        }
+      }
     }
 
     // F列(6)：車番を入力→自車専属マスタと部分一致で8列一括補完
@@ -5506,20 +5516,21 @@ function saveRunState(state, email, companySsId) {
 // ================================================================
 function loadRunState() {
   var all = PropertiesService.getUserProperties().getProperties();
+  function safeJ_(k, d) { try { return JSON.parse(all[k] || d); } catch(e) { return JSON.parse(d); } }
   var lpi = all['lastPickIndex'];
   return {
-    picks:         JSON.parse(all['picks']         || '[]'),
-    drops:         JSON.parse(all['drops']         || '[]'),
-    rows:          JSON.parse(all['rows']          || '[]'),
-    runId:         all['runId']                    || '',
-    guideDone:     JSON.parse(all['guideDone']     || '[]'),
-    pickDone:      JSON.parse(all['pickDone']      || '[]'),
-    dropDone:      JSON.parse(all['dropDone']      || '[]'),
-    phase:         all['phase']                    || '',
+    picks:         safeJ_('picks',        '[]'),
+    drops:         safeJ_('drops',        '[]'),
+    rows:          safeJ_('rows',         '[]'),
+    runId:         all['runId']           || '',
+    guideDone:     safeJ_('guideDone',    '[]'),
+    pickDone:      safeJ_('pickDone',     '[]'),
+    dropDone:      safeJ_('dropDone',     '[]'),
+    phase:         all['phase']           || '',
     lastPickIndex: (lpi !== '' && lpi !== undefined && lpi !== null) ? Number(lpi) : null,
-    guideHistory:  JSON.parse(all['guideHistory']  || '[]'),
-    pickHistory:   JSON.parse(all['pickHistory']   || '[]'),
-    dropHistory:   JSON.parse(all['dropHistory']   || '[]')
+    guideHistory:  safeJ_('guideHistory', '[]'),
+    pickHistory:   safeJ_('pickHistory',  '[]'),
+    dropHistory:   safeJ_('dropHistory',  '[]')
   };
 }
 

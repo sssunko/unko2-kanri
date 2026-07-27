@@ -257,7 +257,7 @@ html { scroll-behavior: smooth; }
 .card { scroll-margin-top: 90px; }
 #pending { scroll-margin-top: 90px; }
 .ss-wrap { margin-top: 16px; }
-.ss-img { max-width: 100%; width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; }
+.ss-img { max-width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; image-rendering: -webkit-optimize-contrast; image-rendering: pixelated; }
 
 @media (max-width: 680px) {
   .hdr { padding: 18px 16px; }
@@ -278,7 +278,7 @@ html { scroll-behavior: smooth; }
     <div>
       <div class="hdr-label">unko2-kanri — 現場スタッフ向け</div>
       <div class="hdr-title">運行シート 操作説明書</div>
-      <div class="hdr-sub">自動入力・気をつけること・困ったときの操作 — 2026-07-27</div>
+      <div class="hdr-sub">自動入力・気をつけること・困ったときの操作</div>
     </div>
     <button class="theme-btn" onclick="toggleTheme()">☀ / ☾</button>
   </div>
@@ -308,7 +308,7 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-08"><span class="toc-n">⑧</span> 👑 <span class="toc-name">請求→実費高速コピー 🟠</span></a>
       <a class="toc-item done" href="#feat-09"><span class="toc-n">⑨</span> 👑 <span class="toc-name">合計高速代 自動計算</span></a>
       <a class="toc-item done" href="#feat-10"><span class="toc-n">⑩</span> 👑 <span class="toc-name">日付変更時の自動ソート</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑪</span><span class="toc-name">有休行の色付け</span></a>
+      <a class="toc-item done" href="#feat-11"><span class="toc-n">⑪</span> 👑 <span class="toc-name">有休行の色付け</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑫</span><span class="toc-name">休み行の色付け</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑬</span><span class="toc-name">配車漏れ警告色</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑭</span><span class="toc-name">資格期限アラート色</span></a>
@@ -378,6 +378,7 @@ html { scroll-behavior: smooth; }
             <li>操作は不要。どの書き方でも正しく集計される</li>
           </ul>
         </div>
+        <div class="ss-wrap"><img src="screenshots/02-tons.png" class="ss-img" alt="トン数正規化（4t/4T/4トン → 4）"></div>
       </div>
     </div>
 
@@ -407,6 +408,7 @@ html { scroll-behavior: smooth; }
           <ul class="pts"><li>補完が抜けた行がある場合</li></ul>
           <div class="menu-op">📋 毎日の配車業務 → 🆔 ID・車番一括補完</div>
         </div>
+        <div class="ss-wrap"><img src="screenshots/03-carfill.png" class="ss-img" alt="車番自動補完"></div>
       </div>
     </div>
 
@@ -421,10 +423,11 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>E列（車種）に「truck」「Ｗ翼」など小文字・全角で入力しても「TRUCK」「W翼」に自動変換される</li>
+            <li>E列（車種）に小文字「w」で入力しても、自動で大文字「W」に変わる</li>
             <li>操作は不要</li>
           </ul>
         </div>
+        <div class="ss-wrap"><img src="screenshots/04-cartype.png" class="ss-img" alt="車種変換"></div>
       </div>
     </div>
 
@@ -449,6 +452,7 @@ html { scroll-behavior: smooth; }
             <li>「19：40ｌ」のように数字以外の文字（英字など）が混じると変換されずそのまま保存される</li>
           </ul>
         </div>
+        <div class="ss-wrap"><img src="screenshots/05-time.png" class="ss-img" alt="時刻正規化と日付合成"></div>
       </div>
     </div>
 
@@ -467,6 +471,7 @@ html { scroll-behavior: smooth; }
             <li>操作は不要</li>
           </ul>
         </div>
+        <div class="ss-wrap"><img src="screenshots/06-carnum.png" class="ss-img" alt="車番全角→半角変換"></div>
       </div>
     </div>
 
@@ -486,6 +491,7 @@ html { scroll-behavior: smooth; }
             <li>操作は不要。書式が崩れても入力し直すと自動で修復される</li>
           </ul>
         </div>
+        <div class="ss-wrap"><img src="screenshots/07-format.png" class="ss-img" alt="書式自動設定"></div>
       </div>
     </div>
 
@@ -516,6 +522,7 @@ html { scroll-behavior: smooth; }
             <li>実費が本当に0円の場合は空欄にせず「0」と入力すること（空欄のままにすると T列の値が再コピーされてしまう）</li>
           </ul>
         </div>
+        <div class="ss-wrap"><img src="screenshots/08-highwayfix.png" class="ss-img" alt="請求→実費高速コピー"></div>
       </div>
     </div>
 
@@ -542,6 +549,7 @@ html { scroll-behavior: smooth; }
             <li>V列に直接入力しようとすると自動で元に戻り「合計高速は自動計算列です」と表示される</li>
           </ul>
         </div>
+        <div class="ss-wrap"><img src="screenshots/09-highway-total.png" class="ss-img" alt="合計高速代自動計算"></div>
       </div>
     </div>
 
@@ -564,6 +572,7 @@ html { scroll-behavior: smooth; }
           <div class="blk-label tip">💡 手動でも実行できる</div>
           <div class="menu-op">📋 毎日の配車業務 → 🔃 日付順並び替え</div>
         </div>
+        <div class="ss-wrap"><img src="screenshots/10-sort.png" class="ss-img" alt="日付変更時の自動ソート"></div>
       </div>
     </div>
 
@@ -578,11 +587,33 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>J列（日付）に「7/24」や「７/２４」など簡単な書き方で入力しても、今年の正しい日付として保存される</li>
-            <li>時刻なしで入力すると自動で現在時刻が追加される（例：「7/24」→「7/24 14:35」）</li>
+            <li>J列（日付）に「7/26」や「７/２６」など入力すると今年の正しい日付として保存される</li>
+            <li>シートの表示は日付のみ（時刻は内部に保存）。アプリの一覧では日付＋時刻（例：7/26　14:35）で表示される</li>
             <li>操作は不要</li>
           </ul>
         </div>
+        <div class="ss-wrap"><img src="screenshots/29-datetime.png" class="ss-img" alt="日付への現在時刻付与 ビフォーアフター"></div>
+      </div>
+    </div>
+
+    <!-- 11 -->
+    <div class="card" id="feat-11">
+      <div class="card-hdr">
+        <span class="num">11</span>
+        <span class="cat cat-color">色表示</span>
+        <span class="feat-name">有休行の色付け</span>
+        <div class="color-chip" style="background:#e0e0e0;border:1px solid #bbb;width:14px;height:14px;border-radius:3px;margin-left:auto;flex-shrink:0;"></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>L列（積地）に「有休」と入力すると行全体が薄グレーになる</li>
+            <li>SS開き直し（F5）後も自動で再適用される</li>
+            <li>操作は不要</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/11-color-yukyu.png" class="ss-img" alt="有休行の薄グレー着色"></div>
       </div>
     </div>
 
@@ -591,17 +622,10 @@ html { scroll-behavior: smooth; }
   <!-- ──────── 今後の対応予定 ──────── -->
   <div class="sec-title" id="pending" style="margin-top:52px;">
     今後の対応予定（未確認）
-    <span class="sec-badge gray">18 件</span>
+    <span class="sec-badge gray">17 件</span>
   </div>
 
   <div class="pending-grid">
-
-    <div class="pitem">
-      <span class="pnum">11</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">有休行の色付け</span>
-      <div class="pcolor"><div class="pchip" style="background:#e0e0e0;border-color:#bbb;"></div>薄グレー</div>
-    </div>
 
     <div class="pitem">
       <span class="pnum">12</span>

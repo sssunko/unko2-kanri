@@ -264,7 +264,7 @@ html { scroll-behavior: smooth; }
 .card { scroll-margin-top: 90px; }
 #pending { scroll-margin-top: 90px; }
 .ss-wrap { margin-top: 16px; }
-.ss-img { max-width: 100%; width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; }
+.ss-img { max-width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; image-rendering: -webkit-optimize-contrast; image-rendering: pixelated; }
 
 @media (max-width: 680px) {
   .hdr { padding: 18px 16px; }
@@ -285,7 +285,7 @@ html { scroll-behavior: smooth; }
     <div>
       <div class="hdr-label">unko2-kanri — 保守エンジニア向け</div>
       <div class="hdr-title">運行シート 機能解説書</div>
-      <div class="hdr-sub">全29項目 · コード参照 · 技術仕様 · 2026-07-27</div>
+      <div class="hdr-sub">全29項目 · コード参照 · 技術仕様</div>
     </div>
     <button class="theme-btn" onclick="toggleTheme()">☀ / ☾</button>
   </div>
@@ -341,7 +341,7 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-08"><span class="toc-n">⑧</span> 👑 <span class="toc-name">請求→実費高速コピー 🟠</span></a>
       <a class="toc-item done" href="#feat-09"><span class="toc-n">⑨</span> 👑 <span class="toc-name">合計高速代 自動計算</span></a>
       <a class="toc-item done" href="#feat-10"><span class="toc-n">⑩</span> 👑 <span class="toc-name">日付変更時の自動ソート</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑪</span><span class="toc-name">有休行の色付け</span></a>
+      <a class="toc-item done" href="#feat-11"><span class="toc-n">⑪</span> 👑 <span class="toc-name">有休行の色付け</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑫</span><span class="toc-name">休み行の色付け</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑬</span><span class="toc-name">配車漏れ警告色</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑭</span><span class="toc-name">資格期限アラート色</span></a>
@@ -413,6 +413,7 @@ html { scroll-behavior: smooth; }
           </ul>
         </div>
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
+        <div class="ss-wrap"><img src="screenshots/02-tons.png" class="ss-img" alt="トン数正規化（4t/4T/4トン → 4）"></div>
       </div>
     </div>
 
@@ -444,6 +445,7 @@ html { scroll-behavior: smooth; }
           <ul class="pts"><li><code>fillMissingIdsAndCars()</code> で補完漏れを一括修正</li></ul>
         </div>
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
+        <div class="ss-wrap"><img src="screenshots/03-carfill.png" class="ss-img" alt="車番自動補完"></div>
       </div>
     </div>
 
@@ -464,6 +466,7 @@ html { scroll-behavior: smooth; }
           </ul>
         </div>
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
+        <div class="ss-wrap"><img src="screenshots/04-cartype.png" class="ss-img" alt="車種変換"></div>
       </div>
     </div>
 
@@ -492,6 +495,7 @@ html { scroll-behavior: smooth; }
           </ul>
         </div>
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
+        <div class="ss-wrap"><img src="screenshots/05-time.png" class="ss-img" alt="時刻正規化と日付合成"></div>
       </div>
     </div>
 
@@ -512,6 +516,7 @@ html { scroll-behavior: smooth; }
           </ul>
         </div>
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
+        <div class="ss-wrap"><img src="screenshots/06-carnum.png" class="ss-img" alt="車番全角→半角変換"></div>
       </div>
     </div>
 
@@ -532,6 +537,7 @@ html { scroll-behavior: smooth; }
           </ul>
         </div>
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
+        <div class="ss-wrap"><img src="screenshots/07-format.png" class="ss-img" alt="書式自動設定"></div>
       </div>
     </div>
 
@@ -561,6 +567,7 @@ html { scroll-behavior: smooth; }
           </ul>
         </div>
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
+        <div class="ss-wrap"><img src="screenshots/08-highwayfix.png" class="ss-img" alt="請求→実費高速コピー"></div>
       </div>
     </div>
 
@@ -586,6 +593,7 @@ html { scroll-behavior: smooth; }
           </ul>
         </div>
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
+        <div class="ss-wrap"><img src="screenshots/09-highway-total.png" class="ss-img" alt="合計高速代自動計算"></div>
       </div>
     </div>
 
@@ -612,6 +620,7 @@ html { scroll-behavior: smooth; }
           </ul>
         </div>
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2, 1-10</span>
+        <div class="ss-wrap"><img src="screenshots/10-sort.png" class="ss-img" alt="日付変更時の自動ソート"></div>
       </div>
     </div>
 
@@ -626,12 +635,46 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">入力時・自動</div>
           <ul class="pts">
-            <li>J列（日付）編集時、全角・スペース混じりの文字列（「７/２４」「7 / 24」等）を半角正規化し今年の日付として保存</li>
-            <li>時刻なし（00:00:00）で保存されている場合は現在時刻を付与して上書き</li>
-            <li>端末アプリ・CSV取込で日付のみ入力された場合も同様に処理</li>
+            <li>J列（日付）編集時、全角・スペース混じりの文字列（「７/２６」「7 / 26」等）を半角正規化し今年の日付として保存</li>
+            <li>SS上の表示は日付のみ（yyyy/MM/dd）。内部には現在時刻が付与されて保存される</li>
+            <li>時刻なし（00:00:00）で保存されている場合も現在時刻を付与して上書き</li>
+            <li>アプリの一覧では日付＋時刻（例：7/26　14:35）で表示される</li>
           </ul>
         </div>
+        <div class="ss-wrap"><img src="screenshots/29-datetime.png" class="ss-img" alt="日付への現在時刻付与 ビフォーアフター"></div>
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
+      </div>
+    </div>
+
+    <!-- 11 -->
+    <div class="card" id="feat-11">
+      <div class="card-hdr">
+        <span class="num">11</span>
+        <span class="cat cat-color">色表示</span>
+        <span class="feat-name">有休行の色付け</span>
+        <div class="color-chip" style="background:#e0e0e0;border:1px solid #bbb;width:14px;height:14px;border-radius:3px;margin-left:auto;flex-shrink:0;"></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label">入力時・自動</div>
+          <ul class="pts">
+            <li>L列（積地）に「有休」を含む値を入力すると行全体が薄グレー（#e0e0e0）に即時着色される</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">SS起動時・自動</div>
+          <ul class="pts">
+            <li>SS開き直し（F5）のたびに全行を再チェックして自動再適用される</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">優先順位</div>
+          <ul class="pts">
+            <li>有休行のグレーは資格期限アラートの色（赤・青・緑）より優先される。期限色は有休行には上書きされない</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/11-color-yukyu.png" class="ss-img" alt="有休行の薄グレー着色"></div>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2, 1-7</span>
       </div>
     </div>
 
@@ -640,17 +683,10 @@ html { scroll-behavior: smooth; }
   <!-- ──────── 今後の対応予定 ──────── -->
   <div class="sec-title" id="pending" style="margin-top:52px;">
     今後の対応予定（未確認）
-    <span class="sec-badge gray">18 件</span>
+    <span class="sec-badge gray">17 件</span>
   </div>
 
   <div class="pending-grid">
-
-    <div class="pitem">
-      <span class="pnum">11</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">有休行の色付け</span>
-      <div class="pcolor"><div class="pchip" style="background:#e0e0e0;border-color:#bbb;"></div>薄グレー</div>
-    </div>
 
     <div class="pitem">
       <span class="pnum">12</span>

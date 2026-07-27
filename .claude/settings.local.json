@@ -328,7 +328,27 @@
       "PowerShell(Copy-Item \"c:\\\\gas\\\\unko2-kanri\\\\manual_user.html\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\manual-user.html\" -Force)",
       "PowerShell(Copy-Item \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\\" -Recurse -Force 2>$null)",
       "Bash(grep -v \"^[+-]\\\\s*//\")",
-      "Bash(grep -v \"^.*//\\\\|function \")"
+      "Bash(grep -v \"^.*//\\\\|function \")",
+      "Bash(grep -v \"^.*//\\\\|getClientStubSource\")",
+      "Bash(grep -v \"//\\\\|getClientStub\")",
+      "Bash(node deploy.js \"loadRunState JSON破壊クラッシュ回避・normalizeTons_トン対応\")",
+      "PowerShell($f = \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce.jsonl\"; \\(Get-Item $f\\).Length; Select-String -Path $f -Pattern '\"type\":\"image\"' | Measure-Object | Select-Object -ExpandProperty Count)",
+      "PowerShell(python --version 2>&1)",
+      "PowerShell(node -e \"try{require\\('jimp'\\);console.log\\('jimp ok'\\)}catch\\(e\\){console.log\\('jimp ng'\\)}\" 2>&1)",
+      "PowerShell(python -c \"from PIL import Image; print\\('PIL ok'\\)\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_tons.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_tons.py\" 2>&1)",
+      "Bash(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_format.py\")",
+      "Bash(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_fmt8.py\")",
+      "Bash(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_fmt9.py\")",
+      "Bash(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_sort10.py\")",
+      "PowerShell(\\(Get-Item \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce.jsonl\"\\).Length / 1MB)",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_time29.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_col11.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_col11_v2.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_col11_v3.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_col11_final.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\4c9d4047-57a3-42ba-88e7-cb5ab7f779ce\\\\scratchpad\\\\make_col11_clean.py\")"
     ]
   }
 }
