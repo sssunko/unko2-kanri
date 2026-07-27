@@ -138,7 +138,7 @@ body {
 /* ── CARDS ── */
 .grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
   gap: 14px;
 }
 
@@ -263,8 +263,6 @@ html { scroll-behavior: smooth; }
 .toc-name { flex: 1; }
 .card { scroll-margin-top: 90px; }
 #pending { scroll-margin-top: 90px; }
-.ss-wrap { margin-top: 16px; }
-.ss-img { max-width: 100%; width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; }
 
 @media (max-width: 680px) {
   .hdr { padding: 18px 16px; }
@@ -392,7 +390,6 @@ html { scroll-behavior: smooth; }
           </ul>
         </div>
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
-        <div class="ss-wrap"><img src="screenshots/01-id.png" class="ss-img" alt="ID自動採番"></div>
       </div>
     </div>
 

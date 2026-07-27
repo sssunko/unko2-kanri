@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>運行シート 機能解説書 — 保守エンジニア向け</title>
+<title>運行シート 操作説明書 — 現場スタッフ向け</title>
 <style>
-/* ── CSS変数（ダーク・ライト共通） ── */
+/* ── CSS変数 ── */
 :root {
   --bg:            #0b1623;
   --surface:       #0f1e30;
@@ -18,10 +18,6 @@
   --text:          #dde8f2;
   --muted:         #7a9ab8;
   --dim:           #4a6580;
-  --done-badge:    #0f2e1a;
-  --done-text:     #4ade80;
-  --code-bg:       #081420;
-  --code-text:     #7dd3fc;
   --cat-input-bg:  #1a3558;  --cat-input-tx:  #60b0ff;
   --cat-calc-bg:   #0d2c18;  --cat-calc-tx:   #4ade80;
   --cat-color-bg:  #271845;  --cat-color-tx:  #c084fc;
@@ -30,38 +26,31 @@
   --cat-doc-bg:    #352800;  --cat-doc-tx:    #fbbf24;
   --cat-import-bg: #3a0a28;  --cat-import-tx: #f472b6;
   --cat-infra-bg:  #1a2535;  --cat-infra-tx:  #94a3b8;
+  --warn-bg:       #3d1a00;  --warn-tx:       #fca5a5;
+  --tip-bg:        #0d2e1a;  --tip-tx:        #6ee7b7;
+  --auto-bg:       #0d253d;  --auto-tx:       #7dd3fc;
 }
 :root[data-theme="light"] {
-  --bg:            #eff4f9;
-  --surface:       #ffffff;
-  --card:          #ffffff;
-  --card-hover:    #f5f9ff;
-  --border:        #cdd8e8;
-  --border-hi:     #9ab0cc;
-  --gold:          #9a7830;
-  --gold-text:     #7a5e20;
-  --text:          #1a2d3d;
-  --muted:         #4a6580;
-  --dim:           #8aa8c0;
-  --done-badge:    #dcfce7;
-  --done-text:     #15803d;
-  --code-bg:       #e8f0f8;
-  --code-text:     #1d6fa8;
-  --cat-input-bg:  #dbeafe;  --cat-input-tx:  #1d4ed8;
-  --cat-calc-bg:   #dcfce7;  --cat-calc-tx:   #15803d;
-  --cat-color-bg:  #f3e8ff;  --cat-color-tx:  #7e22ce;
-  --cat-guard-bg:  #fff7ed;  --cat-guard-tx:  #c2410c;
-  --cat-menu-bg:   #cffafe;  --cat-menu-tx:   #0e7490;
-  --cat-doc-bg:    #fef9c3;  --cat-doc-tx:    #a16207;
-  --cat-import-bg: #fce7f3;  --cat-import-tx: #be185d;
-  --cat-infra-bg:  #f1f5f9;  --cat-infra-tx:  #475569;
+  --bg: #eff4f9; --surface: #fff; --card: #fff; --card-hover: #f5f9ff;
+  --border: #cdd8e8; --border-hi: #9ab0cc; --gold: #9a7830; --gold-text: #7a5e20;
+  --text: #1a2d3d; --muted: #4a6580; --dim: #8aa8c0;
+  --cat-input-bg:#dbeafe; --cat-input-tx:#1d4ed8;
+  --cat-calc-bg:#dcfce7; --cat-calc-tx:#15803d;
+  --cat-color-bg:#f3e8ff; --cat-color-tx:#7e22ce;
+  --cat-guard-bg:#fff7ed; --cat-guard-tx:#c2410c;
+  --cat-menu-bg:#cffafe; --cat-menu-tx:#0e7490;
+  --cat-doc-bg:#fef9c3; --cat-doc-tx:#a16207;
+  --cat-import-bg:#fce7f3; --cat-import-tx:#be185d;
+  --cat-infra-bg:#f1f5f9; --cat-infra-tx:#475569;
+  --warn-bg:#fff1f1; --warn-tx:#c0392b;
+  --tip-bg:#f0fdf4; --tip-tx:#15803d;
+  --auto-bg:#eff9ff; --auto-tx:#1d6fa8;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     --bg:#eff4f9; --surface:#fff; --card:#fff; --card-hover:#f5f9ff;
     --border:#cdd8e8; --border-hi:#9ab0cc; --gold:#9a7830; --gold-text:#7a5e20;
     --text:#1a2d3d; --muted:#4a6580; --dim:#8aa8c0;
-    --done-badge:#dcfce7; --done-text:#15803d; --code-bg:#e8f0f8; --code-text:#1d6fa8;
     --cat-input-bg:#dbeafe; --cat-input-tx:#1d4ed8;
     --cat-calc-bg:#dcfce7; --cat-calc-tx:#15803d;
     --cat-color-bg:#f3e8ff; --cat-color-tx:#7e22ce;
@@ -70,6 +59,9 @@
     --cat-doc-bg:#fef9c3; --cat-doc-tx:#a16207;
     --cat-import-bg:#fce7f3; --cat-import-tx:#be185d;
     --cat-infra-bg:#f1f5f9; --cat-infra-tx:#475569;
+    --warn-bg:#fff1f1; --warn-tx:#c0392b;
+    --tip-bg:#f0fdf4; --tip-tx:#15803d;
+    --auto-bg:#eff9ff; --auto-tx:#1d6fa8;
   }
 }
 
@@ -87,7 +79,7 @@ body {
 /* ── HEADER ── */
 .hdr {
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 2px solid var(--gold);
   padding: 28px 40px 24px;
   position: sticky; top: 0; z-index: 100;
 }
@@ -108,15 +100,19 @@ body {
 }
 .theme-btn:hover { background: var(--border-hi); color: var(--text); }
 
-/* ── PROGRESS ── */
-.prog-wrap { max-width: 1120px; margin: 0 auto; padding: 18px 40px 0; }
-.prog-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 7px; }
-.prog-track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
-.prog-fill { height: 100%; width: calc(11/29*100%); background: linear-gradient(90deg,#a8883a,var(--gold)); border-radius: 3px; }
-.dots { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
-.dot { width: 9px; height: 9px; border-radius: 50%; }
-.dot.on  { background: #22c55e; }
-.dot.off { background: var(--border); }
+/* ── INTRO BANNER ── */
+.intro {
+  background: linear-gradient(135deg, #0c2040 0%, #122035 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 40px;
+}
+.intro-inner {
+  max-width: 1120px; margin: 0 auto;
+  display: flex; align-items: center; gap: 14px;
+}
+.intro-icon { font-size: 22px; }
+.intro-text { font-size: 13px; color: var(--muted); }
+.intro-text strong { color: var(--text); }
 
 /* ── MAIN ── */
 .main { max-width: 1120px; margin: 0 auto; padding: 32px 40px 72px; }
@@ -126,8 +122,7 @@ body {
   display: flex; align-items: center; gap: 10px;
   font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
   color: var(--gold); font-weight: 800;
-  margin: 40px 0 18px;
-  padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  margin: 40px 0 18px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
 }
 .sec-badge {
   background: var(--gold); color: var(--bg);
@@ -135,35 +130,28 @@ body {
 }
 .sec-badge.gray { background: var(--dim); }
 
-/* ── CARDS ── */
+/* ── CARDS GRID ── */
 .grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
   gap: 14px;
 }
 
 .card {
-  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-  overflow: hidden; transition: border-color .15s, background .15s;
-  display: flex; flex-direction: column;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+  transition: border-color .15s, background .15s;
 }
 .card:hover { border-color: var(--border-hi); background: var(--card-hover); }
 
 .card-hdr {
   display: flex; align-items: center; gap: 9px;
-  padding: 13px 18px 11px;
-  border-bottom: 1px solid var(--border);
+  padding: 13px 18px 11px; border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
-.num {
-  font-size: 10px; font-weight: 800; color: var(--dim);
-  font-variant-numeric: tabular-nums; min-width: 20px;
-}
-.cat {
-  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px;
-  letter-spacing: .04em; flex-shrink: 0;
-  white-space: nowrap;
-}
+.num { font-size: 10px; font-weight: 800; color: var(--dim); min-width: 20px; font-variant-numeric: tabular-nums; }
+
+.cat { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: .04em; flex-shrink: 0; white-space: nowrap; }
 .cat-input  { background: var(--cat-input-bg);  color: var(--cat-input-tx);  }
 .cat-calc   { background: var(--cat-calc-bg);   color: var(--cat-calc-tx);   }
 .cat-color  { background: var(--cat-color-bg);  color: var(--cat-color-tx);  }
@@ -183,33 +171,38 @@ body {
   border: 1.5px solid rgba(255,255,255,.18); flex-shrink: 0;
 }
 
-.card-body { padding: 14px 18px 16px; flex: 1; }
+.card-body { padding: 14px 18px 16px; }
 
-.block { margin-bottom: 12px; }
+/* ── BLOCK TYPES ── */
+.block { margin-bottom: 10px; }
 .block:last-child { margin-bottom: 0; }
+
 .blk-label {
-  font-size: 10px; font-weight: 700; color: var(--muted);
-  letter-spacing: .08em; margin-bottom: 5px;
-  padding-left: 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  margin-bottom: 6px; padding: 2px 8px; border-radius: 4px;
 }
+.blk-label.auto { background: var(--auto-bg); color: var(--auto-tx); }
+.blk-label.warn { background: var(--warn-bg); color: var(--warn-tx); }
+.blk-label.tip  { background: var(--tip-bg);  color: var(--tip-tx);  }
+
 .pts { list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .pts li {
   font-size: 13px; color: var(--text); padding-left: 13px;
-  position: relative; line-height: 1.6;
+  position: relative; line-height: 1.65;
 }
 .pts li::before {
   content: "·"; position: absolute; left: 0; top: 0;
   color: var(--muted); font-size: 17px; line-height: 1.25;
 }
 
-.code-ref {
-  display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
-  background: var(--code-bg); border: 1px solid var(--border);
-  border-radius: 5px; padding: 3px 10px;
-  font-size: 11px; font-family: "Consolas","Menlo",monospace;
-  color: var(--code-text); letter-spacing: .03em;
+/* ── MENU OP BADGE ── */
+.menu-op {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+  background: var(--cat-menu-bg); color: var(--cat-menu-tx);
+  border: 1px solid rgba(6,182,212,.25); border-radius: 5px;
+  padding: 4px 10px; font-size: 12px;
 }
-.code-lbl { font-size: 9px; color: var(--dim); font-family: inherit; letter-spacing: .06em; }
 
 /* ── PENDING ── */
 .pending-grid {
@@ -220,7 +213,7 @@ body {
 .pitem {
   display: flex; align-items: center; gap: 9px;
   padding: 9px 13px; background: var(--surface);
-  border: 1px solid var(--border); border-radius: 7px; opacity: .8;
+  border: 1px solid var(--border); border-radius: 7px; opacity: .75;
 }
 .pnum { font-size: 10px; color: var(--dim); font-weight: 800; min-width: 18px; font-variant-numeric: tabular-nums; }
 .pname { font-size: 12px; color: var(--muted); flex: 1; }
@@ -263,13 +256,11 @@ html { scroll-behavior: smooth; }
 .toc-name { flex: 1; }
 .card { scroll-margin-top: 90px; }
 #pending { scroll-margin-top: 90px; }
-.ss-wrap { margin-top: 16px; }
-.ss-img { max-width: 100%; width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; }
 
 @media (max-width: 680px) {
   .hdr { padding: 18px 16px; }
   .hdr-inner { flex-direction: column; }
-  .prog-wrap { padding: 14px 16px 0; }
+  .intro { padding: 14px 16px; }
   .main { padding: 24px 16px 48px; }
   .grid { grid-template-columns: 1fr; }
   .pending-grid { grid-template-columns: 1fr; }
@@ -283,47 +274,21 @@ html { scroll-behavior: smooth; }
 <header class="hdr">
   <div class="hdr-inner">
     <div>
-      <div class="hdr-label">unko2-kanri — 保守エンジニア向け</div>
-      <div class="hdr-title">運行シート 機能解説書</div>
-      <div class="hdr-sub">全29項目 · コード参照 · 技術仕様 · 2026-07-27</div>
+      <div class="hdr-label">unko2-kanri — 現場スタッフ向け</div>
+      <div class="hdr-title">運行シート 操作説明書</div>
+      <div class="hdr-sub">自動入力・気をつけること・困ったときの操作 — 2026-07-27</div>
     </div>
     <button class="theme-btn" onclick="toggleTheme()">☀ / ☾</button>
   </div>
 </header>
 
-<div class="prog-wrap">
-  <div class="prog-meta"><span>確認進捗</span><span>11 / 29 項目完了</span></div>
-  <div class="prog-track"><div class="prog-fill"></div></div>
-  <div class="dots">
-    <div class="dot on" title="1 ID自動採番"></div>
-    <div class="dot on" title="2 トン数正規化"></div>
-    <div class="dot on" title="3 車番自動補完"></div>
-    <div class="dot on" title="4 車種変換"></div>
-    <div class="dot on" title="5 時刻正規化"></div>
-    <div class="dot on" title="6 車番全角→半角"></div>
-    <div class="dot on" title="7 書式自動設定"></div>
-    <div class="dot on" title="8 請求→実費コピー"></div>
-    <div class="dot on" title="9 合計高速数式"></div>
-    <div class="dot on" title="10 自動ソート"></div>
-    <div class="dot off" title="11 有休色付け"></div>
-    <div class="dot off" title="12 休み色付け"></div>
-    <div class="dot off" title="13 配車漏れ警告色"></div>
-    <div class="dot off" title="14 資格期限アラート色"></div>
-    <div class="dot off" title="15 ID重複警告"></div>
-    <div class="dot off" title="16 保護列の色"></div>
-    <div class="dot off" title="17 色凡例メモ"></div>
-    <div class="dot off" title="18 時刻順序チェック"></div>
-    <div class="dot off" title="19 ヘッダー自動復元"></div>
-    <div class="dot off" title="20 一括補完メニュー"></div>
-    <div class="dot off" title="21 日付順並び替え"></div>
-    <div class="dot off" title="22 今月分生成"></div>
-    <div class="dot off" title="23 翌月分生成"></div>
-    <div class="dot off" title="24 前月分アーカイブ"></div>
-    <div class="dot off" title="25 メール送信"></div>
-    <div class="dot off" title="26 ファイル添付"></div>
-    <div class="dot off" title="27 CSV取込"></div>
-    <div class="dot off" title="28 onEdit高速化"></div>
-    <div class="dot on" title="29 日付時刻付与"></div>
+<div class="intro">
+  <div class="intro-inner">
+    <span class="intro-icon">💡</span>
+    <p class="intro-text">
+      <strong>「🔵 自動」</strong>と書いてある項目は操作不要です。入力するだけで自動処理されます。<br>
+      <strong>「⚠️ 注意」</strong>と書いてある項目は、間違えやすい点を説明しています。
+    </p>
   </div>
 </div>
 
@@ -379,20 +344,19 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">入力時・自動</div>
+          <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>B〜K列のいずれかに入力があり A列が空の行に、V-XXXX 形式（4桁連番）の IDを自動採番</li>
-            <li>ScriptLock（ScriptApp.getLockService().getScriptLock()）による排他制御。複数端末・担当者が同時入力しても番号は重複しない</li>
+            <li>B〜K列のどこかに入力すると、A列に「V-0001」のような番号が自動で付く</li>
+            <li>複数人が同時に入力しても番号は重複しない</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label">一括補完関数</div>
+          <div class="blk-label tip">💡 困ったときは</div>
           <ul class="pts">
-            <li>採番漏れは <code>fillMissingIdsAndCars()</code> が一括処理。A列が空の行を全件スキャンして採番→マスタ補完まで実行</li>
+            <li>IDが抜けている行がある場合は下記メニューで一括修正できる</li>
           </ul>
+          <div class="menu-op">📋 毎日の配車業務 → 🆔 ID・車番一括補完</div>
         </div>
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
-        <div class="ss-wrap"><img src="screenshots/01-id.png" class="ss-img" alt="ID自動採番"></div>
       </div>
     </div>
 
@@ -405,14 +369,12 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">入力時・自動</div>
+          <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>D列（トン数）編集時に <code>normalizeTons_()</code> を呼び出し、「4t」「4T」「4トン」「4.0t」「4.0」等を数値 4 に変換</li>
-            <li>onEdit トリガー内で即時処理（GAS実行遅延の影響を受けない同期処理）</li>
-            <li>CSV取込や多行貼り付けも対象。変換後にセルを上書き</li>
+            <li>D列（トン数）に「4t」「4トン」「4.0」などで入力しても「4」に自動変換される</li>
+            <li>操作は不要。どの書き方でも正しく集計される</li>
           </ul>
         </div>
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
       </div>
     </div>
 
@@ -425,25 +387,23 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">入力時・自動</div>
+          <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>F列（車番）入力時、全角英数→半角変換後に自車専属マスタと照合し B〜I列（区分・会社名・トン数・車種・車番・乗務員名・携帯番号・看板名）を一括補完</li>
-            <li>照合は数字部分の完全一致方式。「101」→「大阪か101」にヒット。「1」は「101」にヒットしない</li>
-            <li>複数行への一括貼り付け・Ctrl+Enter 一括入力にも対応</li>
+            <li>F列（車番）に番号を入力すると、乗務員名・携帯番号・看板名・トン数などが自動で埋まる</li>
+            <li>車番は「101」のみ入力でOK（「大阪か101」まで入れなくてよい）</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label">スキップ条件</div>
+          <div class="blk-label tip">💡 ポイント</div>
           <ul class="pts">
-            <li>B〜I列（F列以外）に 1つでも入力済みの行は補完しない（協力会社の同じ車番も手入力可能）</li>
-            <li>マスタB列（運行状態）が「故障」「待機」の車両はスキップ</li>
+            <li>協力会社の車両など、同じ車番でも別の会社名を使う場合は「会社名」欄を先に入力してから車番を入れると補完されない（手動で入力できる）</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label">一括補完関数</div>
-          <ul class="pts"><li><code>fillMissingIdsAndCars()</code> で補完漏れを一括修正</li></ul>
+          <div class="blk-label tip">💡 困ったときは</div>
+          <ul class="pts"><li>補完が抜けた行がある場合</li></ul>
+          <div class="menu-op">📋 毎日の配車業務 → 🆔 ID・車番一括補完</div>
         </div>
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
       </div>
     </div>
 
@@ -456,14 +416,12 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">入力時・自動</div>
+          <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>E列（車種）の直接編集時に即時変換、F列（車番）補完ループ終了後にも一括変換</li>
-            <li>全角アルファベット（Ａ-Ｚ, ａ-ｚ）→半角変換 → さらに大文字に統一してセルに書き戻す</li>
-            <li>F列補完経由でE列に書き込まれたマスタ値も対象（補完後に全行スキャン方式）</li>
+            <li>E列（車種）に「truck」「Ｗ翼」など小文字・全角で入力しても「TRUCK」「W翼」に自動変換される</li>
+            <li>操作は不要</li>
           </ul>
         </div>
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
       </div>
     </div>
 
@@ -476,22 +434,18 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">入力時・自動</div>
+          <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>対象列：N〜R列（誘導・積完・休憩開始・休憩終了・降完）＋ 点呼前後完了列。編集時に即時処理</li>
-            <li>全角コロン「：」・全角数字（１２：３０等）→ 半角変換</li>
-            <li>時刻のみ入力（HH:mm）→ J列の日付と合成して DateTime 型で保存</li>
-            <li>GASの内部時刻型（1899年起点）で届いた値も J列日付と合成して正しく保存</li>
-            <li>月日付き入力（M/d H:mm）はそちらを優先</li>
+            <li>時刻欄（誘導・積完・休憩・降完など）に「9:30」と入力するだけで、その日の日付と自動合成されて「7/24 9:30」形式になる</li>
+            <li>全角コロン「：」や全角数字も自動で変換される</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label">変換しない条件</div>
+          <div class="blk-label warn">⚠️ 注意</div>
           <ul class="pts">
-            <li>「19：40ｌ」のように数字以外の文字が含まれている場合は変換せず、そのまま保存</li>
+            <li>「19：40ｌ」のように数字以外の文字（英字など）が混じると変換されずそのまま保存される</li>
           </ul>
         </div>
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
       </div>
     </div>
 
@@ -504,14 +458,12 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">入力時・自動</div>
+          <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>F列（車番）編集時、全角英数を半角変換してセルに書き戻す</li>
-            <li>マスタ側の車番が全角でも同様に正規化して照合。数字部分の完全一致で判定</li>
-            <li>補完時もマスタ値を半角正規化した値で F列上書き</li>
+            <li>F列（車番）に「１０１」など全角で入力しても「101」に自動変換される</li>
+            <li>操作は不要</li>
           </ul>
         </div>
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
       </div>
     </div>
 
@@ -524,14 +476,13 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">入力時・自動</div>
+          <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>S〜V列（売上・請求高速・実費高速・合計高速）に <code>#,##0;[RED]#,##0</code> を自動適用</li>
-            <li>N〜R列・点呼前後列に <code>M/d HH:mm</code> の時刻書式を自動適用</li>
-            <li>対象列を含む範囲が編集されたとき崩れた書式を自動修復（onEdit 内）</li>
+            <li>金額欄（売上・高速代など）は自動で「1,000」形式のカンマ区切りになる</li>
+            <li>時刻欄は自動で「7/24 9:30」形式になる</li>
+            <li>操作は不要。書式が崩れても入力し直すと自動で修復される</li>
           </ul>
         </div>
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
       </div>
     </div>
 
@@ -542,25 +493,26 @@ html { scroll-behavior: smooth; }
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">請求高速 → 実費高速 コピー</span>
         <div class="color-chip">
-          <div class="chip-dot" style="background:#E65100;border-color:#ff9a60;" title="#E65100"></div>
+          <div class="chip-dot" style="background:#E65100;border-color:#ff9a60;"></div>
           <span>🟠 オレンジ文字</span>
         </div>
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">入力時・自動</div>
+          <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>T列（請求高速, col20）入力時、U列（実費高速, col21）が空ならフォント <code>#E65100</code>（オレンジ）で同値をコピー</li>
-            <li>U列（editedCol===21）編集時：値が空 → T列を再コピー（オレンジ）、値あり → フォントを <code>null</code>（黒）に戻す</li>
+            <li>T列（請求高速）に金額を入力すると、U列（実費高速）に<span style="color:#E65100;font-weight:700;">オレンジ色</span>で同じ値が自動コピーされる</li>
+            <li>実費が請求と同じ場合はそのままでOK（オレンジのまま自動処理される）</li>
+            <li>実費が異なる場合は U列を直接入力 → 黒字になり T列には追従しなくなる</li>
+            <li>U列を削除（Delete）すると T列の値が再コピーされる</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label">運用ルール（コメント必須）</div>
+          <div class="blk-label warn">⚠️ 注意</div>
           <ul class="pts">
-            <li>実費が本当に0円の場合は「0」を明示入力すること。空欄は「未入力」として扱われ T列の値が再コピーされる</li>
+            <li>実費が本当に0円の場合は空欄にせず「0」と入力すること（空欄のままにすると T列の値が再コピーされてしまう）</li>
           </ul>
         </div>
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
       </div>
     </div>
 
@@ -569,23 +521,24 @@ html { scroll-behavior: smooth; }
       <div class="card-hdr">
         <span class="num">09</span>
         <span class="cat cat-calc">自動計算</span>
-        <span class="feat-name">合計高速代 数式自動セット</span>
+        <span class="feat-name">合計高速代 自動計算</span>
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">入力時・自動</div>
+          <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>T列またはU列の編集時、V列（col22）に数式がなければ <code>=IF(T{r}=U{r},"",T{r}-U{r})</code> を自動セット</li>
-            <li>書式：<code>#,##0;[RED]#,##0</code>。プラス=黒字、マイナス=赤字</li>
+            <li>V列（合計高速）は自動計算列。入力は不要</li>
+            <li>請求 ＞ 実費 のとき黒字でプラス表示</li>
+            <li>請求 ＜ 実費 のとき赤字でマイナス表示</li>
+            <li>同額または両方空欄のときは空白（0は出さない）</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label">保護・自動復元</div>
+          <div class="blk-label warn">⚠️ 注意</div>
           <ul class="pts">
-            <li>V列を直接編集（Delete含む）すると即座に数式を復元し「合計高速は自動計算列です」トーストを表示して return</li>
+            <li>V列に直接入力しようとすると自動で元に戻り「合計高速は自動計算列です」と表示される</li>
           </ul>
         </div>
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
       </div>
     </div>
 
@@ -598,20 +551,16 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">入力時・自動</div>
+          <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>J列（col10）の編集時に <code>sortUnkouByDate_()</code> と <code>sortSummaryByDate_()</code> を呼び出す</li>
-            <li>ソート前に背景色・リッチテキスト値（col24・col26）を一括取得し、ソート後の行順で復元</li>
-            <li>ソート後 V列の数式を全行 <code>=IF(T=U,"",T-U)</code> で再セット。数値書式・日付書式も再適用</li>
+            <li>J列（日付）を変更すると自動で「日付の早い順 → 同じ日は乗務員名の五十音順」に並び替わる</li>
+            <li>並び替えで行の色やファイルのリンクがズレることはない</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label">手動実行</div>
-          <ul class="pts">
-            <li><code>sortBothSheetsByDate()</code> — メニュー「🔃 日付順並び替え」</li>
-          </ul>
+          <div class="blk-label tip">💡 手動でも実行できる</div>
+          <div class="menu-op">📋 毎日の配車業務 → 🔃 日付順並び替え</div>
         </div>
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2, 1-10</span>
       </div>
     </div>
 
@@ -624,14 +573,13 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">入力時・自動</div>
+          <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>J列（日付）編集時、全角・スペース混じりの文字列（「７/２４」「7 / 24」等）を半角正規化し今年の日付として保存</li>
-            <li>時刻なし（00:00:00）で保存されている場合は現在時刻を付与して上書き</li>
-            <li>端末アプリ・CSV取込で日付のみ入力された場合も同様に処理</li>
+            <li>J列（日付）に「7/24」や「７/２４」など簡単な書き方で入力しても、今年の正しい日付として保存される</li>
+            <li>時刻なしで入力すると自動で現在時刻が追加される（例：「7/24」→「7/24 14:35」）</li>
+            <li>操作は不要</li>
           </ul>
         </div>
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2</span>
       </div>
     </div>
 
@@ -674,7 +622,7 @@ html { scroll-behavior: smooth; }
         <div class="pchip" style="background:#ffcdd2;border-color:#e88;"></div>
         <div class="pchip" style="background:#bbdefb;border-color:#8ac;"></div>
         <div class="pchip" style="background:#c8e6c9;border-color:#8b8;"></div>
-        赤/青/緑
+        🔴🔵🟢
       </div>
     </div>
 
@@ -768,7 +716,7 @@ html { scroll-behavior: smooth; }
 
 </main>
 
-<footer class="ftr">運行シート 機能解説書 — 保守エンジニア向け — v836 — 2026-07-27</footer>
+<footer class="ftr">運行シート 操作説明書 — 現場スタッフ向け — v836 — 2026-07-27</footer>
 
 <script>
 // カードに feat-XX のIDを自動付与（TOCリンク用）

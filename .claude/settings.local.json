@@ -320,7 +320,15 @@
       "Bash(node deploy.js \"9番追加修正：合計高速数式をT-U（請求-実費）に変更・黒赤表示を正しい方向に修正\")",
       "Bash(node deploy.js \"9番追加修正②：合計高速V列全行修正メニュー追加（fixV22Formulas）\")",
       "Bash(node deploy.js \"9番クリーンアップ：fixV22Formulasメニュー・関数を削除（移行完了のため）\")",
-      "Bash(node deploy.js \"10番バグ修正：ソート後のV列数式を正しい方向（T-U）・正しい条件（T=U）に統一\")"
+      "Bash(node deploy.js \"10番バグ修正：ソート後のV列数式を正しい方向（T-U）・正しい条件（T=U）に統一\")",
+      "Bash(python3 -)",
+      "Bash(npx wrangler *)",
+      "Bash(xxd \"c:/gas/unko2-kanri/manual-deploy/worker-tmp.js\")",
+      "PowerShell(Copy-Item \"c:\\\\gas\\\\unko2-kanri\\\\manual_ma.html\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\manual-ma.html\" -Force)",
+      "PowerShell(Copy-Item \"c:\\\\gas\\\\unko2-kanri\\\\manual_user.html\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\manual-user.html\" -Force)",
+      "PowerShell(Copy-Item \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\\" -Recurse -Force 2>$null)",
+      "Bash(grep -v \"^[+-]\\\\s*//\")",
+      "Bash(grep -v \"^.*//\\\\|function \")"
     ]
   }
 }

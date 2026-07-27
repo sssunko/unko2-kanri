@@ -1,0 +1,5 @@
+name = "smart-simple-system"
+compatibility_date = "2024-09-23"
+
+[assets]
+directory = "./deploy-assets"
