@@ -309,7 +309,7 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-09"><span class="toc-n">⑨</span> 👑 <span class="toc-name">合計高速代 自動計算</span></a>
       <a class="toc-item done" href="#feat-10"><span class="toc-n">⑩</span> 👑 <span class="toc-name">日付変更時の自動ソート</span></a>
       <a class="toc-item done" href="#feat-11"><span class="toc-n">⑪</span> 👑 <span class="toc-name">有休・休み行の色付け</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑫</span><span class="toc-name">配車漏れ警告色</span></a>
+      <a class="toc-item done" href="#feat-12"><span class="toc-n">⑫</span> 👑 <span class="toc-name">配車漏れ警告色</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑬</span><span class="toc-name">資格期限アラート色</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑭</span><span class="toc-name">ID重複・車番不一致の警告</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑮</span><span class="toc-name">保護列の色</span></a>
@@ -333,7 +333,7 @@ html { scroll-behavior: smooth; }
 <main class="main">
 
   <!-- ──────── 確認済み機能 ──────── -->
-  <div class="sec-title">確認済み機能 <span class="sec-badge">12 / 28</span></div>
+  <div class="sec-title">確認済み機能 <span class="sec-badge">13 / 28</span></div>
   <div class="grid">
 
     <!-- 1 -->
@@ -618,22 +618,39 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
+
+    <!-- 12 -->
+    <div class="card" id="feat-12">
+      <div class="card-hdr">
+        <span class="num">12</span>
+        <span class="cat cat-color">色表示</span>
+        <span class="feat-name">配車漏れ警告色</span>
+        <div class="color-chip" style="background:#fff9c4;border:1px solid #ccc;width:14px;height:14px;border-radius:3px;margin-left:auto;flex-shrink:0;" title="#fff9c4 配車漏れ"></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>L列（積地）が空でIDがある行のL列が薄黄になる</li>
+            <li>L列に積地を入力すると薄黄が消える</li>
+            <li>削除して空欄に戻すと薄黄が再適用される</li>
+            <li>SS開き直し（F5）後も自動で再適用される</li>
+            <li>有休・休み行（グレー）には薄黄は付かない</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/12-color-haisha.png" class="ss-img" alt="配車漏れ警告色（薄黄）"></div>
+      </div>
+    </div>
+
   </div><!-- /grid -->
 
   <!-- ──────── 今後の対応予定 ──────── -->
   <div class="sec-title" id="pending" style="margin-top:52px;">
     今後の対応予定（未確認）
-    <span class="sec-badge gray">16 件</span>
+    <span class="sec-badge gray">15 件</span>
   </div>
 
   <div class="pending-grid">
-
-    <div class="pitem">
-      <span class="pnum">12</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">配車漏れ警告色</span>
-      <div class="pcolor"><div class="pchip" style="background:#fff9c4;border-color:#ccc;"></div>薄黄</div>
-    </div>
 
     <div class="pitem">
       <span class="pnum">13</span>
