@@ -823,6 +823,24 @@ function applyExpiryWarningColors_(ss) {
     '⚪ 薄グレー: 有休行\n' +
     '⚫ 濃いグレー: 休み行'
   );
+
+  // 自車専属マスタの4期限列：期限切れ（今日より前）→赤文字 / それ以外→黒文字
+  var mRows = mData.length;
+  if (mRows > 0 && expiCols.length > 0) {
+    for (var ci = 0; ci < expiCols.length; ci++) {
+      var colFonts = [];
+      for (var ri = 0; ri < mRows; ri++) {
+        var dt = mData[ri][expiCols[ci]];
+        var color = '#000000';
+        if (dt instanceof Date && !isNaN(dt.getTime())) {
+          var exp = new Date(dt); exp.setHours(0, 0, 0, 0);
+          if (exp.getTime() < today.getTime()) color = '#d32f2f';
+        }
+        colFonts.push([color]);
+      }
+      masterSheet.getRange(2, expiCols[ci] + 1, mRows, 1).setFontColors(colFonts);
+    }
+  }
 }
 function applyExpiryWarningColors() { applyExpiryWarningColors_(); }
 
@@ -3680,7 +3698,7 @@ function getSheetHeaderDef_(sheetName) {
   var defs = {
     '運行': ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','備考','管理データ','連絡(端末)','データ(端末)','点呼前完了','点呼後完了'],
     '集計表': ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考','仮日数','給料','％','有休手当','その他手当','点呼前完了','点呼後完了','拘束時間(h)','点呼前担当者','点呼後担当者'],
-    '自車専属マスタ': ['車両ID','運行状態','区分','会社名','看板名','トン数','車種','車番','乗務員名','携帯番号','アドレス','燃費','備考','仮日数','給料','％','高速を引く（引くは〇、引かないは空欄）','車両リース代','任意保険料','自賠責保険料','重量税積立','車検費積立','整備費積立','タイヤ代積立','修理積立','駐車場代','ETCリース料','カーナビリース料','通信費','洗車費','制服費','その他固定費','免許証有効期限','安全教育次回予定日','健康診断次回予定日','適性診断次回予定日','担当管理者'],
+    '自車専属マスタ': ['車両ID','運行状態','区分','会社名','看板名','トン数','車種','車番','乗務員名','携帯番号','アドレス','燃費','備考','仮日数','給料','％','高速を引く（引くは〇、引かないは空欄）','車両リース代','任意保険料','自賠責保険料','重量税積立','車検費積立','整備費積立','タイヤ代積立','修理積立','駐車場代','ETCリース料','カーナビリース料','通信費','洗車費','制服費','その他固定費','PL設定按分（参照）','免許証有効期限','安全教育次回予定日','健康診断次回予定日','適性診断次回予定日','担当管理者'],
     '自車専属運行': ['車両ID','運行状態','区分','会社名','看板名','トン数','車種','車番','乗務員名','携帯番号','アドレス','燃費','備考','仮日数','給料','％'],
     'マスタ': ['マスタID','会社名','電話','FAX','郵便番号','住所','代表者','配車担当','銀行名','支店名','種別','番号','名義','備考','インボイス登録番号','インボイス発行者名（自社名）','メールアドレス'],
     '設定': ['トン数','基準燃費','有休設定','有休金額','業務前点検','業務後点検']
@@ -4247,12 +4265,25 @@ function expandAndRefreshSheets() {
       var ci = mFmtHdrs.indexOf(colName);
       if (ci >= 0) masterSheet.getRange(2, ci + 1, mFmtRows, 1).setNumberFormat('yyyy/M/d');
     });
-    // AF（その他固定費）〜AM（担当管理者）のヘッダー行を黒背景・緑文字に統一
-    var _afIdx = mFmtHdrs.indexOf('その他固定費');
-    var _amIdx = mFmtHdrs.indexOf('担当管理者');
-    if (_afIdx >= 0 && _amIdx >= _afIdx) {
-      masterSheet.getRange(1, _afIdx + 1, 1, _amIdx - _afIdx + 1)
+    // 経費全列（車両リース代〜PL設定按分（参照））: 黒背景・緑文字
+    var _expStartIdx = mFmtHdrs.indexOf('車両リース代');
+    var _plIdx = mFmtHdrs.indexOf('PL設定按分（参照）');
+    if (_expStartIdx >= 0 && _plIdx >= _expStartIdx) {
+      masterSheet.getRange(1, _expStartIdx + 1, 1, _plIdx - _expStartIdx + 1)
         .setBackground('#212121').setFontColor('#00e676').setFontWeight('bold');
+    }
+    // 期限列（免許証有効期限〜適性診断次回予定日）: 深赤背景・白文字
+    var _licIdx = mFmtHdrs.indexOf('免許証有効期限');
+    var _aptIdx = mFmtHdrs.indexOf('適性診断次回予定日');
+    if (_licIdx >= 0 && _aptIdx >= _licIdx) {
+      masterSheet.getRange(1, _licIdx + 1, 1, _aptIdx - _licIdx + 1)
+        .setBackground('#bf360c').setFontColor('#ffffff').setFontWeight('bold');
+    }
+    // 担当管理者: 深青背景・白文字
+    var _amIdx = mFmtHdrs.indexOf('担当管理者');
+    if (_amIdx >= 0) {
+      masterSheet.getRange(1, _amIdx + 1, 1, 1)
+        .setBackground('#004d40').setFontColor('#ffffff').setFontWeight('bold');
     }
   }
 
@@ -8994,7 +9025,7 @@ function initClientSSSheets_(ss, companyName) {
     '車両リース代','任意保険料','自賠責保険料','重量税積立','車検費積立',
     '整備費積立','タイヤ代積立','修理積立','駐車場代','ETCリース料',
     'カーナビリース料','通信費','洗車費','制服費','その他固定費',
-    '免許証有効期限','安全教育次回予定日','健康診断次回予定日','適性診断次回予定日','担当管理者'
+    'PL設定按分（参照）','免許証有効期限','安全教育次回予定日','健康診断次回予定日','適性診断次回予定日','担当管理者'
   ];
   var activeHeader = [
     '車両ID','運行状態','区分','会社名','看板名','トン数','車種','車番',
@@ -9659,9 +9690,17 @@ function syncToTemplateSS() {
       var ci = _mh.indexOf(cn);
       if (ci >= 0) _ms.getRange(2, ci + 1, _mr, 1).setNumberFormat('yyyy/M/d');
     });
-    var _afI = _mh.indexOf('その他固定費'), _amI = _mh.indexOf('担当管理者');
-    if (_afI >= 0 && _amI >= _afI) {
-      _ms.getRange(1, _afI + 1, 1, _amI - _afI + 1).setBackground('#212121').setFontColor('#00e676').setFontWeight('bold');
+    var _afI = _mh.indexOf('車両リース代'), _plI = _mh.indexOf('PL設定按分（参照）');
+    if (_afI >= 0 && _plI >= _afI) {
+      _ms.getRange(1, _afI + 1, 1, _plI - _afI + 1).setBackground('#212121').setFontColor('#00e676').setFontWeight('bold');
+    }
+    var _licI = _mh.indexOf('免許証有効期限'), _aptI = _mh.indexOf('適性診断次回予定日');
+    if (_licI >= 0 && _aptI >= _licI) {
+      _ms.getRange(1, _licI + 1, 1, _aptI - _licI + 1).setBackground('#bf360c').setFontColor('#ffffff').setFontWeight('bold');
+    }
+    var _amI = _mh.indexOf('担当管理者');
+    if (_amI >= 0) {
+      _ms.getRange(1, _amI + 1, 1, 1).setBackground('#004d40').setFontColor('#ffffff').setFontWeight('bold');
     }
   })();
 
@@ -11130,9 +11169,17 @@ function syncToAllClientSS() {
           var ci = _cmh.indexOf(cn);
           if (ci >= 0) mSheet.getRange(2, ci + 1, _cmr, 1).setNumberFormat('yyyy/M/d');
         });
-        var _cafI = _cmh.indexOf('その他固定費'), _camI = _cmh.indexOf('担当管理者');
-        if (_cafI >= 0 && _camI >= _cafI) {
-          mSheet.getRange(1, _cafI + 1, 1, _camI - _cafI + 1).setBackground('#212121').setFontColor('#00e676').setFontWeight('bold');
+        var _cafI = _cmh.indexOf('車両リース代'), _cplI = _cmh.indexOf('PL設定按分（参照）');
+        if (_cafI >= 0 && _cplI >= _cafI) {
+          mSheet.getRange(1, _cafI + 1, 1, _cplI - _cafI + 1).setBackground('#212121').setFontColor('#00e676').setFontWeight('bold');
+        }
+        var _clicI = _cmh.indexOf('免許証有効期限'), _captI = _cmh.indexOf('適性診断次回予定日');
+        if (_clicI >= 0 && _captI >= _clicI) {
+          mSheet.getRange(1, _clicI + 1, 1, _captI - _clicI + 1).setBackground('#bf360c').setFontColor('#ffffff').setFontWeight('bold');
+        }
+        var _camI = _cmh.indexOf('担当管理者');
+        if (_camI >= 0) {
+          mSheet.getRange(1, _camI + 1, 1, 1).setBackground('#004d40').setFontColor('#ffffff').setFontWeight('bold');
         }
       }
 

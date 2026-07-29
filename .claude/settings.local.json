@@ -372,7 +372,20 @@
       "Bash(git commit -m '7282821 12番画像修正（②③④枠を①と同じx範囲に統一） *)",
       "Bash(git commit -m '7282822 12番画像修正（L列x範囲を動的検出・①〜④枠を同一x位置に統一） *)",
       "Bash(python make_col12_haisha.py)",
-      "Bash(dir \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\memory\\\\\" /od)"
+      "Bash(dir \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\memory\\\\\" /od)",
+      "Bash(node deploy.js \"13番:PL按分列と免許証有効期限列の位置決め打ち衝突を修正・免許証有効期限セルを期限切れ赤文字化\")",
+      "Bash(node deploy.js \"13番:PL按分列の位置ズレを新規作成時に防止・既存の誤配置を一度だけ自動修復\")",
+      "Bash(node deploy.js \"13番:PL按分列確保・修復をensurePlApportionColumn_に分離しonOpenからも自動実行（F5だけで反映）\")",
+      "Bash(node deploy.js \"13番:PL按分列一度きり修復フラグをV1→V2に切替（セッション中に消費済みのV1と無関係の新フラグで確実に再修復）\")",
+      "Bash(node deploy.js \"13番:①PL按分列の位置修復を毎回自己修復方式に変更\\(フラグ廃止\\)②クリア時に書式も消去③重複列削除をデータ件数優先に変更\\(データ消失防止\\)④経費/期限/担当管理者のヘッダー色を分離\")",
+      "Bash(node deploy.js \"セッション中のPL按分列関連の変更を全て取り消し、直前コミット時点のコードに復元\")",
+      "Bash(node deploy.js \"7291 ヘッダー定義にPL設定按分（参照）をAG列に追加（免許証有効期限〜担当管理者を1列右へ）\")",
+      "Bash(node deploy.js \"7291 ③4期限列（免許証・安全教育・健診・適性）期限切れ赤文字/それ以外黒文字\")",
+      "Bash(node deploy.js \"7291 ④自車専属マスタヘッダー色を3カテゴリ分離（経費=黒緑・期限=深赤白・担当=深青白）\")",
+      "Bash(node deploy.js \"7291 ④ヘッダー色変更：期限=オレンジ#bf360c・担当=ティール#004d40（視認性改善）\")",
+      "Bash(node deploy.js \"7291 ④経費ヘッダー色を車両リース代〜PL設定按分まで全列黒緑に統一\")",
+      "Bash(git show *)",
+      "Bash(node deploy.js \"7291 説明書HP4ファイルをv⑫完成版（f2debb2）に復元\")"
     ]
   }
 }
