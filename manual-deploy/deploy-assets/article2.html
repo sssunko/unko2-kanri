@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>よくある質問（FAQ）| Smart Simple System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root { --bg-dark:#0f172a; --bg-panel:linear-gradient(145deg,#1e293b,#111827); --gold-gradient:linear-gradient(135deg,#fef08a 0%,#facc15 50%,#ca8a04 100%); --accent-red:#ef4444; --text-main:#f8fafc; }
+        * { box-sizing:border-box; }
+        body { font-family:'Noto Sans JP',sans-serif; background:var(--bg-dark); color:var(--text-main); line-height:1.8; margin:0; overflow-x:hidden; }
+        .container { max-width:860px; margin:0 auto; padding:20px; }
+        .text-gold { background:var(--gold-gradient); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:900; }
+        .ib { display:inline-block; }
+
+        .hero { padding:80px 20px 60px; text-align:center; background:linear-gradient(rgba(15,23,42,0.93),rgba(15,23,42,0.99)),url('https://images.unsplash.com/photo-1519003722824-194d4455a60c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') center/cover; border-bottom:6px solid #facc15; }
+        .hero-badge { display:inline-block; background:var(--gold-gradient); color:#000; font-weight:900; font-size:1rem; padding:6px 20px; border-radius:4px; margin-bottom:20px; }
+        .hero h1 { font-size:2.4rem; font-weight:900; margin:0 0 15px; line-height:1.4; }
+        .hero .sub { color:#94a3b8; font-size:1.1rem; }
+        .back-link { display:inline-block; margin-top:20px; color:#facc15; font-size:0.95rem; font-weight:700; text-decoration:none; }
+
+        .faq-section { padding:70px 20px; }
+        .faq-cat-title { font-size:1.3rem; font-weight:900; color:#facc15; border-bottom:2px solid #1e293b; padding-bottom:12px; margin:50px 0 25px; display:flex; align-items:center; gap:10px; }
+        .faq-cat-title:first-child { margin-top:0; }
+        .faq-item { background:var(--bg-panel); border:1px solid #334155; border-radius:10px; margin-bottom:16px; overflow:hidden; transition:border-color 0.3s; }
+        .faq-item:hover { border-color:rgba(250,204,21,0.3); }
+        .faq-q { padding:22px 25px; display:flex; align-items:flex-start; gap:15px; cursor:pointer; }
+        .faq-q-icon { background:var(--gold-gradient); color:#000; font-size:0.9rem; font-weight:900; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px; }
+        .faq-q-text { font-size:1.05rem; font-weight:900; flex:1; line-height:1.6; }
+        .faq-a { padding:0 25px 22px 72px; font-size:0.98rem; color:#cbd5e1; line-height:1.85; }
+        .faq-a strong { color:#facc15; }
+        .faq-a .point { display:inline-block; background:rgba(16,185,129,0.15); color:#6ee7b7; border:1px solid rgba(16,185,129,0.3); border-radius:4px; padding:2px 10px; font-size:0.85rem; font-weight:900; margin-bottom:8px; }
+
+        .cta-box { background:linear-gradient(145deg,#1e293b,#111827); border:1px solid rgba(250,204,21,0.4); border-radius:12px; padding:40px; text-align:center; margin:50px 0 0; }
+        .cta-box h3 { font-size:1.5rem; font-weight:900; margin:0 0 12px; }
+        .cta-box p { color:#94a3b8; font-size:1rem; margin:0 0 25px; }
+        .btn-line { display:inline-block; background:linear-gradient(90deg,#10b981,#059669); color:#fff; padding:16px 45px; font-size:1.3rem; font-weight:900; border-radius:8px; text-decoration:none; box-shadow:0 6px 0 #047857; transition:0.1s; }
+        .btn-line:hover { transform:translateY(2px); box-shadow:0 4px 0 #047857; }
+
+        .cta-section { text-align:center; padding:70px 20px; border-top:1px solid #1e293b; }
+        .cta-section h2 { font-size:2rem; font-weight:900; margin-bottom:20px; line-height:1.5; }
+        .cta-section p { color:#cbd5e1; font-size:1.05rem; margin-bottom:30px; }
+
+        .reveal { opacity:0; transform:translateY(30px); transition:all 0.8s cubic-bezier(0.5,0,0,1); }
+        .reveal.active { opacity:1; transform:translateY(0); }
+
+        @media (max-width:600px) { .hero h1 { font-size:1.7rem; } .faq-a { padding-left:25px; } }
+        .site-footer { border-top:1px solid rgba(255,255,255,0.06); padding:24px; text-align:center; }
+        .site-footer .footer-links { margin-bottom:10px; }
+        .site-footer a { color:#64748b; text-decoration:none; margin:0 8px; font-size:0.82rem; }
+        .site-footer a:hover { color:#94a3b8; }
+        .site-footer .footer-copy { color:#475569; font-size:0.82rem; }
+    </style>
+</head>
+<body>
+
+<div class="hero">
+    <div class="container">
+        <span class="hero-badge">よくある質問</span>
+        <h1>導入前の疑問、<span class="text-gold">全部お答えします</span></h1>
+        <p class="sub">「うちには合わないかも」と思う前にぜひご確認ください。</p>
+        <a href="customer-top.html" class="back-link">← トップに戻る</a>
+    </div>
+</div>
+
+<section class="faq-section">
+    <div class="container">
+
+        <div class="faq-cat-title reveal"><i class="fa-solid fa-mobile-screen"></i> 操作・使いやすさについて</div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">スマホやパソコンが苦手なドライバーでも使えますか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ 使えます</span><br>
+                ドライバーが操作するのは「ボタンを押すだけ」です。次に押すべきボタンが色で分かるよう設計されているため、「黄色を押して」「緑になったら完了」と色だけで説明できます。文字入力はほとんどありません。スマホ操作に不慣れな方でも<strong>導入当日から使いこなせます。</strong>
+            </div>
+        </div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">管理者はパソコンが必要ですか？スマホだけでもできますか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ スマホでもできます</span><br>
+                スプレッドシートはPCでもスマホのブラウザからでもアクセスできます。外出先からでも運行状況の確認は可能ですが、集計・請求書生成などの詳細操作はPCの方が快適です。
+            </div>
+        </div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">操作マニュアルはありますか？研修は必要ですか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ マニュアルはシステム内に内蔵</span><br>
+                スプレッドシート内に「使い方シート」が組み込まれているため、別途マニュアルを探す必要はありません。ドライバーへの説明はアプリの色だけで完結するため、<strong>研修は基本的に不要です。</strong>分からないことはLINEでサポートを受けられます。
+            </div>
+        </div>
+
+        <div class="faq-cat-title reveal"><i class="fa-solid fa-rocket"></i> 導入・セットアップについて</div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">導入にどれくらい時間がかかりますか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ 最短で当日から使えます</span><br>
+                LINEで申し込みいただいた後、初期設定（会社情報・乗務員登録・マスタ設定）を完了すれば使い始められます。設定時間の目安は<strong>30〜60分程度</strong>です。打合せや訪問は一切不要です。
+            </div>
+        </div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">既存のExcelデータを引き継ぐことはできますか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">△ 一部対応</span><br>
+                運行データのCSV取込機能があります。ただし、過去の全データを完全移行することは想定していません。<strong>新規でスタートして、過去データは既存のExcelを参照する形が最も運用しやすいです。</strong>導入後は全て自動でデータが蓄積されます。
+            </div>
+        </div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">Googleアカウントは必要ですか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ 管理者はGoogleアカウントが必要（ドライバーは不要）</span><br>
+                管理者（スプレッドシートを使う方）はGoogleアカウントが必要です。<strong>ドライバーはGoogleアカウント不要です。</strong>スマホのブラウザ（Chrome/Safari）だけで動作します。アプリのインストールも不要です。
+            </div>
+        </div>
+
+        <div class="faq-cat-title reveal"><i class="fa-solid fa-shield-halved"></i> セキュリティ・データについて</div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">データのセキュリティは大丈夫ですか？情報が漏れませんか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ Googleのセキュリティで保護</span><br>
+                データはGoogleスプレッドシート（Google Drive）に保管されます。Googleの企業向けセキュリティ基準が適用されており、<strong>アクセス権を持たない第三者はデータを見ることができません。</strong>また、シートには保護設定が施されており、誤操作によるデータ破損も防止しています。
+            </div>
+        </div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">サーバーが落ちてデータが消えることはありませんか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ 自動バックアップで保護</span><br>
+                Googleのクラウド上に保管されるため、PCやスマホが壊れてもデータは消えません。またシステム内に<strong>自動バックアップ機能</strong>が組み込まれており、万が一のシート誤削除時も1〜3秒で自動復元されます。
+            </div>
+        </div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">解約したらデータはどうなりますか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ データはそのまま手元に残ります</span><br>
+                データはGoogleスプレッドシートに保存されているため、解約後もスプレッドシートはそのままお手元に残ります。<strong>データを失うことはありません。</strong>システムの機能（自動化など）が停止するだけで、蓄積されたデータはずっと参照できます。
+            </div>
+        </div>
+
+        <div class="faq-cat-title reveal"><i class="fa-solid fa-circle-question"></i> 料金・サポートについて</div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">乗務員が増えた場合、追加費用はかかりますか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ 追加費用なし</span><br>
+                登録できる乗務員数に上限はありません。<strong>乗務員が増えても料金は変わりません。</strong>マスタシートに追加するだけで、すぐに使い始められます。
+            </div>
+        </div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">サポートはどのように受けられますか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ LINEでいつでも相談できます</span><br>
+                サポートはLINEで受け付けています。よくある質問は自動で返信されます。それ以外の問い合わせにも対応しています。<strong>電話やメールではなくLINEで完結するため、気軽に相談できます。</strong>
+            </div>
+        </div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">無料でお試しできますか？途中で解約できますか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ 無料でお試しできます</span><br>
+                まずは無料でお試しいただけます。実際に使ってみてから契約をご判断いただけます。<strong>無理な勧誘は一切ありません。</strong>解約はLINEまたはメールで連絡いただければすぐに対応します。
+            </div>
+        </div>
+
+        <div class="faq-item reveal">
+            <div class="faq-q">
+                <div class="faq-q-icon">Q</div>
+                <div class="faq-q-text">Excelと何が違うのですか？Excelでよくないですか？</div>
+            </div>
+            <div class="faq-a">
+                <span class="point">✔ 「自動化」と「リアルタイム性」が根本的に違います</span><br>
+                Excelは人が手で入力・管理する必要があります。本システムはドライバーがアプリを操作した瞬間にデータが自動反映されます。また損益の自動計算・監査書類の自動生成・バックアップ・排他制御など、<strong>Excelでは実現できない業務自動化が全て組み込まれています。</strong>「Excelをさらに賢く自動化したもの」と考えてください。
+            </div>
+        </div>
+
+        <div class="cta-box reveal">
+            <h3>他にご不明な点はLINEでご相談ください</h3>
+            <p>上記以外のご質問もLINEでお気軽にどうぞ。</p>
+            <a href="#" class="btn-line"><i class="fa-brands fa-line"></i>　LINEで質問する</a>
+        </div>
+
+    </div>
+</section>
+
+<section class="cta-section">
+    <div class="container">
+        <h2 class="reveal"><span class="text-gold">まずは無料でお試しください。</span><br>現場を明日から変えましょう。</h2>
+        <p class="reveal">打合せなし。LINEで登録するだけで、その日から使えます。</p>
+        <a href="#" class="btn-line reveal"><i class="fa-brands fa-line"></i>　LINEで無料お試し始める</a>
+    </div>
+</section>
+
+<script>
+    function reveal() {
+        var reveals = document.querySelectorAll(".reveal");
+        for (var i = 0; i < reveals.length; i++) {
+            if (reveals[i].getBoundingClientRect().top < window.innerHeight - 100)
+                reveals[i].classList.add("active");
+        }
+    }
+    window.addEventListener("scroll", reveal);
+    reveal();
+</script>
+
+<footer class="site-footer">
+    <p class="footer-links">
+        <a href="customer-top.html">トップ</a>
+        <a href="article1.html">導入事例</a>
+        <a href="article2.html">FAQ</a>
+        <a href="lp.html">料金</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシーポリシー</a>
+        <a href="terms.html#tokushoho">特定商取引法に基づく表記</a>
+    </p>
+    <p class="footer-copy">&copy; 2026 Smart Simple System. All rights reserved.</p>
+</footer>
+</body>
+</html>

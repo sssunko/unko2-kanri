@@ -342,7 +342,7 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-10"><span class="toc-n">⑩</span> 👑 <span class="toc-name">日付変更時の自動ソート</span></a>
       <a class="toc-item done" href="#feat-11"><span class="toc-n">⑪</span> 👑 <span class="toc-name">有休・休み行の色付け</span></a>
       <a class="toc-item done" href="#feat-12"><span class="toc-n">⑫</span> 👑 <span class="toc-name">配車漏れ警告色</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑬</span><span class="toc-name">資格期限アラート色</span></a>
+      <a class="toc-item done" href="#feat-13"><span class="toc-n">⑬</span> 👑 <span class="toc-name">資格期限アラート色（A列）</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑭</span><span class="toc-name">ID重複・車番不一致の警告</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑮</span><span class="toc-name">保護列の色</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑯</span><span class="toc-name">色凡例メモの自動設定</span></a>
@@ -713,27 +713,81 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
+    <!-- 13 -->
+    <div class="card" id="feat-13">
+      <div class="card-hdr">
+        <span class="num">13</span>
+        <span class="cat cat-color">色表示</span>
+        <span class="feat-name">資格期限アラート色（A列）</span>
+        <div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0;">
+          <div class="color-chip" style="background:#ffcdd2;border:1px solid #e88;width:14px;height:14px;border-radius:3px;" title="期限切れ"></div>
+          <div class="color-chip" style="background:#bbdefb;border:1px solid #8ac;width:14px;height:14px;border-radius:3px;" title="当日"></div>
+          <div class="color-chip" style="background:#c8e6c9;border:1px solid #8b8;width:14px;height:14px;border-radius:3px;" title="7日以内"></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label">処理概要（コード.js: 1-7c）</div>
+          <ul class="pts">
+            <li>関数: applyExpiryWarningColors_(ss, sheet)</li>
+            <li>起動経路: onOpen → checkMasterExpiries_ → 本関数。LockService（DocumentLock）+ PropertiesService（EXPIRY_POPUP_TS）で30秒デバウンスによる多重起動ガード済み</li>
+            <li>expiryMap構築: 自車専属マスタのAH〜AK列（免許証・安全教育・健康診断・適性診断）を全行一括読み込み。乗務員名をキーに4列の最小残日数を値として格納</li>
+            <li>A列着色ロジック: d &lt; 0 → #ffcdd2（赤・期限切れ）/ d === 0 → #bbdefb（青・当日）/ d ≤ 7 → #c8e6c9（緑・7日以内）/ それ以外は現色を維持</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">スキップ条件（変更禁止）</div>
+          <ul class="pts">
+            <li>skipSet: A列が #e0e0e0（有休グレー）/ #9e9e9e（休みグレー）/ #ff1744（ID衝突赤）の行はスキップ</li>
+            <li>A列IDが空の行はスキップ</li>
+            <li>B列（区分）が空の行はexpiryMap対象外として期限色をクリア（v854追加 — F列入力前にC〜I列のみ入力した別車両行の誤着色防止）</li>
+            <li>乗務員名がexpiryMapに存在しない行（マスタ未登録）は期限色をクリア（v853追加）</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">マスタ側の連動処理（下画像参照）</div>
+          <ul class="pts">
+            <li>AH〜AK列の文字色: 期限切れ（d &lt; 0）→ 赤文字（#d32f2f）/ 有効 → 黒文字（#212121）</li>
+            <li>ヘッダー行の3分割着色: 経費列＝黒背景緑文字 / 期限列（AH〜AK）＝オレンジ背景白文字 / 担当管理者列＝ティール背景白文字</li>
+            <li>A1・L1セルに setNote() で色の凡例メモを自動付与（onOpen時）</li>
+            <li>期限切れは赤文字で表示</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">修正経緯</div>
+          <ul class="pts">
+            <li>v853: マスタに存在しない乗務員名（drv ∉ expiryMap）の行に期限色が残留するバグを修正</li>
+            <li>v854: B列（区分）が空の行に期限色が誤って付くバグを修正（別車両扱い行を除外）</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">色の意味（ID欄 A列）</div>
+          <ul class="pts">
+            <li>① 淡い赤：いずれかの資格期限が過ぎている</li>
+            <li>② 淡い青：いずれかの資格期限が今日</li>
+            <li>③ 淡い緑：いずれかの資格期限が7日以内</li>
+            <li>④ 色なし（白）：4項目すべて余裕あり</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/13-expiry-a.png" class="ss-img" alt="資格期限アラート色（A列）運行シート"></div>
+        <div class="block" style="margin-top:14px;">
+          <div class="blk-label tip">💡 A1セルにカーソルを合わせると色の意味の一覧が表示されます</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/13-expiry-legend.png" class="ss-img" alt="色の意味（一覧メモ）"></div>
+        <div class="ss-wrap" style="margin-top:10px;"><img src="screenshots/13-expiry-master.png" class="ss-img" alt="自車専属マスタ AH〜AK期限列"></div>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7c</span>
+      </div>
+    </div>
+
   </div><!-- /grid -->
 
   <!-- ──────── 今後の対応予定 ──────── -->
   <div class="sec-title" id="pending" style="margin-top:52px;">
     今後の対応予定（未確認）
-    <span class="sec-badge gray">15 件</span>
+    <span class="sec-badge gray">14 件</span>
   </div>
 
   <div class="pending-grid">
-
-    <div class="pitem">
-      <span class="pnum">13</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">資格期限アラート色（A列）</span>
-      <div class="pcolor">
-        <div class="pchip" style="background:#ffcdd2;border-color:#e88;"></div>
-        <div class="pchip" style="background:#bbdefb;border-color:#8ac;"></div>
-        <div class="pchip" style="background:#c8e6c9;border-color:#8b8;"></div>
-        赤/青/緑
-      </div>
-    </div>
 
     <div class="pitem">
       <span class="pnum">14</span>

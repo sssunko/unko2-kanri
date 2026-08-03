@@ -310,7 +310,7 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-10"><span class="toc-n">⑩</span> 👑 <span class="toc-name">日付変更時の自動ソート</span></a>
       <a class="toc-item done" href="#feat-11"><span class="toc-n">⑪</span> 👑 <span class="toc-name">有休・休み行の色付け</span></a>
       <a class="toc-item done" href="#feat-12"><span class="toc-n">⑫</span> 👑 <span class="toc-name">配車漏れ警告色</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑬</span><span class="toc-name">資格期限アラート色</span></a>
+      <a class="toc-item done" href="#feat-13"><span class="toc-n">⑬</span> 👑 <span class="toc-name">資格期限アラート色（A列）</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑭</span><span class="toc-name">ID重複・車番不一致の警告</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑮</span><span class="toc-name">保護列の色</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">⑯</span><span class="toc-name">色凡例メモの自動設定</span></a>
@@ -642,27 +642,65 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
+    <!-- 13 -->
+    <div class="card" id="feat-13">
+      <div class="card-hdr">
+        <span class="num">13</span>
+        <span class="cat cat-color">色表示</span>
+        <span class="feat-name">資格期限アラート色（A列）</span>
+        <div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0;">
+          <div class="color-chip" style="background:#ffcdd2;border:1px solid #e88;width:14px;height:14px;border-radius:3px;" title="期限切れ"></div>
+          <div class="color-chip" style="background:#bbdefb;border:1px solid #8ac;width:14px;height:14px;border-radius:3px;" title="当日"></div>
+          <div class="color-chip" style="background:#c8e6c9;border:1px solid #8b8;width:14px;height:14px;border-radius:3px;" title="7日以内"></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（画面を開き直すたびに）</div>
+          <ul class="pts">
+            <li>乗務員マスタの資格期限（免許証・安全教育・健康診断・適性診断）を全員分チェックし、最も期限が近い項目の状態でID欄（A列）の背景色が自動で変わります</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">色の意味（ID欄 A列）</div>
+          <ul class="pts">
+            <li>① 淡い赤：いずれかの資格期限が過ぎている</li>
+            <li>② 淡い青：いずれかの資格期限が今日</li>
+            <li>③ 淡い緑：いずれかの資格期限が7日以内</li>
+            <li>④ 色なし（白）：4項目すべて余裕あり</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/13-expiry-a.png" class="ss-img" alt="資格期限アラート色（A列）運行シート"></div>
+        <div class="block" style="margin-top:14px;">
+          <div class="blk-label tip">💡 A1セルにカーソルを合わせると色の意味の一覧が表示されます</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/13-expiry-legend.png" class="ss-img" alt="色の意味（一覧メモ）"></div>
+        <div class="block" style="margin-top:14px;">
+          <div class="blk-label">色が付かない場合</div>
+          <ul class="pts">
+            <li>有休・休みの行（グレーの行）には色が付きません</li>
+            <li>区分欄が空の行（自社登録外の車両）には色が付きません</li>
+          </ul>
+        </div>
+        <div class="block" style="margin-top:14px;">
+          <div class="blk-label">乗務員マスタ（AH〜AK列）</div>
+          <ul class="pts">
+            <li>期限切れは赤文字で表示</li>
+          </ul>
+        </div>
+        <div class="ss-wrap" style="margin-top:10px;"><img src="screenshots/13-expiry-master.png" class="ss-img" alt="乗務員マスタ AH〜AK期限列"></div>
+      </div>
+    </div>
+
   </div><!-- /grid -->
 
   <!-- ──────── 今後の対応予定 ──────── -->
   <div class="sec-title" id="pending" style="margin-top:52px;">
     今後の対応予定（未確認）
-    <span class="sec-badge gray">15 件</span>
+    <span class="sec-badge gray">14 件</span>
   </div>
 
   <div class="pending-grid">
-
-    <div class="pitem">
-      <span class="pnum">13</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">資格期限アラート色（A列）</span>
-      <div class="pcolor">
-        <div class="pchip" style="background:#ffcdd2;border-color:#e88;"></div>
-        <div class="pchip" style="background:#bbdefb;border-color:#8ac;"></div>
-        <div class="pchip" style="background:#c8e6c9;border-color:#8b8;"></div>
-        🔴🔵🟢
-      </div>
-    </div>
 
     <div class="pitem">
       <span class="pnum">14</span>

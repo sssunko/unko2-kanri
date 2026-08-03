@@ -1,15 +1,15 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Simple System | ä¸­å°ééä¼ç¤¾ã®ããã®éè¡ç®¡çDX</title>
-    <meta name="description" content="ä¸­å°ééä¼ç¤¾ã®ããã®éè¡ç®¡çDXã·ã¹ãã ãæ¥å ±è»¢è¨ã¼ã­ã»éè»ãã¹é²æ­¢ã»æçèªåç®åºãªã©14ã®ç¾å ´ç¹åæ©è½ãæ­è¼ãæåãä¸è¦ã§å³æ¥å°å¥å¯è½ãLINEã§ç¡æãè©¦ãåä»ä¸­ã">
+    <title>Smart Simple System | 中小運送会社のための運行管理DX</title>
+    <meta name="description" content="中小運送会社のための運行管理DXシステム。日報転記ゼロ・配車ミス防止・損益自動算出など14の現場特化機能を搭載。打合せ不要で即日導入可能。LINEで無料お試し受付中。">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700;900&display=swap" rel="stylesheet">
     <style>
-        /* ã«ã©ã¼ãã¬ããã¨ãã¼ã¹è¨­å® */
+        /* カラーパレットとベース設定 */
         :root { 
             --bg-dark: #0f172a; 
             --bg-panel: linear-gradient(145deg, #1e293b, #111827);
@@ -29,21 +29,21 @@
         }
         .container { max-width: 950px; margin: 0 auto; padding: 20px; }
 
-        /* è£é£¾ã¯ã©ã¹ */
+        /* 装飾クラス */
         .highlight-red { color: var(--accent-red); font-weight: 900; }
         .text-gold { background: var(--gold-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; }
         
-        /* æ³¨ææ¸ãã®æå­ãµã¤ãºï¼10pxï¼ */
+        /* 注意書きの文字サイズ（10px） */
         .note-text { color: #facc15; font-size: 10px; margin-top: 10px !important; display: block; border-left: 2px solid #facc15; padding-left: 8px; background: transparent; line-height: 1.5; opacity: 0.8; }
         
-        /* åé ç®ä¸ã®ã¤ã³ã©ã¤ã³CTAãªã³ã¯ */
+        /* 各項目下のインラインCTAリンク */
         .inline-cta { display: inline-block; margin-top: 20px; color: #facc15; font-size: 1.1rem; font-weight: 900; text-decoration: none; border-bottom: 1px dashed #facc15; padding-bottom: 2px; transition: all 0.3s; }
         .inline-cta:hover { color: #fff; border-bottom-color: #fff; transform: translateX(5px); }
 
-        /* âåèªã®åå²ï¼å¤ãªæ¹è¡ï¼ãé²ãããã®å¿é ã¯ã©ã¹ */
+        /* ★単語の分割（変な改行）を防ぐための必須クラス */
         .ib { display: inline-block; }
 
-        /* ãã¼ã­ã¼ã»ã¯ã·ã§ã³ */
+        /* ヒーローセクション */
         .hero { padding: 80px 20px 60px; background: linear-gradient(rgba(15, 23, 42, 0.90), rgba(15, 23, 42, 0.98)), url('https://images.unsplash.com/photo-1519003722824-194d4455a60c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') center/cover; border-bottom: 6px solid #facc15; }
         .hero-inner { max-width: 900px; margin: 0 auto; }
         
@@ -52,26 +52,26 @@
         .hero-img-wrap { margin: 0 0 30px; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.6); }
         .hero-img-wrap img { display: block; width: 100%; border-radius: 12px; }
 
-        /* ãã¼ã­ã¼ãã­ã¹ãããã¯ã¹ */
+        /* ヒーローテキストボックス */
         .hero-text-box { background: rgba(30, 41, 59, 0.85); padding: 40px; border-radius: 12px; border-top: 4px solid #facc15; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(5px); }
         
         .pain-box { background: rgba(0,0,0,0.4); border-left: 4px solid var(--accent-red); padding: 25px; border-radius: 6px; margin-bottom: 30px; }
         .pain-list { list-style: none; padding: 0; margin: 0 0 15px 0; }
         .pain-list li { position: relative; padding-left: 30px; margin-bottom: 10px; font-size: 1.15rem; color: #fca5a5; font-weight: bold; }
-        .pain-list li::before { content: 'â'; position: absolute; left: 0; top: 0; color: var(--accent-red); font-size: 1.2rem; }
+        .pain-list li::before { content: '✖'; position: absolute; left: 0; top: 0; color: var(--accent-red); font-size: 1.2rem; }
         .pain-question { margin: 0; font-size: 1.3rem; font-weight: 900; color: #fff; border-top: 1px dashed rgba(255,255,255,0.2); padding-top: 15px; }
 
         .benefit-box { background: rgba(250, 204, 21, 0.08); border-left: 4px solid #facc15; padding: 25px; border-radius: 6px; margin-bottom: 30px; }
         .benefit-lead { margin-top: 0; font-size: 1.4rem; font-weight: 900; border-bottom: 1px solid rgba(250, 204, 21, 0.2); padding-bottom: 15px; margin-bottom: 20px; }
         .benefit-list { list-style: none; padding: 0; margin: 0; }
         .benefit-list li { position: relative; padding-left: 30px; margin-bottom: 15px; font-size: 1.15rem; color: #f8fafc; }
-        .benefit-list li::before { content: 'â'; position: absolute; left: 0; top: 0; color: #facc15; font-size: 1.3rem; font-weight: 900; }
+        .benefit-list li::before { content: '✔'; position: absolute; left: 0; top: 0; color: #facc15; font-size: 1.3rem; font-weight: 900; }
 
         .vision-box { text-align: center; padding-top: 10px; }
         .vision-box p { font-size: 1.15rem; color: #cbd5e1; margin-bottom: 20px; }
         .vision-strong { font-size: 1.5rem !important; color: #fff !important; font-weight: 900; margin-bottom: 15px !important; line-height: 1.6; }
 
-        /* ç®æ¬¡ããã« */
+        /* 目次パネル */
         .index { background: var(--bg-panel); padding: 40px; border-radius: 12px; border: 1px solid #334155; margin: 50px auto; box-shadow: 0 15px 40px rgba(0,0,0,0.4); max-width: 900px; }
         .index h2 { color: #facc15; text-align: center; margin-top: 0; font-size: 1.6rem; border-bottom: 2px dashed #475569; padding-bottom: 15px; }
         .index-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
@@ -79,7 +79,7 @@
         .index a.premium-link { border-left-color: #facc15; background: #1e293b; }
         .index a:hover { background: var(--gold-gradient); color: #000; border-left-color: var(--accent-red); transform: translateY(-3px); box-shadow: 0 5px 15px rgba(250, 204, 21, 0.4); }
 
-        /* ð å§åçå·®å¥åæ©è½ */
+        /* 👑 圧倒的差別化機能 */
         .section-title { text-align: center; font-size: 2.2rem; margin: 80px 0 40px; font-weight: 900; letter-spacing: 1px; }
         .standard-title { border-bottom: 2px solid #334155; padding-bottom: 15px; display: inline-block; }
         
@@ -91,15 +91,15 @@
         .premium-detail p, .detail p { font-size: 1.15rem; color: #e2e8f0; margin-bottom: 20px; }
         .premium-detail p:last-of-type, .detail p:last-of-type { margin-bottom: 0; }
 
-        /* éå¸¸æ©è½ */
+        /* 通常機能 */
         .detail { background: #1e293b; padding: 35px; margin-bottom: 30px; border-radius: 8px; border-left: 6px solid #3b82f6; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .detail h3 { color: #60a5fa; margin-top: 0; font-size: 1.5rem; margin-bottom: 20px; font-weight: 900; }
 
-        /* ã¢ãã¡ã¼ã·ã§ã³ */
+        /* アニメーション */
         .reveal { opacity: 0; transform: translateY(30px); transition: all 0.8s cubic-bezier(0.5, 0, 0, 1); }
         .reveal.active { opacity: 1; transform: translateY(0); }
 
-        /* ç»åãã¬ã¼ã¹ãã«ãã¼ */
+        /* 画像プレースホルダー */
         .img-placeholder { background: #0f172a; height: 250px; display: flex; align-items: center; justify-content: center; border: 2px dashed #475569; color: #64748b; margin-top: 25px; border-radius: 8px; font-weight: 700; font-size: 1.1rem; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
         .detail:hover .img-placeholder { border-color: #60a5fa; color: #94a3b8; }
         .premium-detail:hover .img-placeholder { border-color: #facc15; color: #facc15; }
@@ -128,13 +128,13 @@
         .step-label { color: #60a5fa; font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; }
         .app-step img { display: block; width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
 
-        /* CTAãã¿ã³ */
+        /* CTAボタン */
         .cta { text-align: center; padding: 80px 20px; background: linear-gradient(to top, #000, #0f172a); border-top: 1px solid #334155; margin-top: 60px; }
         .cta h2 { font-size: 2.2rem; color: #fff; margin-bottom: 20px; font-weight: 900; line-height: 1.4; }
         .cta p { font-size: 1.2rem; color: #cbd5e1; margin-bottom: 40px; }
         .btn { display: inline-block; background: var(--gold-gradient); color: #000; padding: 20px 50px; font-weight: 900; text-decoration: none; font-size: 1.6rem; border-radius: 50px; box-shadow: 0 10px 25px rgba(250, 204, 21, 0.4); transition: 0.3s; }
         .btn:hover { transform: scale(1.05); box-shadow: 0 15px 35px rgba(250, 204, 21, 0.6); background: #fff; }
-        /* Excel vs ã·ã¹ãã æ¯è¼ */
+        /* Excel vs システム比較 */
         .vs-section { padding: 60px 20px; background: linear-gradient(180deg, #0a0f1e, #0f172a); }
         .vs-section .vs-title { text-align: center; font-size: 1.9rem; font-weight: 900; margin-bottom: 8px; }
         .vs-section .vs-subtitle { text-align: center; color: #94a3b8; font-size: 1rem; margin-bottom: 40px; }
@@ -151,8 +151,8 @@
         .vs-table tbody td.td-item { color: #cbd5e1; font-weight: 700; }
         .vs-table tbody td.td-excel { color: #fca5a5; background: rgba(239,68,68,0.04); }
         .vs-table tbody td.td-sys { color: #fef08a; background: rgba(250,204,21,0.04); font-weight: 700; }
-        .vs-table tbody td.td-excel::before { content: 'â '; color: #ef4444; }
-        .vs-table tbody td.td-sys::before { content: 'â '; color: #facc15; }
+        .vs-table tbody td.td-excel::before { content: '✖ '; color: #ef4444; }
+        .vs-table tbody td.td-sys::before { content: '✔ '; color: #facc15; }
         .vs-bottom { text-align: center; margin-top: 28px; font-size: 1.1rem; color: #94a3b8; }
         .vs-bottom strong { color: #facc15; font-size: 1.3rem; }
         .vs-img-wrap { text-align: center; margin-top: 32px; }
@@ -174,347 +174,347 @@
 <div class="hero">
     <div class="hero-inner">
         <div style="text-align: center;">
-            <span class="hero-catch">ä¸­å°ééä¼ç¤¾ã®ç¾å ´ã«ç¹åãæåãä¸è¦ã§å³æ¥å°å¥ã§ããéè¡ç®¡çDXã</span>
+            <span class="hero-catch">中小運送会社の現場に特化。打合せ不要で即日導入できる運行管理DX。</span>
         </div>
         
-        <h1 style="text-align: center;">æ¬å½ã«æ¬²ããã£ãã®ã¯ã<br>ãã©ãã¯ãèµ°ãããã»ã©<span class="text-gold">ãç¢ºå®ãªå©çã</span>ãæ®ãéè»ã»éè¡ã·ã¹ãã </h1>
+        <h1 style="text-align: center;">本当に欲しかったのは、<br>トラックを走らせるほど<span class="text-gold">「確実な利益」</span>が残る配車・運行システム</h1>
 
         <div class="hero-img-wrap">
-            <img src="images/img-hero-office.png" alt="ééä¼ç¤¾ã®äºåæã§ã¢ããªã¨ã¹ãã¬ããã·ã¼ããä½¿ã£ã¦éè¡ç®¡çãã¦ããç»é¢">
+            <img src="images/img-hero-office.png" alt="運送会社の事務所でアプリとスプレッドシートを使って運行管理している画面">
         </div>
 
         <div class="hero-text-box">
             <div class="pain-box">
                 <ul class="pain-list">
-                    <li>æ¥å ±ã®è»¢è¨ãExcelã§ã®ç¡é§ãªæå¥å</li>
-                    <li>çµãããªãéè»ããºã«</li>
-                    <li>ç£æ»æ¸é¡ã®å¸³å°»åããâ¦â¦</li>
+                    <li>日報の転記やExcelでの無駄な手入力</li>
+                    <li>終わらない配車パズル</li>
+                    <li>監査書類の帳尻合わせ……</li>
                 </ul>
-                <p class="pain-question">ãããªå¾ãåããªäºåä½æ¥­ã«ãæ¯æ¥ä½æéä½¿ã£ã¦ãã¾ããï¼</p>
+                <p class="pain-question">そんな後ろ向きな事務作業に、毎日何時間使っていますか？</p>
             </div>
             
             <div class="benefit-box">
-                <p class="benefit-lead">æ¬ã·ã¹ãã ãå°å¥ããã°ã<span class="highlight-red">äºåæã®ç¡é§ãªä½æ¥­ãå¨æ»</span>ãã¾ãã</p>
+                <p class="benefit-lead">本システムを導入すれば、<span class="highlight-red">事務所の無駄な作業が全滅</span>します。</p>
                 <ul class="benefit-list">
-                    <li><span class="ib">äºåå¡ãéè»ãã³ã¯ç©ºããæéã§æ°è¦è·ä¸»ã®éæãå¶æ¥­æ´»åã«æãå²ããããã«ãªãã</span><span class="ib">çµæçã«<span class="text-gold">å£²ä¸æ¡å¤§</span>ã«ãç¹ããã¾ãã</span></li>
-                    <li><span class="ib">ä¹åå¡ãç¡é§ãªé£çµ¡ããè§£æ¾ããã</span><span class="ib">å®å¨éè»¢ã«100%éä¸­ã§ãã¾ãã</span></li>
-                    <li><span class="ib">ããã«ãPLï¼æçï¼æ©è½ã§å©çã®å°ãªãéè¡ãè·ä¸»ã®æ´ãåºããå¯è½ã«ã</span><span class="ib">éè³äº¤æ¸ã®å¼·åãªææã«ããªããã¾ãã«<span class="text-gold">ä¸ç³äºé³¥</span>ã§ãã</span></li>
+                    <li><span class="ib">事務員や配車マンは空いた時間で新規荷主の開拓や営業活動に手を割けるようになり、</span><span class="ib">結果的に<span class="text-gold">売上拡大</span>にも繋がります。</span></li>
+                    <li><span class="ib">乗務員も無駄な連絡から解放され、</span><span class="ib">安全運転に100%集中できます。</span></li>
+                    <li><span class="ib">さらに、PL（損益）機能で利益の少ない運行や荷主の洗い出しが可能に。</span><span class="ib">運賃交渉の強力な材料にもなり、まさに<span class="text-gold">一石二鳥</span>です。</span></li>
                 </ul>
             </div>
 
             <div class="president-wrap">
-                <img src="images/img-president-new.png" alt="ééä¼ç¤¾ã®ä»£è¡¨åç· å½¹ãã¹ããã§å©çã°ã©ããç¢ºèªãã¦ãã">
+                <img src="images/img-president-new.png" alt="運送会社の代表取締役がスマホで利益グラフを確認している">
             </div>
 
             <div class="vision-box">
-                <p><span class="ib">2026å¹´åé¡ãæ·±å»ãªäººæä¸è¶³ã</span><span class="ib">ãã®è¦ããç¶æ³ãä¹ãè¶ããã«ã¯ã<strong>ãå£²ä¸ã¢ããããçµè²»åæ¸ããITåã</strong>ãå¿é ã§ãã</span><span class="ib">ãã®ã¢ããªã«ã¯ããã®ãã¹ã¦ãç¶²ç¾ããã¦ãã¾ãã</span></p>
+                <p><span class="ib">2026年問題や深刻な人手不足。</span><span class="ib">この苦しい状況を乗り越えるには、<strong>「売上アップ」「経費削減」「IT化」</strong>が必須です。</span><span class="ib">このアプリには、そのすべてが網羅されています。</span></p>
                 
-                <p class="vision-strong"><span class="ib">å¤§æã®é«é¡ã§ã¬ãã¬ããªã·ã¹ãã ã¯ç¾å ´ã§ã¯ä½¿ãã¾ããã</span></p>
-                <p class="vision-strong"><span class="ib">ç§ãã¡ãæ¬å½ã«æ¬²ããã£ãã®ã¯ã</span><span class="ib">ãäºåæã®ã ãä½æ¥­ãæ¶ãã</span><span class="ib">ããã©ã¤ãã¼ãè¿·ããã</span><span class="ib">ãå©çãããè¦ãããè¦é ç¬¬ä¸ã®ä»çµã¿ã§ãã</span></p>
-                <p class="vision-strong"><span class="text-gold"><span class="ib">ãããæ©ã«ã¯ã³ã©ã³ã¯ã¢ãããã¦ã</span><span class="ib">ãã®è¦å¢ãå±ã«ä¹ãè¶ãã¾ãããï¼</span></span></p>
+                <p class="vision-strong"><span class="ib">大手の高額でガチガチなシステムは現場では使えません。</span></p>
+                <p class="vision-strong"><span class="ib">私たちが本当に欲しかったのは、</span><span class="ib">「事務所のムダ作業が消え」</span><span class="ib">「ドライバーが迷わず」</span><span class="ib">「利益がすぐ見える」要領第一の仕組みです。</span></p>
+                <p class="vision-strong"><span class="text-gold"><span class="ib">これを機にワンランクアップして、</span><span class="ib">この苦境を共に乗り越えましょう！</span></span></p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- â¼ Excel vs ã·ã¹ãã æ¯è¼ -->
+<!-- ▼ Excel vs システム比較 -->
 <div class="vs-section reveal">
-    <h2 class="vs-title">ãExcelã§ååãã¨æã£ã¦ãã¾ãããï¼</h2>
-    <p class="vs-subtitle">åãä½æ¥­ããæ¯æ¥ã»æ¯æã»ä½å¹´ãç¹°ãè¿ãã³ã¹ããè¨ç®ãããã¨ãããã¾ããï¼</p>
+    <h2 class="vs-title">「Excelで十分」と思っていませんか？</h2>
+    <p class="vs-subtitle">同じ作業を、毎日・毎月・何年も繰り返すコストを計算したことがありますか？</p>
     <div class="vs-wrap">
         <table class="vs-table">
             <thead>
                 <tr>
-                    <th class="th-item">æ¯è¼é ç®</th>
-                    <th class="th-excel">â ä»ã®Excelã»ææ¸ã</th>
-                    <th class="th-sys">â Smart Simple System</th>
+                    <th class="th-item">比較項目</th>
+                    <th class="th-excel">❌ 今のExcel・手書き</th>
+                    <th class="th-sys">✅ Smart Simple System</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td class="td-item">æ¥å ±å¥å</td>
-                    <td class="td-excel">ç´ã«ææ¸ãâå¤æ¹ã«äºåæã§æã¡ç´ãã1æ¥30ã60åã®èç¡</td>
-                    <td class="td-sys">ãã©ã¤ãã¼ãã¹ããã§æå»ããç¬éã«äºåæã¸èªååæ ãè»¢è¨ã¼ã­</td>
+                    <td class="td-item">日報入力</td>
+                    <td class="td-excel">紙に手書き→夕方に事務所で打ち直し。1日30〜60分の虚無</td>
+                    <td class="td-sys">ドライバーがスマホで打刻した瞬間に事務所へ自動反映。転記ゼロ</td>
                 </tr>
                 <tr>
-                    <td class="td-item">ç£æ»æ¸é¡</td>
-                    <td class="td-excel">ææ«ã«äºåå¡ãå¾¹å¤ã§å¸³å°»åããããã¹ãæãã¦æ¯åãã¤ãã¤</td>
-                    <td class="td-sys">ç¹å¼ãã¿ã³ãæ¼ãã ãã§ç¹å¼è¨é²ç°¿ã»ä¹åè¨é²ãèªåå®æ</td>
+                    <td class="td-item">監査書類</td>
+                    <td class="td-excel">月末に事務員が徹夜で帳尻合わせ。ミスが怖くて毎回ヒヤヒヤ</td>
+                    <td class="td-sys">点呼ボタンを押すだけで点呼記録簿・乗務記録が自動完成</td>
                 </tr>
                 <tr>
-                    <td class="td-item">æçç®¡ç</td>
-                    <td class="td-excel">ããã®è·ä¸»ãæ¬å½ã«å²ãã£ã¦ãã®ï¼ããæè¦ä»»ããäº¤æ¸ææãªã</td>
-                    <td class="td-sys">1è¡ç¨ãã¨ã«çµè²»ã»å©çãèªåç®åºãèµ¤å­éè¡ããã³ãã¤ã³ãç¹å®</td>
+                    <td class="td-item">損益管理</td>
+                    <td class="td-excel">「この荷主、本当に儲かってるの？」が感覚任せ。交渉材料なし</td>
+                    <td class="td-sys">1行程ごとに経費・利益を自動算出。赤字運行をピンポイント特定</td>
                 </tr>
                 <tr>
-                    <td class="td-item">éè»ãã¹</td>
-                    <td class="td-excel">ä¼ã¿ã®ãã©ã¤ãã¼ã«éè»ãè»ä¸¡ã®éè¤ãç©å°ã®ç©ºç½ãè¦è½ã¨ã</td>
-                    <td class="td-sys">ä¼ã¿âã°ã¬ã¼ã¢ã¦ããç©ºç½âè²ä»ãã¢ã©ã¼ããä¸ç®ã§å¨ãã¹ãçºè¦</td>
+                    <td class="td-item">配車ミス</td>
+                    <td class="td-excel">休みのドライバーに配車、車両の重複、積地の空白を見落とす</td>
+                    <td class="td-sys">休み→グレーアウト、空白→色付きアラート。一目で全ミスを発見</td>
                 </tr>
                 <tr>
-                    <td class="td-item">è·é¢è¨ç®</td>
-                    <td class="td-excel">æ¯åGoogleãããã§èª¿ã¹ã¦ã¡ã¢ã1è¡ç¨ã«ã¤ã2ã3åã®ã­ã¹</td>
-                    <td class="td-sys">ç®çå°ãå¥åããã ãã§AIãå®èµ°è·é¢ãèªåç®åºã»èªåè¨è¼</td>
+                    <td class="td-item">距離計算</td>
+                    <td class="td-excel">毎回Googleマップで調べてメモ。1行程につき2〜3分のロス</td>
+                    <td class="td-sys">目的地を入力するだけでAIが実走距離を自動算出・自動記載</td>
                 </tr>
                 <tr>
-                    <td class="td-item">ETCç§å</td>
-                    <td class="td-excel">æç´°æ¸ã¨æ¥å ±ãç®ã§è¦æ¯ã¹ãè¦è¡ãææ«ã«æ°æéããã</td>
-                    <td class="td-sys">ETCæç´°CSVãèª­ã¿è¾¼ã¾ããã ããã«ã¼ãçªå·Ãéè¡æ¥ã§å¨èªåç´ä»ã</td>
+                    <td class="td-item">ETC照合</td>
+                    <td class="td-excel">明細書と日報を目で見比べる苦行。月末に数時間かかる</td>
+                    <td class="td-sys">ETC明細CSVを読み込ませるだけ。カード番号×運行日で全自動紐付け</td>
                 </tr>
                 <tr>
-                    <td class="td-item">ææ«å¦ç</td>
-                    <td class="td-excel">ç¿æãã¡ã¤ã«ã®ã³ãã¼ãæ§ãã¼ã¿ã®æ´çãæ°å¼ã®å¼ãç´ãâ¦â¦</td>
-                    <td class="td-sys">ãæã¾ããå¦çããã¿ã³1ã¤ãã¢ã¼ã«ã¤ãï¼ç¿æãã¡ã¤ã«çæã¾ã§å¨èªå</td>
+                    <td class="td-item">月末処理</td>
+                    <td class="td-excel">翌月ファイルのコピー、旧データの整理、数式の引き直し……</td>
+                    <td class="td-sys">「月またぎ処理」ボタン1つ。アーカイブ＆翌月ファイル生成まで全自動</td>
                 </tr>
                 <tr>
-                    <td class="td-item">ãã©ã¤ãã¼å ±å</td>
-                    <td class="td-excel">ãçãã¾ããããåºã¾ããã®é»è©±ã»LINEã1æ¥ä¸­é£ã³äº¤ã</td>
-                    <td class="td-sys">ã¢ããªã®ãã¿ã³1ã¤ã§äºåæã®ã¹ãã¼ã¿ã¹ã«å³åæ ãé»è©±ã¼ã­ã¸</td>
+                    <td class="td-item">ドライバー報告</td>
+                    <td class="td-excel">「着きました」「出ます」の電話・LINEが1日中飛び交う</td>
+                    <td class="td-sys">アプリのボタン1つで事務所のステータスに即反映。電話ゼロへ</td>
                 </tr>
                 <tr>
-                    <td class="td-item">è¤æ°äººã§ã®åææä½</td>
-                    <td class="td-excel">Excelã¯å±æãé£ãããåæç·¨éã§ãã¡ã¤ã«ãå£ãããªã¹ã¯ãã</td>
-                    <td class="td-sys">æ¬ç¤¾ã»æ¯åºã»å¤åºåããåæã«ã¢ã¯ã»ã¹å¯è½ããã©ã¤ãã¼ã®æå»ãéãªã£ã¦ãé çªã«å¦çããéè¤ããªã</td>
+                    <td class="td-item">複数人での同時操作</td>
+                    <td class="td-excel">Excelは共有が難しく、同時編集でファイルが壊れるリスクあり</td>
+                    <td class="td-sys">本社・支店・外出先から同時にアクセス可能。ドライバーの打刻が重なっても順番に処理され重複しない</td>
                 </tr>
             </tbody>
         </table>
     </div>
-    <p class="vs-bottom">Excelã¨ã®å·®ã¯ãä¾¿å©ããã§ã¯ããã¾ããã<br><strong>æ¯æä½åæéãã®äººä»¶è²»ã¨ãè¦ãã¦ããªãèµ¤å­éè¡ã®å·®ã§ãã</strong></p>
+    <p class="vs-bottom">Excelとの差は「便利さ」ではありません。<br><strong>毎月何十時間もの人件費と、見えていない赤字運行の差です。</strong></p>
     <div class="vs-img-wrap">
-        <img src="images/img-compare.png" alt="Excelç®¡çã¨ã·ã¹ãã ç®¡çã®Before/Afteræ¯è¼">
+        <img src="images/img-compare.png" alt="Excel管理とシステム管理のBefore/After比較">
     </div>
 </div>
 
 <div class="container">
 
     <div class="index reveal">
-        <h2>â¼ ã·ã¹ãã ã«æ­è¼ããããå¨14ãã®ç¾å ´ç¹åæ©è½</h2>
+        <h2>▼ システムに搭載された「全14」の現場特化機能</h2>
         <div class="index-grid">
-            <a href="#f1" class="premium-link">ð â  1è¡ç¨ãã¨ã®æçç®¡ç</a>
-            <a href="#f2" class="premium-link">ð â¡ ç£æ»æ¸é¡ã®èªåçæ</a>
-            <a href="#f3" class="premium-link">ð â¢ SSÃã¢ããªå®å¨é£å</a>
-            <a href="#f4" class="premium-link">ð â£ äºå¾ä¿®æ­£ã§ããUI</a>
-            <a href="#f5">â¤ ç¨¼ããªãäºåã®èªåå</a>
-            <a href="#f6">â¥ éè»æ¼ãã»ãã¹é²æ­¢</a>
-            <a href="#f7">â¦ ææ«å¦çã®å¨èªåå</a>
-            <a href="#f8">â§ è·é¢è¨ç®ã®AIä¸¸æã</a>
-            <a href="#f9">â¨ å°±æ¥­æéåã ãã®æå»ç®¡ç</a>
-            <a href="#f10">â© éè¡å ±åã®èªåå</a>
-            <a href="#f11">âª è»çªé£çµ¡ã¯ã³ã¯ãªãã¯</a>
-            <a href="#f12">â« åé æ¸ã®ãè³ãåºå</a>
-            <a href="#f13">â¬ ETCæç´°ãã¼ã¿ã®é£æº</a>
-            <a href="#f14">â­ è«æ±ã»ä¼è¨ã½ããé£æº</a>
+            <a href="#f1" class="premium-link">👑 ① 1行程ごとの損益管理</a>
+            <a href="#f2" class="premium-link">👑 ② 監査書類の自動生成</a>
+            <a href="#f3" class="premium-link">👑 ③ SS×アプリ完全連動</a>
+            <a href="#f4" class="premium-link">👑 ④ 事後修正できるUI</a>
+            <a href="#f5">⑤ 稼がない事務の自動化</a>
+            <a href="#f6">⑥ 配車漏れ・ミス防止</a>
+            <a href="#f7">⑦ 月末処理の全自動化</a>
+            <a href="#f8">⑧ 距離計算のAI丸投げ</a>
+            <a href="#f9">⑨ 就業時間内だけの時刻管理</a>
+            <a href="#f10">⑩ 運行報告の自動化</a>
+            <a href="#f11">⑪ 車番連絡ワンクリック</a>
+            <a href="#f12">⑫ 受領書の「耳」出力</a>
+            <a href="#f13">⑬ ETC明細データの連携</a>
+            <a href="#f14">⑭ 請求・会計ソフト連携</a>
         </div>
     </div>
 
-    <h2 class="section-title text-gold reveal">å½ã·ã¹ãã ã ãã®ã4ã¤ã®æå¼·ã®æ­¦å¨ã</h2>
+    <h2 class="section-title text-gold reveal">当システムだけの「4つの最強の武器」</h2>
 
     <div id="f1" class="premium-detail reveal">
-        <div class="badge">ç¬å æ©è½ 1</div>
-        <h3 class="text-gold">â  1è¡ç¨ãã¨ã®ãæçãããã®å ´ã§å³è¦ãã</h3>
-        <p><span class="ib">ããã®è·ç©ã</span><span class="ib">çµå±ãããå²ãã£ã¦ããã®ãï¼ã</span><span class="ib">ã¨ããä¸å®ãæ ¹çµ¶ãã¾ãã</span></p>
-        <p><span class="ib">1éè¡ãã¨ã«çµè²»ã¨å©çãå³åº§ã«èªåç®åºã</span><span class="ib">å©çã®å°ãªãéè¡ããã³ãã¤ã³ãã§ç¹å®ãã</span><span class="ib">è·ä¸»ã¨ã®éè³äº¤æ¸ã®ç¢ºåºããææã¨ãã¦æ´»ç¨ã§ãã¾ãã</span></p>
+        <div class="badge">独占機能 1</div>
+        <h3 class="text-gold">① 1行程ごとの「損益」がその場で即見える</h3>
+        <p><span class="ib">「この荷物、</span><span class="ib">結局いくら儲かっているのか？」</span><span class="ib">という不安を根絶します。</span></p>
+        <p><span class="ib">1運行ごとに経費と利益を即座に自動算出。</span><span class="ib">利益の少ない運行をピンポイントで特定し、</span><span class="ib">荷主との運賃交渉の確固たる材料として活用できます。</span></p>
         
-        <p class="note-text"><span class="ib">â»è¡¨ç¤ºãããå©çã¯ããããã®éé¡ã§ãã</span><br><span class="ib">æ­£ç¢ºãªå©çç®åºã«ã¯ãäºåã«è»ä¸¡ãã¨ã®çµè²»ãæ­©åãªã©ã®è¨­å®ãå¿è¦ã§ãã</span></p>
+        <p class="note-text"><span class="ib">※表示される利益はおおよその金額です。</span><br><span class="ib">正確な利益算出には、事前に車両ごとの経費や歩合などの設定が必要です。</span></p>
         
-        <div class="ss-img-wrap"><img src="images/ss-profit-per-trip.png" alt="è¡ç¨ãã¨ã®æçç®¡çã»å©çä¸è¦§ç»é¢"></div>
-        <div class="ss-img-wrap"><img src="images/ss-vehicle-fixed-costs.png" alt="è»ä¸¡åºå®è²»ç®¡çã·ã¼ã"></div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <div class="ss-img-wrap"><img src="images/ss-profit-per-trip.png" alt="行程ごとの損益管理・利益一覧画面"></div>
+        <div class="ss-img-wrap"><img src="images/ss-vehicle-fixed-costs.png" alt="車両固定費管理シート"></div>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f2" class="premium-detail reveal">
-        <div class="badge">ç¬å æ©è½ 2</div>
-        <h3 class="text-gold">â¡ ã¢ããªã®ç¹å¼ãã¿ã³ããç£æ»æ¸é¡ãã«ç´çµ</h3>
-        <p><span class="ib">ä¹åå¡ãã¹ããã§ãç¹å¼ããã¿ã³ãæ¼ãã ãã</span><span class="ib">ãã®æä½ããå½äº¤çã®ç£æ»ã§æ±ããããç¹å¼è¨é²ç°¿ãä¹åè¨é²ã®èªåå®æã«ç´çµãã¾ãã</span></p>
-        <p><span class="ib">ææ«ã«äºåå¡ãå¾¹å¤ãã¦å¸³å°»ãåãããå°çã®ä½æ¥­ã¯ã</span><span class="ib">ä»æ¥ã§å®å¨ã«çµããã¾ãã</span></p>
-        <span class="note-text">â»åºåãããå¸³ç¥¨ã®æ³å®æ¸é¡ã¨ãã¦ã®æå¹æ§ã¯ä¿è¨¼ãã¦ããã¾ãããå®éã®ç£æ»å¯¾å¿ã«ã¤ãã¦ã¯æè½ã®éè¼¸æ¯å±ã«ãç¢ºèªãã ããï¼å©ç¨è¦ç´ç¬¬8æ¡ï¼ã</span>
-        <div class="img-slot"><img src="images/app-pre-check-done.png" alt="æ¥­ååç¹æ¤ã»å¨é ç®ç¢ºèªæ¸ã¿ç»é¢"></div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <div class="badge">独占機能 2</div>
+        <h3 class="text-gold">② アプリの点呼ボタンが「監査書類」に直結</h3>
+        <p><span class="ib">乗務員がスマホで「点呼」ボタンを押すだけ。</span><span class="ib">その操作が、国交省の監査で求められる点呼記録簿や乗務記録の自動完成に直結します。</span></p>
+        <p><span class="ib">月末に事務員が徹夜して帳尻を合わせる地獄の作業は、</span><span class="ib">今日で完全に終わります。</span></p>
+        <span class="note-text">※出力される帳票の法定書類としての有効性は保証しておりません。実際の監査対応については所轄の運輸支局にご確認ください（利用規約第8条）。</span>
+        <div class="img-slot"><img src="images/app-pre-check-done.png" alt="業務前点検・全項目確認済み画面"></div>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f3" class="premium-detail reveal">
-        <div class="badge">ç¬å æ©è½ 3</div>
-        <h3 class="text-gold">â¢ äºåæ(PC) Ã ç¾å ´(ã¹ãã) ã®å®å¨ãªã¢ã«ã¿ã¤ã é£å</h3>
-        <p><span class="ib">äºåæã¯ä½¿ãæ£ããExcelã«éãããGoogleã¹ãã¬ããã·ã¼ãï¼GASå¶å¾¡ï¼ããæ¡ç¨ã</span><span class="ib">Googleã®å ç¢ãªã¤ã³ãã©ãåºç¤ã¨ãã¦ãããããé«ãã»ã­ã¥ãªãã£æ°´æºãå®ç¾ãã¦ãã¾ãã</span></p>
-        <p><span class="ib">ç¾å ´ã®å¥åãã¼ã¿ã¯è£å´ã§ç§åä½ã§åæã</span><span class="ib">ã¹ãã¬ããã·ã¼ãã¯PCã§ãã¹ããã®ãã©ã¦ã¶ããã§ãã¢ã¯ã»ã¹ã§ããããã</span><span class="ib">å¤åºåããã§ãéè¡ç¶æ³ããªã¢ã«ã¿ã¤ã ã§ç¢ºèªã§ãã¾ãã</span></p>
-        <div class="img-slot"><img src="images/app-home-2.png" alt="ãã©ã¤ãã¼ã¢ããªã®ãã¼ã ç»é¢"></div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <div class="badge">独占機能 3</div>
+        <h3 class="text-gold">③ 事務所(PC) × 現場(スマホ) の完全リアルタイム連動</h3>
+        <p><span class="ib">事務所は使い慣れたExcelに通ずる「Googleスプレッドシート（GAS制御）」を採用。</span><span class="ib">Googleの堅牢なインフラを基盤としているため、高いセキュリティ水準を実現しています。</span></p>
+        <p><span class="ib">現場の入力データは裏側で秒単位で同期。</span><span class="ib">スプレッドシートはPCでもスマホのブラウザからでもアクセスできるため、</span><span class="ib">外出先からでも運行状況をリアルタイムで確認できます。</span></p>
+        <div class="img-slot"><img src="images/app-home-2.png" alt="ドライバーアプリのホーム画面"></div>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f4" class="premium-detail reveal">
-        <div class="badge">ç¬å æ©è½ 4</div>
-        <h3 class="text-gold">â£ åå¤ãæ¼ãå¿ããæããªãããäºå¾ä¿®æ­£ãå¯¾å¿UI</h3>
-        <p><span class="ib">é»æ³¢ãå±ããªãå ´æã§ã®ã¨ã©ã¼ãã</span><span class="ib">ãã¿ã³ã®æ¼ãå¿ãã«ãæè»ã«å¾ããäºå¾ä¿®æ­£ãã§ããä»æ§ã§ãã</span></p>
-        <p><span class="ib">ä¸åº¦æ¼ãããå¤æ´ã§ããç¾å ´ããããã¯ã«ãªã</span><span class="ib">ã¬ãã¬ããªã·ã¹ãã ã¨ã¯éãã</span><span class="ib">ç¾å ´ãåãããã®ç©¶æ¥µã®UIã§ãã</span></p>
+        <div class="badge">独占機能 4</div>
+        <h3 class="text-gold">④ 圏外も押し忘れも怖くない。「事後修正」対応UI</h3>
+        <p><span class="ib">電波が届かない場所でのエラーや、</span><span class="ib">ボタンの押し忘れにも柔軟に後から事後修正ができる仕様です。</span></p>
+        <p><span class="ib">一度押したら変更できず現場がパニックになる</span><span class="ib">ガチガチなシステムとは違う、</span><span class="ib">現場を回すための究極のUIです。</span></p>
         <div class="flow-imgs">
-          <div class="flow-label">ð± ã¢ããªã®ä¸è¦§ã§ç©ºæ¬ãã¿ãã â ãã®ã¾ã¾å¾ããæå»ãå¥å</div>
-          <div class="img-full"><img src="images/app-retroactive-empty.png" alt="ã¢ããªã®éè¡ä¸è¦§ã»æ¼ãå¿ããç©å®ã»ã«ãç©ºæ¬ï¼èµ¤æ ï¼"></div>
-          <div class="flow-arrow">â¼ ã¾ãã¯äºåæã®SSããç´æ¥ä¿®æ­£ãå¯è½</div>
-          <div class="flow-label">ð¥ ã¹ãã¬ããã·ã¼ãã®ã»ã«ãã¯ãªãã¯ â æ¥æããã«ã¼ã§å¥åã»ä¿®æ­£</div>
-          <div class="img-full"><img src="images/ss-retroactive-datepicker.png" alt="SSã§ç©å®æå»ã»ã«ãã¯ãªãã¯ã»æ¥æããã«ã¼ã§äºå¾ä¿®æ­£ï¼èµ¤æ ï¼"></div>
+          <div class="flow-label">📱 アプリの一覧で空欄をタップ → そのまま後から時刻を入力</div>
+          <div class="img-full"><img src="images/app-retroactive-empty.png" alt="アプリの運行一覧・押し忘れた積完セルが空欄（赤枠）"></div>
+          <div class="flow-arrow">▼ または事務所のSSから直接修正も可能</div>
+          <div class="flow-label">🖥 スプレッドシートのセルをクリック → 日時ピッカーで入力・修正</div>
+          <div class="img-full"><img src="images/ss-retroactive-datepicker.png" alt="SSで積完時刻セルをクリック・日時ピッカーで事後修正（赤枠）"></div>
         </div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
-    <div style="text-align: center;"><h2 class="section-title standard-title reveal">ç¾å ´ã®ãé¢åããå¨æ»ãããå¨æ©è½</h2></div>
+    <div style="text-align: center;"><h2 class="section-title standard-title reveal">現場の「面倒」を全滅させる全機能</h2></div>
 
     <div id="f5" class="detail reveal">
-        <h3>â¤ ãç¨¼ããªãäºåããèªååããæ¬æ¥­ã«æéãä½¿ã</h3>
-        <p><span class="ib">ãã©ã¤ãã¼ãã¹ããã«å¥åããç¬éã«ãäºåæã®ã·ã¼ãã¸èªååæ ã</span><span class="ib">å¤æ¹ã«ç´ãååãã¦æã¡ç´ããèç¡ã®æéããå®å¨ã«ãªããªãã¾ãã</span></p>
-        <p><span class="ib">ç©ºããæéãéè»ãå¶æ¥­ãªã©ã®æ¬æ¥­ã«å²ããã¨ã§ã</span><span class="ib">èªç¶ã¨å£²ä¸æ¡å¤§ã«ç¹ããä½å¶ãä½ãã¾ãã</span></p>
+        <h3>⑤ 「稼がない事務」を自動化し、本業に時間を使う</h3>
+        <p><span class="ib">ドライバーがスマホに入力した瞬間に、事務所のシートへ自動反映。</span><span class="ib">夕方に紙を回収して打ち直す「虚無の時間」が完全になくなります。</span></p>
+        <p><span class="ib">空いた時間を配車や営業などの本業に割くことで、</span><span class="ib">自然と売上拡大に繋がる体制を作ります。</span></p>
         <div class="flow-imgs">
-          <div class="flow-label">ð± ã¢ããªå¥å</div>
+          <div class="flow-label">📱 アプリ入力</div>
           <div class="flow-pair">
-            <div class="img-slot"><img src="images/app-trip-input-collapsed.png" alt="ã¢ããªè¡ç¨å¥åã»å¥ååã®ç¶æ"></div>
-            <div class="img-slot"><img src="images/app-trip-input-vehicle-info.png" alt="ã¢ããªè¡ç¨å¥åã»è»ä¸¡ä¹åå¡æå ±å¥åç»é¢"></div>
+            <div class="img-slot"><img src="images/app-trip-input-collapsed.png" alt="アプリ行程入力・入力前の状態"></div>
+            <div class="img-slot"><img src="images/app-trip-input-vehicle-info.png" alt="アプリ行程入力・車両乗務員情報入力画面"></div>
           </div>
-          <div class="flow-arrow">â¼ éä¿¡ããç¬éãäºåæã®SSã»ã¢ããªã®ä¸è¦§ã¸èªååæ </div>
-          <div class="flow-label">ð¥ ã¹ãã¬ããã·ã¼ãã«å³åæ </div>
-          <div class="ss-img-wrap"><img src="images/ss-trip-submitted-row.png" alt="ã¹ãã¬ããã·ã¼ãã»è¡ç¨ãã¼ã¿1è¡èªååæ "></div>
-          <div class="ss-img-wrap"><img src="images/ss-operation-management-view.png" alt="ã¹ãã¬ããã·ã¼ãéè¡ç®¡çãã¥ã¼ã»èªååæ "></div>
+          <div class="flow-arrow">▼ 送信した瞬間、事務所のSS・アプリの一覧へ自動反映</div>
+          <div class="flow-label">🖥 スプレッドシートに即反映</div>
+          <div class="ss-img-wrap"><img src="images/ss-trip-submitted-row.png" alt="スプレッドシート・行程データ1行自動反映"></div>
+          <div class="ss-img-wrap"><img src="images/ss-operation-management-view.png" alt="スプレッドシート運行管理ビュー・自動反映"></div>
         </div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f6" class="detail reveal">
-        <h3>â¥ éè»æ¼ãã»ãã£ãããã¹ã®ãè¦è¦çãé²æ­¢</h3>
-        <p><span class="ib">ä¼ã¿ã®ä¹åå¡ã¯ã°ã¬ã¼ã¢ã¦ãã</span><span class="ib">éè»ãåã¾ã£ã¦ããªãç©å°ã«ã¯è²ãä»ãã¾ãã</span></p>
-        <p><span class="ib">PCç»é¢ãä¸ç¥ããã ãã§ãã¹ãçºè¦ã§ãã</span><span class="ib">ãä¼ã¿ã®æ¥ãªã®ã«ãã©ãã¯ãå½ã¦ã¦ãã¾ã£ããç­ã®ã¨ã©ã¼ãæªç¶ã«é²ãã¾ãã</span></p>
-        <div class="ss-img-wrap"><img src="images/ss-dispatch-sheet-warning.png" alt="éè»ç®¡çã·ã¼ãã»æªå¥åã»ã«çè²è­¦åç»é¢"></div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <h3>⑥ 配車漏れ・うっかりミスの「視覚的」防止</h3>
+        <p><span class="ib">休みの乗務員はグレーアウト、</span><span class="ib">配車が埋まっていない積地には色が付きます。</span></p>
+        <p><span class="ib">PC画面を一瞥するだけでミスを発見でき、</span><span class="ib">「休みの日なのにトラックを当ててしまった」等のエラーを未然に防ぎます。</span></p>
+        <div class="ss-img-wrap"><img src="images/ss-dispatch-sheet-warning.png" alt="配車管理シート・未入力セル着色警告画面"></div>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f7" class="detail reveal">
-        <h3>â¦ ææ«æåã®ãæã¾ããå¦çãå¨èªåå</h3>
-        <p><span class="ib">äºåå¡ãæ®ºæ°ç«ã¤ææ«ã®é¢åãªç§»è¡ä½æ¥­ãããã¿ã³ä¸ã¤ã§å¨èªåå¦çããã¾ãã</span></p>
-        <p><span class="ib">èªåã§å½æã®éè¡ãã¼ã¿ãã¢ã¼ã«ã¤ãããæ¬¡æç¨ãã¡ã¤ã«ãçæã</span><span class="ib">éå»ãã¼ã¿ãééãã¦æ¶ãã¦ãã¾ããªã¹ã¯ãæé¤ãã¾ãã</span></p>
-        <div class="img-slot-menu"><img src="images/ss-main-menu.png" alt="æã¾ããå¦çã»ã·ã¹ãã ã¡ãã¥ã¼ç»é¢"></div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <h3>⑦ 月末月初の「月またぎ処理」全自動化</h3>
+        <p><span class="ib">事務員が殺気立つ月末の面倒な移行作業が、ボタン一つで全自動処理されます。</span></p>
+        <p><span class="ib">自動で当月の運行データをアーカイブし、次月用ファイルを生成。</span><span class="ib">過去データを間違えて消してしまうリスクを排除します。</span></p>
+        <div class="img-slot-menu"><img src="images/ss-main-menu.png" alt="月またぎ処理・システムメニュー画面"></div>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f8" class="detail reveal">
-        <h3>â§ é¢åãªè·é¢è¨ç®ã®ãAIä¸¸æãã</h3>
-        <p><span class="ib">ç®çå°ãå¥åããã ãã§ã</span><span class="ib">AIãæ­£ç¢ºãªå®èµ°è·é¢ãèªåç®åºãã¦ã·ã¼ãã«è¨è¼ã</span></p>
-        <p><span class="ib">æ¯åãããã§ã«ã¼ãæ¤ç´¢ãã¦è·é¢ãã¡ã¢ããã</span><span class="ib">ãã®ç´°ããæéãä¸åãªããªãã¾ãã</span></p>
-        <div class="img-slot"><img src="images/ss-menu-distance-calc.png" alt="ã¡ãã¥ã¼ã®ä½æç¢ºèªï¼æªè¨ç®åï¼ã»AIè·é¢è¨ç®æ©è½"></div>
-        <div class="ss-img-wrap"><img src="images/ss-trip-distance-column.png" alt="è¡ç¨ãã¨ã®è·é¢ãèªåå¥åãããã¹ãã¬ããã·ã¼ã"></div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <h3>⑧ 面倒な距離計算の「AI丸投げ」</h3>
+        <p><span class="ib">目的地を入力するだけで、</span><span class="ib">AIが正確な実走距離を自動算出してシートに記載。</span></p>
+        <p><span class="ib">毎回ネットでルート検索して距離をメモする、</span><span class="ib">あの細かい手間が一切なくなります。</span></p>
+        <div class="img-slot"><img src="images/ss-menu-distance-calc.png" alt="メニューの住所確認（未計算分）・AI距離計算機能"></div>
+        <div class="ss-img-wrap"><img src="images/ss-trip-distance-column.png" alt="行程ごとの距離が自動入力されたスプレッドシート"></div>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f9" class="detail reveal">
-        <h3>â¨ ãã©ã¤ãã¼ããå®ããå°±æ¥­æéåã ããã®ç®¡ç</h3>
-        <p><span class="ib">ç¹å¼ã»ç©è¾¼ã»ä¼æ©ã»éå®ãªã©ã</span><span class="ib">ãã©ã¤ãã¼ããã¿ã³ãæ¼ããç¬éã®æå»ã ããSSã¨ã¢ããªã®ä¸è¦§ã«è¨é²ãã¾ãã</span></p>
-        <p><span class="ib">å°±æ¥­æéå¤ã¯ä¸åè¿½è·¡ããªãããã</span><span class="ib">ãå®¶ã¾ã§ç£è¦ããã¦ãããã¨ãããã©ã¤ãã¼ã®ä¸æºãã¼ã­ã«ããé¢è·é²æ­¢ã«ã¤ãªããã¾ãã</span></p>
-        <p><span class="ib">ä½ç½®æå ±ã¯ãã¸ã¿ã³ç­ã§å¿è¦ãªç¯å²ã®ã¿ç®¡çã</span><span class="ib">ä¿¡é ¼é¢ä¿ãå®ããªããéè¡ãææ¡ã§ããè¨­è¨ã§ãã</span></p>
-        <div class="flow-label">ð± ãã©ã¤ãã¼ã®ã¢ããªæä½ãã­ã¼</div>
+        <h3>⑨ プライベートを守る「就業時間内だけ」の管理</h3>
+        <p><span class="ib">点呼・積込・休憩・降完など、</span><span class="ib">ドライバーがボタンを押した瞬間の時刻だけをSSとアプリの一覧に記録します。</span></p>
+        <p><span class="ib">就業時間外は一切追跡しないため、</span><span class="ib">「家まで監視されている」というドライバーの不満をゼロにし、離職防止につながります。</span></p>
+        <p><span class="ib">位置情報はデジタコ等で必要な範囲のみ管理。</span><span class="ib">信頼関係を守りながら運行を把握できる設計です。</span></p>
+        <div class="flow-label">📱 ドライバーのアプリ操作フロー</div>
         <div class="app-flow-grid">
-          <div class="app-step"><p class="step-label">â  è¡ç¨å¥å</p><img src="images/app-flow-trip-input.png" alt="è¡ç¨å¥å"></div>
-          <div class="app-step"><p class="step-label">â¡ ç¹å¼åç¢ºèª</p><img src="images/app-flow-pre-check-after.png" alt="ç¹å¼åç¢ºèªæ¸ã¿"></div>
-          <div class="app-step"><p class="step-label">â¢ èªå°</p><img src="images/app-flow-guidance.png" alt="èªå°"></div>
-          <div class="app-step"><p class="step-label">â£ ç©å®</p><img src="images/app-flow-loading-complete-1.png" alt="ç©å®"></div>
-          <div class="app-step"><p class="step-label">â¤ ä¼æ©éå§</p><img src="images/app-flow-break-start.png" alt="ä¼æ©éå§"></div>
-          <div class="app-step"><p class="step-label">â¥ ä¼æ©çµäº</p><img src="images/app-flow-break-end.png" alt="ä¼æ©çµäº"></div>
-          <div class="app-step"><p class="step-label">â¦ ç¹å¼å¾ç¢ºèª</p><img src="images/app-flow-post-check-after.png" alt="ç¹å¼å¾ç¢ºèªæ¸ã¿"></div>
-          <div class="app-step"><p class="step-label">â§ éå®</p><img src="images/app-flow-unloading-complete.png" alt="éå®"></div>
+          <div class="app-step"><p class="step-label">① 行程入力</p><img src="images/app-flow-trip-input.png" alt="行程入力"></div>
+          <div class="app-step"><p class="step-label">② 点呼前確認</p><img src="images/app-flow-pre-check-after.png" alt="点呼前確認済み"></div>
+          <div class="app-step"><p class="step-label">③ 誘導</p><img src="images/app-flow-guidance.png" alt="誘導"></div>
+          <div class="app-step"><p class="step-label">④ 積完</p><img src="images/app-flow-loading-complete-1.png" alt="積完"></div>
+          <div class="app-step"><p class="step-label">⑤ 休憩開始</p><img src="images/app-flow-break-start.png" alt="休憩開始"></div>
+          <div class="app-step"><p class="step-label">⑥ 休憩終了</p><img src="images/app-flow-break-end.png" alt="休憩終了"></div>
+          <div class="app-step"><p class="step-label">⑦ 点呼後確認</p><img src="images/app-flow-post-check-after.png" alt="点呼後確認済み"></div>
+          <div class="app-step"><p class="step-label">⑧ 降完</p><img src="images/app-flow-unloading-complete.png" alt="降完"></div>
         </div>
-        <div class="flow-arrow">â¼ ãã¿ã³ãæ¼ããç¬éã®æå»ãSSã¸èªåè¨é²</div>
-        <div class="ss-img-wrap"><img src="images/ss-timestamps-basic.png" alt="SSã«å¨æå»ãèªååæ ãããéè¡ç®¡çãã¥ã¼"></div>
-        <div class="ss-img-wrap"><img src="images/ss-timestamps-full.png" alt="SSã«å¨ãã¼ã¿ãåæ ãããè¡"></div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <div class="flow-arrow">▼ ボタンを押した瞬間の時刻がSSへ自動記録</div>
+        <div class="ss-img-wrap"><img src="images/ss-timestamps-basic.png" alt="SSに全時刻が自動反映された運行管理ビュー"></div>
+        <div class="ss-img-wrap"><img src="images/ss-timestamps-full.png" alt="SSに全データが反映された行"></div>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f10" class="detail reveal">
-        <h3>â© éè»¢ãæ­¢ããªããéè¡å ±åãã®èªåå</h3>
-        <p><span class="ib">ããã¾çãã¾ããããåºã¾ããã¨ãã£ãé£çµ¡ã¯ã</span><span class="ib">ã¢ããªã®ãã¿ã³ãæ¼ãã ãã§äºåæã®ã¹ãã¼ã¿ã¹ã«å³åº§ã«åæ ããã¾ãã</span></p>
-        <p><span class="ib">ãã©ãã¯ãããããå®å¨ãªå ´æã«æ­¢ãã¦ã</span><span class="ib">é»è©±ãLINEãããå¿è¦ã¯ããããã¾ããã</span></p>
-        <div class="img-full"><img src="images/Gemini_Generated_Image_ewtw9bewtw9bewtw.png" alt="BEFORE:ç´ãã¼ã¹ã®æ¥­å AFTER:ã¹ããã®ãã¿ã³ä¸ã¤ã§å®äº"></div>
-        <div class="img-slot"><img src="images/app-loaded.png" alt="ç©å®ãã¿ã³ä¸çºã§ã¹ãã¼ã¿ã¹åæ "></div>
-        <div class="flow-arrow">â¼ ãã¿ã³1ã¤ã§SSã»ã¢ããªä¸è¦§ã«å³åæ </div>
-        <div class="flow-label">ð¥ ã¹ãã¬ããã·ã¼ãã®éè¡ä¸è¦§ã§æå»ç¢ºèª</div>
-        <div class="ss-img-wrap"><img src="images/ss-trip-list-timestamps.png" alt="SSã®éè¡ä¸è¦§ã»æå»æå»ãèªååæ "></div>
-        <div class="flow-label">ð± ã¢ããªã®éè¡ä¸è¦§ã§ãæå»ç¢ºèª</div>
-        <div class="ss-img-wrap"><img src="images/app-trip-list-timestamps.png" alt="ã¢ããªã®éè¡ä¸è¦§ã»æå»æå»ãè¡¨ç¤ºãããç¶æ"></div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <h3>⑩ 運転を止めない「運行報告」の自動化</h3>
+        <p><span class="ib">「いま着きました」「出ます」といった連絡は、</span><span class="ib">アプリのボタンを押すだけで事務所のステータスに即座に反映されます。</span></p>
+        <p><span class="ib">トラックをわざわざ安全な場所に止めて、</span><span class="ib">電話やLINEをする必要はもうありません。</span></p>
+        <div class="img-full"><img src="images/Gemini_Generated_Image_ewtw9bewtw9bewtw.png" alt="BEFORE:紙ベースの業務 AFTER:スマホのボタン一つで完了"></div>
+        <div class="img-slot"><img src="images/app-loaded.png" alt="積完ボタン一発でステータス反映"></div>
+        <div class="flow-arrow">▼ ボタン1つでSS・アプリ一覧に即反映</div>
+        <div class="flow-label">🖥 スプレッドシートの運行一覧で時刻確認</div>
+        <div class="ss-img-wrap"><img src="images/ss-trip-list-timestamps.png" alt="SSの運行一覧・打刻時刻が自動反映"></div>
+        <div class="flow-label">📱 アプリの運行一覧でも時刻確認</div>
+        <div class="ss-img-wrap"><img src="images/app-trip-list-timestamps.png" alt="アプリの運行一覧・打刻時刻が表示された状態"></div>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f11" class="detail reveal">
-        <h3>âª è·ä¸»ã¸ã®ãè»çªé£çµ¡ãã¯ã³ã¯ãªãã¯éä¿¡</h3>
-        <p><span class="ib">éè»ç¢ºå®å¾ãè»çªæå ±ãè·ä¸»ã®ã¢ãã¬ã¹ç­ã¸å³åº§ã«ä¸æ¬éä¿¡ãã¾ãã</span></p>
-        <p><span class="ib">æ¯æ¥çºçããé»è©±ãFAXã§ã®ãææ¥ã®è»çªã¾ã ï¼ãã¨ããå¬ä¿ãã·ã£ããã¢ã¦ããã</span><span class="ib">ç²¾ç¥çè² æãä¸ãã¾ãã</span></p>
-        <div class="img-slot"><img src="images/ss-menu-vehicle-notice.png" alt="ã¡ãã¥ã¼ï¼å¸³ç¥¨ã»éä¿¡ã¡ãã¥ã¼ããè»çªé£çµ¡ãé¸æï¼èµ¤æ ï¼"></div>
-        <div class="flow-arrow">â¼ è»çªé£çµ¡æ¸ãèªåçæã»ãã®ã¾ã¾éä¿¡</div>
-        <div class="img-slot"><img src="images/ss-vehicle-notice-dialog.png" alt="è»çªé£çµ¡ãã¤ã¢ã­ã°ã»å°å·/PDF/ã¡ã¼ã«/FAXéä¿¡ãã¿ã³ï¼èµ¤æ ï¼"></div>
-        <p class="step-note">â å³ä¸ããå°å·ã»PDFä¿å­ã»ã¡ã¼ã«éä¿¡ã»FAXéä¿¡ã¨ãå¥½ããªæ¹æ³ã§è·ä¸»ã¸å³éä¿¡ã§ãã¾ãã</p>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <h3>⑪ 荷主への「車番連絡」ワンクリック送信</h3>
+        <p><span class="ib">配車確定後、車番情報を荷主のアドレス等へ即座に一括送信します。</span></p>
+        <p><span class="ib">毎日発生する電話やFAXでの「明日の車番まだ？」という催促をシャットアウトし、</span><span class="ib">精神的負担を下げます。</span></p>
+        <div class="img-slot"><img src="images/ss-menu-vehicle-notice.png" alt="メニュー：帳票・送信メニューから車番連絡を選択（赤枠）"></div>
+        <div class="flow-arrow">▼ 車番連絡書を自動生成・そのまま送信</div>
+        <div class="img-slot"><img src="images/ss-vehicle-notice-dialog.png" alt="車番連絡ダイアログ・印刷/PDF/メール/FAX送信ボタン（赤枠）"></div>
+        <p class="step-note">↑ 右上から印刷・PDF保存・メール送信・FAX送信とお好きな方法で荷主へ即送信できます。</p>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f12" class="detail reveal">
-        <h3>â« åé æ¸ã®ãè³ï¼æ§ãï¼ãèªåçæ</h3>
-        <p><span class="ib">ç´åæã«ç¾å ´ã§å¿ãå¿è¦ã«ãªãåé æ¸ã®ãè³ãã</span><span class="ib">ãããªç´°ããç´åãã®å¦çã¾ã§ã·ã¹ãã ããä¸æ¬åºåå¯è½ã§ãã</span></p>
-        <p><span class="ib">ç¾å½¹ã®ç®¡çèãå®åãã¼ã¹ã§ä½ã£ãããããã</span><span class="ib">ç¾å ´ã®ç´°ããå¦çã¾ã§å®ç§ã«ã«ãã¼ãã¦ãã¾ãã</span></p>
+        <h3>⑫ 受領書の「耳（控え）」自動生成</h3>
+        <p><span class="ib">納品時に現場で必ず必要になる受領書の「耳」。</span><span class="ib">こんな細かい紙切れの処理までシステムから一括出力可能です。</span></p>
+        <p><span class="ib">現役の管理者が実務ベースで作ったからこそ、</span><span class="ib">現場の細かい処理まで完璧にカバーしています。</span></p>
         <div class="flow-pair">
-          <div class="img-slot"><img src="images/ss-menu-receipt-ear.png" alt="ã¡ãã¥ã¼ï¼åé æ¸ã®è³çæ"></div>
-          <div class="img-slot"><img src="images/ss-receipt-ear-dialog.png" alt="åé æ¸ã®è³çæãã¤ã¢ã­ã°ã»æ¡ä»¶é¸æ"></div>
-          <div class="img-slot"><img src="images/ss-receipt-ear-pdf-btn.png" alt="åé æ¸ã®è³çæã»PDFåºåãã¿ã³"></div>
+          <div class="img-slot"><img src="images/ss-menu-receipt-ear.png" alt="メニュー：受領書の耳生成"></div>
+          <div class="img-slot"><img src="images/ss-receipt-ear-dialog.png" alt="受領書の耳生成ダイアログ・条件選択"></div>
+          <div class="img-slot"><img src="images/ss-receipt-ear-pdf-btn.png" alt="受領書の耳生成・PDF出力ボタン"></div>
         </div>
-        <div class="img-full"><img src="images/ss-receipt-ear-preview.png" alt="åé æ¸ã®è³ã»ä¸è¦§ãã¬ãã¥ã¼"></div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <div class="img-full"><img src="images/ss-receipt-ear-preview.png" alt="受領書の耳・一覧プレビュー"></div>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f13" class="detail reveal">
-        <h3>â¬ ETCå©ç¨æç´°ãã¼ã¿ã®èªåé£æº</h3>
-        <p><span class="ib">é«éä»£ã®ETCæç´°ï¼CSVï¼ãèª­ã¿è¾¼ã¾ããã ãã§ã</span><span class="ib">ã«ã¼ãçªå·ã¨éè¡æ¥æãçªãåããã¦åè¡ç¨ã«èªååæ ãã¾ãã</span></p>
-        <p><span class="ib">è¨å¤§ãªæç´°æ¸ã¨æ¥å ±ãè¦æ¯ã¹ãè¦çãªç§åä½æ¥­ãå®å¨ã«ã¼ã­ã«ãã¾ãã</span></p>
+        <h3>⑬ ETC利用明細データの自動連携</h3>
+        <p><span class="ib">高速代のETC明細（CSV）を読み込ませるだけで、</span><span class="ib">カード番号と運行日時を突き合わせて各行程に自動反映します。</span></p>
+        <p><span class="ib">膨大な明細書と日報を見比べる苦痛な照合作業を完全にゼロにします。</span></p>
         <div class="flow-pair">
-          <div class="img-slot"><img src="images/ss-menu-etc-import.png" alt="ã¡ãã¥ã¼ï¼ETCå©ç¨æç´°ã®èª­ã¿è¾¼ã¿æä½"></div>
-          <div class="img-slot"><img src="images/ss-etc-file-select.png" alt="ETCå©ç¨æç´°CSVãã¡ã¤ã«é¸æç»é¢"></div>
+          <div class="img-slot"><img src="images/ss-menu-etc-import.png" alt="メニュー：ETC利用明細の読み込み操作"></div>
+          <div class="img-slot"><img src="images/ss-etc-file-select.png" alt="ETC利用明細CSVファイル選択画面"></div>
         </div>
-        <p class="step-note">â ããã«ETCå©ç¨æç´°ï¼CSVï¼ããã­ããããã ããè»çªã»æ¥æãèªåã§èª­ã¿åããè©²å½è¡ç¨ã«é«éä»£ãèªååæ ãã¾ãã</p>
-        <div class="img-slot-sm"><img src="images/ss-etc-highway-cols.png" alt="è¡ç¨ãã¨ã«ETCé«éä»£ãèªååæ ãããã¹ãã¬ããã·ã¼ã"></div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <p class="step-note">↑ ここにETC利用明細（CSV）をドロップするだけ。車番・日時を自動で読み取り、該当行程に高速代を自動反映します。</p>
+        <div class="img-slot-sm"><img src="images/ss-etc-highway-cols.png" alt="行程ごとにETC高速代が自動反映されたスプレッドシート"></div>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f14" class="detail reveal">
-        <h3>â­ è«æ±æ¸ä¸çºçæ ï¼ ä¼è¨ã½ããé£æº</h3>
-        <p><span class="ib">ææ«ã«ç· ããã¿ã³ãæ¼ãã ãã§ã</span><span class="ib">éè³ãã¼ã¿ãè·ä¸»ãã¨ã«éè¨ããè«æ±æ¸ç¨ãã¼ã¿ãä¸çºã§çæããã¾ãã</span></p>
-        <p><span class="ib">å¨ãã¼ã¿ãCSVã§åºåãã</span><span class="ib">ãä½¿ãã®ä¼è¨ã½ããã¸èª­ã¿è¾¼ã¾ããã ãã§çµçã®è»¢è¨ãã¹ãé²ãã¾ãã</span></p>
+        <h3>⑭ 請求書一発生成 ＆ 会計ソフト連携</h3>
+        <p><span class="ib">月末に締めボタンを押すだけで、</span><span class="ib">運賃データを荷主ごとに集計した請求書用データが一発で生成されます。</span></p>
+        <p><span class="ib">全データをCSVで出力し、</span><span class="ib">お使いの会計ソフトへ読み込ませるだけで経理の転記ミスも防げます。</span></p>
         <div class="flow-pair">
-          <div class="img-slot"><img src="images/ss-invoice-generate-dialog.png" alt="è«æ±æ¸çæãã¤ã¢ã­ã°ã»å®åã¨æéãé¸æ"></div>
-          <div class="img-slot"><img src="images/ss-csv-export-list.png" alt="ãã¼ã¿åºåã»CSVä¸è¦§ç»é¢"></div>
+          <div class="img-slot"><img src="images/ss-invoice-generate-dialog.png" alt="請求書生成ダイアログ・宛先と期間を選択"></div>
+          <div class="img-slot"><img src="images/ss-csv-export-list.png" alt="データ出力・CSV一覧画面"></div>
         </div>
-        <div class="img-slot-doc"><img src="images/ss-invoice-preview-formatted.png" alt="çæãããè«æ±æ¸ãã¬ãã¥ã¼ï¼æ´å½¢æ¸ã¿ï¼"></div>
-        <a href="#cta-section" class="inline-cta">â¶ï¸ è©³ããã¯ãè©¦ãã§ä½æããï¼ç¡æï¼</a>
+        <div class="img-slot-doc"><img src="images/ss-invoice-preview-formatted.png" alt="生成された請求書プレビュー（整形済み）"></div>
+        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="cta-section" class="cta reveal">
         <h2>
-            <span class="ib">ã¾ãã¯ãèªèº«ã®ç®ã§ã</span>
-            <span class="ib">å§åçãªãã©ã¯ããã</span>
-            <span class="ib">å®æãã¦ãã ããã</span>
+            <span class="ib">まずはご自身の目で、</span>
+            <span class="ib">圧倒的な「ラクさ」を</span>
+            <span class="ib">実感してください。</span>
         </h2>
         <p style="max-width: 750px; margin: 0 auto 30px; font-size: 1.15rem; color: #cbd5e1;">
-            <span class="ib">LINEã®ãç¡æãè©¦ããããç»é²ããã ãã¨ã</span><span class="ib">å®éã®ã¢ããªããæåã®ã¹ããã§ä»ããè§¦ã£ã¦ããã ãã¾ãã</span><br>
-            <span class="ib">ç¾å ´ãå¤ããç¬éããã¾ãã¯ç¡æã§ä½æãã¦ãã ããã</span>
+            <span class="ib">LINEの「無料お試し」をご登録いただくと、</span><span class="ib">実際のアプリをお手元のスマホで今すぐ触っていただけます。</span><br>
+            <span class="ib">現場が変わる瞬間を、まずは無料で体感してください。</span>
         </p>
-        <a href="#" class="btn">LINEã§ç¡æãè©¦ããå§ãã</a>
+        <a href="#" class="btn">LINEで無料お試しを始める</a>
     </div>
 </div>
 
 <footer class="site-footer">
     <p class="footer-links">
-        <a href="customer-top.html">ããã</a>
-        <a href="article1.html">å°å¥äºä¾</a>
+        <a href="customer-top.html">トップ</a>
+        <a href="article1.html">導入事例</a>
         <a href="article2.html">FAQ</a>
-        <a href="lp.html">æé</a>
-        <a href="terms.html">å©ç¨è¦ç´</a>
-        <a href="privacy.html">ãã©ã¤ãã·ã¼ããªã·ã¼</a>
-        <a href="terms.html#tokushoho">ç¹å®ååå¼æ³ã«åºã¥ãè¡¨è¨</a>
+        <a href="lp.html">料金</a>
+        <a href="terms.html">利用規約</a>
+        <a href="privacy.html">プライバシーポリシー</a>
+        <a href="terms.html#tokushoho">特定商取引法に基づく表記</a>
     </p>
     <p class="footer-copy">&copy; 2026 Smart Simple System. All rights reserved.</p>
 </footer>
 
 <script>
-    // ã¹ã¯ã­ã¼ã«é£åã¢ãã¡ã¼ã·ã§ã³
+    // スクロール連動アニメーション
     function reveal() {
         var reveals = document.querySelectorAll(".reveal");
         for (var i = 0; i < reveals.length; i++) {

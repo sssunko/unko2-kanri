@@ -792,6 +792,7 @@ function applyExpiryWarningColors_(ss) {
 
   var lr = sheet.getLastRow() - 1;
   var aVals  = sheet.getRange(2, 1, lr, 1).getValues();
+  var bVals  = sheet.getRange(2, 2, lr, 1).getValues();
   var gVals  = sheet.getRange(2, 7, lr, 1).getValues();
   var curBgs = sheet.getRange(2, 1, lr, 1).getBackgrounds();
   var skipSet = { '#e0e0e0': 1, '#9e9e9e': 1, '#ff1744': 1 };
@@ -799,10 +800,17 @@ function applyExpiryWarningColors_(ss) {
   var newBgs = [], changed = false;
   for (var i = 0; i < lr; i++) {
     var id  = String(aVals[i][0] || '').trim();
+    var kbn = String(bVals[i][0] || '').trim();
     var drv = String(gVals[i][0] || '').trim();
     var cur = curBgs[i][0];
-    if (!id || skipSet[cur] || !expiryMap.hasOwnProperty(drv)) {
+    if (!id || skipSet[cur]) {
       newBgs.push([cur]); continue;
+    }
+    if (kbn === '' || !expiryMap.hasOwnProperty(drv)) {
+      var exClr = { '#ffcdd2': 1, '#bbdefb': 1, '#c8e6c9': 1 };
+      var cleared = exClr[cur] ? null : cur;
+      if (cleared !== cur) changed = true;
+      newBgs.push([cleared]); continue;
     }
     var d = expiryMap[drv];
     var nc = d < 0 ? '#ffcdd2' : d === 0 ? '#bbdefb' : d <= 7 ? '#c8e6c9' : cur;
