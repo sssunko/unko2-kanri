@@ -813,7 +813,7 @@ function applyExpiryWarningColors_(ss) {
       newBgs.push([cleared]); continue;
     }
     var d = expiryMap[drv];
-    var nc = d < 0 ? '#ffcdd2' : d === 0 ? '#bbdefb' : d <= 7 ? '#c8e6c9' : cur;
+    var nc = d < 0 ? '#ffcdd2' : d === 0 ? '#bbdefb' : d <= 7 ? '#c8e6c9' : ({'#ffcdd2':1,'#bbdefb':1,'#c8e6c9':1}[cur] ? null : cur);
     if (nc !== cur) changed = true;
     newBgs.push([nc]);
   }

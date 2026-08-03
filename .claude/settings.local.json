@@ -419,7 +419,10 @@
       "Bash(curl -s -I \"https://smart-simple-system.smart-simple-system.workers.dev/images/img-hero-office.png\")",
       "Read(//c/SSS//**)",
       "Bash(wc -l /c/SSS/project-blog-fixed/article1.html /c/SSS/project-blog-fixed/article2.html /c/SSS/project-blog-fixed/lp.html /c/SSS/project-blog-fixed/terms.html)",
-      "PowerShell(Get-ChildItem \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\images\" -ErrorAction SilentlyContinue | Select-Object -First 5 | Format-Table Name; if \\(-not \\(Test-Path \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\images\"\\)\\) { Write-Host \"imagesフォルダなし\" })"
+      "PowerShell(Get-ChildItem \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\images\" -ErrorAction SilentlyContinue | Select-Object -First 5 | Format-Table Name; if \\(-not \\(Test-Path \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\images\"\\)\\) { Write-Host \"imagesフォルダなし\" })",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\84a5d45c-5104-4c53-bc5d-9e319bf1425d\\\\scratchpad\\\\make_13_v7.py\")",
+      "PowerShell(git checkout -- \"manual-deploy/deploy-assets/screenshots/10-sort.png\")",
+      "Bash(ls \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\\" | grep \"7291459\")"
     ]
   }
 }
