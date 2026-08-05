@@ -1904,6 +1904,7 @@ function onEditUnkou_(sheet, range, ss) {
     sortSummaryByDate_();
   }
   // 集計表syncはinstalledOnEdit_（30分トリガー）で処理するためここでは行わない
+  markIdCollisions_(ss);
 }
 
 

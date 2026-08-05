@@ -1,0 +1,5 @@
+/manual-ma
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/manual-user
+  Cache-Control: no-cache, no-store, must-revalidate

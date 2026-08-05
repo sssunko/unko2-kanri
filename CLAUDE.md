@@ -80,4 +80,6 @@ deploy.js                ← 整合性チェックからclasp push、バージ�
 PropertiesServiceによるロック: 同一レコードや同時処理の衝突を防ぐため、データ処理には必ず PropertiesService による排他制御（ロック）をかける。
 SpreadsheetAppの参照規則: フロントエンド（google.script.run）経由で実行される関数内では、絶対に SpreadsheetApp.getActiveSpreadsheet() を使用してはならない。必ず引数から ssId を受け取るか、トリガーイベント e.source を利用してスプレッドシートを特定すること。
 トリガー登録の責務: 各種トリガー（編集検知、時間起動等）の登録ロジックは、ライブラリ側ではなく、顧客環境に物理配置される「スタブ（stub_for_clientSS/コード.js）」に実装すること。また、登録時は前述の「全削除 → 新規登録」フローを徹底すること。
+コード.js 部分読み込み強制（A）: コード.js の全文 Read は絶対禁止。必ず Grep で行番号を特定してから offset+limit 付きの部分 Read のみ使用すること。全文 Read は1回で数万トークンを消費する。
+Grep 効率化強制（C）: Grep は head_limit を常に 30 以下で指定。複数パターンは | で結合して1回の Grep に集約すること。
 

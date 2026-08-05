@@ -172,6 +172,9 @@ body {
 }
 
 .card-body { padding: 14px 18px 16px; }
+.clr-none { font-size: 10px; color: var(--muted); margin-left: auto; flex-shrink: 0; }
+.clr-tag  { font-size: 10px; color: var(--dim);   flex-shrink: 0; }
+.clr-grp  { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
 
 /* ── BLOCK TYPES ── */
 .block { margin-bottom: 10px; }
@@ -258,7 +261,7 @@ html { scroll-behavior: smooth; }
 .card { scroll-margin-top: 90px; }
 #pending { scroll-margin-top: 90px; }
 .ss-wrap { margin-top: 16px; }
-.ss-img { max-width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; image-rendering: -webkit-optimize-contrast; image-rendering: pixelated; }
+.ss-img { max-width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; image-rendering: auto; }
 
 @media (max-width: 680px) {
   .hdr { padding: 18px 16px; }
@@ -300,54 +303,57 @@ html { scroll-behavior: smooth; }
     <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 41</span>」の機能一覧</div>
     <div class="toc-grid">
       <div class="toc-sep">【入力補助】セルに入力するだけで自動処理</div>
-      <a class="toc-item done" href="#feat-01"><span class="toc-n">①</span> 👑 <span class="toc-name">ID自動採番</span></a>
-      <a class="toc-item done" href="#feat-02"><span class="toc-n">②</span> 👑 <span class="toc-name">トン数正規化</span></a>
-      <a class="toc-item done" href="#feat-03"><span class="toc-n">③</span> 👑 <span class="toc-name">車番自動補完</span></a>
-      <a class="toc-item done" href="#feat-04"><span class="toc-n">④</span> 👑 <span class="toc-name">車種変換</span></a>
-      <a class="toc-item done" href="#feat-05"><span class="toc-n">⑤</span> 👑 <span class="toc-name">車番 全角→半角変換</span></a>
-      <a class="toc-item done" href="#feat-06"><span class="toc-n">⑥</span> 👑 <span class="toc-name">日付への現在時刻付与</span></a>
-      <a class="toc-item done" href="#feat-07"><span class="toc-n">⑦</span> 👑 <span class="toc-name">時刻の正規化と日付合成</span></a>
+      <a class="toc-item done" href="#feat-01"><span class="toc-n">1</span> 👑 <span class="toc-name">ID自動採番</span></a>
+      <a class="toc-item done" href="#feat-02"><span class="toc-n">2</span> 👑 <span class="toc-name">トン数正規化</span></a>
+      <a class="toc-item done" href="#feat-03"><span class="toc-n">3</span> 👑 <span class="toc-name">車番自動補完</span></a>
+      <a class="toc-item done" href="#feat-04"><span class="toc-n">4</span> 👑 <span class="toc-name">車種変換</span></a>
+      <a class="toc-item done" href="#feat-05"><span class="toc-n">5</span> 👑 <span class="toc-name">車番 全角→半角変換</span></a>
+      <a class="toc-item done" href="#feat-06"><span class="toc-n">6</span> 👑 <span class="toc-name">日付への現在時刻付与</span></a>
+      <a class="toc-item done" href="#feat-07"><span class="toc-n">7</span> 👑 <span class="toc-name">時刻の正規化と日付合成</span></a>
       <div class="toc-sep">【自動計算】入力値から自動集計・同期</div>
-      <a class="toc-item done" href="#feat-08"><span class="toc-n">⑧</span> 👑 <span class="toc-name">書式自動設定</span></a>
-      <a class="toc-item done" href="#feat-09"><span class="toc-n">⑨</span> 👑 <span class="toc-name">請求→実費高速コピー 🟠</span></a>
-      <a class="toc-item done" href="#feat-10"><span class="toc-n">⑩</span> 👑 <span class="toc-name">合計高速代 自動計算</span></a>
-      <a class="toc-item done" href="#feat-11"><span class="toc-n">⑪</span> 👑 <span class="toc-name">日付変更時の自動ソート</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑫</span><span class="toc-name">積地・降地→距離自動計算</span></a>
+      <a class="toc-item done" href="#feat-08"><span class="toc-n">8</span> 👑 <span class="toc-name">書式自動設定</span></a>
+      <a class="toc-item done" href="#feat-09"><span class="toc-n">9</span> 👑 <span class="toc-name">請求→実費高速コピー 🟠</span></a>
+      <a class="toc-item done" href="#feat-10"><span class="toc-n">10</span> 👑 <span class="toc-name">合計高速代 自動計算</span></a>
+      <a class="toc-item done" href="#feat-11"><span class="toc-n">11</span> 👑 <span class="toc-name">日付変更時の自動ソート</span></a>
+      
+      
       <div class="toc-sep">【警告・保護】異常検知と自動修復</div>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑭</span><span class="toc-name">時刻入力の順序チェック</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑮</span><span class="toc-name">資格期限の警告ポップアップ</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑯</span><span class="toc-name">ID重複・車番不一致の警告</span></a>
+      <a class="toc-item done" href="#feat-12"><span class="toc-n">12</span> 👑 <span class="toc-name">時刻入力の順序チェック</span></a>
+      <a class="toc-item done" href="#feat-13"><span class="toc-n">13</span> 👑 <span class="toc-name">資格期限の警告ポップアップ</span></a>
+      <a class="toc-item done" href="#feat-14"><span class="toc-n">14</span> 👑 <span class="toc-name">ID重複・車番不一致の警告</span></a>
+      <a class="toc-item done" href="#feat-15"><span class="toc-n">15</span> 👑 <span class="toc-name">ヘッダー行の自動復元</span></a>
       <div class="toc-sep">【色表示】セルや行の色で状態を視覚化</div>
-      <a class="toc-item done" href="#feat-18"><span class="toc-n">⑱</span> 👑 <span class="toc-name">有休行の色付け</span></a>
-      <a class="toc-item done" href="#feat-19"><span class="toc-n">⑲</span> 👑 <span class="toc-name">休み行の色付け</span></a>
-      <a class="toc-item done" href="#feat-20"><span class="toc-n">⑳</span> 👑 <span class="toc-name">配車漏れ警告色</span></a>
-      <a class="toc-item done" href="#feat-22"><span class="toc-n">㉒</span> 👑 <span class="toc-name">資格期限アラート色（A列）</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉓</span><span class="toc-name">色凡例メモの自動設定</span></a>
+      <a class="toc-item done" href="#feat-16"><span class="toc-n">16</span> 👑 <span class="toc-name">有休行の色付け</span></a>
+      <a class="toc-item done" href="#feat-17"><span class="toc-n">17</span> 👑 <span class="toc-name">休み行の色付け</span></a>
+      <a class="toc-item done" href="#feat-18"><span class="toc-n">18</span> 👑 <span class="toc-name">配車漏れ警告色</span></a>
+      <a class="toc-item done" href="#feat-19"><span class="toc-n">19</span> 👑 <span class="toc-name">保護列の色</span></a>
+      <a class="toc-item done" href="#feat-20"><span class="toc-n">20</span> 👑 <span class="toc-name">資格期限アラート色（A列）</span></a>
+      <a class="toc-item done" href="#feat-21"><span class="toc-n">21</span> 👑 <span class="toc-name">色凡例メモの自動設定</span></a>
+      <div class="toc-sep">【バックグラウンド】裏側で動く自動処理</div>
+      <a class="toc-item" href="#pending"><span class="toc-n">22</span><span class="toc-name">マスタ編集時連動</span></a>
       <div class="toc-sep">【配車板】配車板メニュー操作</div>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉖</span><span class="toc-name">ホーム画面を表示</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉗</span><span class="toc-name">配車ダッシュボード</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉘</span><span class="toc-name">チェックした行を配車確定</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉙</span><span class="toc-name">選択行のマッチング解除</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">23</span><span class="toc-name">配車ダッシュボード</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">24</span><span class="toc-name">チェックした行を配車確定</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">25</span><span class="toc-name">選択行のマッチング解除</span></a>
       <div class="toc-sep">【手動操作】運行シートのメニュー操作</div>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉛</span><span class="toc-name">ID・車番一括補完（手動）</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉝</span><span class="toc-name">住所確認（確認待ち分）</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉞</span><span class="toc-name">日付順並び替え（手動）</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉟</span><span class="toc-name">経費自動入力</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㊱</span><span class="toc-name">写真・ファイル取込</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㊲</span><span class="toc-name">運行シートCSV/Excel取込</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㊵</span><span class="toc-name">ETC利用明細取込</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">26</span><span class="toc-name">ID・車番一括補完（手動）</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">27</span><span class="toc-name">日付順並び替え（手動）</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">28</span><span class="toc-name">経費自動入力</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">29</span><span class="toc-name">写真・ファイル取込</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">30</span><span class="toc-name">運行シートCSV/Excel取込</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">31</span><span class="toc-name">空インポート行削除</span></a>
       <div class="toc-sep">【帳票・出力】書類生成・メール送信・出力</div>
-      <a class="toc-item" href="#pending"><span class="toc-n">㊷</span><span class="toc-name">発注書・指示書の作成・送信</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㊸</span><span class="toc-name">車番連絡の作成・送信</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㊹</span><span class="toc-name">受領書の耳生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㊺</span><span class="toc-name">請求書生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㊻</span><span class="toc-name">支払確認書生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㊽</span><span class="toc-name">CSV・Excel出力</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">32</span><span class="toc-name">発注書・指示書の作成・送信</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">33</span><span class="toc-name">車番連絡の作成・送信</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">34</span><span class="toc-name">受領書の耳生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">35</span><span class="toc-name">請求書生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">36</span><span class="toc-name">CSV・Excel出力</span></a>
       <div class="toc-sep">【シート管理】月次生成・システム復旧</div>
-      <a class="toc-item" href="#pending"><span class="toc-n">51</span><span class="toc-name">今月分生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">52</span><span class="toc-name">翌月分生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">53</span><span class="toc-name">前月分アーカイブ</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">57</span><span class="toc-name">バックアップから復旧</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">37</span><span class="toc-name">今月分生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">38</span><span class="toc-name">翌月分生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">39</span><span class="toc-name">前月分アーカイブ</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">40</span><span class="toc-name">シート再生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">41</span><span class="toc-name">ヘッダー復旧＋保護</span></a>
     </div>
   </div>
 </div>
@@ -355,7 +361,7 @@ html { scroll-behavior: smooth; }
 <main class="main">
 
   <!-- ──────── 確認済み機能 ──────── -->
-  <div class="sec-title">確認済み機能 <span class="sec-badge">15 / 41</span></div>
+  <div class="sec-title">確認済み機能 <span class="sec-badge">18 / 41</span></div>
   <div class="grid">
 
     <!-- 1 -->
@@ -364,6 +370,7 @@ html { scroll-behavior: smooth; }
         <span class="num">01</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">ID自動採番</span>
+        <span class="clr-none">無</span>
       </div>
       <div class="card-body">
         <div class="block">
@@ -390,6 +397,7 @@ html { scroll-behavior: smooth; }
         <span class="num">02</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">トン数正規化</span>
+        <span class="clr-none">無</span>
       </div>
       <div class="card-body">
         <div class="block">
@@ -409,6 +417,7 @@ html { scroll-behavior: smooth; }
         <span class="num">03</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">車番自動補完</span>
+        <span class="clr-none">無</span>
       </div>
       <div class="card-body">
         <div class="block">
@@ -439,6 +448,7 @@ html { scroll-behavior: smooth; }
         <span class="num">04</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">車種 全角→半角・大文字統一変換</span>
+        <span class="clr-none">無</span>
       </div>
       <div class="card-body">
         <div class="block">
@@ -452,12 +462,13 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 5 (旧6) -->
+    <!-- 5 -->
     <div class="card">
       <div class="card-hdr">
         <span class="num">05</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">車番 全角→半角自動変換</span>
+        <span class="clr-none">無</span>
       </div>
       <div class="card-body">
         <div class="block">
@@ -471,12 +482,13 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 6 (旧28) -->
+    <!-- 6 -->
     <div class="card">
       <div class="card-hdr">
         <span class="num">06</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">日付への現在時刻付与</span>
+        <span class="clr-none">無</span>
       </div>
       <div class="card-body">
         <div class="block">
@@ -491,12 +503,13 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 7 (旧5) -->
+    <!-- 7 -->
     <div class="card">
       <div class="card-hdr">
         <span class="num">07</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">時刻の正規化と日付合成</span>
+        <span class="clr-none">無</span>
       </div>
       <div class="card-body">
         <div class="block">
@@ -516,12 +529,13 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 8 (旧7) -->
+    <!-- 8 -->
     <div class="card">
       <div class="card-hdr">
         <span class="num">08</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">書式自動設定</span>
+        <span class="clr-none">無</span>
       </div>
       <div class="card-body">
         <div class="block">
@@ -536,7 +550,7 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 9 (旧8) -->
+    <!-- 9 -->
     <div class="card">
       <div class="card-hdr">
         <span class="num">09</span>
@@ -567,12 +581,13 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 10 (旧9) -->
+    <!-- 10 -->
     <div class="card">
       <div class="card-hdr">
         <span class="num">10</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">合計高速代 自動計算</span>
+        <span class="clr-none">無</span>
       </div>
       <div class="card-body">
         <div class="block">
@@ -594,12 +609,13 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 11 (旧10) -->
+    <!-- 11 -->
     <div class="card">
       <div class="card-hdr">
         <span class="num">11</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">日付変更時の自動ソート</span>
+        <span class="clr-none">無</span>
       </div>
       <div class="card-body">
         <div class="block">
@@ -621,13 +637,147 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 18 (旧11前半: 有休) -->
+    <!-- feat-12 -->
+    <div class="card" id="feat-12">
+      <div class="card-hdr">
+        <span class="num">12</span>
+        <span class="cat cat-guard">警告・保護</span>
+        <span class="feat-name">時刻入力の順序チェック</span>
+        <span class="clr-none">無</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>N〜R列（誘導→積完→休憩開始→休憩終了→降完）は必ず順番通りにしか入力できない</li>
+            <li>前の時刻が空のまま次の列を入力しようとすると、入力がキャンセルされてエラーが表示される</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label warn">⚠️ 入力の順番</div>
+          <ul class="pts">
+            <li>点呼前完了 → 誘導(N) → 積完(O) → 休憩開始(P) → 休憩終了(Q) → 点呼後完了 → 降完(R) の順で入力すること</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label warn">① 誘導(N)が空のままR列（降完）を入力しようとした場合</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-4.png" class="ss-img" alt="R列（降完）を先に入力しようとした状態"></div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-5.png" class="ss-img" style="width:auto;max-width:100%;" alt="順序エラー：先に誘導時刻を入力してください"></div>
+        <div class="block">
+          <div class="blk-label warn">② 誘導(N)が空のままO列（積完）を入力しようとした場合</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-6.png" class="ss-img" alt="O列（積完）を先に入力しようとした状態"></div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-7.png" class="ss-img" style="width:auto;max-width:100%;" alt="順序エラー：先に誘導時刻を入力してください"></div>
+        <div class="block">
+          <div class="blk-label auto">✅ 全列を順序通りに入力した状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-new0.png" class="ss-img" alt="全列正常入力完了の状態"></div>
+      </div>
+    </div>
+
+    <!-- feat-13 -->
+    <div class="card" id="feat-13">
+      <div class="card-hdr">
+        <span class="num">13</span>
+        <span class="cat cat-guard">警告・保護</span>
+        <span class="feat-name">資格期限の警告ポップアップ（SS起動時）</span>
+        <span class="clr-none">無</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（SS起動時）</div>
+          <ul class="pts">
+            <li>SS起動時に、自車専属マスタの資格期限（免許証：60日以内 / 安全教育・健康診断・適性診断：30日以内）を全乗務員分チェックし、該当者がいる場合はポップアップで一覧を表示する</li>
+            <li>「期限切れ」と「まもなく期限」を区別して表示する</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label tip">💡 日付の修正は20番（資格期限アラート色）の自車専属マスタを参照してください</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/13-expiry-popup-0.png" class="ss-img" alt="資格期限の警告ポップアップ"></div>
+      </div>
+    </div>
+
+    <!-- feat-14 -->
+    <div class="card" id="feat-14">
+      <div class="card-hdr">
+        <span class="num">14</span>
+        <span class="cat cat-guard">警告・保護</span>
+        <span class="feat-name">ID重複・車番不一致の警告</span>
+        <div class="color-chip" style="background:#ff1744;width:14px;height:14px;border-radius:3px;margin-left:auto;flex-shrink:0;" title="#ff1744 ID衝突"></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（入力のたびに）</div>
+          <ul class="pts">
+            <li>同じIDで車番または日付が異なる行があると、ID欄（A列）が赤くなる</li>
+            <li>衝突が解消されると自動で赤が消える</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label warn">① 同じIDが2行入力された状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/14-id-collision-1.png" class="ss-img" alt="同じIDが2行ある状態（ID衝突）"></div>
+        <div class="block">
+          <div class="blk-label auto">② IDを別々に修正した状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/14-id-collision-2.png" class="ss-img" alt="IDが別々になり衝突解消"></div>
+      </div>
+    </div>
+
+    <!-- feat-15 -->
+    <div class="card" id="feat-15">
+      <div class="card-hdr">
+        <span class="num">15</span>
+        <span class="cat cat-guard">警告・保護</span>
+        <span class="feat-name">ヘッダー行の自動復元</span>
+        <span class="clr-none">無</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（入力のたびに）</div>
+          <ul class="pts">
+            <li>1行目（項目名の行）を誤って削除・書き換えても、自動でもとの項目名に復元される</li>
+            <li>復元時に「列構成を元に戻しました」のポップアップが表示される</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 正常な状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/15-header-normal-0.png" class="ss-img" alt="ヘッダー行が正常な状態"></div>
+        <div class="block">
+          <div class="blk-label">② 1行目のセルを削除した状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/15-header-deleted-0.png" class="ss-img" alt="ヘッダー行を削除した状態"></div>
+        <div class="block">
+          <div class="blk-label">③ 「列構成を元に戻しました」のポップアップが表示</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/15-header-popup-0.png" class="ss-img" alt="復元ポップアップ"></div>
+        <div class="block">
+          <div class="blk-label">④ 自動でヘッダーが復元された状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/15-header-restored-0.png" class="ss-img" alt="ヘッダー行が復元された状態"></div>
+        <div class="block">
+          <div class="blk-label manual">🟡 手動（自動復元が効かなかった場合）</div>
+          <ul class="pts">
+            <li>メニュー「システム設定・保守」→「🔑 ヘッダー復旧＋保護」を実行</li>
+            <li>全対象シート（運行・集計表・マスタ等）のヘッダーをまとめて正規の状態に戻し、シート保護を再設定する</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/15-header-menu-0.png" class="ss-img" alt="メニュー：ヘッダー復旧＋保護"></div>
+      </div>
+    </div>
+
+    <!-- 13 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">18</span>
-        <span class="cat cat-color">色表示</span>
+        <span class="num">16</span>
         <span class="feat-name">有休行の色付け</span>
-        <div class="color-chip" style="background:#e0e0e0;border:1px solid #bbb;width:14px;height:14px;border-radius:3px;margin-left:auto;flex-shrink:0;" title="#e0e0e0 有休"></div>
+        <div class="clr-grp">
+          <span class="clr-tag">色表示</span>
+          <div class="color-chip" style="background:#e0e0e0;border:1px solid #bbb;width:14px;height:14px;border-radius:3px;" title="#e0e0e0 有休"></div>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -642,13 +792,15 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 19 (旧11後半: 休み) -->
+    <!-- 13 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">19</span>
-        <span class="cat cat-color">色表示</span>
+        <span class="num">17</span>
         <span class="feat-name">休み行の色付け</span>
-        <div class="color-chip" style="background:#9e9e9e;width:14px;height:14px;border-radius:3px;margin-left:auto;flex-shrink:0;" title="#9e9e9e 休み"></div>
+        <div class="clr-grp">
+          <span class="clr-tag">色表示</span>
+          <div class="color-chip" style="background:#9e9e9e;width:14px;height:14px;border-radius:3px;" title="#9e9e9e 休み"></div>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -663,13 +815,15 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 20 (旧12) -->
+    <!-- 14 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">20</span>
-        <span class="cat cat-color">色表示</span>
+        <span class="num">18</span>
         <span class="feat-name">配車漏れ警告色</span>
-        <div class="color-chip" style="background:#fff9c4;border:1px solid #ccc;width:14px;height:14px;border-radius:3px;margin-left:auto;flex-shrink:0;" title="#fff9c4 配車漏れ"></div>
+        <div class="clr-grp">
+          <span class="clr-tag">色表示</span>
+          <div class="color-chip" style="background:#fff9c4;border:1px solid #ccc;width:14px;height:14px;border-radius:3px;" title="#fff9c4 配車漏れ"></div>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -686,13 +840,47 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 22 (旧13) -->
+    <!-- feat-19 -->
+    <div class="card" id="feat-19">
+      <div class="card-hdr">
+        <span class="num">19</span>
+        <span class="feat-name">保護列の色（薄青グレー）</span>
+        <div class="clr-grp">
+          <span class="clr-tag">色表示</span>
+          <div class="color-chip" style="background:#eceff1;border:1px solid #bbb;width:14px;height:14px;border-radius:3px;" title="#eceff1 保護列"></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（SS開き直し・入力のたびに）</div>
+          <ul class="pts">
+            <li>V列（合計高速代）・Y列（連絡端末）・Z列（データ端末）のセルに薄青グレーの背景色が自動で付く</li>
+            <li>IDが入力されている行（2行目以降）が対象</li>
+            <li>「この列は自動計算・自動入力のため手で入力しないでください」という視覚的なサインです</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 標準の状態（薄青グレーが適用されている）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/19-protect-normal-0.png" class="ss-img" alt="保護列の薄青グレー（標準）"></div>
+        <div class="block">
+          <div class="blk-label">② 誤って入力した場合</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/19-protect-input-0.png" class="ss-img" alt="保護列に誤入力した状態"></div>
+        <div class="block">
+          <div class="blk-label">③ 次の編集・F5（開き直し）後に薄青グレーが元に戻る</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/19-protect-restored-0.png" class="ss-img" alt="薄青グレーが復元された状態"></div>
+      </div>
+    </div>
+
+    <!-- 15 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">22</span>
-        <span class="cat cat-color">色表示</span>
+        <span class="num">20</span>
         <span class="feat-name">資格期限アラート色（A列）</span>
-        <div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0;">
+        <div class="clr-grp">
+          <span class="clr-tag">色表示</span>
           <div class="color-chip" style="background:#ffcdd2;border:1px solid #e88;width:14px;height:14px;border-radius:3px;" title="期限切れ"></div>
           <div class="color-chip" style="background:#bbdefb;border:1px solid #8ac;width:14px;height:14px;border-radius:3px;" title="当日"></div>
           <div class="color-chip" style="background:#c8e6c9;border:1px solid #8b8;width:14px;height:14px;border-radius:3px;" title="7日以内"></div>
@@ -742,174 +930,167 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
+    <!-- feat-21 -->
+    <div class="card" id="feat-21">
+      <div class="card-hdr">
+        <span class="num">21</span>
+        <span class="feat-name">色凡例メモの自動設定</span>
+        <div class="clr-grp">
+          <span class="clr-tag">色表示</span>
+          <span class="clr-tag">無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（SS開き直しのたびに）</div>
+          <ul class="pts">
+            <li>セルの色が何を意味するかを、ヘッダーセルに「メモ」として自動で書き込む</li>
+            <li>セルにカーソルを乗せると吹き出しでメモが表示される</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① A1セル（ID列ヘッダー）— ID列・行全体の色の意味</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/21-legend-a1-0.png" class="ss-img" alt="A1セルのメモ（色凡例）"></div>
+        <div class="block">
+          <div class="blk-label">② L1セル（積地列ヘッダー）— 薄黄（配車漏れ）の意味</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/21-legend-l1-0.png" class="ss-img" alt="L1セルのメモ（配車漏れ薄黄の説明）"></div>
+      </div>
+    </div>
+
   </div><!-- /grid -->
 
   <!-- ──────── 今後の対応予定 ──────── -->
   <div class="sec-title" id="pending" style="margin-top:52px;">
     今後の対応予定（未確認）
-    <span class="sec-badge gray">26 件</span>
+    <span class="sec-badge gray">20 件</span>
   </div>
 
   <div class="pending-grid">
 
     <div class="pitem">
-      <span class="pnum">12</span>
-      <span class="cat cat-calc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">自動計算</span>
-      <span class="pname">積地・降地→距離自動計算（入力時＋毎日0時）</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">14</span>
-      <span class="cat cat-guard" style="font-size:9px;padding:1px 6px;flex-shrink:0;">警告・保護</span>
-      <span class="pname">時刻入力の順序チェック（警告）</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">15</span>
-      <span class="cat cat-guard" style="font-size:9px;padding:1px 6px;flex-shrink:0;">警告・保護</span>
-      <span class="pname">資格期限の警告ポップアップ（SS起動時）</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">16</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">ID重複・車番不一致の警告（A列赤）</span>
-      <div class="pcolor"><div class="pchip" style="background:#ff1744;"></div>🔴 濃い赤</div>
+      <span class="pnum">22</span>
+      <span class="cat cat-calc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">バックグラウンド</span>
+      <span class="pname">マスタ編集時連動</span>
     </div>
 
     <div class="pitem">
       <span class="pnum">23</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">色凡例メモの自動設定（A1・L1）</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">26</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">ホーム画面を表示</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">27</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">配車ダッシュボード</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">28</span>
+      <span class="pnum">24</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">チェックした行を配車確定</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">29</span>
+      <span class="pnum">25</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">選択行のマッチング解除</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">31</span>
+      <span class="pnum">26</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">ID・車番一括補完（手動）</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">33</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">住所確認（確認待ち分）</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">34</span>
+      <span class="pnum">27</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">日付順並び替え（手動）</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">35</span>
+      <span class="pnum">28</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">経費自動入力</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">36</span>
+      <span class="pnum">29</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">写真・ファイル取込</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">37</span>
+      <span class="pnum">30</span>
       <span class="cat cat-import" style="font-size:9px;padding:1px 6px;flex-shrink:0;">データ取込</span>
       <span class="pname">運行シートCSV/Excel取込</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">40</span>
+      <span class="pnum">31</span>
       <span class="cat cat-import" style="font-size:9px;padding:1px 6px;flex-shrink:0;">データ取込</span>
-      <span class="pname">ETC利用明細取込</span>
+      <span class="pname">空インポート行削除</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">42</span>
+      <span class="pnum">32</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">発注書・指示書の作成・送信</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">43</span>
+      <span class="pnum">33</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">車番連絡の作成・送信</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">44</span>
+      <span class="pnum">34</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">受領書の耳生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">45</span>
+      <span class="pnum">35</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">請求書生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">46</span>
-      <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
-      <span class="pname">支払確認書生成</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">48</span>
+      <span class="pnum">36</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">CSV・Excel出力</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">51</span>
+      <span class="pnum">37</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">今月分生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">52</span>
+      <span class="pnum">38</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">翌月分生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">53</span>
+      <span class="pnum">39</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">前月分アーカイブ</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">57</span>
+      <span class="pnum">40</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">バックアップから復旧</span>
+      <span class="pname">シート再生成</span>
+    </div>
+
+    <div class="pitem">
+      <span class="pnum">41</span>
+      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
+      <span class="pname">ヘッダー復旧＋保護</span>
     </div>
 
   </div><!-- /pending-grid -->
+
 
 </main>
 
