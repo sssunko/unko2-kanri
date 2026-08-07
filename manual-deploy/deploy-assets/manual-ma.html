@@ -190,10 +190,15 @@ body {
 
 .block { margin-bottom: 12px; }
 .block:last-child { margin-bottom: 0; }
+.ss-wrap + .block { margin-top: 20px; }
+.block + .ss-wrap { margin-top: 6px; }
 .blk-label {
   font-size: 10px; font-weight: 700; color: var(--muted);
   letter-spacing: .08em; margin-bottom: 5px;
   padding-left: 0;
+}
+.block:not(:has(ul,ol)) > .blk-label {
+  font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px;
 }
 .pts { list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .pts li {
@@ -391,9 +396,9 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-20"><span class="toc-n">20</span> 👑 <span class="toc-name">資格期限アラート色（A列）</span></a>
       <a class="toc-item done" href="#feat-21"><span class="toc-n">21</span> 👑 <span class="toc-name">色凡例メモの自動設定</span></a>
       <div class="toc-sep">【バックグラウンド】常時稼働の自動処理</div>
-      <a class="toc-item" href="#pending"><span class="toc-n">22</span><span class="toc-name">マスタ編集時の運行シート連動</span></a>
+      <a class="toc-item done" href="#feat-22"><span class="toc-n">22</span> 👑 <span class="toc-name">マスタ編集時連動</span></a>
       <div class="toc-sep">【配車板】配車板メニュー操作</div>
-      <a class="toc-item" href="#pending"><span class="toc-n">23</span><span class="toc-name">配車ダッシュボード</span></a>
+      <a class="toc-item done" href="#feat-23"><span class="toc-n">23</span> 👑 <span class="toc-name">配車ダッシュボード</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">24</span><span class="toc-name">チェックした行を配車確定</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">25</span><span class="toc-name">選択行のマッチング解除</span></a>
       <div class="toc-sep">【手動操作】運行シートのメニュー操作</div>
@@ -422,7 +427,7 @@ html { scroll-behavior: smooth; }
 <main class="main">
 
   <!-- ──────── 確認済み機能 ──────── -->
-  <div class="sec-title">確認済み機能 <span class="sec-badge">18 / 41</span></div>
+  <div class="sec-title">確認済み機能 <span class="sec-badge">20 / 41</span></div>
   <div class="grid">
 
     <!-- 1 -->
@@ -1110,27 +1115,134 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
+    <!-- feat-22 -->
+    <div class="card" id="feat-22">
+      <div class="card-hdr">
+        <span class="num">22</span>
+        <span class="feat-name">マスタ編集時連動</span>
+        <span class="clr-none">無</span>
+      </div>
+      <div class="card-body">
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-3（onEditMasterVehicle_）/ 3-3b（syncVehicleToCurrentMonth_）</span>
+        <div class="block">
+          <div class="blk-label">トリガー経路</div>
+          <ul class="pts">
+            <li>installedOnEdit_ → シート名が「自車専属マスタ」かつ B列（col=2）かつ row≥2 の場合に分岐</li>
+            <li>HTMLダイアログ（いつから適用しますか？）を表示 → google.script.run.executeStatusSync で 3-3b を呼び出す</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">3-3b: syncVehicleToCurrentMonth_ のロジック</div>
+          <ul class="pts">
+            <li>applyDate（今日 / 月初 / 2000-01-01）以降の空行（荷主〜売上 K〜S列がすべて空）を運行シートから削除</li>
+            <li>status === '運行' のとき：applyDate〜月末の各日に車番・区分・乗務員名等を埋めたプレースホルダー行を再生成しIDを採番</li>
+            <li>複数行同時編集対応（行番号を JSON 配列で渡す）。ただし運用上は1台ずつを推奨</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">▶ 待機 → 運行（行の追加）</div>
+          <ul class="pts">
+            <li>「待機」を「運行」に変更しポップアップの該当ボタンを押すと、選択した日付以降の行が運行シートに自動で追加される</li>
+            <li>「待機」はトラックはあるが乗務員がいない場合や、乗務員の怪我等で長期休暇の際などに使用する</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 変更前（車番5678は運行シートに存在しない）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-add-sheet-before-0.png" class="ss-img" alt="変更前 運行シートに車番5678は存在しない"></div>
+        <div class="block">
+          <div class="blk-label">② 自車専属マスタのS-0002が待機の状態から運行に変更</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-add-before-0.png" class="ss-img" alt="自車専属マスタ S-0002が待機"></div>
+        <div class="block">
+          <div class="blk-label">③ 「いつから適用しますか？」ポップアップ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-add-popup-0.png" class="ss-img" alt="いつから適用しますか？ポップアップ（追加）"></div>
+        <div class="block">
+          <div class="blk-label">④ S-0002が運行に変わった</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-add-after-0.png" class="ss-img" alt="変更後 S-0002が運行に変わった"></div>
+        <div class="block" style="margin-top:14px;">
+          <div class="blk-label">▶ 運行 → 待機 / 故障（行の削除）</div>
+          <ul class="pts">
+            <li>配車が入っていない空の行（未配車行）のみ削除。配車済み行は一切削除されない</li>
+            <li>間違えた場合は同じ手順で「運行」に戻せば再追加できる</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 「運行状態」欄をクリックして変更</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-del-dropdown-0.png" class="ss-img" alt="ドロップダウンで待機/故障を選択"></div>
+        <div class="block">
+          <div class="blk-label">② 「いつから適用しますか？」ポップアップ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-del-popup-0.png" class="ss-img" alt="いつから適用しますか？ポップアップ（削除）"></div>
+        <div class="block">
+          <div class="blk-label">③ 変更後（待機に変わった）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-del-after-master-0.png" class="ss-img" alt="変更後 S-0002が待機に変わった"></div>
+        <div class="block">
+          <div class="blk-label">④ 運行シートから空の行が削除された</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-del-after-sheet-0.png" class="ss-img" alt="運行シートから空行が削除された状態"></div>
+        <div class="block" style="margin-top:14px;">
+          <div class="blk-label tip">💡 ポップアップの選択肢（applyDate）</div>
+          <ul class="pts">
+            <li>本日以降：today = 当日0:00:00 を起点</li>
+            <li>今月以降：month = 月初1日0:00:00 を起点</li>
+            <li>全期間（制限なし）：all = 2000-01-01 を起点（実質全件）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- feat-23 -->
+    <div class="card" id="feat-23">
+      <div class="card-hdr">
+        <span class="num">23</span>
+        <span class="feat-name">配車ダッシュボード</span>
+        <span class="clr-none">無</span>
+      </div>
+      <div class="card-body">
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 2-5（showDispatchDashboard / getDispatchDashboardData）/ dispatchDashboard.html</span>
+        <div class="block">
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
+          <ul class="pts">
+            <li>「毎日の記帳業務」→「🚚 配車ダッシュボード」でサイドバーを表示</li>
+            <li>getDispatchDashboardData()：本日分（J列＝today）の運行シートからL列（積地）が空欄の行のみを抽出して返す</li>
+            <li>配車漏れ件数（count）を大きく表示。0件なら「✅ 配車漏れなし」バナー</li>
+            <li>setInterval(30000) による30秒自動更新。「🔄 更新」ボタンで手動更新</li>
+            <li>積地（L列）空欄行 = 配車漏れ警告色（薄黄 #fff9c4）が付いている行と同じ</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① メニューから「配車ダッシュボード」を選択</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/23-menu-0.png" class="ss-img" alt="メニュー 配車ダッシュボード"></div>
+        <div class="block">
+          <div class="blk-label">② 配車漏れなし（本日の積地未入力が0件）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/23-ok-0.png" class="ss-img" alt="配車ダッシュボード 配車漏れなし"></div>
+        <div class="block">
+          <div class="blk-label">③ 配車漏れあり（積地が空欄の行が一覧表示）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/23-ng-0.png" class="ss-img" alt="配車ダッシュボード 配車漏れあり"></div>
+        <div class="block">
+          <div class="blk-label">④ 運行シート：積地（L列）が空欄の行がダッシュボードに表示される（配車漏れ警告色の薄黄が付いている行と同じ）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/23-sheet-0.png" class="ss-img" alt="運行シート 積地列が空欄の行（配車漏れ）"></div>
+      </div>
+    </div>
+
   </div><!-- /grid -->
 
   <!-- ──────── 今後の対応予定 ──────── -->
   <div class="sec-title" id="pending" style="margin-top:52px;">
     今後の対応予定（未確認）
-    <span class="sec-badge gray">20 件</span>
+    <span class="sec-badge gray">18 件</span>
   </div>
 
   <div class="pending-grid">
-
-    <div class="pitem">
-      <span class="pnum">22</span>
-      <span class="cat cat-input" style="font-size:9px;padding:1px 6px;flex-shrink:0;">入力補助</span>
-      <span class="pname">自車専属マスタ編集時の運行シート連動</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">23</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">配車ダッシュボード</span>
-    </div>
 
     <div class="pitem">
       <span class="pnum">24</span>

@@ -456,7 +456,14 @@
       "Bash(python process_19.py)",
       "Bash(python extract_21.py)",
       "Bash(python scan_21.py)",
-      "Bash(python process_21.py)"
+      "Bash(python process_21.py)",
+      "Bash(python3)",
+      "Read(//c/Users/OWNER/AppData/Local/Temp/claude/c--gas-unko2-kanri/0b0abdfa-060a-4440-aaab-949c7dd5620a/scratchpad/**)",
+      "PowerShell(copy \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\0b0abdfa-060a-4440-aaab-949c7dd5620a\\\\scratchpad\\\\22-add-before-0.png\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\\\\22-add-before-0.png\")",
+      "PowerShell(copy \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\0b0abdfa-060a-4440-aaab-949c7dd5620a\\\\scratchpad\\\\23-menu-0.png\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\\\\\")",
+      "PowerShell(copy \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\0b0abdfa-060a-4440-aaab-949c7dd5620a\\\\scratchpad\\\\23-ok-0.png\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\\\\\")",
+      "PowerShell(copy \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\0b0abdfa-060a-4440-aaab-949c7dd5620a\\\\scratchpad\\\\23-ng-0.png\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\\\\\")",
+      "PowerShell(copy \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\0b0abdfa-060a-4440-aaab-949c7dd5620a\\\\scratchpad\\\\23-sheet-0.png\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\\\\\")"
     ]
   }
 }
