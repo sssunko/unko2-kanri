@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -402,23 +402,22 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-24"><span class="toc-n">24</span> 👑 <span class="toc-name">選択行の配車確定解除</span></a>
       <div class="toc-sep">【手動操作】運行シートのメニュー操作</div>
       <a class="toc-item done" href="#feat-25"><span class="toc-n">25</span> 👑 <span class="toc-name">ID・車番一括補完（手動）</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">26</span><span class="toc-name">日付順並び替え（手動）</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">27</span><span class="toc-name">経費自動入力</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">28</span><span class="toc-name">写真・ファイル取込</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">29</span><span class="toc-name">運行シートCSV/Excel取込</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">30</span><span class="toc-name">空インポート行を削除</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">26</span><span class="toc-name">経費自動入力</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">27</span><span class="toc-name">写真・ファイル取込</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">28</span><span class="toc-name">運行シートCSV/Excel取込</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">29</span><span class="toc-name">空インポート行を削除</span></a>
       <div class="toc-sep">【帳票・出力】書類生成・メール送信・出力</div>
-      <a class="toc-item" href="#pending"><span class="toc-n">31</span><span class="toc-name">発注書・指示書の作成・送信</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">32</span><span class="toc-name">車番連絡の作成・送信</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">33</span><span class="toc-name">受領書の耳生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">34</span><span class="toc-name">請求書生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">35</span><span class="toc-name">CSV・Excel出力</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">30</span><span class="toc-name">発注書・指示書の作成・送信</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">31</span><span class="toc-name">車番連絡の作成・送信</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">32</span><span class="toc-name">受領書の耳生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">33</span><span class="toc-name">請求書生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">34</span><span class="toc-name">CSV・Excel出力</span></a>
       <div class="toc-sep">【シート管理】月次生成・システム復旧</div>
-      <a class="toc-item" href="#pending"><span class="toc-n">36</span><span class="toc-name">今月分生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">37</span><span class="toc-name">翌月分生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">38</span><span class="toc-name">前月分アーカイブ</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">39</span><span class="toc-name">シート再生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">40</span><span class="toc-name">ヘッダー復旧＋保護</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">35</span><span class="toc-name">今月分生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">36</span><span class="toc-name">翌月分生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">37</span><span class="toc-name">前月分アーカイブ</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">38</span><span class="toc-name">シート再生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">39</span><span class="toc-name">ヘッダー復旧＋保護</span></a>
     </div>
   </div>
 </div>
@@ -426,7 +425,7 @@ html { scroll-behavior: smooth; }
 <main class="main">
 
   <!-- ──────── 確認済み機能 ──────── -->
-  <div class="sec-title">確認済み機能 <span class="sec-badge">22 / 40</span></div>
+  <div class="sec-title">確認済み機能 <span class="sec-badge">25 / 39</span></div>
   <div class="grid">
 
     <!-- 1 -->
@@ -700,7 +699,7 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">入力時・自動</div>
           <ul class="pts">
-            <li>J列（col10）の編集時に <code>sortUnkouByDate_()</code> と <code>sortSummaryByDate_()</code> を呼び出す</li>
+            <li>J列（col10）の編集時に <code>sortUnkouByDate_()</code> と <code>sortSummaryByDate_()</code> を呼び出し、運行シートと集計表の両方を日付昇順→乗務員名昇順で強制ソートする</li>
             <li>ソート前に背景色・リッチテキスト値（col24・col26）を一括取得し、ソート後の行順で復元</li>
             <li>ソート後 V列の数式を全行 <code>=IF(T=U,"",T-U)</code> で再セット。数値書式・日付書式も再適用</li>
           </ul>
@@ -1304,7 +1303,8 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label tip">💡 手動実行（メニュー「🆔 ID・車番一括補完」）</div>
           <ul class="pts">
-            <li>CSVインポートや複数行コピペなど onEdit が発火しない一括操作後、IDや車番が入っていない行に対して使用する</li>
+            <li>CSVインポートや複数行のコピー＆ペーストでデータを一括入力した後、IDや車番が入っていない行に対して使用する</li>
+            <li>A列のIDが空でB〜K列にデータがある行にV-XXXXを一括採番、F列（車番）または乗務員名が空の行を自車専属マスタから一括補完し、集計表を全件再同期する</li>
             <li>A列空・B〜K列にデータあり → V-XXXX 形式で採番（LockService.getScriptLock で二重採番防止）</li>
             <li>F列(車番)またはG列(乗務員名)が空 → 自車専属マスタから補完（社外傭車はマスタ外のため補完されない）</li>
             <li>補完後は syncSummaryForId_ で集計表を再同期 → sortUnkouByDate_ でソート → applyHolidayRowColors_ で色付け</li>
@@ -1318,98 +1318,92 @@ html { scroll-behavior: smooth; }
   <!-- ──────── 今後の対応予定 ──────── -->
   <div class="sec-title" id="pending" style="margin-top:52px;">
     今後の対応予定（未確認）
-    <span class="sec-badge gray">15 件</span>
+    <span class="sec-badge gray">14 件</span>
   </div>
 
   <div class="pending-grid">
 
 
-    <div class="pitem">
-      <span class="pnum">26</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">日付順並び替え（手動）</span>
-    </div>
-
-    <div class="pitem">
+<div class="pitem">
       <span class="pnum">27</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">経費自動入力</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">28</span>
+      <span class="pnum">27</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">写真・ファイル取込</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">29</span>
+      <span class="pnum">27</span>
       <span class="cat cat-import" style="font-size:9px;padding:1px 6px;flex-shrink:0;">データ取込</span>
       <span class="pname">運行シートCSV/Excel取込</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">30</span>
+      <span class="pnum">27</span>
       <span class="cat cat-import" style="font-size:9px;padding:1px 6px;flex-shrink:0;">データ取込</span>
       <span class="pname">空インポート行を削除</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">31</span>
+      <span class="pnum">27</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">発注書・指示書の作成・送信</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">32</span>
+      <span class="pnum">27</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">車番連絡の作成・送信</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">33</span>
+      <span class="pnum">27</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">受領書の耳生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">34</span>
+      <span class="pnum">27</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">請求書生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">35</span>
+      <span class="pnum">27</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">CSV・Excel出力</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">36</span>
+      <span class="pnum">27</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">今月分生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">37</span>
+      <span class="pnum">27</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">翌月分生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">38</span>
+      <span class="pnum">27</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">前月分アーカイブ</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">39</span>
+      <span class="pnum">27</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">シート再生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">40</span>
+      <span class="pnum">27</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">ヘッダー復旧＋保護</span>
     </div>
