@@ -1012,7 +1012,7 @@ function onOpen(e) {
       .addItem('🏠 ホーム画面を表示',           'showSidebar')
       .addItem('🚚 配車ダッシュボード',          'showDispatchDashboard')
       .addItem('🔗 チェックした行を配車確定',    'matchAndConfirmDispatch')
-      .addItem('🔓 選択行のマッチング解除',      'cancelDispatch')
+      .addItem('🔓 選択行の配車確定解除',         'cancelDispatch')
       .addItem('🔧 配車板 列ズレ修復',          'repairJohoSheet')
       .addItem('🆔 ID・車番一括補完',            'fillMissingIdsAndCars')
       .addItem('📏 距離計算（未計算分）',         'calcDistanceManual')
@@ -1131,7 +1131,7 @@ function buildClientMenu() {
       .addItem('🏠 ホーム画面を表示',           'showSidebar')
       .addItem('🚚 配車ダッシュボード',          'showDispatchDashboard')
       .addItem('🔗 チェックした行を配車確定',    'matchAndConfirmDispatch')
-      .addItem('🔓 選択行のマッチング解除',      'cancelDispatch')
+      .addItem('🔓 選択行の配車確定解除',         'cancelDispatch')
       .addItem('🔧 配車板 列ズレ修復',          'repairJohoSheet')
       .addItem('🆔 ID・車番一括補完',            'fillMissingIdsAndCars')
       .addItem('📏 距離計算（未計算分）',         'calcDistanceManual')
@@ -2361,6 +2361,13 @@ function onEditJoho_(sheet, range, ss) {
     var _tvNew = _tvOld.map(function(r) { return [normalizeTons_(r[0])]; });
     var _tvChg = _tvNew.some(function(v, i) { return String(v[0]) !== String(_tvOld[i][0]); });
     if (_tvChg) sheet.getRange(effStart, tc, effRows, 1).setValues(_tvNew);
+  });
+
+  // ── 金額列（L=12/Z=26）に #,##0 書式を適用 ──
+  var _amtEnd = col + numCols - 1;
+  [12, 26].forEach(function(ac) {
+    if (ac < col || ac > _amtEnd) return;
+    sheet.getRange(effStart, ac, effRows, 1).setNumberFormat('#,##0');
   });
 
   // コピペ（複数列一括編集）はTEL/FAX自動入力・運行登録不要なので着色のみで終了

@@ -463,7 +463,23 @@
       "PowerShell(copy \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\0b0abdfa-060a-4440-aaab-949c7dd5620a\\\\scratchpad\\\\23-menu-0.png\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\\\\\")",
       "PowerShell(copy \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\0b0abdfa-060a-4440-aaab-949c7dd5620a\\\\scratchpad\\\\23-ok-0.png\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\\\\\")",
       "PowerShell(copy \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\0b0abdfa-060a-4440-aaab-949c7dd5620a\\\\scratchpad\\\\23-ng-0.png\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\\\\\")",
-      "PowerShell(copy \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\0b0abdfa-060a-4440-aaab-949c7dd5620a\\\\scratchpad\\\\23-sheet-0.png\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\\\\\")"
+      "PowerShell(copy \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\0b0abdfa-060a-4440-aaab-949c7dd5620a\\\\scratchpad\\\\23-sheet-0.png\" \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\screenshots\\\\\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\extract24.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\fix24_border.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\fix24_v2.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\fix24_v3.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\fix_menu.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\scan_menu.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\fix_menu_v2.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\fix_menu_v3.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\scan_menu2.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\match_menu.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\fix_menu_final.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\fix_menu_final2.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\menu_grid.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\menu_grid2.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\fix_menu_final3.py\")",
+      "PowerShell(Select-String -Path \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a.jsonl\" -Pattern \"fillMissing|一括補完|4-2b|4-6b\" | Select-Object -First 10 | ForEach-Object { $_.Line.Substring\\(0, [Math]::Min\\(300, $_.Line.Length\\)\\) })"
     ]
   }
 }
