@@ -499,7 +499,18 @@
       "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\box4_fix.py\")",
       "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\box2_menu.py\")",
       "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\extract_new2.py\" 2>&1)",
-      "Bash(node deploy.js \"コメント誤記修正: X列\\(24\\)に統一（W列\\(23\\)誤記14箇所）\")"
+      "Bash(node deploy.js \"コメント誤記修正: X列\\(24\\)に統一（W列\\(23\\)誤記14箇所）\")",
+      "Bash(node deploy.js \"27番: csvImport辞書拡充・集計行誤スキップ修正・プレビュー50行制限・書込リトライ・辞書取得失敗時内蔵辞書続行\")",
+      "Bash(node deploy.js \"設計修正: developmentMode:false強制（②③の自動反映バグ根絶・二重防衛フロー復元）\")",
+      "Bash(node deploy.js \"設計修正: deploy.jsのdevelopmentMode:false化（二重防衛フロー完全復元）\")",
+      "Bash(node deploy.js \"全顧客スタブ状態診断メニュー追加\")",
+      "Bash(node deploy.js \"診断メニュー削除・③スタブ修正準備\")",
+      "Bash(clasp run *)",
+      "Bash(node fix_client_stubs.js)",
+      "Bash(node deploy.js \"①メニューからsyncToAllClientSS削除\")",
+      "Bash(rm \"c:\\\\gas\\\\unko2-kanri\\\\fix_client_stubs.js\")",
+      "Bash(node deploy.js \"syncToAllClientSSメニュー復元\")",
+      "Bash(node deploy.js \"csvImport高速化：100件チャンク分割・プログレス表示\")"
     ]
   }
 }

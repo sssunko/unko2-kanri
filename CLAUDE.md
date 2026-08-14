@@ -61,6 +61,13 @@ text
    ├─ 「📤 各客に反映」：契約中の全顧客環境（③）に対して、コードのクリーンインストールを実行
    ▼
 ③ 各客SS（G運輸、A運輸など、顧客ごとの完全独立シート）
+
+【反映タイミングの絶対ルール】
+・日常のバグ修正・機能追加：「node deploy.js」のみ実行。②③への操作は一切不要・禁止
+・②③はスタブがライブラリ（①）を参照しているだけなので、①が更新されれば自動で同じ動きになる
+・②③のコード（スタブ含む）を直接修正することは絶対禁止
+・「📤 客用SS（②）に反映」「📤 各客に反映」ボタンを使うのはスタブ構成変更時・新規SS作成時のみ
+
 3. SS・スクリプト・デプロイID一覧
 役割	SS ID / 参照先	WebApp デプロイID
 ①修正用SS	.clasp.json を参照	AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU
@@ -77,6 +84,14 @@ build_stub.js            ← getClientStubSource_() 自動生成ユーティリ�
 check_integrity.js       ← デプロイ前整合性チェック（HTML内の未定義スタブ関数検知用 / Node.js）
 deploy.js                ← 整合性チェックからclasp push、バージョン管理まで行う自動デプロイスクリプト
 5. 開発規約 & 制約事項
+【絶対厳守】反映フロー三段階: コード修正後の反映は必ず以下の順番で行う。
+  ① node deploy.js → ①修正用SSを更新
+  ② ①修正用SSのメニュー「📤 テスト客SS（②）に反映」→ ②客用SSで動作確認
+  ③ 確認後に②客用SSのメニュー「📤 各客に反映」→ 全③各客SSに反映
+  ②を経由せず③に自動反映される構造は二重防衛を破壊する重大な設計バグ。絶対禁止。
+
+【絶対厳守】developmentMode は必ず false: ②客用SS・③各客SS の appsscript.json において developmentMode を true にすることは絶対禁止。true にするとバージョン指定を無視して①の最新コードが即時自動反映され、②での検証ステップが機能しなくなる。stub_for_clientSS/appsscript.json および updateStubVersion_ 関数の両方で false を維持すること。
+
 PropertiesServiceによるロック: 同一レコードや同時処理の衝突を防ぐため、データ処理には必ず PropertiesService による排他制御（ロック）をかける。
 SpreadsheetAppの参照規則: フロントエンド（google.script.run）経由で実行される関数内では、絶対に SpreadsheetApp.getActiveSpreadsheet() を使用してはならない。必ず引数から ssId を受け取るか、トリガーイベント e.source を利用してスプレッドシートを特定すること。
 トリガー登録の責務: 各種トリガー（編集検知、時間起動等）の登録ロジックは、ライブラリ側ではなく、顧客環境に物理配置される「スタブ（stub_for_clientSS/コード.js）」に実装すること。また、登録時は前述の「全削除 → 新規登録」フローを徹底すること。

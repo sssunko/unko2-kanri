@@ -62,7 +62,7 @@ const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 manifest.dependencies.libraries.forEach(lib => {
   if (lib.userSymbol === 'UnkouLib') {
     lib.version = String(nextVer);
-    lib.developmentMode = true; // HEADモード：clasp push後にF5で即時反映
+    lib.developmentMode = false; // 固定バージョン参照：①→②検証→③反映の二重防衛フローを維持
   }
 });
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');

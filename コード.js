@@ -9269,7 +9269,7 @@ function updateStubVersion_(stubScriptId, versionNumber, useDevMode) {
         timeZone: 'Asia/Tokyo',
         dependencies: { libraries: [{ userSymbol: 'UnkouLib',
           libraryId: '1n79omnAcdsEojMRyjnj9-Ic9pIl1-7Nt_HB7Avy0NVFizOSeqt0guqyZ',
-          version: String(versionNumber), developmentMode: true }] },
+          version: String(versionNumber), developmentMode: false }] },
         oauthScopes: ['https://www.googleapis.com/auth/spreadsheets',
           'https://www.googleapis.com/auth/drive',
           'https://www.googleapis.com/auth/script.external_request',
@@ -11563,7 +11563,7 @@ function getImportDictionary(sheetType, companySsId) {
 //  IDはすべてシステム採番（V-/S-/M-）、LockServiceで排他制御して重複防止
 //  重複判定なし：運送業の2回戦（同人同所）を正しく扱うためすべて新規追加
 // ================================================================
-function importBulkRows(sheetType, mappedRows, companySsId) {
+function importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaymentRows) {
   if (!mappedRows || mappedRows.length === 0) return { ok: 0 };
   var ss         = getTargetSS_(companySsId);
   var sheetNames = { unkou: '運行', master: '自車専属マスタ', cust: 'マスタ' };
@@ -11599,30 +11599,34 @@ function importBulkRows(sheetType, mappedRows, companySsId) {
         formulas.push(['=IF(AND(U' + rn + '="",T' + rn + '=""),"",U' + rn + '-T' + rn + ')']);
       }
       sheet.getRange(startRow, 22, writeRows.length, 1).setFormulas(formulas);
-      // 集計表を一括再生成（行ごとの個別syncより大幅に高速）
-      generateSummary(ss);
-      // 支払いが含まれる場合は集計表のAA列(col27)に直接書き込む
-      var paymentMap = {};
-      for (var i = 0; i < mappedRows.length; i++) {
-        var pay = toImportNum_(mappedRows[i]['payment']);
-        if (pay !== '' && pay > 0) paymentMap[writeRows[i][0]] = pay;
-      }
-      if (Object.keys(paymentMap).length > 0) {
-        var sumSheet = ss.getSheetByName('集計表');
-        if (sumSheet && sumSheet.getLastRow() >= 2) {
-          var sumIds = sumSheet.getRange(2, 1, sumSheet.getLastRow() - 1, 1).getValues();
-          for (var si = 0; si < sumIds.length; si++) {
-            var sid = String(sumIds[si][0] || '').trim();
-            if (paymentMap[sid] !== undefined) {
-              sumSheet.getRange(si + 2, 27).setValue(paymentMap[sid]); // AA列=支払い
+      // 最後のチャンクのみ集計・ソート・支払い計算を実行（チャンク分割時の高速化）
+      if (isLastChunk !== false) {
+        generateSummary(ss);
+        var paySource = allPaymentRows || mappedRows;
+        var paymentMap = {};
+        for (var pi = 0; pi < paySource.length; pi++) {
+          var pay = toImportNum_(paySource[pi]['payment']);
+          if (pay !== '' && pay > 0) {
+            var pid = paySource[pi]['id'] || (writeRows[pi] ? writeRows[pi][0] : '');
+            if (pid) paymentMap[pid] = pay;
+          }
+        }
+        if (Object.keys(paymentMap).length > 0) {
+          var sumSheet = ss.getSheetByName('集計表');
+          if (sumSheet && sumSheet.getLastRow() >= 2) {
+            var sumIds = sumSheet.getRange(2, 1, sumSheet.getLastRow() - 1, 1).getValues();
+            for (var si = 0; si < sumIds.length; si++) {
+              var sid = String(sumIds[si][0] || '').trim();
+              if (paymentMap[sid] !== undefined) {
+                sumSheet.getRange(si + 2, 27).setValue(paymentMap[sid]); // AA列=支払い
+              }
             }
           }
         }
+        sortUnkouByDate_(companySsId);
+        sortSummaryByDate_(companySsId);
+        calculatePaymentAmount(companySsId);
       }
-      // 日付ソート・利益計算（手動入力と同じ状態にする）
-      sortUnkouByDate_(companySsId);
-      sortSummaryByDate_(companySsId);
-      calculatePaymentAmount(companySsId);
     }
     return { ok: writeRows.length };
   } finally {
@@ -11885,6 +11889,7 @@ function saveImportAliases(sheetType, newMappings, companySsId) {
     }
   }
 }
+
 
 
 // ================================================================
