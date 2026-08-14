@@ -65,7 +65,7 @@
 //            セル編集時に自動実行されるシンプルトリガー（GAS標準）
 //            ・集計表の編集ブロック：距離(V=22)・ガソリン代(X=24)・備考(AB=28)以外は編集不可
 //            ・運行シートU列(21)の合計高速は数式を即復元して直接編集を禁止
-//            ・運行シートW列(23)にURLを貼り付けた場合はリッチテキストリンクに自動変換
+//            ・運行シートX列(24)にURLを貼り付けた場合はリッチテキストリンクに自動変換
 //            ・各シートの専用onEdit関数へ振り分ける
 //   3-2  : onEditUnkou_(sheet, range)
 //            運行シート編集時の詳細処理
@@ -108,7 +108,7 @@
 //            ・4-1-6: 支払い再計算（4-4）を実行
 //            ・4-1-7: W列の旧URL形式をリッチテキストに変換（4-1b）
 //   4-1b : convertLegacyAdminDataUrls_()
-//            運行シートW列(23)の古い形式のURLをリッチテキストリンクに一括変換する
+//            運行シートX列(24)の古い形式のURLをリッチテキストリンクに一括変換する
 //            ・プレーンURLセル → setAdminDataRichText_でリッチテキスト化
 //            ・リッチテキスト済みセルでノートなし → リンクURLをノートに書き込んで補完
 //            ・onOpen・generateSummary の末尾で自動実行
@@ -206,14 +206,14 @@
 //            端末アプリの一覧画面用データを月単位で取得する
 //            ・8-4-1: 紐づけメールから乗務員名を特定
 //            ・8-4-2: 運行シートを月・乗務員名で絞り込みID単位に集約
-//            ・8-4-3: W列(23)のデータURLをノート→リッチテキスト→プレーンの優先順で取得
+//            ・8-4-3: X列(24)のデータURLをノート→リッチテキスト→プレーンの優先順で取得
 //            ・8-4-4: 集計表から支払/高速計を引き当て
 //            ・8-4-5: 各IDの積完時刻またはI列時刻を表示用に整形
 //            ・8-4-6: 月集計（稼働日数・売上・高速・支払）を合算して返却
 //   8-5  : getEditData(id)
 //            編集モーダル表示用に指定IDの詳細データを取得する
 //            ・同IDの複数行は売上/高速を合算、時刻は先勝ち
-//            ・W列(23)のデータURLはgetAdminDataUrl_で取得（リッチテキスト対応）
+//            ・X列(24)のデータURLはgetAdminDataUrl_で取得（リッチテキスト対応）
 //            ・Y列(25)の端末データURLはgetTerminalUrls_で取得
 //   8-6  : saveEditData(obj)
 //            編集モーダルで変更された値を運行シートに書き込む
@@ -241,12 +241,12 @@
 //            ・Googleフォトのプライベート URL は不可（サイドバーアップロード推奨）
 //            ※ ファイル上はb-1/b-2の後に配置されているが補助関数として番号2bとする
 //   8-6b-3: setAdminDataRichText_(sheet, rowNum, url)
-//            1件のURLをW列(23)にリッチテキストリンク「ファイル1」として書き込む
+//            1件のURLをX列(24)にリッチテキストリンク「ファイル1」として書き込む
 //   8-6b-3b: setAdminDataRichTextMulti_(sheet, rowNum, urls)
-//            複数URLをW列(23)にリッチテキストリンク「ファイル1  ファイル2...」として書き込む
+//            複数URLをX列(24)にリッチテキストリンク「ファイル1  ファイル2...」として書き込む
 //            ・URLをセルノートにも保存（getNotes()で一括読み取り可能にするため）
 //   8-6b-4: getAdminDataUrl_(sheet, rowNum)
-//            W列(23)のリッチテキストからURLをカンマ区切り文字列で返す（プレーン値フォールバックあり）
+//            X列(24)のリッチテキストからURLをカンマ区切り文字列で返す（プレーン値フォールバックあり）
 //   8-6c : appendTerminalFile(id, fileName, base64Data, mimeType)
 //            Base64データをファイル化してDriveに保存しY列(25)のリッチテキストURLに追記する
 //            ・「端末データ」フォルダに保存・誰でも閲覧可能リンクを設定
@@ -263,7 +263,7 @@
 //   9-1  : saveNotice(id, notice)
 //            指定IDの運行シートV列(22)（管理側連絡事項）にテキストを保存する
 //   9-2  : uploadFileToRow(rowNum, fileName, base64Data, mimeType)
-//            ファイルをDriveに保存してW列(23)のリッチテキストに追記する（管理側アップロード）
+//            ファイルをDriveに保存してX列(24)のリッチテキストに追記する（管理側アップロード）
 //            ・「運行データ」フォルダに保存
 //   9-3  : saveTerminalNotice(id, text)
 //            指定IDの運行シートX列(24)（端末側連絡事項）にテキストを保存する
@@ -274,7 +274,7 @@
 //   10-1 : getMyNotices()
 //            ホーム画面の未読連絡事項一覧を返す
 //            ・紐づけメールから乗務員名を特定
-//            ・V列(22)=管理側連絡事項またはW列(23)=データURLがある行が対象
+//            ・V列(22)=管理側連絡事項またはX列(24)=データURLがある行が対象
 //            ・W列のURLはノート→リッチテキスト→プレーンの優先順で取得
 //            ・readNoticesリストと照合して既読済みはスキップ
 //            ・最新20件を返す
@@ -1464,7 +1464,7 @@ function showUploadSidebar() {
     '      var b64=r.result.split(",")[1];' +
     '      google.script.run' +
     '        .withSuccessHandler(function(res){done++;if(res&&res.url)urls.push(res.url);check("");})' +
-    '        .withFailureHandler(function(err){done++;check("エラー："+err.message);})' +
+    '        .withFailureHandler(function(err){done++;check("エラー："+(err.message||String(err)));})' +
     '        .uploadFileToRow(' + row + ',file.name,b64,file.type);' +
     '    };' +
     '    r.readAsDataURL(file);' +
@@ -3105,7 +3105,7 @@ function generateSummary(ss) {
 
 // ================================================================
 //  4-1b: 管理側データURLをリッチテキストに一括変換（convertLegacyAdminDataUrls_）  【大B / 中4 / 小4-1b】
-//  運行シートのW列(23)にプレーンURLが残っている行をリッチテキストに変換
+//  運行シートのX列(24)にプレーンURLが残っている行をリッチテキストに変換
 // ================================================================
 function convertLegacyAdminDataUrls_() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
@@ -3689,7 +3689,7 @@ function showDateTimePicker() {
     'var v=document.getElementById("dt").value;' +
     'if(!v){alert("日時を選択してください");return;}' +
     'google.script.run.withSuccessHandler(function(){google.script.host.close();})' +
-    '.withFailureHandler(function(e){alert(e.message);})' +
+    '.withFailureHandler(function(e){alert(e.message||String(e));})' +
     '.setDateTimeToActiveCell_(v);}' +
     '<\/script></body></html>'
   ).setWidth(340).setHeight(175);
@@ -6069,7 +6069,7 @@ function clearTimeCell(id, routeIndex, col, companySsId, email) {
 //  8-4-2: 運行シートを全件読み込み、指定年月・乗務員名で絞り込みID単位に集約
 //          → 同一IDの複数行（複数行程）は売上/高速を合算・時刻は先頭行優先
 //          → dateSort はI列（初回行程登録時刻）のまま固定（積完時刻では更新しない）
-//  8-4-3: W列(23)のデータURLを3段階フォールバックで取得
+//  8-4-3: X列(24)のデータURLを3段階フォールバックで取得
 //          ① セルのノート（getNotes）から → ② リッチテキスト（getRichTextValues）から
 //          → ③ プレーン値（getValues）がURLなら直接使用
 //  8-4-4: 集計表（payMap）から支払い・高速計を引き当てて各IDに付加
@@ -6110,7 +6110,7 @@ function getListData(year, month, companySsId, email) {
 
   var all      = sheet.getDataRange().getValues();
   var lastRow  = sheet.getLastRow();
-  // W列(23)はリッチテキスト（クリック可能URLラベル）で格納されることがある
+  // X列(24)はリッチテキスト（クリック可能URLラベル）で格納されることがある
   // note→リッチテキストリンク→プレーンテキストの順に3段階フォールバックしてURLを取得
   var notes23  = lastRow >= 2 ? sheet.getRange(2, 24, lastRow-1, 1).getNotes() : [];
   var rtvs23   = lastRow >= 2 ? sheet.getRange(2, 24, lastRow-1, 1).getRichTextValues() : [];
@@ -6284,7 +6284,7 @@ function clearListCache_(email) {
 //  ・同一IDの複数行（複数行程）は売上/高速を合算して返す
 //  ・時刻（誘導/積完/休憩/降完）は最初に見つかった値を使用（先勝ち）
 //  ・集計表から合計高速代・利益を取得して付加
-//  ・W列(23)のURL：getAdminDataUrl_（リッチテキスト→URLカンマ区切り）
+//  ・X列(24)のURL：getAdminDataUrl_（リッチテキスト→URLカンマ区切り）
 //  ・Y列(25)のURL：getTerminalUrls_（リッチテキスト→URL配列.join(',')）
 // ================================================================
 function getEditData(id, companySsId, email) {
@@ -7160,7 +7160,7 @@ function openFileUploadDialog() {
     '      queued++;' +
     '      google.script.run' +
     '        .withSuccessHandler(function(){done++;check();})' +
-    '        .withFailureHandler(function(err){done++;document.getElementById("msg").innerText="エラー："+err.message;})' +
+    '        .withFailureHandler(function(err){done++;document.getElementById("msg").innerText="エラー："+(err.message||String(err));})' +
     '        .queueFileUpload(' + row + ',file.name,b64,file.type);' +
     '    };' +
     '    r.readAsDataURL(file);' +
@@ -7316,7 +7316,7 @@ function uploadTerminalFile(id, fileName, base64Data, mimeType) {
 //  端末アプリのホーム画面に表示する未読の連絡事項一覧を返す（最大20件）
 //
 //  対象行の条件：
-//    ・V列(22)=管理側連絡事項 または W列(23)=データURLがある行
+//    ・V列(22)=管理側連絡事項 または X列(24)=データURLがある行
 //    ・readNoticesリスト（既読済みID）に含まれていない行
 //    ・乗務員名が紐づけメールに一致する行
 //
@@ -13805,7 +13805,7 @@ function showExportDialog() {
     +       'a.download=r.name+".csv";'
     +       'document.body.appendChild(a);a.click();document.body.removeChild(a);'
     +     '})'
-    +     '.withFailureHandler(function(e){btn.disabled=false;btn.textContent="CSV";alert(e.message);})'
+    +     '.withFailureHandler(function(e){btn.disabled=false;btn.textContent="CSV";alert(e.message||String(e));})'
     +     '.exportSheetAsCsvBase64(name);'
     + '}'
     + 'function selectAll(v){document.querySelectorAll(".sheetCk").forEach(function(c){c.checked=v;});}'
@@ -13823,7 +13823,7 @@ function showExportDialog() {
     +       'a.download=r.fileName;'
     +       'document.body.appendChild(a);a.click();document.body.removeChild(a);'
     +     '})'
-    +     '.withFailureHandler(function(e){btn.disabled=false;btn.textContent="📊 選択シートをExcel DL";alert(e.message);})'
+    +     '.withFailureHandler(function(e){btn.disabled=false;btn.textContent="📊 選択シートをExcel DL";alert(e.message||String(e));})'
     +     '.exportSelectedSheetsAsExcel(names);'
     + '}'
     + '<\/script>'

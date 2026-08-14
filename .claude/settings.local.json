@@ -479,7 +479,27 @@
       "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\menu_grid.py\")",
       "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\menu_grid2.py\")",
       "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\fix_menu_final3.py\")",
-      "PowerShell(Select-String -Path \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a.jsonl\" -Pattern \"fillMissing|一括補完|4-2b|4-6b\" | Select-Object -First 10 | ForEach-Object { $_.Line.Substring\\(0, [Math]::Min\\(300, $_.Line.Length\\)\\) })"
+      "PowerShell(Select-String -Path \"C:\\\\Users\\\\OWNER\\\\.claude\\\\projects\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a.jsonl\" -Pattern \"fillMissing|一括補完|4-2b|4-6b\" | Select-Object -First 10 | ForEach-Object { $_.Line.Substring\\(0, [Math]::Min\\(300, $_.Line.Length\\)\\) })",
+      "PowerShell(Select-String -Path \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\manual-ma.html\" -Pattern 'class=\"pnum\"' | Select-Object -First 30 | ForEach-Object { $_.Line.Trim\\(\\) })",
+      "PowerShell(Select-String -Path \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\manual-user.html\" -Pattern 'class=\"pnum\"' | Select-Object -First 20 | ForEach-Object { $_.Line.Trim\\(\\) })",
+      "PowerShell(Select-String -Path \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\manual-ma.html\" -Pattern 'class=\"pnum\">26' | ForEach-Object { \"L$\\($_.LineNumber\\): $\\($_.Line.Trim\\(\\)\\)\" })",
+      "PowerShell(Select-String -Path \"c:\\\\gas\\\\unko2-kanri\\\\manual-deploy\\\\deploy-assets\\\\manual-ma.html\" -Pattern 'class=\"pnum\"' | ForEach-Object { $_.Line.Trim\\(\\) })",
+      "Bash(node deploy.js \"withFailureHandler err.message→\\(e.message||String\\(e\\)\\) 5箇所修正\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\extract_imgs.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\make_26_imgs.py\" 2>&1)",
+      "PowerShell(head -30)",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\fix_26_imgs.py\" 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\final_26_imgs.py\" 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\extract_latest.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\box_78.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\scan7.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\box7_fix.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\extract_new2.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\scan_new2.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\box4_fix.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\box2_menu.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--gas-unko2-kanri\\\\de31812b-23f3-4ffb-ab2b-e4f53c05e09a\\\\scratchpad\\\\extract_new2.py\" 2>&1)",
+      "Bash(node deploy.js \"コメント誤記修正: X列\\(24\\)に統一（W列\\(23\\)誤記14箇所）\")"
     ]
   }
 }

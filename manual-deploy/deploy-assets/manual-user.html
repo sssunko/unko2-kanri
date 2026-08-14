@@ -343,22 +343,21 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-24"><span class="toc-n">24</span> 👑 <span class="toc-name">選択行の配車確定解除</span></a>
       <div class="toc-sep">【手動操作】運行シートのメニュー操作</div>
       <a class="toc-item done" href="#feat-25"><span class="toc-n">25</span> 👑 <span class="toc-name">ID・車番一括補完（手動）</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">26</span><span class="toc-name">経費自動入力</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">27</span><span class="toc-name">写真・ファイル取込</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">28</span><span class="toc-name">運行シートCSV/Excel取込</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">29</span><span class="toc-name">空インポート行削除</span></a>
+      <a class="toc-item done" href="#feat-26"><span class="toc-n">26</span> 👑 <span class="toc-name">写真・ファイル取込</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">27</span><span class="toc-name">運行シートCSV/Excel取込</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">28</span><span class="toc-name">空インポート行削除</span></a>
       <div class="toc-sep">【帳票・出力】書類生成・メール送信・出力</div>
-      <a class="toc-item" href="#pending"><span class="toc-n">30</span><span class="toc-name">発注書・指示書の作成・送信</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">31</span><span class="toc-name">車番連絡の作成・送信</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">32</span><span class="toc-name">受領書の耳生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">33</span><span class="toc-name">請求書生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">34</span><span class="toc-name">CSV・Excel出力</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">29</span><span class="toc-name">発注書・指示書の作成・送信</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">30</span><span class="toc-name">車番連絡の作成・送信</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">31</span><span class="toc-name">受領書の耳生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">32</span><span class="toc-name">請求書生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">33</span><span class="toc-name">CSV・Excel出力</span></a>
       <div class="toc-sep">【シート管理】月次生成・システム復旧</div>
-      <a class="toc-item" href="#pending"><span class="toc-n">35</span><span class="toc-name">今月分生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">36</span><span class="toc-name">翌月分生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">37</span><span class="toc-name">前月分アーカイブ</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">38</span><span class="toc-name">シート再生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">39</span><span class="toc-name">ヘッダー復旧＋保護</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">34</span><span class="toc-name">今月分生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">35</span><span class="toc-name">翌月分生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">36</span><span class="toc-name">前月分アーカイブ</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">37</span><span class="toc-name">シート再生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">38</span><span class="toc-name">ヘッダー復旧＋保護</span></a>
     </div>
   </div>
 </div>
@@ -366,7 +365,7 @@ html { scroll-behavior: smooth; }
 <main class="main">
 
   <!-- ──────── 確認済み機能 ──────── -->
-  <div class="sec-title">確認済み機能 <span class="sec-badge">25 / 39</span></div>
+  <div class="sec-title">確認済み機能 <span class="sec-badge">26 / 38</span></div>
   <div class="grid">
 
     <!-- 1 -->
@@ -1149,28 +1148,72 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
+    <!-- feat-26 -->
+    <div class="card" id="feat-26">
+      <div class="card-hdr">
+        <span class="num">26</span>
+        <span class="feat-name">写真・ファイル取込</span>
+        <span class="clr-none">無</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
+          <ul class="pts">
+            <li>運行シートのデータ行（任意の1行）にセルを合わせてから実行する</li>
+            <li>メニュー「📷 写真・ファイル取込」をクリックすると、画面右端にアップロードパネルが表示される</li>
+            <li>「ファイル選択」をクリックしてアップロードするファイルを選択する（画像・PDF・Excel・Wordなど複数ファイルの同時選択可）</li>
+            <li>「アップロード」をクリックするとGoogleドライブにファイルが保存され、選択した行の管理データ列にリンクが自動で追加される</li>
+            <li>Googleフォトの写真は、フォトアプリで写真を長押し→共有→ダウンロードしてからここで選択する</li>
+            <li>パネルを閉じた後も反映済みのためそのまま閉じてよい</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 運行シートで対象の行にセルを合わせる</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step1-id.png" class="ss-img" alt="V-2756のデータ行を選択"></div>
+        <div class="block">
+          <div class="blk-label">② メニュー「📷 写真・ファイル取込」をクリック</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step2-menu.png" class="ss-img" alt="メニュー 写真・ファイル取込"></div>
+        <div class="block">
+          <div class="blk-label">③ 画面右端にアップロードパネルが表示される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step3-sidebar.png" class="ss-img" alt="アップロードサイドバー"></div>
+        <div class="block">
+          <div class="blk-label">④ 「ファイル選択」をクリックしてファイルを選ぶ（複数選択可）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step4-fileselect.png" class="ss-img" alt="ファイル選択ボタン"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 「アップロード」をクリック</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step5-upload.png" class="ss-img" alt="アップロードボタン"></div>
+        <div class="block">
+          <div class="blk-label">⑥ パネルを閉じても反映済み</div>
+          <ul class="pts">
+            <li>アップロード完了後はパネルをそのまま閉じてよい。閉じた後もドライブへの保存とリンクの追記は完了している</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">⑦ 完了メッセージが表示される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step7-done.png" class="ss-img" alt="アップロード完了メッセージ"></div>
+        <div class="block">
+          <div class="blk-label">⑧ 管理データ列の該当行にリンクが自動で追加される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step8-url.png" class="ss-img" alt="管理データ列にURLが追加された状態"></div>
+      </div>
+    </div>
+
   </div><!-- /grid -->
 
   <!-- ──────── 今後の対応予定 ──────── -->
   <div class="sec-title" id="pending" style="margin-top:52px;">
     今後の対応予定（未確認）
-    <span class="sec-badge gray">14 件</span>
+    <span class="sec-badge gray">12 件</span>
   </div>
 
   <div class="pending-grid">
 
-
-    <div class="pitem">
-      <span class="pnum">26</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">経費自動入力</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">27</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">写真・ファイル取込</span>
-    </div>
 
     <div class="pitem">
       <span class="pnum">27</span>
@@ -1179,67 +1222,67 @@ html { scroll-behavior: smooth; }
     </div>
 
     <div class="pitem">
-      <span class="pnum">27</span>
+      <span class="pnum">28</span>
       <span class="cat cat-import" style="font-size:9px;padding:1px 6px;flex-shrink:0;">データ取込</span>
       <span class="pname">空インポート行削除</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">27</span>
+      <span class="pnum">29</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">発注書・指示書の作成・送信</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">27</span>
+      <span class="pnum">30</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">車番連絡の作成・送信</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">27</span>
+      <span class="pnum">31</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">受領書の耳生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">27</span>
+      <span class="pnum">32</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">請求書生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">27</span>
+      <span class="pnum">33</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">CSV・Excel出力</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">27</span>
+      <span class="pnum">34</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">今月分生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">27</span>
+      <span class="pnum">35</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">翌月分生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">27</span>
+      <span class="pnum">36</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">前月分アーカイブ</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">27</span>
+      <span class="pnum">37</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">シート再生成</span>
     </div>
 
     <div class="pitem">
-      <span class="pnum">27</span>
+      <span class="pnum">38</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">ヘッダー復旧＋保護</span>
     </div>
