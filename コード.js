@@ -11603,11 +11603,13 @@ function importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaym
       if (isLastChunk !== false) {
         generateSummary(ss);
         var paySource = allPaymentRows || mappedRows;
+        var chunkOffset = allPaymentRows ? (allPaymentRows.length - mappedRows.length) : 0;
         var paymentMap = {};
         for (var pi = 0; pi < paySource.length; pi++) {
           var pay = toImportNum_(paySource[pi]['payment']);
           if (pay !== '' && pay > 0) {
-            var pid = paySource[pi]['id'] || (writeRows[pi] ? writeRows[pi][0] : '');
+            var wi = pi - chunkOffset;
+            var pid = paySource[pi]['id'] || (wi >= 0 && writeRows[wi] ? writeRows[wi][0] : '');
             if (pid) paymentMap[pid] = pay;
           }
         }

@@ -510,7 +510,9 @@
       "Bash(node deploy.js \"①メニューからsyncToAllClientSS削除\")",
       "Bash(rm \"c:\\\\gas\\\\unko2-kanri\\\\fix_client_stubs.js\")",
       "Bash(node deploy.js \"syncToAllClientSSメニュー復元\")",
-      "Bash(node deploy.js \"csvImport高速化：100件チャンク分割・プログレス表示\")"
+      "Bash(node deploy.js \"csvImport高速化：100件チャンク分割・プログレス表示\")",
+      "Bash(node deploy.js \"v899: 日付バグ修正・項目スキップ修正・ボタン表示タイミング全面改修\")",
+      "Bash(node deploy.js \"v901: 日付全行同一バグ修正・ヘッダー行混入スキップ・フッター初期化\")"
     ]
   }
 }
