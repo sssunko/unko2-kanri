@@ -141,6 +141,8 @@ function syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }
 function showCsvImportDialogUnkou()      { return UnkouLib.showCsvImportDialogUnkou(); }
 function showCsvImportDialogMaster()     { return UnkouLib.showCsvImportDialogMaster(); }
 function showCsvImportDialogCust()       { return UnkouLib.showCsvImportDialogCust(); }
+function createPasteImportSheet()        { return UnkouLib.createPasteImportSheet(); }
+function executePasteImport()            { return UnkouLib.executePasteImport(); }
 function showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }
 function prepareEtcImport(a,b,c)         { return UnkouLib.prepareEtcImport(a,b,c); }
 function executeEtcImport(a,b,c,d)       { return UnkouLib.executeEtcImport(a,b,c,d); }
