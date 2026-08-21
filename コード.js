@@ -11594,12 +11594,16 @@ function createPasteImportSheet() {
     ss.setActiveSheet(existing);
     return;
   }
+  var typeMap  = { '運行': 'unkou', '自車専属マスタ': 'master', 'マスタ': 'cust' };
+  var labelMap = { unkou: '運行シート', master: '自車専属マスタ', cust: 'マスタ（取引先）' };
+  var sheetType = typeMap[ss.getActiveSheet().getName()] || 'unkou';
+  PropertiesService.getDocumentProperties().setProperty('PASTE_IMPORT_TYPE', sheetType);
   var sh = ss.insertSheet('__取込用__');
   sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p){p.remove();});
   sh.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p){p.remove();});
   sh.setTabColor('#f57f17');
   ss.setActiveSheet(sh);
-  SpreadsheetApp.getUi().alert('「__取込用__」シートを作成しました。\n取り込みたいデータ（ヘッダー行含む）をそのまま1行目から貼り付けてください。\n貼り付け後、メニューから「▶ 貼付データを取込」を実行してください。');
+  SpreadsheetApp.getUi().alert('「__取込用__」シートを作成しました（取込先: ' + labelMap[sheetType] + '）。\n取り込みたいデータ（ヘッダー行含む）をそのまま1行目から貼り付けてください。\n貼り付け後、メニューから「▶ 貼付データを取込」を実行してください。');
 }
 
 
@@ -11745,8 +11749,9 @@ function applyPasteImportMapping_(ss, sh) {
     var lr  = setting.getLastRow();
     var lc  = Math.max(setting.getLastColumn(), 11);
     var rows = setting.getRange(2, 8, lr - 1, Math.min(lc - 7, 4)).getValues();
+    var pType = PropertiesService.getDocumentProperties().getProperty('PASTE_IMPORT_TYPE') || 'unkou';
     rows.forEach(function(r) {
-      if (String(r[0] || '').trim() === 'unkou') {
+      if (String(r[0] || '').trim() === pType) {
         dict.push({ fieldId: String(r[1] || '').trim(), aliases: String(r[3] || '') });
       }
     });
@@ -11755,7 +11760,9 @@ function applyPasteImportMapping_(ss, sh) {
     date:'日付', car:'車番', driver:'乗務員名', division:'区分', company:'会社名',
     ton:'トン数', carType:'車種', phone:'携帯番号', signboard:'看板名', client:'荷主',
     pickPlace:'積地', dropPlace:'降地', sales:'売上', tollReq:'請求高速',
-    tollReal:'実費高速', payment:'支払い', memo:'備考'
+    tollReal:'実費高速', payment:'支払い', memo:'備考',
+    email:'アドレス', fuel:'燃費',
+    tel:'電話', fax:'FAX', zip:'郵便番号', address:'住所', rep:'代表者', contact:'配車担当'
   };
   function nrm(s) { return String(s || '').replace(/[\s　]/g, '').toLowerCase(); }
   var resultRow = hdrs.map(function(h) {
