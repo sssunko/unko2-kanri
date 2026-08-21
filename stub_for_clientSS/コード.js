@@ -143,6 +143,9 @@ function showCsvImportDialogMaster()     { return UnkouLib.showCsvImportDialogMa
 function showCsvImportDialogCust()       { return UnkouLib.showCsvImportDialogCust(); }
 function createPasteImportSheet()        { return UnkouLib.createPasteImportSheet(); }
 function executePasteImport()            { return UnkouLib.executePasteImport(); }
+function confirmPasteImport()            { return UnkouLib.confirmPasteImport(); }
+function getPasteImportHeader(a)         { return UnkouLib.getPasteImportHeader(a); }
+function savePasteImportMapping(a,b,c)   { return UnkouLib.savePasteImportMapping(a,b,c); }
 function showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }
 function prepareEtcImport(a,b,c)         { return UnkouLib.prepareEtcImport(a,b,c); }
 function executeEtcImport(a,b,c,d)       { return UnkouLib.executeEtcImport(a,b,c,d); }
