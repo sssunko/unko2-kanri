@@ -11634,6 +11634,8 @@ function executePasteImport() {
     if (lbl === '車種')   carColS = ci;
   });
   function normZen_(s) { return String(s).replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);}); }
+  // 貼付元Excelの¥等の数値書式を全データ行にわたって除去（表示正規化）
+  if (lastRowS >= 3) { sh.getRange(3, 1, lastRowS - 2, lastColS).setNumberFormat('@'); }
   var doSplit = false, doTonClean = false;
   if ((tonColS >= 0 || carColS >= 0) && lastRowS >= 3) {
     var chkCols = [];
@@ -11645,7 +11647,10 @@ function executePasteImport() {
         var m = raw.match(/^(\d+(?:\.\d+)?)(?:t|トン)?([\s\S]*)$/i);
         if (!m || !m[1]) return;
         if (m[2].trim()) doSplit = true;
-        else if (/(?:t|トン)/i.test(raw)) doTonClean = true;
+        else if (/(?:t|トン)/i.test(raw)) {
+          doTonClean = true;
+          if (chkIdx === carColS && tonColS >= 0) doSplit = true;
+        }
       });
     });
   }
@@ -11658,7 +11663,7 @@ function executePasteImport() {
       var dispA    = sh.getRange(3, tonColS + 1, lastRowS - 2, 1).getDisplayValues();
       datAr.forEach(function(row, ri) {
         var m = normZen_(dispA[ri][0].trim()).match(/^(\d+(?:\.\d+)?)(?:t|トン)?([\s\S]*)$/i);
-        if (m && m[1]) { row[tonColS] = m[1]; if (m[2].trim()) row[tonColS + 1] = m[2].trim(); }
+        if (m && m[1]) { row[tonColS] = m[1]; row[tonColS + 1] = m[2].trim(); }
       });
       sh.getRange(3, 1, datAr.length, newColA).setValues(datAr);
       mapRowS.splice(tonColS + 1, 0, '車種');
@@ -11671,7 +11676,7 @@ function executePasteImport() {
       var dispB    = sh.getRange(3, carColS + 2, lastRowS - 2, 1).getDisplayValues();
       datBr.forEach(function(row, ri) {
         var m = normZen_(dispB[ri][0].trim()).match(/^(\d+(?:\.\d+)?)(?:t|トン)?([\s\S]*)$/i);
-        if (m && m[1]) { row[carColS] = m[1]; if (m[2].trim()) row[carColS + 1] = m[2].trim(); }
+        if (m && m[1]) { row[carColS] = m[1]; row[carColS + 1] = m[2].trim(); }
       });
       sh.getRange(3, 1, datBr.length, newColB).setValues(datBr);
       mapRowS.splice(carColS, 0, 'トン数');
@@ -11691,9 +11696,9 @@ function executePasteImport() {
           chgC = true;
         }
         var mC = cv.match(/^(\d+(?:\.\d+)?)(?:t|トン)?([\s\S]*)$/i);
-        if (mC && mC[1] && !tv) {
-          row[tonColS] = mC[1];
-          if (mC[2].trim()) row[carColS] = mC[2].trim();
+        if (mC && mC[1]) {
+          if (!tv) row[tonColS] = mC[1];
+          row[carColS] = mC[2].trim();
           chgC = true;
         }
       });
@@ -11711,6 +11716,22 @@ function executePasteImport() {
       if (m && m[1] && raw !== m[1]) { row[tonColS] = m[1]; chgTC = true; }
     });
     if (chgTC) sh.getRange(3, 1, datTC.length, lastColS).setValues(datTC);
+  }
+  // 車種列がトン数のみ（4t/4T/13トン等）→ 車種列クリア（トン列が空なら数字をセット）
+  if (carColS >= 0 && lastRowS >= 3) {
+    var datCN  = sh.getRange(3, 1, lastRowS - 2, lastColS).getValues();
+    var dispCN = sh.getRange(3, carColS + 1, lastRowS - 2, 1).getDisplayValues();
+    var dispTN = tonColS >= 0 ? sh.getRange(3, tonColS + 1, lastRowS - 2, 1).getDisplayValues() : null;
+    var chgCN  = false;
+    datCN.forEach(function(row, ri) {
+      var cvn = normZen_(dispCN[ri][0].trim());
+      var mn = cvn.match(/^(\d+(?:\.\d+)?)\s*(?:t|T|トン)$/i);
+      if (!mn) return;
+      if (tonColS >= 0 && dispTN && !normZen_(dispTN[ri][0].trim())) row[tonColS] = mn[1];
+      row[carColS] = '';
+      chgCN = true;
+    });
+    if (chgCN) sh.getRange(3, 1, datCN.length, lastColS).setValues(datCN);
   }
   if (!mappingDone) {
     SpreadsheetApp.getUi().alert(
@@ -11819,7 +11840,13 @@ function decomposeTonCarType_(fmap) {
   function _nz(s) { return String(s).replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);}); }
   var tonVal     = _nz(String(fmap['ton']     || '').trim());
   var carTypeVal = _nz(String(fmap['carType'] || '').trim());
-  if (tonVal && carTypeVal) return;
+  if (tonVal && carTypeVal) {
+    // 車種がトン数表記（数字+t/T/トン）なら除去して残余のみ残す。数字のみも空白に
+    var mcClean = carTypeVal.match(/^(\d+(?:\.\d+)?)\s*(?:t|T|トン)([\s\S]*)$/i);
+    if (mcClean) { fmap['carType'] = mcClean[2].trim(); }
+    else if (/^\d+(?:\.\d+)?$/.test(carTypeVal)) { fmap['carType'] = ''; }
+    return;
+  }
   var src = tonVal || carTypeVal;
   if (!src) return;
   var m = src.match(/^(\d+(?:\.\d+)?)(?:t|トン)?([\s\S]*)$/i);
@@ -11867,7 +11894,11 @@ function doImportFromSheet_(ss, sh) {
     var mappedRows = [];
     dataVals.forEach(function(row) {
       if (row.every(function(v) { return !String(v || '').trim(); })) return;
-      if (row.some(function(v) { return /^(合計|小計|計|合\s*計|total)$/i.test(String(v || '').trim()); })) return;
+      if (row.some(function(v) { return /(合計|小計|累計|集計|月計|週計|日計|total|subtotal)/i.test(String(v || '').trim()); })) return;
+      // 構造判定：日付が空かつ売上か支払いに正の数値がある行 → 合計行とみなしスキップ
+      var _di = fidCols.indexOf('date'), _si = fidCols.indexOf('sales'), _pi = fidCols.indexOf('payment');
+      var _toN = function(ci) { if (ci < 0) return NaN; var n = Number(String(row[ci] || '').replace(/[¥￥,，\s　]/g, '')); return isNaN(n) ? NaN : n; };
+      if ((_di < 0 || !String(row[_di] || '').trim()) && (_toN(_si) > 0 || _toN(_pi) > 0)) return;
       var fmap = {};
       fidCols.forEach(function(fid, ci) { if (fid) fmap[fid] = row[ci]; });
       // マッピング「-」列でトン数・車種が未設定の場合、数字+英字パターンで補完
@@ -12085,6 +12116,13 @@ function importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaym
         formulas.push(['=IF(AND(U' + rn + '="",T' + rn + '=""),"",U' + rn + '-T' + rn + ')']);
       }
       sheet.getRange(startRow, 22, writeRows.length, 1).setFormulas(formulas);
+      // 実費高速が未マッピングで請求高速がある行にオレンジ文字色（onEditルールと同じ）
+      var tollAutoColors = mappedRows.map(function(fmap) {
+        var rq = toImportNum_(fmap['tollReq']);
+        var rl = toImportNum_(fmap['tollReal']);
+        return [rq !== '' && rl === '' ? '#E65100' : null];
+      });
+      sheet.getRange(startRow, 21, writeRows.length, 1).setFontColors(tollAutoColors);
       // 最後のチャンクのみ集計・ソート・支払い計算を実行（チャンク分割時の高速化）
       if (isLastChunk !== false) {
         generateSummary(ss);
@@ -12155,6 +12193,10 @@ function buildSheetRow_(sheetType, id, fieldMap, ss) {
       }
     }
     var dateVal = parseImportDate_(fieldMap['date']);
+    var reqVal  = toImportNum_(fieldMap['tollReq']);
+    var realVal = toImportNum_(fieldMap['tollReal']);
+    // 実費高速が未マッピングの場合は請求高速と同値（onEditルールと同じ挙動）
+    if (reqVal !== '' && realVal === '') realVal = reqVal;
     // 運行シート 28列（unkouHeader参照）
     return [
       id,                                                  //  1: ID
@@ -12172,8 +12214,8 @@ function buildSheetRow_(sheetType, id, fieldMap, ss) {
       String(fieldMap['dropPlace'] || ''),                 // 13: 降地
       '', '', '', '', '',                                  // 14-18: 時刻（空）
       toImportNum_(fieldMap['sales']),                     // 19: 売上
-      toImportNum_(fieldMap['tollReq']),                   // 20: 請求高速
-      toImportNum_(fieldMap['tollReal']),                  // 21: 実費高速
+      reqVal,                                              // 20: 請求高速
+      realVal,                                             // 21: 実費高速
       '',                                                  // 22: 合計高速（数式で後セット）
       String(fieldMap['memo'] || ''),                      // 23: 備考
       '', '', '', '', ''                                   // 24-28: 管理データ等（空）
@@ -12236,28 +12278,29 @@ function initImportDictionary_(ss) {
   }
 
   // H1ヘッダー + H2以降にデータがある場合のみスキップ（反映でH1だけコピーされた状態では初期化を実行する）
-  if (String(setting.getRange(1, 8).getValue()).trim() === '【辞書v3】種別'
+  if (String(setting.getRange(1, 8).getValue()).trim() === '【辞書v5】種別'
       && setting.getLastRow() >= 2
       && String(setting.getRange(2, 8).getValue()).trim() !== '') return;
 
   var defaults = [
-    ['unkou', 'division',  '区分',          '区分,自車区分,車両区分'],
-    ['unkou', 'company',   '会社名',        '会社名,所属,協力会社,事業者名,法人名,会社'],
-    ['unkou', 'ton',       'トン数',        'トン数,t数,積載,クラス,積載量'],
-    ['unkou', 'carType',   '車種',          '車種,形状,ボディ,車体形状'],
-    ['unkou', 'car',       '車番',          '車番,号車,車両番号,車両,ナンバー,登録番号'],
-    ['unkou', 'driver',    '乗務員名',      '乗務員,ドライバー,乗務員名,運転手,氏名,担当者'],
-    ['unkou', 'phone',     '携帯番号',      '携帯番号,連絡先,電話番号,スマホ,TEL,携帯'],
-    ['unkou', 'signboard', '看板名',        '看板名,看板,取引先名,ブランド名,荷主略称'],
-    ['unkou', 'date',      '日付',          '日付,月日,運行日,配車日,作業日,納期,輸送日'],
-    ['unkou', 'client',    '荷主名',        '荷主,荷主名,依頼主,発注元,委託元'],
-    ['unkou', 'pickPlace', '積地',          '積地,発地,積込先,出発地,引取場所,メーカー,集荷先,仕入先'],
-    ['unkou', 'dropPlace', '降地',          '降地,着地,納品先,到着地,配送先,現場,納入先,配達先'],
-    ['unkou', 'sales',     '売上',          '売上,運賃,金額,請求額,単価,受注金額,請求金額,支払運賃'],
-    ['unkou', 'tollReq',   '請求高速',      '請求高速,請求高速代,高速請求,高速代（請求）,高速請求代,請求(高速)'],
-    ['unkou', 'tollReal',  '実費高速',      '実費高速,実費高速代,高速実費,高速代（実費）,高速実費代,実費(高速)'],
-    ['unkou', 'payment',   '支払い',        '支払い,支払,支払額,給与,手取り,運転手支払'],
-    ['unkou', 'memo',      '備考',          '備考,メモ,特記,注意事項'],
+    ['unkou', 'division',  '区分',          '区分,自車区分,車両区分,種別,輸送種別,運送区分,所属区分'],
+    ['unkou', 'company',   '会社名',        '会社名,所属,協力会社,事業者名,法人名,会社,運送会社,キャリア,業者名,協力業者,配車会社,傭車先,外注先,下請'],
+    ['unkou', 'ton',       'トン数',        'トン数,t数,積載,クラス,積載量,最大積載,車格,規格,積載トン'],
+    ['unkou', 'carType',   '車種',          '車種,形状,ボディ,車体形状,車両形状,ボディ形状'],
+    ['unkou', 'car',       '車番',          '車番,号車,車両番号,車両,ナンバー,登録番号,車輌番号,車輌,プレート,車No,ナンバープレート'],
+    ['unkou', 'driver',    '乗務員名',      '乗務員,ドライバー,乗務員名,運転手,氏名,担当者,運転者,乗務者,担当ドライバー,ドライバー名,運転手名'],
+    ['unkou', 'phone',     '携帯番号',      '携帯番号,連絡先,電話番号,スマホ,TEL,携帯,携帯電話,連絡電話,携帯Tel,携帯tel'],
+    ['unkou', 'signboard', '看板名',        '看板名,看板,取引先名,ブランド名,荷主略称,屋号,表示名,通称名'],
+    ['unkou', 'date',      '日付',          '日付,月,月日,運行日,配車日,作業日,納期,輸送日,運送日,施行日,実施日,搬送日,搬入日,配達日,出荷日,納品日'],
+    ['unkou', 'client',    '荷主名',        '荷主,荷主名,依頼主,発注元,委託元,送り主,発荷主,荷送人,委託者'],
+    ['unkou', 'pickPlace', '積地',          '積地,発地,積込先,出発地,引取場所,メーカー,集荷先,仕入先,積み地,積込地,出荷地,積場所,引取先,発送地,運行（発,発（地,出発（,発着（発,運行発'],
+    ['unkou', 'dropPlace', '降地',          '降地,着地,納品先,到着地,配送先,現場,納入先,配達先,卸地,降し地,着場所,届先,納入地,お届け先,運行（着,着（地,到着（,発着（着,運行着'],
+    ['unkou', 'sales',     '売上',          '売上,運賃,金額,請求額,単価,受注金額,請求金額,支払運賃,売上金額,貨物運賃,運送料,輸送料,荷主運賃,荷主支払,収入金額,受注額,料金'],
+    // tollReal を先に置く: "高速実費"等の長いパターンを先に確定させ、"高速"単体は tollReq に落とす
+    ['unkou', 'tollReal',  '実費高速',      '実費高速,実費高速代,高速実費,高速代（実費）,高速実費代,実費(高速),高速料金(実費),高速料金（実費）,高速（実費）,高速(実費)'],
+    ['unkou', 'tollReq',   '請求高速',      '請求高速,請求高速代,高速請求,高速代（請求）,高速請求代,請求(高速),高速料金(請求),高速料金（請求）,高速（請求）,高速(請求),高速費用,高速代,高速料金,高速'],
+    ['unkou', 'payment',   '支払い',        '支払い,支払,支払額,給与,手取り,運転手支払,外注費,外注,傭車費,傭車代,下請代,業者支払,協力費,委託費,ドライバー支払,委託運賃,外注運賃,支払金額'],
+    ['unkou', 'memo',      '備考',          '備考,メモ,特記,注意事項,摘要,コメント,備考欄,記事'],
     ['master', 'company',  '会社名',        '会社名,所属,協力会社,事業者名,法人名'],
     ['master', 'ton',      'トン数',        'トン数,t数,積載,クラス,積載量'],
     ['master', 'carType',  '車種',          '車種,形状,ボディ,車体形状'],
@@ -12282,7 +12325,7 @@ function initImportDictionary_(ss) {
   if (setting.getMaxRows() < neededRows) {
     setting.insertRowsAfter(setting.getMaxRows(), neededRows - setting.getMaxRows());
   }
-  setting.getRange(1, 8, 1, 4).setValues([['【辞書v3】種別', 'フィールドID', '表示名', 'エイリアス（カンマ区切り・自由に追加可）']]);
+  setting.getRange(1, 8, 1, 4).setValues([['【辞書v5】種別', 'フィールドID', '表示名', 'エイリアス（カンマ区切り・自由に追加可）']]);
   setting.getRange(1, 8, 1, 4).setFontWeight('bold').setBackground('#e3f2fd');
   setting.getRange(2, 8, defaults.length, 4).setValues(defaults);
 }
@@ -12300,7 +12343,14 @@ function parseImportDate_(v) {
   if (!isNaN(n) && n > 40000) {
     return new Date(Math.round((n - 25569) * 86400 * 1000));
   }
-  var d = new Date(String(v));
+  var s = String(v).trim();
+  // YYYY年MM月DD日 / YYYY/MM/DD / YYYY-MM-DD
+  var m1 = s.match(/^(\d{4})[年\/\-](\d{1,2})[月\/\-](\d{1,2})/);
+  if (m1) return new Date(+m1[1], +m1[2] - 1, +m1[3]);
+  // MM月DD日 / MM/DD（年なし→当年）
+  var m2 = s.match(/^(\d{1,2})[月\/](\d{1,2})/);
+  if (m2) return new Date(new Date().getFullYear(), +m2[1] - 1, +m2[2]);
+  var d = new Date(s);
   return isNaN(d.getTime()) ? null : d;
 }
 
@@ -12311,7 +12361,9 @@ function parseImportDate_(v) {
 // ================================================================
 function toImportNum_(v) {
   if (v === null || v === undefined || v === '') return '';
-  var n = Number(v);
+  if (typeof v === 'number') return isNaN(v) ? '' : v;
+  var s = String(v).replace(/[¥￥,，\s　]/g, '');
+  var n = Number(s);
   return isNaN(n) ? '' : n;
 }
 
