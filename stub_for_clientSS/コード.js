@@ -141,7 +141,12 @@ function syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }
 function showCsvImportDialogUnkou()      { return UnkouLib.showCsvImportDialogUnkou(); }
 function showCsvImportDialogMaster()     { return UnkouLib.showCsvImportDialogMaster(); }
 function showCsvImportDialogCust()       { return UnkouLib.showCsvImportDialogCust(); }
-function createPasteImportSheet()        { return UnkouLib.createPasteImportSheet(); }
+function createPasteImportSheetUnkou()  { return UnkouLib.createPasteImportSheetUnkou(); }
+function createPasteImportSheetMaster() { return UnkouLib.createPasteImportSheetMaster(); }
+function createPasteImportSheetCust()   { return UnkouLib.createPasteImportSheetCust(); }
+function executePasteImportUnkou()      { return UnkouLib.executePasteImportUnkou(); }
+function executePasteImportMaster()     { return UnkouLib.executePasteImportMaster(); }
+function executePasteImportCust()       { return UnkouLib.executePasteImportCust(); }
 function executePasteImport()            { return UnkouLib.executePasteImport(); }
 function confirmPasteImport()            { return UnkouLib.confirmPasteImport(); }
 function getPasteImportHeader(a)         { return UnkouLib.getPasteImportHeader(a); }
