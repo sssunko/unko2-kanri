@@ -4046,6 +4046,7 @@ function backupAllSheets() {
 //  ・自車専属マスタに仮日数/給料/%列がなければ追加
 //  ・自車専属マスタに15経費列がなければ追加（按分計算用）
 //  ・自車専属運行シートをマスタから再生成（15列対応）
+//  ・末尾で initImportDictionary_（辞書v10更新）・createImportTestSheetUnkou（初回のみテストシート生成）を実行
 // ================================================================
 function expandAndRefreshSheets() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -4544,6 +4545,7 @@ function expandAndRefreshSheets() {
     if (chg) ns.getRange(2, 1, nData.length, nLastCol).setValues(nData);
   });
   initImportDictionary_(ss);
+  createImportTestSheetUnkou();
   SpreadsheetApp.getUi().alert('シート再生成が完了しました。');
 }
 
@@ -11685,6 +11687,29 @@ function showCsvImportDialog_(sheetType) {
 function createPasteImportSheetUnkou()  { createPasteImportSheet_('unkou'); }
 function createPasteImportSheetMaster() { createPasteImportSheet_('master'); }
 function createPasteImportSheetCust()   { createPasteImportSheet_('cust'); }
+// ================================================================
+//  13-10: 運行取込テストシート自動生成（createImportTestSheetUnkou）  【大A / 中13 / 小13-10】
+//  シート再生成（4-3）から呼ばれ、「運行客テスト」シートを初回のみ生成する
+//  ヘッダーはエイリアス表記（運行日・ドライバー・車番号等）で辞書マッチのテスト用
+// ================================================================
+function createImportTestSheetUnkou() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var name = '運行客テスト';
+  if (ss.getSheetByName(name)) return; // 既存なら何もしない
+  var sh = ss.insertSheet(name);
+  // ヘッダー行: 顧客CSVに出てきそうなエイリアス表記でテスト
+  var headers = ['運行日','ドライバー','車番号','積込先','納品先','運賃','請求高速代','実費高速代','支払','荷主名','看板','備考'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#e8f5e9');
+  var rows = [
+    ['2026/08/26','山田 太郎','大阪か101','大阪市此花区○○倉庫','神戸市中央区△△センター',38000,1000,1000,32000,'東西運輸','看板A','往路'],
+    ['2026/08/26','田中 次郎','大阪か205','堺市北区◇◇工場','大阪市港区★★港',45000,'','',38000,'南北物流','看板B',''],
+    ['2026/08/26','鈴木 花子','大阪か310','吹田市××倉庫','京都市伏見区■■倉庫',52000,2000,1500,44000,'中央運送','看板C','復路'],
+    ['2026/08/27','山田 太郎','大阪か101','堺市堺区▲▲センター','奈良県橿原市●●工場',41000,'','',34000,'東西運輸','看板A',''],
+    ['2026/08/27','田中 次郎','大阪か205','大阪市西区☆☆物流','兵庫県尼崎市◎◎センター',47000,1500,1500,40000,'南北物流','看板B',''],
+  ];
+  sh.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  sh.autoResizeColumns(1, headers.length);
+}
 function getPasteSheetName_() {
   var t = PropertiesService.getDocumentProperties().getProperty('PASTE_IMPORT_TYPE') || 'unkou';
   return { unkou: '__運行取込__', master: '__マスタ取込__', cust: '__取引先取込__' }[t] || '__取込用__';

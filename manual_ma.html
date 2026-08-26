@@ -367,7 +367,7 @@ html { scroll-behavior: smooth; }
 <main class="main">
 
   <!-- ──────── 確認済み機能 ──────── -->
-  <div class="sec-title">確認済み機能 <span class="sec-badge">11 / 29</span></div>
+  <div class="sec-title">確認済み機能 <span class="sec-badge">12 / 29</span></div>
   <div class="grid">
 
     <!-- 1 -->
@@ -678,12 +678,70 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
+    <!-- 27 -->
+    <div class="card" id="feat-27">
+      <div class="card-hdr">
+        <span class="num">27</span>
+        <span class="cat cat-import">データ取込</span>
+        <span class="feat-name">配車表・名簿 CSV/Excelの一括取込</span>
+      </div>
+      <div class="card-body">
+
+        <div class="block">
+          <div class="blk-label">操作フロー</div>
+          <ul class="pts">
+            <li>メニュー → 取込先を選択 → 「📋 貼付シート作成」→ データ貼り付け → 「▶ 貼付データ取込」→ マッピング確認 → 「✅ 確定・反映」</li>
+            <li>運行取込後は「📃 集計表再生成」を押すこと。辞書が古い場合は「🗂 シート再生成」で v10 に更新される</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="blk-label">取込対象シート</div>
+          <ul class="pts">
+            <li><strong>unkou（運行シート）：</strong>新規追加。車番 or 乗務員名で自車専属マスタを参照して区分・会社名・トン数・車種・携帯番号を自動補完</li>
+            <li><strong>master（自車専属マスタ）：</strong>車番＋乗務員名の両方一致で upsert。未一致は新規追加。燃費空欄かつトン数あり → 設定シートから自動補完</li>
+            <li><strong>cust（マスタ（取引先））：</strong>新規追加のみ。22列すべて取込対応（銀行4列・インボイス2列・入金条件2列・受領書送付先2列含む）</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="blk-label">辞書 v10（initImportDictionary_・13-8）</div>
+          <ul class="pts">
+            <li>設定シート H 列に種別・fieldId・表示名・エイリアスの4列を書き出す。シート再生成で自動更新（v10 でなければ全書き直し）</li>
+            <li><code>applyPasteImportMapping_</code>（13-4a）が辞書を読み取り、ヘッダー行の各列に正式 fieldId を割り当てる</li>
+            <li>マッチロジック：<code>_aliasMatch</code> でエイリアスを前方一致し、残りが「数字・括弧のみ」なら OK（住所1は住所にマッチ、住所コードはしない）</li>
+            <li>マッチ失敗列はデータ値パターン（電話形式 / 郵便番号形式 / カタカナ）でフォールバック推定</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="blk-label">doImportFromSheet_（13-4d）・dispToFid</div>
+          <ul class="pts">
+            <li><code>dispToFid</code> に全3シートの表示名→fieldId マップを内蔵。運行/master/cust で同名列（email・memo・company）は同 fieldId を共有</li>
+            <li>同一 fieldId の列が複数ある場合はスペース連結（住所1+住所2など）。数値・日付系（<code>_noConcat</code>）は上書き</li>
+            <li><code>buildSheetRow_</code>（13-7）が sheetType 別に行配列を組み立て。cust は 22 列、master は 38 列、unkou は 28 列すべてフィールドマップ対応</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="blk-label">テストシート（createImportTestSheetUnkou）</div>
+          <ul class="pts">
+            <li>「🗂 シート再生成」実行時に「運行客テスト」シートを自動生成（既存時はスキップ）</li>
+            <li>ヘッダーはエイリアス表記（運行日・ドライバー・車番号・積込先・納品先・運賃・請求高速代・実費高速代・支払・荷主名・看板・備考）</li>
+            <li>5行の架空データ入り。取込フローの動作確認・デモに使用する</li>
+          </ul>
+        </div>
+
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 13-4a, 13-4d, 13-7, 13-8 / csvImport.html</span>
+      </div>
+    </div>
+
   </div><!-- /grid -->
 
   <!-- ──────── 今後の対応予定 ──────── -->
   <div class="sec-title" id="pending" style="margin-top:52px;">
     今後の対応予定（未確認）
-    <span class="sec-badge gray">17 件</span>
+    <span class="sec-badge gray">16 件</span>
   </div>
 
   <div class="pending-grid">
@@ -786,12 +844,6 @@ html { scroll-behavior: smooth; }
       <span class="pnum">26</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">ファイル添付</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">27</span>
-      <span class="cat cat-import" style="font-size:9px;padding:1px 6px;flex-shrink:0;">データ取込</span>
-      <span class="pname">配車表CSV/Excelの取込</span>
     </div>
 
     <div class="pitem">

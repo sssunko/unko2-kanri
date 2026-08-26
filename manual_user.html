@@ -334,7 +334,7 @@ html { scroll-behavior: smooth; }
 <main class="main">
 
   <!-- ──────── 確認済み機能 ──────── -->
-  <div class="sec-title">確認済み機能 <span class="sec-badge">11 / 29</span></div>
+  <div class="sec-title">確認済み機能 <span class="sec-badge">12 / 29</span></div>
   <div class="grid">
 
     <!-- 1 -->
@@ -617,12 +617,77 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
+    <!-- 27 -->
+    <div class="card" id="feat-27">
+      <div class="card-hdr">
+        <span class="num">27</span>
+        <span class="cat cat-import">データ取込</span>
+        <span class="feat-name">配車表・名簿 CSV/Excelの一括取込</span>
+      </div>
+      <div class="card-body">
+
+        <div class="block">
+          <div class="blk-label manual">📋 手順（全シート共通）</div>
+          <ul class="pts">
+            <li>メニュー「📥 データ読み込み（CSV）」→ 取込先（運行シート / 自車専属マスタ / マスタ（取引先））を選択</li>
+            <li>「📋 貼付シート作成」を押すと、専用の貼付用シートが自動生成される</li>
+            <li>取り込みたいデータ（Excelや他システムからコピー、ヘッダー行ごとコピーする）を貼付シートに貼り付ける</li>
+            <li>「▶ 貼付データ取込」を押すと、ヘッダー行の項目名を自動で読み取り、1行目にシステムの正式な列名が書き込まれる</li>
+            <li>内容を確認して「✅ この内容で確定・反映」を押すと、各シートにデータが追加される</li>
+            <li><strong>取込後にメニュー「⚙️ システム設定・保守」→「📃 集計表再生成」を押すと集計表に反映される</strong>（運行シート取込時）</li>
+            <li><strong>列の追加・ヘッダーを更新した場合は「🗂 シート再生成」を押すこと</strong></li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="blk-label">自動マッピングの仕組み</div>
+          <ul class="pts">
+            <li>「運賃」「売上金額」「貨物運賃」はすべて自動で「売上」として認識される</li>
+            <li>「ドライバー」「運転手」「乗務員」もすべて「乗務員名」として認識される（辞書による表記ゆれ吸収）</li>
+            <li>ヘッダー名で判断できない列は、データの内容（電話番号形式・郵便番号形式・カタカナなど）で自動推定する</li>
+            <li>「住所1」「住所2」のように同じ列が複数ある場合は、<strong>列の並び順どおりに空白でつなげて1列に統合</strong>される。先に並んでいる列が先頭になる</li>
+            <li>売上・日付・高速代などの数値・日付列は統合しない（最後の列の値を採用）</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="blk-label">各シートの取込ルール</div>
+          <ul class="pts">
+            <li><strong>運行シート：</strong>新規行として末尾に追記。車番・乗務員名があれば自車専属マスタから会社名・トン数・車種などを自動補完</li>
+            <li><strong>自車専属マスタ：</strong>車番＋乗務員名が両方一致する行は上書き更新。一致なしは新規追記</li>
+            <li><strong>取引先（マスタ）シート：</strong>新規行として追記。会社名・電話・FAX・郵便番号・住所・銀行情報・インボイス情報・入金条件など全項目に対応</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="blk-label">⚠️ 注意事項</div>
+          <ul class="pts">
+            <li>取込は<strong>すべて新規追加</strong>（運行・取引先）または<strong>上書き更新</strong>（自車専属マスタのみ、車番＋乗務員名一致時）。既存データの空欄だけ埋めるモードはない</li>
+            <li><strong>取込前にデータの全項目を揃えておくこと。</strong>後から追記・補完する手段はないため、一回で必要な列をすべて含めた状態で取り込む</li>
+            <li>住所を住所1・住所2に分けている場合、<strong>貼り付ける前に列順を確認すること</strong>（住所1を左、住所2を右に並べる）</li>
+            <li>ヘッダー行も含めてコピーすること。ヘッダー行がないと項目名を自動認識できない</li>
+            <li>貼付後に辞書v10が反映されていない場合は「🗂 シート再生成」を一度押してから再取込する</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="blk-label">🧪 テストデータ</div>
+          <ul class="pts">
+            <li>「🗂 シート再生成」を押すと「運行客テスト」シートが自動で作成される（既存の場合はスキップ）</li>
+            <li>このシートは架空の運行データ（運行日・ドライバー・車番号・積込先・納品先・運賃・高速代など）が入ったサンプル。取込の動作確認に使える</li>
+            <li>内容をコピーして貼付シートに貼り付け、取込が正しく動くか確認する</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
   </div><!-- /grid -->
 
   <!-- ──────── 今後の対応予定 ──────── -->
   <div class="sec-title" id="pending" style="margin-top:52px;">
     今後の対応予定（未確認）
-    <span class="sec-badge gray">17 件</span>
+    <span class="sec-badge gray">16 件</span>
   </div>
 
   <div class="pending-grid">
@@ -725,12 +790,6 @@ html { scroll-behavior: smooth; }
       <span class="pnum">26</span>
       <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
       <span class="pname">ファイル添付</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">27</span>
-      <span class="cat cat-import" style="font-size:9px;padding:1px 6px;flex-shrink:0;">データ取込</span>
-      <span class="pname">配車表CSV/Excelの取込</span>
     </div>
 
     <div class="pitem">
