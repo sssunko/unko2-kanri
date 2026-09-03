@@ -19,7 +19,7 @@ function onOpen(e) {
   try { UnkouLib.applyHolidayRowColors(); } catch(e) {}
   try {
     var _hideSs = SpreadsheetApp.getActiveSpreadsheet();
-    ['指示先履歴', '指示先ID別'].forEach(function(n) {
+    ['指示先履歴', '指示先ID別', '__COMPANY_SS__'].forEach(function(n) {
       var sh = _hideSs.getSheetByName(n);
       if (sh && !sh.isSheetHidden()) sh.hideSheet();
     });
@@ -33,6 +33,12 @@ function onOpen(e) {
     }
   } catch(_epEx) {}
   try { UnkouLib.applyExpiryWarningColors(); } catch(e) {}
+  try {
+    var _enSs = SpreadsheetApp.getActiveSpreadsheet();
+    var _enSh = _enSs.getSheetByName('__COMPANY_SS__');
+    var _enId = _enSh ? String(_enSh.getRange(1, 2).getValue() || '') : '';
+    if (_enId) UnkouLib.ensureRequiredSheets(_enId);
+  } catch(e) {}
   try {
     var _bkProps = PropertiesService.getDocumentProperties();
     var _bkLast  = Number(_bkProps.getProperty('LAST_BACKUP_TS') || 0);
