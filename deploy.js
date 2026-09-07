@@ -28,7 +28,7 @@ if (vLines.length >= 190) {
   console.error(`⚠️ バージョン数が${vLines.length}件（190件以上）。①修正用SS → 拡張機能 → Apps Script → 時計アイコンで古いバージョンを削除してください。`);
   process.exit(1);
 }
-const lastVer = parseInt(vLines[vLines.length - 1].match(/^(\d+)/)[1]);
+const lastVer = Math.max(...vLines.map(l => { const m = l.match(/^(\d+)/); return m ? parseInt(m[1]) : 0; }));
 const nextVer = lastVer + 1;
 console.log(`   現在${vLines.length}件、次バージョン: ${nextVer}`);
 

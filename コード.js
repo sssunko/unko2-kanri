@@ -9407,6 +9407,29 @@ function updateStubVersion_(stubScriptId, versionNumber, useDevMode) {
   }
 }
 
+// PUT後にGETで内容を確認：funcNameが実際に存在するかを返す
+function verifyStubContent_(scriptId, funcName) {
+  try {
+    var token = ScriptApp.getOAuthToken();
+    var resp = UrlFetchApp.fetch(
+      'https://script.googleapis.com/v1/projects/' + scriptId + '/content',
+      { headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true }
+    );
+    if (resp.getResponseCode() !== 200) {
+      return { found: false, error: 'GET ' + resp.getResponseCode() + ' ' + resp.getContentText().slice(0, 100) };
+    }
+    var files = (JSON.parse(resp.getContentText()).files || []);
+    for (var fi = 0; fi < files.length; fi++) {
+      if (files[fi].name === 'コード') {
+        return { found: (files[fi].source || '').indexOf(funcName) >= 0, error: '' };
+      }
+    }
+    return { found: false, error: 'コード.jsなし' };
+  } catch(e) {
+    return { found: false, error: e.message || String(e) };
+  }
+}
+
 // ================================================================
 //  ── 請求書・支払確認書（16-3〜16-7）──
 //  syncToTemplateSS（12-3c）本体は下記に定義（M&Aメモ含む）
@@ -9801,6 +9824,17 @@ function syncToTemplateSS() {
 
   ensureSettingItems_(tgtSs);
   initImportDictionary_(tgtSs);
+  // 設定シートH-K列の辞書エントリ（カスタムエイリアス含む全データ）を①から②へ完全上書き配信
+  (function() {
+    var _dSrc = masterSs.getSheetByName('設定');
+    var _dTgt = tgtSs.getSheetByName('設定');
+    if (!_dSrc || !_dTgt || _dSrc.getLastRow() < 2) return;
+    var _dVals = _dSrc.getRange(2, 8, _dSrc.getLastRow() - 1, 4).getValues();
+    if (_dTgt.getMaxColumns() < 11) _dTgt.insertColumnsAfter(_dTgt.getMaxColumns(), 11 - _dTgt.getMaxColumns());
+    if (_dTgt.getLastRow() >= 2) _dTgt.getRange(2, 8, _dTgt.getLastRow() - 1, 4).clearContent();
+    if (_dTgt.getMaxRows() < _dVals.length + 1) _dTgt.insertRowsAfter(_dTgt.getMaxRows(), _dVals.length + 1 - _dTgt.getMaxRows());
+    _dTgt.getRange(2, 8, _dVals.length, 4).setValues(_dVals);
+  })();
 
   // 自車専属マスタのコンプライアンス日付列フォーマットとAF〜AMヘッダー色を②にも適用
   (function() {
@@ -11034,7 +11068,7 @@ function dispatchInstalledEdit(e) {
     }
 
     // 取込用シート（貼付マッピング行row2）編集 → 辞書に自動追加
-    var _pasteNames = ['__運行取込__', '__マスタ取込__', '__自車専属取込__', '__取引先取込__'];
+    var _pasteNames = ['__運行取込__', '__自車専属マスタ取込__', '__自車専属取込__', '__取引先取込__'];
     if (_pasteNames.indexOf(sheetName) !== -1 && row === 2) {
       var _newLbl = String(range.getValue()).trim();
       if (_newLbl && _newLbl !== '-') {
@@ -11272,7 +11306,6 @@ function syncToAllClientSS() {
   var resultLines  = [];  // 全社の書き込み結果（会社名・スクリプトID・成否）
   // SSにバインドされた全スクリプトID一覧（幽霊スクリプト含む）
   var ssScriptMap = buildSsScriptMap_();
-
   for (var i = 0; i < rows.length; i++) {
     var companyName  = String(rows[i][0]).trim();
     var ssUrl        = String(rows[i][5]).trim();  // F列: SS URL
@@ -11286,6 +11319,11 @@ function syncToAllClientSS() {
 
     try {
       var clientSs = SpreadsheetApp.openById(clientSsId);
+      // __COMPANY_SS__ は後続処理が失敗しても必ず非表示にする
+      try {
+        var _earlyHide = clientSs.getSheetByName('__COMPANY_SS__');
+        if (_earlyHide && !_earlyHide.isSheetHidden()) _earlyHide.hideSheet();
+      } catch(_eh) {}
 
       // ヘッダー行を①から反映（データ行は触らない）
       for (var si = 0; si < businessSheets.length; si++) {
@@ -11312,12 +11350,18 @@ function syncToAllClientSS() {
         s.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p) { p.remove(); });
       });
       ensureSettingItems_(clientSs);
-      // 辞書ガードを無効化して全エントリを強制上書き（高速エイリアス等の追加漏れ防止）
-      var _dictSh = clientSs.getSheetByName('設定');
-      if (_dictSh && _dictSh.getLastRow() > 1) {
-        _dictSh.getRange(2, 8, _dictSh.getLastRow() - 1, 4).clearContent();
-      }
       initImportDictionary_(clientSs);
+      // 設定シートH-K列の辞書エントリ（カスタムエイリアス含む全データ）を①から③へ完全上書き配信
+      (function() {
+        var _dSrc = masterSs.getSheetByName('設定');
+        var _dTgt = clientSs.getSheetByName('設定');
+        if (!_dSrc || !_dTgt || _dSrc.getLastRow() < 2) return;
+        var _dVals = _dSrc.getRange(2, 8, _dSrc.getLastRow() - 1, 4).getValues();
+        if (_dTgt.getMaxColumns() < 11) _dTgt.insertColumnsAfter(_dTgt.getMaxColumns(), 11 - _dTgt.getMaxColumns());
+        if (_dTgt.getLastRow() >= 2) _dTgt.getRange(2, 8, _dTgt.getLastRow() - 1, 4).clearContent();
+        if (_dTgt.getMaxRows() < _dVals.length + 1) _dTgt.insertRowsAfter(_dTgt.getMaxRows(), _dVals.length + 1 - _dTgt.getMaxRows());
+        _dTgt.getRange(2, 8, _dVals.length, 4).setValues(_dVals);
+      })();
 
       // 自車専属マスタ B列（運行状態）にドロップダウンを適用
       var mSheet = clientSs.getSheetByName('自車専属マスタ');
@@ -11356,7 +11400,7 @@ function syncToAllClientSS() {
         '使い方','説明書','サポート','配車板','距離マスタ','受領書_耳','受領',
         'PL','PL設定','仕訳表','監査用','自社設定','管理者',
         '請求書','支払確認書','_ErrorLog_','指示先履歴','指示先ID別','__COMPANY_SS__',
-        '__運行取込__','__マスタ取込__','__取引先取込__','__取込用__'
+        '__運行取込__','__自車専属マスタ取込__','__取引先取込__','__取込用__'
       ];
       clientSs.getSheets().forEach(function(s) {
         var sn = s.getName();
@@ -11388,17 +11432,19 @@ function syncToAllClientSS() {
         var stubResult = updateStubVersion_(clientScriptId, approvedVersion || '', false);
         stubOk = stubResult && stubResult.ok;
         if (stubOk) {
-          resultLines.push('✅ ' + companyName + '\n   ID: ' + clientScriptId);
+          var _vr = verifyStubContent_(clientScriptId, 'createPasteImportSheetUnkou');
+          var _vLine = _vr.error ? '   検証失敗:' + _vr.error : ('   createPasteImportSheetUnkou:' + (_vr.found ? '✅あり' : '❌なし（書込は成功だがコードに反映されず）'));
+          resultLines.push('✅ ' + companyName + '\n   ID: ' + clientScriptId + '\n' + _vLine);
         } else {
           var stubErr = stubResult ? stubResult.error : '不明';
           resultLines.push('❌ ' + companyName + '\n   ID: ' + clientScriptId + '\n   エラー: ' + stubErr);
           errorNames.push(companyName + '（API更新失敗: ' + stubErr + '）');
         }
-        // K列以外のバインドスクリプト（幽霊）にも同じスタブを書く（K列上書きなし）
+        // 正スクリプト以外のバインドスクリプト（幽霊）を削除→無効化（メニュー二重作成防止）
         var allScriptIds = ssScriptMap[clientSsId] || [];
         for (var ni = 0; ni < allScriptIds.length; ni++) {
           if (allScriptIds[ni] === clientScriptId) continue;
-          updateStubVersion_(allScriptIds[ni], approvedVersion || '', false);
+          if (!deleteScriptProject_(allScriptIds[ni])) neutralizeScript_(allScriptIds[ni]);
         }
       } else {
         resultLines.push('❌ ' + companyName + '\n   スクリプトID未登録（K列が空）');
@@ -11407,13 +11453,20 @@ function syncToAllClientSS() {
 
       if (stubOk) successCount++;
     } catch(e) {
+      resultLines.push('❌ ' + companyName + '\n   例外: ' + (e.message || String(e)));
       errorNames.push(companyName + '（例外: ' + (e.message || String(e)) + '）');
     }
   }
 
-  var msg = successCount + '/' + rows.length + '社への反映が完了しました。';
+  var hasError = errorNames.length > 0;
+  var heading  = hasError ? '⚠️ 反映一部失敗' : '✅ 反映完了';
+  var msg = heading + '\n' + successCount + '/' + rows.length + '社への反映が完了しました。';
   if (approvedVersion) msg += '\nコードバージョン: ' + approvedVersion;
   msg += '\n\n【全社書き込み結果】\n' + resultLines.join('\n');
+  if (hasError) {
+    msg += '\n\n【失敗した会社（' + errorNames.length + '社）】\n' + errorNames.join('\n');
+    msg += '\n\n失敗した会社は「🔧 1社スタブ強制修復」メニューから個別に再実行してください。';
+  }
   msg += '\n\n各客SSでF5を押すとメニューが更新されます。';
   try { SpreadsheetApp.getUi().alert(msg); } catch(e) {}
 }
@@ -11501,22 +11554,45 @@ function buildSsScriptMap_() {
 
   var map = {};
   // projects.get を20件ずつ並列実行（parentId = バインド先SSのID）
+  // 403等でScript APIが失敗した場合は Drive API files.get?fields=parents でフォールバック
   for (var i = 0; i < fileIds.length; i += 20) {
-    var reqs = fileIds.slice(i, i + 20).map(function(id) {
+    var batch = fileIds.slice(i, i + 20);
+    var reqs = batch.map(function(id) {
       return { url: 'https://script.googleapis.com/v1/projects/' + id,
                headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true };
     });
     try {
       var resps = UrlFetchApp.fetchAll(reqs);
+      var fbReqs = [], fbIds = [];
       for (var j = 0; j < resps.length; j++) {
         try {
-          if (resps[j].getResponseCode() !== 200) continue;
-          var p = JSON.parse(resps[j].getContentText());
-          if (p.parentId && p.scriptId) {
-            if (!map[p.parentId]) map[p.parentId] = [];
-            map[p.parentId].push(p.scriptId);
+          if (resps[j].getResponseCode() === 200) {
+            var p = JSON.parse(resps[j].getContentText());
+            if (p.parentId && p.scriptId) {
+              if (!map[p.parentId]) map[p.parentId] = [];
+              map[p.parentId].push(p.scriptId);
+            }
+          } else {
+            // Script API 403等: Drive API files.get で親SSを特定（コンテナバインド幽霊対応）
+            fbReqs.push({ url: 'https://www.googleapis.com/drive/v3/files/' + batch[j] +
+              '?fields=id,parents&supportsAllDrives=true',
+              headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true });
+            fbIds.push(batch[j]);
           }
         } catch(e2) {}
+      }
+      if (fbReqs.length) {
+        var fbResps = UrlFetchApp.fetchAll(fbReqs);
+        for (var k = 0; k < fbResps.length; k++) {
+          try {
+            if (fbResps[k].getResponseCode() !== 200) continue;
+            var fd = JSON.parse(fbResps[k].getContentText());
+            (fd.parents || []).forEach(function(pid) {
+              if (!map[pid]) map[pid] = [];
+              map[pid].push(fbIds[k]);
+            });
+          } catch(e4) {}
+        }
       }
     } catch(e3) {}
   }
@@ -11658,6 +11734,56 @@ function diagClientApi() {
   Logger.log('diagClientApi 完了');
 }
 
+// ================================================================
+//  診断：③各客SSのスクリプト内容を直接確認（diagCheckClientScriptContent_）
+//  createPasteImportSheetUnkou が実際に存在するかを projects.getContent で確認
+//  スクリプトエディタから直接実行 → アラートで結果表示
+// ================================================================
+function diagCheckClientScriptContent_() {
+  var masterSs = SpreadsheetApp.getActiveSpreadsheet();
+  var regSheet = masterSs.getSheetByName('会社登録');
+  if (!regSheet || regSheet.getLastRow() < 2) {
+    SpreadsheetApp.getUi().alert('会社登録シートにデータがありません');
+    return;
+  }
+  var lastCol = regSheet.getLastColumn();
+  var regHdrs = regSheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return String(h || '').trim(); });
+  var scriptIdColIdx = regHdrs.indexOf('スクリプトID');
+  if (scriptIdColIdx < 0) {
+    SpreadsheetApp.getUi().alert('スクリプトID列（M列）が見つかりません');
+    return;
+  }
+  var token = ScriptApp.getOAuthToken();
+  var rows = regSheet.getRange(2, 1, regSheet.getLastRow() - 1, scriptIdColIdx + 1).getValues();
+  var results = [];
+  rows.forEach(function(row) {
+    var companyName = String(row[0]).trim();
+    var scriptId = String(row[scriptIdColIdx]).trim();
+    if (!companyName || !scriptId) return;
+    try {
+      var resp = UrlFetchApp.fetch(
+        'https://script.googleapis.com/v1/projects/' + scriptId + '/content',
+        { headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true }
+      );
+      if (resp.getResponseCode() !== 200) {
+        results.push(companyName + ': GET失敗 ' + resp.getResponseCode());
+        return;
+      }
+      var data = JSON.parse(resp.getContentText());
+      var files = data.files || [];
+      var codeFile = null;
+      for (var fi = 0; fi < files.length; fi++) {
+        if (files[fi].name === 'コード') { codeFile = files[fi]; break; }
+      }
+      if (!codeFile) { results.push(companyName + ': コード.jsファイルなし'); return; }
+      var hasFunc = codeFile.source.indexOf('createPasteImportSheetUnkou') >= 0;
+      results.push(companyName + ': ' + (hasFunc ? '✅関数あり' : '❌関数なし'));
+    } catch(e) {
+      results.push(companyName + ': 例外 ' + e.message);
+    }
+  });
+  SpreadsheetApp.getUi().alert('[スクリプト内容診断]\n\n' + results.join('\n'));
+}
 
 // ================================================================
 // ■ グループ13：CSV・Excelデータ一括読込
@@ -11851,19 +11977,17 @@ function createImportTestSheetUnkou() {
 }
 function getPasteSheetName_() {
   var t = PropertiesService.getDocumentProperties().getProperty('PASTE_IMPORT_TYPE') || 'unkou';
-  return { unkou: '__運行取込__', master: '__マスタ取込__', cust: '__取引先取込__' }[t] || '__取込用__';
+  return { unkou: '__運行取込__', master: '__自車専属マスタ取込__', cust: '__取引先取込__' }[t] || '__取込用__';
 }
 function createPasteImportSheet_(sheetType) {
   var ss       = SpreadsheetApp.getActiveSpreadsheet();
-  var nameMap  = { unkou: '__運行取込__',   master: '__マスタ取込__',    cust: '__取引先取込__' };
+  var nameMap  = { unkou: '__運行取込__',   master: '__自車専属マスタ取込__',    cust: '__取引先取込__' };
   var labelMap = { unkou: '運行シート',      master: '自車専属マスタ',    cust: 'マスタ（取引先）' };
   var colorMap = { unkou: '#f57f17',         master: '#29b6f6',           cust: '#66bb6a' };
   var shName   = nameMap[sheetType] || '__取込用__';
   var existing = ss.getSheetByName(shName);
   if (existing) {
-    SpreadsheetApp.getUi().alert('「' + shName + '」シートがすでに存在します。\nデータを貼り付けてから「▶ 貼付データを取込」を実行してください。');
-    ss.setActiveSheet(existing);
-    return;
+    if (ss.getSheets().length > 1) { ss.deleteSheet(existing); } else { existing.clearContents(); }
   }
   PropertiesService.getDocumentProperties().setProperty('PASTE_IMPORT_TYPE', sheetType);
   var sh = ss.insertSheet(shName);
@@ -12007,9 +12131,8 @@ function executePasteImport() {
   if (!mappingDone) {
     SpreadsheetApp.getUi().alert(
       '【STEP1/2完了】項目名のマッピングが完了しました。\n\n' +
-      '取込用シートの2行目を確認してください。\n' +
-      '修正する場合はプルダウンで選択してください。不要な列は「-」にしてください。\n\n' +
-      '問題なければ「✅ この内容で確定・反映」を押してください。'
+      '問題なければ「✅ この内容で確定・反映」を押してください。\n' +
+      '（必要に応じてプルダウンでマッピングを修正してください）'
     );
     return;
   }
@@ -12057,18 +12180,23 @@ function applyPasteImportMapping_(ss, sh) {
     email:'アドレス', fuel:'燃費',
     tel:'電話', fax:'FAX', zip:'郵便番号', address:'住所', rep:'代表者', contact:'配車担当',
     kana:'取引先名カナ', paymentCycle:'入金サイクル', paymentSite:'入金サイト',
-    receiptZip:'受領書送付先郵便番号', receiptAddress:'受領書送付先住所'
+    receiptZip:'受領書送付先郵便番号', receiptAddress:'受領書送付先住所',
+    timePrevRoll:'点呼前完了', timePostRoll:'点呼後完了'
   };
   function nrm(s) { return String(s || '').replace(/[\s　]/g, '').toLowerCase(); }
   // エイリアスマッチ: 完全一致 OR 前方一致かつ残余が数字・括弧のみ（「住所コード」が「住所」に誤マッチしないよう制限）
   function _aliasMatch(hNrm, a) { return hNrm === a || (hNrm.indexOf(a) === 0 && /^[\d（）()１-９]*$/.test(hNrm.slice(a.length))); }
+  var _usedFids = {};
   var resultRow = hdrs.map(function(h, colIdx) {
     if (!h) return '-';
     var hNrm = nrm(h);
     for (var i = 0; i < dict.length; i++) {
       var aliases = dict[i].aliases.split(',').map(function(a) { return nrm(a); }).filter(Boolean);
       if (aliases.some(function(a) { return _aliasMatch(hNrm, a); })) {
-        return dispNames[dict[i].fieldId] || '-';
+        var _fid = dict[i].fieldId;
+        if (_usedFids[_fid]) return '-'; // 同じfieldIdが既に使われていたら'-'（左の列を優先）
+        _usedFids[_fid] = true;
+        return dispNames[_fid] || '-';
       }
     }
     // フォールバック: データ値のパターンで推定（電話番号形式・郵便番号形式・カタカナ）
@@ -12077,9 +12205,22 @@ function applyPasteImportMapping_(ss, sh) {
       var _allPh = _smp.every(function(v) { return /^\d{2,4}[-－]\d{2,4}[-－]\d{3,4}$/.test(v); });
       var _allZp = _smp.every(function(v) { return /^\d{3}[-－]\d{4}$|^\d{7}$/.test(v); });
       var _allKn = _smp.every(function(v) { return /^[ァ-ヴーｦ-ﾝ]+$/.test(v); });
-      if (_allPh && pType === 'cust') return /fax|ファックス|ファクシミリ/.test(hNrm) ? 'FAX' : '電話';
-      if (_allZp && pType !== 'unkou') return '郵便番号';
-      if (_allKn && pType === 'cust') return '取引先名カナ';
+      if (_allPh && pType === 'cust') {
+        var _phFid = /fax|ファックス|ファクシミリ/.test(hNrm) ? 'fax' : 'tel';
+        if (_usedFids[_phFid]) return '-';
+        _usedFids[_phFid] = true;
+        return _phFid === 'fax' ? 'FAX' : '電話';
+      }
+      if (_allZp && pType !== 'unkou') {
+        if (_usedFids['zip']) return '-';
+        _usedFids['zip'] = true;
+        return '郵便番号';
+      }
+      if (_allKn && pType === 'cust') {
+        if (_usedFids['kana']) return '-';
+        _usedFids['kana'] = true;
+        return '取引先名カナ';
+      }
     }
     return '-';
   });
@@ -12092,7 +12233,7 @@ function applyPasteImportMapping_(ss, sh) {
     ? ['車番','乗務員名','区分','会社名','看板名','トン数','車種','携帯番号','アドレス','燃費','備考','-']
     : pType === 'cust'
     ? ['会社名','取引先名カナ','電話','FAX','郵便番号','住所','代表者','配車担当','入金サイクル','入金サイト','受領書送付先郵便番号','受領書送付先住所','備考','-']
-    : ['日付','車番','乗務員名','区分','会社名','トン数','車種','携帯番号','看板名','荷主','積地','降地','売上','請求高速','実費高速','支払い','備考','-'];
+    : ['日付','車番','乗務員名','区分','会社名','トン数','車種','携帯番号','看板名','荷主','積地','降地','売上','請求高速','実費高速','支払い','点呼前完了','点呼後完了','備考','-'];
   var rule = SpreadsheetApp.newDataValidation()
     .requireValueInList(VALID_LABELS, true)
     .setAllowInvalid(false)
@@ -12171,6 +12312,7 @@ function doImportFromSheet_(ss, sh) {
       '売上':'sales',    '請求高速':'tollReq','実費高速':'tollReal', '支払い':'payment',
       '誘導時刻':'timeGuide','積完時刻':'timePick','休憩開始':'timeBreakStart',
       '休憩終了':'timeBreakEnd','降完時刻':'timeDrop',
+      '点呼前完了':'timePrevRoll','点呼後完了':'timePostRoll',
       // 自車専属マスタ
       '燃費':'fuel',     'アドレス':'email',  '備考':'memo',
       '仮日数':'provisionalDays','給料':'salary','％':'salaryPct',
@@ -12207,21 +12349,27 @@ function doImportFromSheet_(ss, sh) {
     });
     var dataVals   = sh.getRange(3, 1, lastRow - 2, lastCol).getValues();
     var _ptCheck   = PropertiesService.getDocumentProperties().getProperty('PASTE_IMPORT_TYPE') || 'unkou';
+    // Excelの数式エラー文字列を空値として扱う（#N/A等をそのまま取り込まないため）
+    var _excelErr = /^#(N\/A|VALUE!|REF!|DIV\/0!|NUM!|NAME\?|NULL!|ERROR!)$/i;
+    function _isErrVal(v) { return _excelErr.test(String(v || '').trim()); }
+    var _diagLog = []; // [診断] 除外行の理由ログ
     var mappedRows = [];
-    dataVals.forEach(function(row) {
-      if (row.every(function(v) { return !String(v || '').trim(); })) return;
-      if (row.some(function(v) { return /(合計|小計|累計|集計|月計|週計|日計|total|subtotal)/i.test(String(v || '').trim()); })) return;
+    dataVals.forEach(function(row, _ri) {
+      var _rc = _ri + 3;
+      var _rs = row.slice(0, 5).map(function(v){ return String(v || '').slice(0, 15); }).join('|');
+      if (row.every(function(v) { return !String(v || '').trim() || _isErrVal(v); })) { _diagLog.push('行' + _rc + '[全空/エラー] ' + _rs); return; }
+      if (row.some(function(v) { return /(合計|小計|累計|集計|月計|週計|日計|total|subtotal)/i.test(String(v || '').trim()); })) { _diagLog.push('行' + _rc + '[合計キーワード] ' + _rs); return; }
       // 構造判定：日付が空かつ売上か支払いに正の数値がある行 → 合計行とみなしスキップ
       var _di = fidCols.indexOf('date'), _si = fidCols.indexOf('sales'), _pi = fidCols.indexOf('payment');
       var _toN = function(ci) { if (ci < 0) return NaN; var n = Number(String(row[ci] || '').replace(/[¥￥,，\s　]/g, '')); return isNaN(n) ? NaN : n; };
-      if ((_di < 0 || !String(row[_di] || '').trim()) && (_toN(_si) > 0 || _toN(_pi) > 0)) return;
+      if ((_di >= 0 && !String(row[_di] || '').trim()) && (_toN(_si) > 0 || _toN(_pi) > 0)) { _diagLog.push('行' + _rc + '[日付列あり空欄+売上 di=' + _di + ' s=' + _toN(_si) + '] ' + _rs); return; }
       var fmap = {};
       // 日付・数値フィールドは最初の値を使用。テキストフィールドは複数列を結合（住所1+住所2等）
       var _noConcat = {date:1,sales:1,tollReq:1,tollReal:1,payment:1,fuel:1,zip:1,receiptZip:1,ton:1};
       fidCols.forEach(function(fid, ci) {
         if (!fid) return;
         var _nv = String(row[ci] || '').trim();
-        if (!_nv) return;
+        if (!_nv || _isErrVal(row[ci])) return; // エラー値（#N/A等）は空として扱う
         var _ex = String(fmap[fid] || '').trim();
         if (_ex && !_noConcat[fid]) { fmap[fid] = _ex + ' ' + _nv; }
         else if (!_ex) { fmap[fid] = row[ci]; }
@@ -12247,22 +12395,40 @@ function doImportFromSheet_(ss, sh) {
       mappedRows.push(fmap);
     });
     if (mappedRows.length === 0) {
-      ui.alert('取込対象のデータ行が見つかりません。');
+      ui.alert('取込対象のデータ行が見つかりません。\n\n[除外ログ]\n' + (_diagLog.length ? _diagLog.slice(0, 15).join('\n') : '(ログなし)'));
       return;
     }
     var _pTypeConf = PropertiesService.getDocumentProperties().getProperty('PASTE_IMPORT_TYPE') || 'unkou';
-    var result = importBulkRows(_pTypeConf, mappedRows, ss.getId());
+    var result;
+    for (var _impTry = 0; _impTry < 3; _impTry++) {
+      try {
+        result = importBulkRows(_pTypeConf, mappedRows, ss.getId());
+        break;
+      } catch(eLock) {
+        if (_impTry < 2 && eLock.message && eLock.message.indexOf('タイムアウト') >= 0) {
+          Utilities.sleep(4000);
+        } else { throw eLock; }
+      }
+    }
     if (_pTypeConf === 'unkou') upsertMasterSheets_(ss, mappedRows);
     try { sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p){p.remove();}); } catch(e2) {}
     try { sh.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p){p.remove();}); } catch(e2) {}
+    // deleteSheet前にCOMPANY_SSを非表示→削除後に運行シートへ明示遷移
+    try { var _cmpH = ss.getSheetByName('__COMPANY_SS__'); if (_cmpH && !_cmpH.isSheetHidden()) _cmpH.hideSheet(); } catch(_) {}
     ss.deleteSheet(sh);
+    try { var _navSh = ss.getSheetByName('運行'); if (_navSh) ss.setActiveSheet(_navSh); } catch(_) {}
     var _sheetLbl = { unkou: '運行シート', master: '自車専属マスタ', cust: 'マスタ（取引先）' }[_pTypeConf] || '対象シート';
-    ui.alert('✅ 取込完了\n' + result.ok + '件を' + _sheetLbl + 'に反映しました。\n取込用シートを削除しました。');
+    var _msg = '✅ 取込完了\n' + _sheetLbl + 'に' + result.ok + '件を反映しました。';
+    if (result.skipped > 0) _msg += '\n（全' + result.total + '件中、重複スキップ' + result.skipped + '件、新規反映' + result.ok + '件）';
+    _msg += '\n取込用シートを削除しました。';
+    ui.alert(_msg);
   } catch (e) {
     try { sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p){p.remove();}); } catch(e2) {}
     try { sh.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p){p.remove();}); } catch(e2) {}
+    try { var _cmpH2 = ss.getSheetByName('__COMPANY_SS__'); if (_cmpH2 && !_cmpH2.isSheetHidden()) _cmpH2.hideSheet(); } catch(_) {}
     try { ss.deleteSheet(sh); } catch (_) {}
-    ui.alert('取込中にエラーが発生しました:\n' + e.message);
+    try { var _navSh2 = ss.getSheetByName('運行'); if (_navSh2) ss.setActiveSheet(_navSh2); } catch(_) {}
+    ui.alert('取込中にエラーが発生しました:\n' + e.message + '\n\n[詳細]\n' + (e.stack ? e.stack.split('\n').slice(0,5).join('\n') : ''));
   }
 }
 
@@ -12502,14 +12668,80 @@ function importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaym
       }
       return { ok: mappedRows.length };
     }
-    // ── 以下は unkou / cust 共通 ──
+    // ── cust: 会社名でupsert（重複スキップ）──
+    if (sheetType === 'cust') {
+      var _cLR  = sheet.getLastRow();
+      var _cExi = _cLR >= 2 ? sheet.getRange(2, 1, _cLR - 1, Math.max(sheet.getLastColumn(), 3)).getValues() : [];
+      var _cKM  = {};
+      for (var _ci = 0; _ci < _cExi.length; _ci++) {
+        var _cNm = String(_cExi[_ci][2] || '').trim(); // col3=会社名
+        if (_cNm) _cKM[_cNm] = _ci + 2;
+      }
+      var _cNext = getNextIdNum_(sheet, prefix);
+      var _cIns  = [], _cIC = 0, _cBK = {};
+      for (var _cj = 0; _cj < mappedRows.length; _cj++) {
+        var _cFm = mappedRows[_cj];
+        var _cCo = String(_cFm['company'] || '').trim();
+        if (!_cCo || _cBK[_cCo]) continue;
+        _cBK[_cCo] = true;
+        var _cFR = _cKM[_cCo] || 0;
+        var _cId = _cFR ? String(_cExi[_cFR - 2][0] || '').trim() : '';
+        if (!_cId) { _cId = prefix + '-' + String(_cNext + _cIC).padStart(4, '0'); _cIC++; _cFR = 0; }
+        var _cRw = buildSheetRow_(sheetType, _cId, _cFm, ss);
+        if (_cFR) {
+          // 全フィールド完全一致ならスキップ（重複インポート防止）
+          var _cExR = _cExi[_cFR - 2];
+          var _cSame = true;
+          for (var _cci = 1; _cci < _cRw.length; _cci++) {
+            var _cEV = _cci < _cExR.length ? _cExR[_cci] : '';
+            if (_cEV instanceof Date) _cEV = Utilities.formatDate(_cEV, Session.getScriptTimeZone(), 'yyyy/MM/dd');
+            else _cEV = String(_cEV || '').trim();
+            var _cNV = _cRw[_cci] instanceof Date ? Utilities.formatDate(_cRw[_cci], Session.getScriptTimeZone(), 'yyyy/MM/dd') : String(_cRw[_cci] || '').trim();
+            if (_cEV !== _cNV) { _cSame = false; break; }
+          }
+          if (!_cSame) sheet.getRange(_cFR, 1, 1, _cRw.length).setValues([_cRw]);
+        } else {
+          _cIns.push(_cRw);
+        }
+      }
+      if (_cIns.length > 0) {
+        commitLastId_(sheet, prefix, _cNext + _cIns.length - 1);
+        sheet.getRange(Math.max(sheet.getLastRow() + 1, 2), 1, _cIns.length, _cIns[0].length).setValues(_cIns);
+      }
+      return { ok: mappedRows.length };
+    }
+    // ── 以下は unkou のみ ──
+    // ── 完全重複チェック: buildSheetRow_で正規化した値を既存行と比較しスキップ ──
+    function _uNorm(v) {
+      if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy/MM/dd');
+      if (v === null || v === undefined) return '';
+      return String(v).trim();
+    }
+    var _uLR2 = sheet.getLastRow();
+    var _uExRaw = _uLR2 >= 2
+      ? sheet.getRange(2, 1, _uLR2 - 1, Math.max(sheet.getLastColumn(), 1)).getValues() : [];
+    // 重複判定キー列（0-indexed）: 日付(9)・車番(5)・乗務員名(6)・積地(11)・降地(12)・売上(18)
+    var _uKeyIdx = [9, 5, 6, 11, 12, 18];
+    function _uFP(row) { return _uKeyIdx.map(function(k) { return _uNorm(row[k]); }).join('|'); }
+    var _uExFP = {};
+    _uExRaw.forEach(function(row) { _uExFP[_uFP(row)] = true; });
     var nextNum   = getNextIdNum_(sheet, prefix);
     var writeRows = [];
+    var _wMappedRows = []; // 重複スキップ後の実書き込み対象のみ
+    var _uInsC = 0;
     for (var i = 0; i < mappedRows.length; i++) {
-      var id = prefix + '-' + String(nextNum + i).padStart(4, '0'); // padStartは4桁超も切り捨てない
+      var _chkRow = buildSheetRow_('unkou', '__dup__', mappedRows[i], ss);
+      var _fp = _uFP(_chkRow);
+      if (_uExFP[_fp]) continue; // 完全重複スキップ（既存行・バッチ内重複）
+      _uExFP[_fp] = true; // バッチ内重複をその場で登録
+      var id = prefix + '-' + String(nextNum + _uInsC).padStart(4, '0'); // padStartは4桁超も切り捨てない
       writeRows.push(buildSheetRow_(sheetType, id, mappedRows[i], ss));
+      _wMappedRows.push(mappedRows[i]);
+      _uInsC++;
     }
-    commitLastId_(sheet, prefix, nextNum + mappedRows.length - 1);
+    var _skipped = mappedRows.length - writeRows.length;
+    if (writeRows.length === 0) return { ok: 0, total: mappedRows.length, skipped: _skipped };
+    commitLastId_(sheet, prefix, nextNum + writeRows.length - 1);
     var startRow = Math.max(sheet.getLastRow() + 1, 2);
     var numCols  = writeRows[0].length;
     // initImportDictionary_でレイアウト移行済みのはずだが念のため列数を確保
@@ -12528,7 +12760,7 @@ function importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaym
       }
       sheet.getRange(startRow, 22, writeRows.length, 1).setFormulas(formulas);
       // 実費高速が未マッピングで請求高速がある行にオレンジ文字色（onEditルールと同じ）
-      var tollAutoColors = mappedRows.map(function(fmap) {
+      var tollAutoColors = _wMappedRows.map(function(fmap) {
         var rq = toImportNum_(fmap['tollReq']);
         var rl = toImportNum_(fmap['tollReal']);
         return [rq !== '' && rl === '' ? '#E65100' : null];
@@ -12565,7 +12797,7 @@ function importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaym
         calculatePaymentAmount(companySsId);
       }
     }
-    return { ok: writeRows.length };
+    return { ok: writeRows.length, total: mappedRows.length, skipped: _skipped };
   } finally {
     lock.releaseLock();
   }
@@ -12637,7 +12869,9 @@ function buildSheetRow_(sheetType, id, fieldMap, ss) {
       realVal,                                             // 21: 実費高速
       '',                                                  // 22: 合計高速（数式で後セット）
       String(fieldMap['memo'] || ''),                      // 23: 備考
-      '', '', '', '', ''                                   // 24-28: 管理データ等（空）
+      '', '', '',                                          // 24-26: 管理データ等（空）
+      String(fieldMap['timePrevRoll'] || ''),              // 27: 点呼前完了
+      String(fieldMap['timePostRoll'] || '')               // 28: 点呼後完了
     ];
   }
 
@@ -12739,29 +12973,28 @@ function initImportDictionary_(ss) {
   // 正規: 2=取引先名カナ, 3=会社名...15=備考, 16=メール, 17-20=新4項目, 21-22=インボイス
   var _custSh = ss.getSheetByName('マスタ');
   if (_custSh) {
-    var _col2Hdr = String(_custSh.getRange(1, 2).getValue() || '').trim();
-    var _cMaxC   = _custSh.getMaxColumns();
-    var _cMaxR   = _custSh.getMaxRows();
-    if (_col2Hdr !== '取引先名カナ') {
-      if (_cMaxC >= 18 && String(_custSh.getRange(1, 18).getValue() || '').trim() === '取引先名カナ') {
-        // v8初回デプロイ後の状態（カナが18列目）→ 2段移動で正規配置へ
-        _custSh.moveColumns(_custSh.getRange(1, 18, _cMaxR, 1), 2);
-        _custSh.moveColumns(_custSh.getRange(1, 16, _cMaxR, 2), 23);
-      } else {
-        // 旧17列レイアウト（col2=会社名）→ カナ挿入→インボイス移動→4列追加
-        _custSh.insertColumnBefore(2);
-        _custSh.getRange(1, 2).setValue('取引先名カナ');
-        _custSh.moveColumns(_custSh.getRange(1, 16, _cMaxR, 2), 19);
-        _custSh.insertColumnsBefore(17, 4);
-        _custSh.getRange(1, 17, 1, 4).setValues([['入金サイクル','入金サイト','受領書送付先郵便番号','受領書送付先住所']]);
+    try {
+      var _col2Hdr = String(_custSh.getRange(1, 2).getValue() || '').trim();
+      var _cMaxC   = _custSh.getMaxColumns();
+      var _cMaxR   = _custSh.getMaxRows();
+      if (_col2Hdr !== '取引先名カナ') {
+        if (_cMaxC >= 18 && String(_custSh.getRange(1, 18).getValue() || '').trim() === '取引先名カナ') {
+          // v8初回デプロイ後の状態（カナが18列目）→ 2段移動で正規配置へ
+          _custSh.moveColumns(_custSh.getRange(1, 18, _cMaxR, 1), 2);
+          _custSh.moveColumns(_custSh.getRange(1, 16, _cMaxR, 2), 23);
+        } else {
+          // 旧17列レイアウト（col2=会社名）→ カナ挿入→インボイス移動→4列追加
+          _custSh.insertColumnBefore(2);
+          _custSh.getRange(1, 2).setValue('取引先名カナ');
+          if (_custSh.getMaxColumns() >= 17) {
+            _custSh.moveColumns(_custSh.getRange(1, 16, _cMaxR, 2), 19);
+          }
+          _custSh.insertColumnsBefore(17, 4);
+          _custSh.getRange(1, 17, 1, 4).setValues([['入金サイクル','入金サイト','受領書送付先郵便番号','受領書送付先住所']]);
+        }
       }
-    }
+    } catch (_migErr) {}
   }
-
-  // H1ヘッダー + H2以降にデータがある場合のみスキップ（反映でH1だけコピーされた状態では初期化を実行する）
-  if (String(setting.getRange(1, 8).getValue()).trim() === '【辞書v10】種別'
-      && setting.getLastRow() >= 2
-      && String(setting.getRange(2, 8).getValue()).trim() !== '') return;
 
   var defaults = [
     // 運行シート固有
@@ -12786,6 +13019,8 @@ function initImportDictionary_(ss) {
     ['unkou', 'timeBreakStart', '休憩開始',      '休憩開始,休憩開始時刻,休憩始,休憩In,休憩Start,休憩(開始),休憩時刻(開始)'],
     ['unkou', 'timeBreakEnd',   '休憩終了',      '休憩終了,休憩終了時刻,休憩終,休憩Out,休憩End,休憩(終了),休憩時刻(終了)'],
     ['unkou', 'timeDrop',       '降完時刻',      '降完時刻,降完,降完時間,降し完了,荷降完了,卸完了時刻,降地到着,降し完了時刻,荷卸し完了,到着時刻,到着時間'],
+    ['unkou', 'timePrevRoll',  '点呼前完了',    '点呼前完了,点呼前,前点呼,出発点呼,乗務前点呼'],
+    ['unkou', 'timePostRoll',  '点呼後完了',    '点呼後完了,点呼後,後点呼,帰社点呼,乗務後点呼'],
     // 自車専属マスタ固有
     ['master', 'division',       '区分',          '区分,自車区分,所属区分,車両区分,種別,自社区分,雇用区分'],
     ['master', 'ton',      'トン数',        'トン数,t数,積載,クラス,積載量,最大積載,車格,規格,積載トン'],
@@ -12847,6 +13082,34 @@ function initImportDictionary_(ss) {
     ['common', 'company',  '会社名',        '会社名,所属,協力会社,事業者名,法人名,会社,運送会社,キャリア,業者名,協力業者,配車会社,傭車先,外注先,下請,車両会社,荷主名,顧客名,得意先,荷主,客先,顧客,荷送人名,取引先名,取引先名略称,取引先略称,会社略称,荷主略称,法人略称'],
     ['common', 'memo',     '備考',          '備考,メモ,特記,注意事項,摘要,コメント,備考欄,記事,その他,フリー'],
   ];
+
+  // H2が空白の場合は過去バグによるゴミデータがH列下部に残っている可能性があるため全クリア（自己修復）
+  if (setting.getLastRow() > 1 && String(setting.getRange(2, 8).getValue()).trim() === '') {
+    var _selfFixMaxR = setting.getMaxRows();
+    if (_selfFixMaxR > 1) setting.getRange(2, 8, _selfFixMaxR - 1, 4).clearContent();
+  }
+
+  // H1ヘッダーあり + データありの場合はdefaults全件との差分エントリのみ追記（新旧どのバージョンのSSも最新に揃える）
+  if (String(setting.getRange(1, 8).getValue()).trim() === '【辞書v10】種別'
+      && setting.getLastRow() >= 2
+      && String(setting.getRange(2, 8).getValue()).trim() !== '') {
+    var _exD = setting.getRange(2, 8, setting.getLastRow() - 1, 2).getValues();
+    var _exF = {};
+    _exD.forEach(function(r) { _exF[String(r[1]||'').trim()] = true; });
+    var _toA = defaults.filter(function(d) { return !_exF[String(d[1]).trim()]; });
+    if (_toA.length > 0) {
+      // H列単独の最終データ行を取得（A-G列のデータに引っ張られないよう）
+      var _hColVals = setting.getRange(2, 8, Math.max(setting.getLastRow() - 1, 1), 1).getValues();
+      var _hLast = 1;
+      for (var _hci = _hColVals.length - 1; _hci >= 0; _hci--) {
+        if (String(_hColVals[_hci][0] || '').trim() !== '') { _hLast = _hci + 2; break; }
+      }
+      var _nr = _hLast + 1;
+      if (setting.getMaxRows() < _nr + _toA.length) setting.insertRowsAfter(setting.getMaxRows(), _toA.length);
+      setting.getRange(_nr, 8, _toA.length, 4).setValues(_toA);
+    }
+    return;
+  }
 
   var neededRows = defaults.length + 1;
   if (setting.getMaxRows() < neededRows) {
@@ -12919,6 +13182,11 @@ function toImportNum_(v) {
 // ================================================================
 function deleteBlankImportRows() {
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  // 残骸取込シートがあれば削除
+  ['__運行取込__','__自車専属マスタ取込__','__取引先取込__','__取込用__'].forEach(function(n) {
+    var ps = ss.getSheetByName(n);
+    if (ps) { try { ss.deleteSheet(ps); } catch(_) {} }
+  });
   var sheet = ss.getSheetByName('運行');
   if (!sheet || sheet.getLastRow() < 2) { ss.toast('削除対象なし', '✅', 3); return; }
   var lr   = sheet.getLastRow();
