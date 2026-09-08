@@ -160,7 +160,6 @@ function savePasteImportMapping(a,b,c)   { return UnkouLib.savePasteImportMappin
 function showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }
 function prepareEtcImport(a,b,c)         { return UnkouLib.prepareEtcImport(a,b,c); }
 function executeEtcImport(a,b,c,d)       { return UnkouLib.executeEtcImport(a,b,c,d); }
-function deleteBlankImportRows()         { return UnkouLib.deleteBlankImportRows(); }
 function getImportDictionary(a,b)        { return UnkouLib.getImportDictionary(a,b); }
 function importBulkRows(a,b,c)           { return UnkouLib.importBulkRows(a,b,c); }
 function saveImportAliases(a,b,c)        { return UnkouLib.saveImportAliases(a,b,c); }

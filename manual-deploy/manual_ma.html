@@ -356,6 +356,7 @@ html { scroll-behavior: smooth; }
       <a class="toc-item" href="#pending"><span class="toc-n">㉖</span><span class="toc-name">配車表CSV/Excel取込</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">㉗</span><span class="toc-name">onEdit処理の高速化</span></a>
       <a class="toc-item done" href="#feat-29"><span class="toc-n">㉘</span> 👑 <span class="toc-name">日付への現在時刻付与</span></a>
+      <a class="toc-item done" href="#feat-28"><span class="toc-n">㉙</span> 👑 <span class="toc-name">運行シートCSV/Excel取込</span></a>
     </div>
   </div>
 </div>
@@ -363,7 +364,7 @@ html { scroll-behavior: smooth; }
 <main class="main">
 
   <!-- ──────── 確認済み機能 ──────── -->
-  <div class="sec-title">確認済み機能 <span class="sec-badge">13 / 28</span></div>
+  <div class="sec-title">確認済み機能 <span class="sec-badge">14 / 29</span></div>
   <div class="grid">
 
     <!-- 1 -->
@@ -698,6 +699,76 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
+
+    <!-- 28 -->
+    <div class="card" id="feat-28">
+      <div class="card-hdr">
+        <span class="num">28</span>
+        <span class="cat cat-import">データ取込</span>
+        <span class="feat-name">運行シートCSV/Excel取込</span>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label">📋 STEP1：貼付シート作成</div>
+          <ul class="pts">
+            <li>メニュー「データ読み込み（CSV）」→「運行シート」→「📋 貼付シート作成」を選ぶ</li>
+            <li>「__運行取込__」という取込用シートが自動で作られる</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="deploy-assets/screenshots/27-step1-menu-create.png" class="ss-img" alt="貼付シート作成メニュー"></div>
+
+        <div class="block">
+          <div class="blk-label">📄 STEP2：データを貼り付ける</div>
+          <ul class="pts">
+            <li>CSVやExcelのデータをコピーして、取込シートの3行目以降に貼り付ける</li>
+            <li>1行目はヘッダー（変更不可）、2行目はマッピング行（次のSTEPで自動設定）</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="deploy-assets/screenshots/27-step2-sheet-data.png" class="ss-img" alt="データ貼り付け状態"></div>
+
+        <div class="block">
+          <div class="blk-label">▶ STEP3：貼付データ取込</div>
+          <ul class="pts">
+            <li>メニュー「▶ 貼付データ取込」を選ぶと、列の対応（マッピング）が自動で設定される</li>
+            <li>「問題なければ確定・反映を押してください」というメッセージが表示されたらOK</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="deploy-assets/screenshots/27-step3-menu-import.png" class="ss-img" alt="貼付データ取込メニュー"></div>
+        <div class="ss-wrap"><img src="deploy-assets/screenshots/27-step4-alert-step1.png" class="ss-img" alt="STEP1/2完了アラート"></div>
+
+        <div class="block">
+          <div class="blk-label">🔍 STEP4：マッピング確認（任意）</div>
+          <ul class="pts">
+            <li>2行目のプルダウンで各列の対応を確認・修正できる（自動設定のため通常は修正不要）</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="deploy-assets/screenshots/27-step5-mapping-row.png" class="ss-img" alt="2行目マッピング（自動設定）"></div>
+
+        <div class="block">
+          <div class="blk-label">✅ STEP5：確定・反映</div>
+          <ul class="pts">
+            <li>メニュー「✅ この内容で確定・反映」を選ぶと、データが運行シートに取り込まれる</li>
+            <li>取込件数が表示され、取込用シートは自動で削除される</li>
+            <li>重複するデータは自動でスキップされる</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="deploy-assets/screenshots/27-step6-menu-confirm.png" class="ss-img" alt="確定・反映メニュー"></div>
+        <div class="ss-wrap"><img src="deploy-assets/screenshots/27-step7-alert-done.png" class="ss-img" alt="取込完了アラート"></div>
+        <div class="ss-wrap"><img src="deploy-assets/screenshots/27-step8-result.png" class="ss-img" alt="運行シート反映結果"></div>
+
+        <div class="block">
+          <div class="blk-label">🔧 実装概要（MA向け）</div>
+          <ul class="pts">
+            <li>createPasteImportSheetUnkou → 取込用シート「__運行取込__」を生成（ヘッダー・マッピング行付き）</li>
+            <li>executePasteImportUnkou → applyPasteImportMapping_でCSVヘッダーと内部fieldIdを自動照合してマッピング行に反映</li>
+            <li>confirmPasteImport → doImportFromSheet_でマッピング行に従いimportBulkRowsを呼び出し。日付・車番・乗務員名・積地・降地・売上の複合キーで重複スキップ</li>
+            <li>Excelエラー値（#N/A等）は自動スキップ。点呼前後完了（timePrevRoll・timePostRoll）も取込対象</li>
+            <li>コード番号：csvImport.html 13-1〜13-8 / コード.js 12591（importBulkRows）・12349（doImportFromSheet_）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /grid -->
 
   <!-- ──────── 今後の対応予定 ──────── -->
@@ -810,7 +881,7 @@ html { scroll-behavior: smooth; }
 
 </main>
 
-<footer class="ftr">運行シート 機能解説書 — 保守エンジニア向け — v836 — 2026-07-27</footer>
+<footer class="ftr">運行シート 機能解説書 — 保守エンジニア向け — v1000 — 2026-09-07</footer>
 
 <script>
 // カードに feat-XX のIDを自動付与（TOCリンク用）
