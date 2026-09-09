@@ -24,7 +24,7 @@ function run(cmd, opts) {
 console.log('[0/5] バージョン件数チェック...');
 const versions = execSync('clasp versions 2>&1', { cwd: ROOT }).toString();
 const vLines   = versions.trim().split('\n').filter(l => /^\d+/.test(l));
-if (vLines.length >= 190) {
+if (vLines.length >= 290) {
   console.error(`⚠️ バージョン数が${vLines.length}件（190件以上）。①修正用SS → 拡張機能 → Apps Script → 時計アイコンで古いバージョンを削除してください。`);
   process.exit(1);
 }

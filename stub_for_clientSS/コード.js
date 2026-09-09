@@ -176,6 +176,8 @@ function saveShijisakiHistory(a,b,c)     { return UnkouLib.saveShijisakiHistory(
 function getShijisakiByRowId(a,b)           { return UnkouLib.getShijisakiByRowId(a,b); }
 function saveShijisakiByRowId(a,b,c,d)     { return UnkouLib.saveShijisakiByRowId(a,b,c,d); }
 function deleteShijisakiHistory(a,b,c,d,e,f){ return UnkouLib.deleteShijisakiHistory(a,b,c,d,e,f); }
+function getYoushaHistory(a,b)            { return UnkouLib.getYoushaHistory(a,b); }
+function saveYoushaHistory(a,b,c)         { return UnkouLib.saveYoushaHistory(a,b,c); }
 function showPlDialog()                  { return UnkouLib.showPlDialog(); }
 function getPlFilterOptions()            { return UnkouLib.getPlFilterOptions(); }
 function generatePl(a)                   { return UnkouLib.generatePl(a); }

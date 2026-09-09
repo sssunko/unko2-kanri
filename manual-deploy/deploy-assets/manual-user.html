@@ -1215,52 +1215,44 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">📋 STEP1：貼付シート作成</div>
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
-            <li>メニュー「データ読み込み（CSV）」→「運行シート」→「📋 貼付シート作成」を選ぶ</li>
-            <li>「__運行取込__」という取込用シートが自動で作られる</li>
+            <li>CSVやExcelのデータを運行シートに一括取込する機能</li>
+            <li>列の対応（マッピング）は自動設定。重複データは自動スキップ</li>
           </ul>
         </div>
-        <div class="ss-wrap"><img src="screenshots/27-step1-menu-create.png" class="ss-img" alt="貼付シート作成メニュー"><p class="ss-cap">▲ メニューから「📋 貼付シート作成」を選択</p></div>
-
         <div class="block">
-          <div class="blk-label">📄 STEP2：データを貼り付ける</div>
-          <ul class="pts">
-            <li>CSVやExcelのデータをコピーして、取込シートの3行目以降に貼り付ける</li>
-            <li>1行目はヘッダー（変更不可）、2行目はマッピング行（次のSTEPで自動設定）</li>
-          </ul>
+          <div class="blk-label">① メニュー「データ読み込み（CSV）」→「運行シート」→「📋 貼付シート作成」を選ぶ</div>
         </div>
-        <div class="ss-wrap"><img src="screenshots/27-step2-sheet-data.png" class="ss-img" alt="データ貼り付け状態"><p class="ss-cap">▲ 取込用シートにデータを貼り付けた状態（3行目以降）</p></div>
-
+        <div class="ss-wrap"><img src="screenshots/27-step1-menu-create.png" class="ss-img" alt="貼付シート作成メニュー"></div>
         <div class="block">
-          <div class="blk-label">▶ STEP3：貼付データ取込</div>
-          <ul class="pts">
-            <li>メニュー「▶ 貼付データ取込」を選ぶと、列の対応（マッピング）が自動で設定される</li>
-            <li>「問題なければ確定・反映を押してください」というメッセージが表示されたらOK</li>
-          </ul>
+          <div class="blk-label">② 作られた取込シートにCSV/Excelデータを3行目以降に貼り付ける</div>
         </div>
-        <div class="ss-wrap"><img src="screenshots/27-step3-menu-import.png" class="ss-img" alt="貼付データ取込メニュー"><p class="ss-cap">▲ メニューから「▶ 貼付データ取込」を選択</p></div>
-        <div class="ss-wrap"><img src="screenshots/27-step4-alert-step1.png" class="ss-img" alt="STEP1/2完了アラート"><p class="ss-cap">▲ マッピング自動設定完了のアラート（確定・反映を促す）</p></div>
-
+        <div class="ss-wrap"><img src="screenshots/27-step2-sheet-data.png" class="ss-img" alt="データ貼り付け状態"></div>
         <div class="block">
-          <div class="blk-label">🔍 STEP4：マッピング確認（任意）</div>
-          <ul class="pts">
-            <li>2行目のプルダウンで各列の対応を確認・修正できる（自動設定のため通常は修正不要）</li>
-          </ul>
+          <div class="blk-label">③ メニュー「▶ 貼付データ取込」を選ぶ</div>
         </div>
-        <div class="ss-wrap"><img src="screenshots/27-step5-mapping-row.png" class="ss-img" alt="2行目マッピング（自動設定）"><p class="ss-cap">▲ 2行目のマッピング行（黄色枠）。プルダウンで列の対応を確認・変更できる</p></div>
-
+        <div class="ss-wrap"><img src="screenshots/27-step3-menu-import.png" class="ss-img" alt="貼付データ取込メニュー"></div>
         <div class="block">
-          <div class="blk-label">✅ STEP5：確定・反映</div>
-          <ul class="pts">
-            <li>メニュー「✅ この内容で確定・反映」を選ぶと、データが運行シートに取り込まれる</li>
-            <li>取込件数が表示され、取込用シートは自動で削除される</li>
-            <li>重複するデータは自動でスキップされる</li>
-          </ul>
+          <div class="blk-label">④ マッピング自動設定完了のアラートが表示される</div>
         </div>
-        <div class="ss-wrap"><img src="screenshots/27-step6-menu-confirm.png" class="ss-img" alt="確定・反映メニュー"><p class="ss-cap">▲ メニューから「✅ この内容で確定・反映」を選択</p></div>
-        <div class="ss-wrap"><img src="screenshots/27-step7-alert-done.png" class="ss-img" alt="取込完了アラート"><p class="ss-cap">▲ 取込完了のアラート（反映件数と取込シート削除を通知）</p></div>
-        <div class="ss-wrap"><img src="screenshots/27-step8-result.png" class="ss-img" alt="運行シート反映結果"><p class="ss-cap">▲ 取込データが運行シートに反映された状態</p></div>
+        <div class="ss-wrap"><img src="screenshots/27-step4-alert-step1.png" class="ss-img" alt="マッピング完了アラート"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 2行目のプルダウンでマッピングを確認（通常は修正不要）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step5-mapping-row.png" class="ss-img" alt="2行目マッピング行"></div>
+        <div class="block">
+          <div class="blk-label">⑥ メニュー「✅ この内容で確定・反映」を選ぶ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step6-menu-confirm.png" class="ss-img" alt="確定・反映メニュー"></div>
+        <div class="block">
+          <div class="blk-label">⑦ 取込完了アラートが表示される（反映件数・取込シート削除を通知）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step7-alert-done.png" class="ss-img" alt="取込完了アラート"></div>
+        <div class="block">
+          <div class="blk-label">⑧ 取込データが運行シートに反映される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step8-result.png" class="ss-img" alt="運行シート反映結果"></div>
       </div>
     </div>
 
@@ -1275,16 +1267,43 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">📝 操作手順</div>
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
-            <li>運行シートで対象行のIDセルをクリックして選択する</li>
-            <li>メニュー「帳票・送信メニュー」→「① 発注書・指示書を作成（協力会社・乗務員用）」を選ぶ</li>
-            <li>発注書・指示書のプレビューダイアログが開く</li>
-            <li>「印刷/PDF保存」「メール送信」「FAX送信」から目的の操作を選ぶ</li>
+            <li>運行シートの行を選択して発注書・指示書を作成し、印刷・メール・FAX送信できる</li>
+            <li>FAX送信は各会社のFAX機に接続して送信する（事前にFAX番号の登録が必要）</li>
           </ul>
         </div>
-        <div class="ss-wrap"><img src="screenshots/28-step1-menu.png" class="ss-img" alt="発注書・指示書メニュー"><p class="ss-cap">▲ メニューから「① 発注書・指示書を作成（協力会社・乗務員用）」を選択</p></div>
-        <div class="ss-wrap"><img src="screenshots/28-step2-dialog.png" class="ss-img" alt="発注書・指示書ダイアログ"><p class="ss-cap">▲ 発注書・指示書のプレビューダイアログ。印刷・メール・FAX送信が可能</p></div>
+        <div class="block">
+          <div class="blk-label">① 運行シートで対象行のIDセルをクリックして選択する</div>
+        </div>
+        <div class="block">
+          <div class="blk-label">② メニュー「帳票・送信メニュー」→「① 発注書・指示書を作成（協力会社・乗務員用）」を選ぶ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-step1-menu.png" class="ss-img" alt="発注書・指示書メニュー"></div>
+        <div class="block">
+          <div class="blk-label">③ 発注書・指示書のプレビューが開く。「印刷/PDF保存」「メール送信」「FAX送信」から選ぶ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-step2-dialog.png" class="ss-img" alt="発注書・指示書ダイアログ"></div>
+        <div class="block">
+          <div class="blk-label tip">💡 指示先（発注先）の保存と履歴補完</div>
+          <ul class="pts">
+            <li>プレビュー画面の「■ 指示書」欄に「保存」「履歴」ボタンが表示される</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-step3-shijisho-empty.png" class="ss-img" alt="指示書欄（空）"></div>
+        <div class="block">
+          <div class="blk-label">④ 指示先の会社名・電話番号・担当者名・住所を入力する</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-step4-shijisho-filled.png" class="ss-img" alt="指示書欄（入力後）"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 「保存」を押すと指示先が履歴に登録される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-step5-shijisho-saving.png" class="ss-img" alt="保存中"></div>
+        <div class="block">
+          <div class="blk-label">⑥ 「履歴」を押すと過去に使用した指示先の一覧が表示される。選ぶとフォームに自動入力される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-step6-shijisho-saved.png" class="ss-img" alt="履歴ボタン"></div>
+        <div class="ss-wrap"><img src="screenshots/28-step7-shijisho-history.png" class="ss-img" alt="指示先履歴"></div>
       </div>
     </div>
 
@@ -1299,16 +1318,46 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label">📝 操作手順</div>
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
-            <li>運行シートで対象行のIDセルをクリックして選択する</li>
-            <li>メニュー「帳票・送信メニュー」→「② 車番連絡を作成（荷主用）」を選ぶ</li>
-            <li>車番連絡のプレビューダイアログが開く</li>
-            <li>「印刷/PDF保存」「メール送信」「FAX送信」から目的の操作を選ぶ</li>
+            <li>運行シートの行を選択して車番連絡を作成し、印刷・メール・FAX送信できる</li>
+            <li>FAX送信は各会社のFAX機に接続して送信する（事前にFAX番号の登録が必要）</li>
           </ul>
         </div>
-        <div class="ss-wrap"><img src="screenshots/29-step1-menu.png" class="ss-img" alt="車番連絡メニュー"><p class="ss-cap">▲ メニューから「② 車番連絡を作成（荷主用）」を選択</p></div>
-        <div class="ss-wrap"><img src="screenshots/29-step2-dialog.png" class="ss-img" alt="車番連絡ダイアログ"><p class="ss-cap">▲ 車番連絡のプレビューダイアログ。印刷・メール・FAX送信が可能</p></div>
+        <div class="block">
+          <div class="blk-label">① 運行シートで対象行のIDセルをクリックして選択する</div>
+        </div>
+        <div class="block">
+          <div class="blk-label">② メニュー「帳票・送信メニュー」→「② 車番連絡を作成（荷主用）」を選ぶ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-step1-menu.png" class="ss-img" alt="車番連絡メニュー"></div>
+        <div class="block">
+          <div class="blk-label">③ 車番連絡のプレビューが開く。「印刷/PDF保存」「メール送信」「FAX送信」から選ぶ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-step2-dialog.png" class="ss-img" alt="車番連絡ダイアログ"></div>
+        <div class="block">
+          <div class="blk-label tip">💡 傭車の看板名・車番・乗務員・携帯番号の保存と履歴補完</div>
+          <ul class="pts">
+            <li>プレビュー画面の「■ 車両・乗務員情報」に「保存」「履歴」ボタンが表示される</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-step3-yousha-empty.png" class="ss-img" alt="車両・乗務員情報欄（空）"></div>
+        <div class="block">
+          <div class="blk-label">④ 看板名・車番・乗務員名・携帯番号を入力する</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-step4-yousha-filled.png" class="ss-img" alt="車両・乗務員情報欄（入力後）"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 「保存」を押すと傭車履歴に登録される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-step5-yousha-saving.png" class="ss-img" alt="保存中"></div>
+        <div class="block">
+          <div class="blk-label">⑥ 「履歴」を押すと過去に使用した傭車一覧が表示される。選ぶとフォームに自動入力される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-step6-yousha-saved.png" class="ss-img" alt="履歴ボタン"></div>
+        <div class="ss-wrap"><img src="screenshots/29-step7-yousha-history.png" class="ss-img" alt="傭車履歴"></div>
+        <div class="block">
+          <div class="blk-label tip">💡 印刷・メール・FAX送信を実行した際にも自動で傭車履歴が保存される</div>
+        </div>
       </div>
     </div>
 

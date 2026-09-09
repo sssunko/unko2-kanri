@@ -68,6 +68,14 @@ table.doc-tbl td.num{text-align:right;}
   </div>
   <div id="sh-list"></div>
 </div>
+<div id="yh-overlay" onclick="closeYoushaHistory()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:900;"></div>
+<div id="yh-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:8px;padding:18px;min-width:540px;max-width:750px;max-height:70vh;overflow-y:auto;z-index:901;box-shadow:0 4px 24px rgba(0,0,0,.35);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <b style="font-size:13px;">📋 傭車履歴</b>
+    <button onclick="closeYoushaHistory()" style="border:none;background:none;cursor:pointer;font-size:18px;line-height:1;">✕</button>
+  </div>
+  <div id="yh-list"></div>
+</div>
 
 <script>
 var DATA = <?!= docData ?>;
@@ -148,7 +156,12 @@ function buildDoc(d, isHatchu){
   }
 
   // 3段目: 看板名/車番/乗務員名/携帯番号
-  html += '<div class="section"><div class="sec-ttl">■ 車両・乗務員情報</div>'
+  html += '<div class="section"><div class="sec-ttl" style="display:flex;align-items:center;gap:6px;">■ 車両・乗務員情報'
+    + (!isHatchu ? '<button type="button" id="btn-save-yh" onclick="onSaveYousha()" '
+    + 'style="padding:2px 10px;font-size:10px;background:#388e3c;color:#fff;border:none;border-radius:3px;cursor:pointer;font-weight:bold;">💾 保存</button>'
+    + '<button type="button" onclick="loadYoushaHistory()" '
+    + 'style="padding:2px 10px;font-size:10px;background:#fff;color:#455a64;border:1px solid #90a4ae;border-radius:3px;cursor:pointer;font-weight:bold;">📋 履歴</button>' : '')
+    + '</div>'
     + '<table class="doc-tbl"><thead><tr>'
     + '<th style="width:8%">トン数</th><th style="width:9%">車　種</th>'
     + '<th style="width:16%">看板名</th><th style="width:13%">車　番</th>'
@@ -156,10 +169,10 @@ function buildDoc(d, isHatchu){
     + '</tr></thead><tbody><tr>'
     + '<td class="ctr"'+ce(d.ton)+'>'+esc(d.ton)+'</td>'
     + '<td class="ctr"'+ce(d.carType)+'>'+esc(d.carType)+'</td>'
-    + '<td'+ce(d.signboard)+'>'+esc(d.signboard)+'</td>'
-    + '<td class="ctr"'+ce(d.car)+'>'+esc(d.car)+'</td>'
-    + '<td class="ctr"'+ce(d.driver)+'>'+esc(d.driver)+'</td>'
-    + '<td class="ctr"'+ce(d.phone)+'>'+esc(d.phone)+'</td>'
+    + '<td id="yh-signboard"'+ce(d.signboard)+'>'+esc(d.signboard)+'</td>'
+    + '<td class="ctr" id="yh-car"'+ce(d.car)+'>'+esc(d.car)+'</td>'
+    + '<td class="ctr" id="yh-driver"'+ce(d.driver)+'>'+esc(d.driver)+'</td>'
+    + '<td class="ctr" id="yh-phone"'+ce(d.phone)+'>'+esc(d.phone)+'</td>'
     + '</tr></tbody></table></div>';
 
   html += '<div class="footer-note">※ ご不明な点は担当者までご連絡ください。</div>';
@@ -177,7 +190,7 @@ function loadHistory() {
   document.getElementById('sh-list').innerHTML = '<div style="text-align:center;padding:20px;color:#888;">読み込み中…</div>';
   google.script.run
     .withSuccessHandler(renderHistory)
-    .withFailureHandler(function(e) { document.getElementById('sh-list').innerHTML = '<div style="color:red;">エラー: ' + e.message + '</div>'; })
+    .withFailureHandler(function(e) { document.getElementById('sh-list').innerHTML = '<div style="color:red;">エラー: ' + (e && e.message ? e.message : String(e)) + '</div>'; })
     .getShijisakiHistory(DATA.client, DATA.ssId);
 }
 
@@ -281,6 +294,78 @@ function cancelClose() {
   document.getElementById('close-confirm').style.display = 'none';
 }
 
+// 14-11/14-12: 傭車履歴（車番連絡用）
+function getYousha() {
+  function t(id) { var e = document.getElementById(id); return e ? e.textContent.trim() : ''; }
+  return { signboard: t('yh-signboard'), car: t('yh-car'), driver: t('yh-driver'), phone: t('yh-phone') };
+}
+
+function onSaveYousha() {
+  var yh = getYousha();
+  var btn = document.getElementById('btn-save-yh');
+  if (btn) { btn.disabled = true; btn.textContent = '保存中…'; }
+  google.script.run
+    .withSuccessHandler(function() {
+      if (btn) { btn.disabled = false; btn.textContent = '✅ 保存完了'; setTimeout(function(){ btn.textContent = '💾 保存'; }, 2000); }
+    })
+    .withFailureHandler(function(e) {
+      if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
+      alert('保存に失敗しました: ' + (e && e.message ? e.message : String(e)));
+    })
+    .saveYoushaHistory(DATA.client, yh, DATA.ssId);
+}
+
+function loadYoushaHistory() {
+  document.getElementById('yh-overlay').style.display = 'block';
+  document.getElementById('yh-modal').style.display = 'block';
+  document.getElementById('yh-list').innerHTML = '<div style="text-align:center;padding:20px;color:#888;">読み込み中…</div>';
+  google.script.run
+    .withSuccessHandler(renderYoushaHistory)
+    .withFailureHandler(function(e) { document.getElementById('yh-list').innerHTML = '<div style="color:red;">エラー: ' + (e && e.message ? e.message : String(e)) + '</div>'; })
+    .getYoushaHistory(DATA.client, DATA.ssId);
+}
+
+function renderYoushaHistory(list) {
+  window._yhHistory = list;
+  if (!list || list.length === 0) {
+    document.getElementById('yh-list').innerHTML = '<div style="text-align:center;padding:20px;color:#888;">履歴がありません</div>';
+    return;
+  }
+  var h = '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#455a64;color:#fff;">'
+    + '<th style="padding:6px 8px;text-align:left;white-space:nowrap;">看板名</th>'
+    + '<th style="padding:6px 8px;text-align:left;white-space:nowrap;">車番</th>'
+    + '<th style="padding:6px 8px;text-align:left;white-space:nowrap;">乗務員名</th>'
+    + '<th style="padding:6px 8px;text-align:left;white-space:nowrap;">携帯番号</th>'
+    + '<th style="padding:6px 8px;text-align:left;white-space:nowrap;">最終使用</th>'
+    + '</tr></thead><tbody>';
+  list.forEach(function(r, i) {
+    h += '<tr style="cursor:pointer;border-bottom:1px solid #eee;" '
+      + 'onmouseover="this.style.background=\'#e3f2fd\'" onmouseout="this.style.background=\'\'" '
+      + 'onclick="pickYoushaHistory(' + i + ')">'
+      + '<td style="padding:5px 8px;">' + esc(r.signboard) + '</td>'
+      + '<td style="padding:5px 8px;">' + esc(r.car) + '</td>'
+      + '<td style="padding:5px 8px;">' + esc(r.driver) + '</td>'
+      + '<td style="padding:5px 8px;">' + esc(r.phone) + '</td>'
+      + '<td style="padding:5px 8px;color:#888;font-size:10px;">' + esc(r.lastUsed) + '</td>'
+      + '</tr>';
+  });
+  document.getElementById('yh-list').innerHTML = h + '</tbody></table>';
+}
+
+function closeYoushaHistory() {
+  document.getElementById('yh-overlay').style.display = 'none';
+  document.getElementById('yh-modal').style.display = 'none';
+}
+
+function pickYoushaHistory(i) {
+  var r = window._yhHistory[i];
+  var s = document.getElementById('yh-signboard'); if (s) s.textContent = r.signboard;
+  var c = document.getElementById('yh-car');       if (c) c.textContent = r.car;
+  var dr = document.getElementById('yh-driver');   if (dr) dr.textContent = r.driver;
+  var p = document.getElementById('yh-phone');     if (p) p.textContent = r.phone;
+  closeYoushaHistory();
+}
+
 window.addEventListener('beforeunload', function(e) {
   if (_hasUnsaved) { e.preventDefault(); e.returnValue = ''; return ''; }
 });
@@ -297,6 +382,11 @@ function onPrint() {
     if (sj.company || sj.tel || sj.person || sj.addr) {
       google.script.run.saveShijisakiHistory(DATA.client, sj, DATA.ssId);
     }
+  } else {
+    var yhP = getYousha();
+    if (yhP.signboard || yhP.car || yhP.driver || yhP.phone) {
+      google.script.run.saveYoushaHistory(DATA.client, yhP, DATA.ssId);
+    }
   }
   google.script.run.markDocumentIssued(DATA.id, TYPE);
 }
@@ -309,7 +399,8 @@ function onEmailSend() {
   if (!confirm('この宛先に送信してもよろしいですか？\n\n宛先：' + DATA.clientEmail)) return;
   var btn = document.getElementById('btn-email');
   btn.disabled = true; btn.textContent = '送信中...';
-  if (TYPE === 'hatchu') DATA.shijisaki = getShijisaki();
+  if (TYPE === 'hatchu') { DATA.shijisaki = getShijisaki(); }
+  else { var yhE = getYousha(); if (yhE.signboard || yhE.car || yhE.driver || yhE.phone) google.script.run.saveYoushaHistory(DATA.client, yhE, DATA.ssId); }
   google.script.run
     .withSuccessHandler(function(r) {
       if (r && r.ok) {
@@ -336,7 +427,8 @@ function onFaxSend() {
   if (!confirm('この宛先にFAX送信してもよろしいですか？\n\n宛先：' + DATA.clientFax)) return;
   var btn = document.getElementById('btn-fax');
   btn.disabled = true; btn.textContent = '送信中...';
-  if (TYPE === 'hatchu') DATA.shijisaki = getShijisaki();
+  if (TYPE === 'hatchu') { DATA.shijisaki = getShijisaki(); }
+  else { var yhF = getYousha(); if (yhF.signboard || yhF.car || yhF.driver || yhF.phone) google.script.run.saveYoushaHistory(DATA.client, yhF, DATA.ssId); }
   google.script.run
     .withSuccessHandler(function(r) {
       if (r && r.ok) {
