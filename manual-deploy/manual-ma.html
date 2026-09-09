@@ -1304,7 +1304,7 @@ html { scroll-behavior: smooth; }
             <li>CSVインポートや複数行のコピー＆ペーストでデータを一括入力した後、IDや車番が入っていない行に対して使用する</li>
             <li>A列のIDが空でB〜K列にデータがある行にV-XXXXを一括採番、F列（車番）または乗務員名が空の行を自車専属マスタから一括補完し、集計表を全件再同期する</li>
             <li>A列空・B〜K列にデータあり → V-XXXX 形式で採番（LockService.getScriptLock で二重採番防止）</li>
-            <li>F列(車番)またはG列(乗務員名)が空 → 自車専属マスタから補完（社外傭車はマスタ外のため補完されない）</li>
+            <li>F列(車番)またはG列(乗務員名)が空 → 自車専属マスタから補完（社外協力会社はマスタ外のため補完されない）</li>
             <li>補完後は syncSummaryForId_ で集計表を再同期 → sortUnkouByDate_ でソート → applyHolidayRowColors_ で色付け</li>
           </ul>
         </div>

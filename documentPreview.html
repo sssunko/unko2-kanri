@@ -68,11 +68,11 @@ table.doc-tbl td.num{text-align:right;}
   </div>
   <div id="sh-list"></div>
 </div>
-<div id="yh-overlay" onclick="closeYoushaHistory()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:900;"></div>
+<div id="yh-overlay" onclick="closeKyoryokuHistory()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:900;"></div>
 <div id="yh-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:8px;padding:18px;min-width:540px;max-width:750px;max-height:70vh;overflow-y:auto;z-index:901;box-shadow:0 4px 24px rgba(0,0,0,.35);">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-    <b style="font-size:13px;">📋 傭車履歴</b>
-    <button onclick="closeYoushaHistory()" style="border:none;background:none;cursor:pointer;font-size:18px;line-height:1;">✕</button>
+    <b style="font-size:13px;">📋 協力会社履歴</b>
+    <button onclick="closeKyoryokuHistory()" style="border:none;background:none;cursor:pointer;font-size:18px;line-height:1;">✕</button>
   </div>
   <div id="yh-list"></div>
 </div>
@@ -157,9 +157,9 @@ function buildDoc(d, isHatchu){
 
   // 3段目: 看板名/車番/乗務員名/携帯番号
   html += '<div class="section"><div class="sec-ttl" style="display:flex;align-items:center;gap:6px;">■ 車両・乗務員情報'
-    + (!isHatchu ? '<button type="button" id="btn-save-yh" onclick="onSaveYousha()" '
+    + (!isHatchu ? '<button type="button" id="btn-save-yh" onclick="onSaveKyoryoku()" '
     + 'style="padding:2px 10px;font-size:10px;background:#388e3c;color:#fff;border:none;border-radius:3px;cursor:pointer;font-weight:bold;">💾 保存</button>'
-    + '<button type="button" onclick="loadYoushaHistory()" '
+    + '<button type="button" onclick="loadKyoryokuHistory()" '
     + 'style="padding:2px 10px;font-size:10px;background:#fff;color:#455a64;border:1px solid #90a4ae;border-radius:3px;cursor:pointer;font-weight:bold;">📋 履歴</button>' : '')
     + '</div>'
     + '<table class="doc-tbl"><thead><tr>'
@@ -294,14 +294,14 @@ function cancelClose() {
   document.getElementById('close-confirm').style.display = 'none';
 }
 
-// 14-11/14-12: 傭車履歴（車番連絡用）
-function getYousha() {
+// 14-11/14-12: 協力会社履歴（車番連絡用）
+function getKyoryoku() {
   function t(id) { var e = document.getElementById(id); return e ? e.textContent.trim() : ''; }
   return { signboard: t('yh-signboard'), car: t('yh-car'), driver: t('yh-driver'), phone: t('yh-phone') };
 }
 
-function onSaveYousha() {
-  var yh = getYousha();
+function onSaveKyoryoku() {
+  var yh = getKyoryoku();
   var btn = document.getElementById('btn-save-yh');
   if (btn) { btn.disabled = true; btn.textContent = '保存中…'; }
   google.script.run
@@ -312,20 +312,20 @@ function onSaveYousha() {
       if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
       alert('保存に失敗しました: ' + (e && e.message ? e.message : String(e)));
     })
-    .saveYoushaHistory(DATA.client, yh, DATA.ssId);
+    .saveKyoryokuHistory(DATA.client, yh, DATA.ssId);
 }
 
-function loadYoushaHistory() {
+function loadKyoryokuHistory() {
   document.getElementById('yh-overlay').style.display = 'block';
   document.getElementById('yh-modal').style.display = 'block';
   document.getElementById('yh-list').innerHTML = '<div style="text-align:center;padding:20px;color:#888;">読み込み中…</div>';
   google.script.run
-    .withSuccessHandler(renderYoushaHistory)
+    .withSuccessHandler(renderKyoryokuHistory)
     .withFailureHandler(function(e) { document.getElementById('yh-list').innerHTML = '<div style="color:red;">エラー: ' + (e && e.message ? e.message : String(e)) + '</div>'; })
-    .getYoushaHistory(DATA.client, DATA.ssId);
+    .getKyoryokuHistory(DATA.client, DATA.ssId);
 }
 
-function renderYoushaHistory(list) {
+function renderKyoryokuHistory(list) {
   window._yhHistory = list;
   if (!list || list.length === 0) {
     document.getElementById('yh-list').innerHTML = '<div style="text-align:center;padding:20px;color:#888;">履歴がありません</div>';
@@ -341,7 +341,7 @@ function renderYoushaHistory(list) {
   list.forEach(function(r, i) {
     h += '<tr style="cursor:pointer;border-bottom:1px solid #eee;" '
       + 'onmouseover="this.style.background=\'#e3f2fd\'" onmouseout="this.style.background=\'\'" '
-      + 'onclick="pickYoushaHistory(' + i + ')">'
+      + 'onclick="pickKyoryokuHistory(' + i + ')">'
       + '<td style="padding:5px 8px;">' + esc(r.signboard) + '</td>'
       + '<td style="padding:5px 8px;">' + esc(r.car) + '</td>'
       + '<td style="padding:5px 8px;">' + esc(r.driver) + '</td>'
@@ -352,18 +352,18 @@ function renderYoushaHistory(list) {
   document.getElementById('yh-list').innerHTML = h + '</tbody></table>';
 }
 
-function closeYoushaHistory() {
+function closeKyoryokuHistory() {
   document.getElementById('yh-overlay').style.display = 'none';
   document.getElementById('yh-modal').style.display = 'none';
 }
 
-function pickYoushaHistory(i) {
+function pickKyoryokuHistory(i) {
   var r = window._yhHistory[i];
   var s = document.getElementById('yh-signboard'); if (s) s.textContent = r.signboard;
   var c = document.getElementById('yh-car');       if (c) c.textContent = r.car;
   var dr = document.getElementById('yh-driver');   if (dr) dr.textContent = r.driver;
   var p = document.getElementById('yh-phone');     if (p) p.textContent = r.phone;
-  closeYoushaHistory();
+  closeKyoryokuHistory();
 }
 
 window.addEventListener('beforeunload', function(e) {
@@ -383,12 +383,12 @@ function onPrint() {
       google.script.run.saveShijisakiHistory(DATA.client, sj, DATA.ssId);
     }
   } else {
-    var yhP = getYousha();
+    var yhP = getKyoryoku();
     if (yhP.signboard || yhP.car || yhP.driver || yhP.phone) {
-      google.script.run.saveYoushaHistory(DATA.client, yhP, DATA.ssId);
+      google.script.run.saveKyoryokuHistory(DATA.client, yhP, DATA.ssId);
     }
   }
-  google.script.run.markDocumentIssued(DATA.id, TYPE);
+  google.script.run.markDocumentIssued(DATA.id, TYPE, DATA.ssId);
 }
 
 function onEmailSend() {
@@ -400,7 +400,7 @@ function onEmailSend() {
   var btn = document.getElementById('btn-email');
   btn.disabled = true; btn.textContent = '送信中...';
   if (TYPE === 'hatchu') { DATA.shijisaki = getShijisaki(); }
-  else { var yhE = getYousha(); if (yhE.signboard || yhE.car || yhE.driver || yhE.phone) google.script.run.saveYoushaHistory(DATA.client, yhE, DATA.ssId); }
+  else { var yhE = getKyoryoku(); if (yhE.signboard || yhE.car || yhE.driver || yhE.phone) google.script.run.saveKyoryokuHistory(DATA.client, yhE, DATA.ssId); }
   google.script.run
     .withSuccessHandler(function(r) {
       if (r && r.ok) {
@@ -428,7 +428,7 @@ function onFaxSend() {
   var btn = document.getElementById('btn-fax');
   btn.disabled = true; btn.textContent = '送信中...';
   if (TYPE === 'hatchu') { DATA.shijisaki = getShijisaki(); }
-  else { var yhF = getYousha(); if (yhF.signboard || yhF.car || yhF.driver || yhF.phone) google.script.run.saveYoushaHistory(DATA.client, yhF, DATA.ssId); }
+  else { var yhF = getKyoryoku(); if (yhF.signboard || yhF.car || yhF.driver || yhF.phone) google.script.run.saveKyoryokuHistory(DATA.client, yhF, DATA.ssId); }
   google.script.run
     .withSuccessHandler(function(r) {
       if (r && r.ok) {

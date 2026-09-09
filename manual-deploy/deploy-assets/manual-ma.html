@@ -1304,7 +1304,7 @@ html { scroll-behavior: smooth; }
             <li>CSVインポートや複数行のコピー＆ペーストでデータを一括入力した後、IDや車番が入っていない行に対して使用する</li>
             <li>A列のIDが空でB〜K列にデータがある行にV-XXXXを一括採番、F列（車番）または乗務員名が空の行を自車専属マスタから一括補完し、集計表を全件再同期する</li>
             <li>A列空・B〜K列にデータあり → V-XXXX 形式で採番（LockService.getScriptLock で二重採番防止）</li>
-            <li>F列(車番)またはG列(乗務員名)が空 → 自車専属マスタから補完（社外傭車はマスタ外のため補完されない）</li>
+            <li>F列(車番)またはG列(乗務員名)が空 → 自車専属マスタから補完（社外協力会社はマスタ外のため補完されない）</li>
             <li>補完後は syncSummaryForId_ で集計表を再同期 → sortUnkouByDate_ でソート → applyHolidayRowColors_ で色付け</li>
           </ul>
         </div>
@@ -1498,7 +1498,7 @@ html { scroll-behavior: smooth; }
         <span class="clr-none">無</span>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 14-2d（showShabanDocDialog L13826）・14-2e（getDocumentData_ L13841）・14-4（markDocumentIssued）・14-5（sendDocumentEmail L13237）・14-11（getYoushaHistory）・14-12（saveYoushaHistory）・14-12i（saveYoushaHistory_）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 14-2d（showShabanDocDialog L13826）・14-2e（getDocumentData_ L13841）・14-4（markDocumentIssued）・14-5（sendDocumentEmail L13237）・14-11（getKyoryokuHistory）・14-12（saveKyoryokuHistory）・14-12i（saveKyoryokuHistory_）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
@@ -1526,20 +1526,20 @@ html { scroll-behavior: smooth; }
         </div>
         <div class="ss-wrap"><img src="screenshots/29-step4-yousha-filled.png" class="ss-img" alt="車両・乗務員情報欄（入力後）"></div>
         <div class="block">
-          <div class="blk-label">⑤ 「保存」ボタンで傭車履歴シートに保存される（saveYoushaHistory / saveYoushaHistory_ / コード.js: 14-12, 14-12i）</div>
+          <div class="blk-label">⑤ 「保存」ボタンで協力会社履歴シートに保存される（saveKyoryokuHistory / saveKyoryokuHistory_ / コード.js: 14-12, 14-12i）</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/29-step5-yousha-saving.png" class="ss-img" alt="保存中"></div>
         <div class="block">
-          <div class="blk-label">⑥ 「履歴」ボタンで過去の傭車一覧を表示。選択でフォームに自動入力（getYoushaHistory / コード.js: 14-11）</div>
+          <div class="blk-label">⑥ 「履歴」ボタンで過去の協力会社一覧を表示。選択でフォームに自動入力（getKyoryokuHistory / コード.js: 14-11）</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/29-step6-yousha-saved.png" class="ss-img" alt="履歴ボタン"></div>
-        <div class="ss-wrap"><img src="screenshots/29-step7-yousha-history.png" class="ss-img" alt="傭車履歴"></div>
+        <div class="ss-wrap"><img src="screenshots/29-step7-yousha-history.png" class="ss-img" alt="協力会社履歴"></div>
         <div class="block">
           <div class="blk-label">🔧 実装概要（MA向け）</div>
           <ul class="pts">
             <li>showShabanDocDialog → getDocumentData_('unkou')で運行シートからデータ取得しdocumentPreview.htmlをモーダル表示（金額は売上列）</li>
             <li>markDocumentIssued・sendDocumentEmailは28番（発注書）と共通の実装</li>
-            <li>傭車履歴: getYoushaHistory(14-11)・saveYoushaHistory(14-12)・saveYoushaHistory_(14-12i)。隠しシート「傭車履歴」に荷主名・看板名・車番・乗務員名・携帯番号・最終使用日を保存。documentPreview.htmlのshaban（車番連絡）ダイアログに💾保存・📋履歴ボタンを追加。印刷/メール/FAX送信時にも自動保存</li>
+            <li>協力会社履歴: getKyoryokuHistory(14-11)・saveKyoryokuHistory(14-12)・saveKyoryokuHistory_(14-12i)。隠しシート「協力会社履歴」に荷主名・看板名・車番・乗務員名・携帯番号・最終使用日を保存。documentPreview.htmlのshaban（車番連絡）ダイアログに💾保存・📋履歴ボタンを追加。印刷/メール/FAX送信時にも自動保存</li>
             <li>コード番号：コード.js 14-2d, 14-2e, 14-4, 14-5, 14-11, 14-12, 14-12i</li>
           </ul>
         </div>
@@ -1599,7 +1599,7 @@ html { scroll-behavior: smooth; }
     </div>
 
     <div class="pitem">
-      <span class="pnum">38</span>
+      <span class="pnum">37</span>
       <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
       <span class="pname">ヘッダー復旧＋保護</span>
     </div>
