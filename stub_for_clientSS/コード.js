@@ -170,7 +170,7 @@ function showShabanDocDialog()           { return UnkouLib.showShabanDocDialog()
 function showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(); }
 function generateUketorishoSheet(a)      { return UnkouLib.generateUketorishoSheet(a); }
 function sendDocumentEmail(a,b,c)        { return UnkouLib.sendDocumentEmail(a,b,c); }
-function markDocumentIssued(a,b)         { return UnkouLib.markDocumentIssued(a,b); }
+function markDocumentIssued(a,b,c)       { return UnkouLib.markDocumentIssued(a,b,c); }
 function getShijisakiHistory(a,b)        { return UnkouLib.getShijisakiHistory(a,b); }
 function saveShijisakiHistory(a,b,c)     { return UnkouLib.saveShijisakiHistory(a,b,c); }
 function getShijisakiByRowId(a,b)           { return UnkouLib.getShijisakiByRowId(a,b); }
