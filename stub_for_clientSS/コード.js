@@ -39,6 +39,7 @@ function onOpen(e) {
     var _enId = _enSh ? String(_enSh.getRange(1, 2).getValue() || '') : '';
     if (_enId) UnkouLib.ensureRequiredSheets(_enId);
   } catch(e) {}
+  try { UnkouLib.ensureSheetsOnOpen(); } catch(e) {}
   try {
     var _bkProps = PropertiesService.getDocumentProperties();
     var _bkLast  = Number(_bkProps.getProperty('LAST_BACKUP_TS') || 0);
@@ -187,6 +188,10 @@ function initFixedCostMaster()           { return UnkouLib.initFixedCostMaster()
 // ── 請求書・支払確認書 ────────────────────────────────────────────────
 function showInvoiceDialog()             { return UnkouLib.showInvoiceDialog(); }
 function generateInvoiceSheet(a,b,c,d)   { return UnkouLib.generateInvoiceSheet(a,b,c,d); }
+function generateInvoiceBatch(a,b,c,d)       { return UnkouLib.generateInvoiceBatch(a,b,c,d); }
+function clearUketorishoTimestamps()         { return UnkouLib.clearUketorishoTimestamps(); }
+function prepareUketorishoForPrint()         { return UnkouLib.prepareUketorishoForPrint(); }
+function ensureSheetsOnOpen()                { return UnkouLib.ensureSheetsOnOpen(); }
 function showPaymentDialog()             { return UnkouLib.showPaymentDialog(); }
 function generatePaymentSheet(a,b,c,d,e) { return UnkouLib.generatePaymentSheet(a,b,c,d,e); }
 
