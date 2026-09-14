@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>運行シート 操作説明書 — 現場スタッフ向け</title>
+<title>操作説明書 — 現場スタッフ向け</title>
 <style>
 /* ── CSS変数 ── */
 :root {
@@ -173,7 +173,7 @@ body {
 
 .card-body { padding: 14px 18px 16px; }
 .clr-none { font-size: 10px; color: var(--muted); margin-left: auto; flex-shrink: 0; }
-.clr-tag  { font-size: 10px; color: var(--dim);   flex-shrink: 0; }
+.clr-tag  { font-size: 10px; color: var(--muted); flex-shrink: 0; }
 .clr-grp  { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
 
 /* ── BLOCK TYPES ── */
@@ -281,6 +281,75 @@ html { scroll-behavior: smooth; }
   .toc-wrap { padding: 18px 16px; }
   .toc-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ─── 大中小 NAVIGATION ─── */
+.nav-view { display: none; }
+.nav-view.active { display: block; min-height: calc(100vh - 60px); }
+.nav-inner { max-width: 1120px; margin: 0 auto; padding: 32px 40px 64px; }
+.nav-lbl { font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
+.nav-bc { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dim); margin-bottom: 24px; flex-wrap: wrap; }
+.nav-bc-lnk { color: var(--gold); cursor: pointer; font-weight: 600; }
+.nav-bc-lnk:hover { text-decoration: underline; }
+.nav-bc-sep { opacity: .4; }
+.nav-bc-cur { color: var(--text); font-weight: 500; }
+.sheet-grid-nav { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.sheet-ncard { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 22px 24px; cursor: pointer; transition: border-color .15s; }
+.sheet-ncard:hover { border-color: var(--gold); }
+.sheet-ncard-name { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+.sheet-ncard-bar-wrap { background: var(--border); border-radius: 3px; height: 5px; overflow: hidden; margin-bottom: 7px; }
+.sheet-ncard-bar-fill { height: 100%; background: var(--gold); border-radius: 3px; }
+.sheet-ncard-stat { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.item-row-list { display: flex; flex-direction: column; gap: 4px; }
+.item-row-nav { display: grid; grid-template-columns: 36px 90px 1fr 48px; align-items: center; gap: 12px; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color .12s; }
+.item-row-nav:hover { border-color: var(--gold); }
+.item-row-num { font-size: 11px; color: var(--dim); font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.item-row-name { font-size: 14px; font-weight: 600; }
+.ibadge-ok { font-size: 10px; background: #0d2c18; color: #4ade80; padding: 2px 7px; border-radius: 4px; font-weight: 700; text-align: center; }
+.ibadge-pend { font-size: 10px; background: #2a1f00; color: #fbbf24; padding: 2px 7px; border-radius: 4px; font-weight: 700; text-align: center; }
+.main { display: none; }
+.main.sm-active { display: block; }
+.main .sec-title { display: none; }
+.main .pending-grid { display: none; }
+.main .grid .card { display: none; }
+.main .grid .card.ac { display: block; }
+.view-小-nav { display: none; align-items: center; gap: 6px; font-size: 12px; color: var(--dim); margin-bottom: 20px; flex-wrap: wrap; }
+.view-小-nav.show { display: flex; }
+.view-小-nav .nav-bc-lnk { color: var(--gold); cursor: pointer; font-weight: 600; }
+.view-小-nav .nav-bc-lnk:hover { text-decoration: underline; }
+.view-小-nav .nav-bc-sep { opacity: .4; }
+.view-小-nav .nav-bc-cur { color: var(--text); }
+.pend-card { background: var(--surface); border: 1px dashed var(--border); border-radius: 8px; padding: 28px 20px; color: var(--dim); font-size: 13px; text-align: center; }
+@media (max-width: 680px) {
+  .nav-inner { padding: 20px 16px 48px; }
+  .item-row-nav { grid-template-columns: 28px 1fr 40px; gap: 8px; }
+  .item-row-nav .cat { display: none; }
+}
+/* 大ビュー：シートカード小型化 */
+.sheet-ncard { padding: 8px 14px; border-radius: 8px; }
+.sheet-ncard-name { font-size: 13px; font-weight: 700; margin-bottom: 0; }
+.sheet-ncard-bar-wrap, .sheet-ncard-stat { display: none; }
+.sheet-ncard-pend { opacity: .4; cursor: default; pointer-events: none; }
+.sheet-grid-nav { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+/* 中ビュー：カードグリッド全表示 */
+.main.md-active { display: block; }
+.main.md-active .sec-title { display: block; }
+.main.md-active .grid .card { display: block; }
+.main.md-active .pending-grid { display: block; }
+.main.md-active .view-小-nav { display: none; }
+/* ナビボタン */
+.md-nav-bar { display: none; padding: 14px 0 10px; gap: 8px; }
+.main.md-active .md-nav-bar { display: flex; }
+.nav-btn { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 700; color: var(--gold); cursor: pointer; line-height: 1.4; }
+.nav-btn:hover { border-color: var(--gold); background: var(--surface); }
+/* TOC 表示制御 */
+.toc-wrap { display: none; }
+.toc-nav-bar { display: none; max-width: 1120px; margin: 0 auto; padding: 14px 40px 8px; gap: 8px; }
+.toc-nav-bar.show { display: flex; }
+/* シートカード デザイン */
+.sheet-ncard-ready { border-color: var(--gold); }
+.sheet-ncard-ready .sheet-ncard-name { color: var(--gold); }
+.sheet-grid-nav { counter-reset: sheet-num; }
+.sheet-ncard::before { counter-increment: sheet-num; content: counter(sheet-num, decimal-leading-zero); display: block; font-size: 10px; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
 </style>
 </head>
 <body>
@@ -289,26 +358,62 @@ html { scroll-behavior: smooth; }
   <div class="hdr-inner">
     <div>
       <div class="hdr-label">unko2-kanri — 現場スタッフ向け</div>
-      <div class="hdr-title">運行シート 操作説明書</div>
+      <div class="hdr-title">操作説明書</div>
       <div class="hdr-sub">自動入力・気をつけること・困ったときの操作</div>
     </div>
     <button class="theme-btn" onclick="toggleTheme()">☀ / ☾</button>
   </div>
 </header>
 
-<div class="intro">
-  <div class="intro-inner">
-    <span class="intro-icon">💡</span>
-    <p class="intro-text">
-      <strong>「🔵 自動」</strong>と書いてある項目は操作不要です。入力するだけで自動処理されます。<br>
-      <strong>「⚠️ 注意」</strong>と書いてある項目は、間違えやすい点を説明しています。
-    </p>
+<!-- ─── 大 VIEW: シート一覧 ─── -->
+<div class="nav-view active" id="view-大">
+  <div class="nav-inner">
+    <div class="nav-lbl">シート一覧</div>
+    <div class="sheet-grid-nav">
+      <div class="sheet-ncard sheet-ncard-ready" onclick="go中('unkou')"><div class="sheet-ncard-name">運行シート：全37項目</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">配車板</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">集計表</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">自車専属マスタ</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">自車専属運行</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">マスタ</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">設定</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">PL設定</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">管理者</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">距離マスタ</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">自社設定</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">請求書</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">支払確認書</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">監査用</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">仕訳表</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">会社登録</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">使い方</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">エラーログ</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">メモ</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">メモ2</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">PL</div></div>
+      <div class="sheet-ncard sheet-ncard-pend"><div class="sheet-ncard-name">受領書_耳</div></div>
+    </div>
   </div>
 </div>
 
+<!-- ─── 中 VIEW: 項目一覧 ─── -->
+<div class="nav-view" id="view-中">
+  <div class="nav-inner">
+    <div class="nav-bc">
+      <span class="nav-bc-lnk" onclick="go大()">シート一覧</span>
+      <span class="nav-bc-sep">›</span>
+      <span class="nav-bc-cur" id="view-中-ttl">運行シート</span>
+    </div>
+    <div class="item-row-list" id="item-list-nav"></div>
+  </div>
+</div>
+
+<div class="toc-nav-bar" id="toc-nav-bar">
+  <button class="nav-btn" onclick="go大()">◀ シート一覧</button>
+</div>
 <div class="toc-wrap">
   <div class="toc-inner">
-    <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 41</span>」の機能一覧</div>
+    <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 37</span>」の機能一覧</div>
     <div class="toc-grid">
       <div class="toc-sep">【入力補助】セルに入力するだけで自動処理</div>
       <a class="toc-item done" href="#feat-01"><span class="toc-n">1</span> 👑 <span class="toc-name">ID自動採番</span></a>
@@ -363,6 +468,10 @@ html { scroll-behavior: smooth; }
 </div>
 
 <main class="main">
+  <div class="md-nav-bar">
+    <button class="nav-btn" onclick="go大()">◀ シート一覧</button>
+  </div>
+  <div class="view-小-nav" id="bc-小"></div>
 
   <!-- ──────── 確認済み機能 ──────── -->
   <div class="sec-title">確認済み機能 <span class="sec-badge">28 / 38</span></div>
@@ -576,9 +685,9 @@ html { scroll-behavior: smooth; }
         <span class="num">09</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">請求高速 → 実費高速 コピー</span>
-        <div class="color-chip">
-          <div class="chip-dot" style="background:#E65100;border-color:#ff9a60;"></div>
-          <span>🟠 オレンジ文字</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け</span>
+          <div class="color-chip" style="background:#E65100;border:1px solid #ff9a60;width:14px;height:14px;border-radius:3px;" title="#E65100 オレンジ文字"></div>
         </div>
       </div>
       <div class="card-body">
@@ -733,7 +842,10 @@ html { scroll-behavior: smooth; }
         <span class="num">14</span>
         <span class="cat cat-guard">警告・保護</span>
         <span class="feat-name">ID重複・車番不一致の警告</span>
-        <div class="color-chip" style="background:#ff1744;width:14px;height:14px;border-radius:3px;margin-left:auto;flex-shrink:0;" title="#ff1744 ID衝突"></div>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け</span>
+          <div class="color-chip" style="background:#ff1744;width:14px;height:14px;border-radius:3px;" title="#ff1744 ID衝突"></div>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -1512,70 +1624,182 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
+
+    <!-- 32 - pending -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">32</span>
+        <span class="cat cat-doc">帳票・出力</span>
+        <span class="feat-name">CSV・Excel出力</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+    </div>
+
+    <!-- 33 - pending -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">33</span>
+        <span class="cat cat-menu">シート管理</span>
+        <span class="feat-name">今月分生成</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+    </div>
+
+    <!-- 34 - pending -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">34</span>
+        <span class="cat cat-menu">シート管理</span>
+        <span class="feat-name">翌月分生成</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+    </div>
+
+    <!-- 35 - pending -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">35</span>
+        <span class="cat cat-menu">シート管理</span>
+        <span class="feat-name">前月分アーカイブ</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+    </div>
+
+    <!-- 36 - pending -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">36</span>
+        <span class="cat cat-menu">シート管理</span>
+        <span class="feat-name">シート再生成</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+    </div>
+
+    <!-- 37 - pending -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">37</span>
+        <span class="cat cat-infra">シート管理</span>
+        <span class="feat-name">ヘッダー復旧＋保護</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+    </div>
+
   </div><!-- /grid -->
-
-  <!-- ──────── 今後の対応予定 ──────── -->
-  <div class="sec-title" id="pending" style="margin-top:52px;">
-    今後の対応予定（未確認）
-    <span class="sec-badge gray">6 件</span>
-  </div>
-
-  <div class="pending-grid">
-
-    <div class="pitem">
-      <span class="pnum">32</span>
-      <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
-      <span class="pname">CSV・Excel出力</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">33</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">今月分生成</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">34</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">翌月分生成</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">35</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">前月分アーカイブ</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">36</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">シート再生成</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">37</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">ヘッダー復旧＋保護</span>
-    </div>
-
-  </div><!-- /pending-grid -->
 
 
 </main>
 
-<footer class="ftr">運行シート 操作説明書 — 現場スタッフ向け — v1128 — 2026-09-14</footer>
+<footer class="ftr">操作説明書 — 現場スタッフ向け — v1128</footer>
 
 <script>
-// カードに feat-XX のIDを自動付与（TOCリンク用）
-document.querySelectorAll('.grid .card').forEach(function(c) {
-  var n = c.querySelector('.num');
-  if (n) c.id = 'feat-' + n.textContent.trim();
-});
+(function(){
+var curSheet='unkou';
+var ITEMS=[];
 
-function toggleTheme() {
-  var r = document.documentElement;
-  r.setAttribute('data-theme', r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+function initItems(){
+  document.querySelectorAll('.grid .card').forEach(function(c){
+    var numEl=c.querySelector('.num');
+    if(!numEl) return;
+    var num=parseInt(numEl.textContent.trim(),10);
+    var nameEl=c.querySelector('.feat-name');
+    var catEl=c.querySelector('.cat');
+    ITEMS.push({
+      num:num,
+      name:nameEl?nameEl.textContent.trim():'',
+      cat:catEl?catEl.textContent.trim():'',
+      catCls:catEl?catEl.className:'',
+      status:(num<=31)?'済':'未',
+      el:c
+    });
+  });
+  ITEMS.sort(function(a,b){return a.num-b.num;});
+  buildList();
 }
+
+function buildList(){
+  var el=document.getElementById('item-list-nav');
+  if(!el) return;
+  el.innerHTML=ITEMS.map(function(item){
+    return '<div class="item-row-nav" onclick="nav小('+item.num+')">'
+      +'<span class="item-row-num">'+String(item.num).padStart(2,'0')+'</span>'
+      +'<span class="'+item.catCls+'" style="font-size:9px;padding:1px 6px">'+item.cat+'</span>'
+      +'<span class="item-row-name">'+item.name+'</span>'
+      +'<span class="'+(item.status==='済'?'ibadge-ok':'ibadge-pend')+'">'+item.status+'</span>'
+      +'</div>';
+  }).join('');
+}
+
+window.go大=function(){
+  document.getElementById('view-大').classList.add('active');
+  document.getElementById('view-中').classList.remove('active');
+  var m=document.querySelector('main.main');
+  m.classList.remove('sm-active');
+  m.classList.remove('md-active');
+  document.querySelector('.toc-wrap').style.display='none';
+  document.getElementById('toc-nav-bar').classList.remove('show');
+  window.scrollTo(0,0);
+};
+
+window.go中=function(sheet){
+  curSheet=sheet;
+  document.getElementById('view-大').classList.remove('active');
+  document.getElementById('view-中').classList.remove('active');
+  var m=document.querySelector('main.main');
+  m.classList.remove('sm-active');
+  m.classList.remove('md-active');
+  document.querySelectorAll('.grid .card').forEach(function(c){c.classList.remove('ac');});
+  document.querySelector('.toc-wrap').style.display='block';
+  document.getElementById('toc-nav-bar').classList.add('show');
+  window.scrollTo(0,0);
+};
+
+window.nav小=function(num){
+  var item=ITEMS.find(function(i){return i.num===num;});
+  if(!item) return;
+  document.querySelectorAll('.grid .card').forEach(function(c){c.classList.remove('ac');});
+  item.el.classList.add('ac');
+  document.querySelector('.toc-wrap').style.display='none';
+  document.getElementById('toc-nav-bar').classList.remove('show');
+  var bc=document.getElementById('bc-小');
+  bc.className='view-小-nav show';
+  bc.innerHTML='<button class="nav-btn" onclick="go大()">◀ シート一覧</button>'
+    +'<button class="nav-btn" onclick="go中(\''+curSheet+'\')">◀ 項目一覧</button>'
+    +'<span class="nav-bc-sep" style="margin-left:4px">›</span>'
+    +'<span class="nav-bc-cur">'+String(num).padStart(2,'0')+'. '+item.name+'</span>';
+  document.getElementById('view-大').classList.remove('active');
+  document.getElementById('view-中').classList.remove('active');
+  var m=document.querySelector('main.main');
+  m.classList.remove('md-active');
+  m.classList.add('sm-active');
+  window.scrollTo(0,0);
+};
+
+function wireTocItems(){
+  document.querySelectorAll('.toc-item').forEach(function(a){
+    var numEl=a.querySelector('.toc-n');
+    if(!numEl) return;
+    var num=parseInt(numEl.textContent.trim(),10);
+    if(!num) return;
+    a.setAttribute('href','#');
+    a.onclick=function(e){e.preventDefault();window.nav小(num);};
+  });
+}
+
+window.toggleTheme=function(){
+  var r=document.documentElement;
+  r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');
+};
+
+initItems();
+wireTocItems();
+})();
 </script>
 </body>
 </html>

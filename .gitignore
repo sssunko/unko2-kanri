@@ -1,2 +1,9 @@
 nul
 push_to_original.bat
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
