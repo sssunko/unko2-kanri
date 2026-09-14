@@ -9634,7 +9634,7 @@ function showInvoiceDialog() {
     +'document.getElementById("m").innerText="生成中...";'
     +'google.script.run'
     +'.withSuccessHandler(function(r){document.getElementById("m").innerText=r;setTimeout(function(){google.script.host.close();},1500);})'
-    +'.withFailureHandler(function(e){document.getElementById("m").innerText="エラー: "+(e.message||e);document.getElementById("m").style.color="red";})'
+    +'.withFailureHandler(function(e){var m=document.getElementById("m");m.innerText="システムの最新化が進行中です。お手数ですが、キーボードの『F5』を押して画面を更新してから再度お試しください。";m.style.color="red";})'
     +'.generateInvoiceBatch([co],document.getElementById("f").value,document.getElementById("t").value,Number(document.getElementById("tax").value));}'
     +'</script></body></html>';
   SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(580).setHeight(310), '請求書生成');
@@ -9705,7 +9705,7 @@ function showPaymentDialog() {
     +'<script>function g(){document.getElementById("m").innerText="生成中...";'
     +'google.script.run'
     +'.withSuccessHandler(function(){document.getElementById("m").innerText="完了";setTimeout(function(){google.script.host.close();},800);})'
-    +'.withFailureHandler(function(e){document.getElementById("m").innerText="エラー: "+(e.message||e);document.getElementById("m").style.color="red";})'
+    +'.withFailureHandler(function(e){var m=document.getElementById("m");m.innerText="システムの最新化が進行中です。お手数ですが、キーボードの『F5』を押して画面を更新してから再度お試しください。";m.style.color="red";})'
     +'.generatePaymentSheet(document.getElementById("co").value,document.getElementById("ca").value,document.getElementById("nm").value,document.getElementById("f").value,document.getElementById("t").value);}'
     +'</script></body></html>';
   SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(620).setHeight(280), '支払確認書生成');
@@ -9839,17 +9839,25 @@ function generateInvoiceSheet(company, dateFrom, dateTo, taxRate) {
   sh.getRange(R,1,1,7).setValues([['No.','日付','積地','降地','車番','売上','高速代']])
     .setBackground('#1565c0').setFontColor('#fff').setFontWeight('bold').setHorizontalAlignment('center');
   R++;
-  // 明細（高速代0は空欄）
-  items.forEach(function(r,i){
-    var dStr  = Utilities.formatDate(r[9],'Asia/Tokyo','M/d');
-    var bg    = i%2===0 ? null : '#f5f5f5';
-    var toll  = Number(r[19])||0;
-    sh.getRange(R,1,1,7).setValues([[i+1,dStr,String(r[11]||''),String(r[12]||''),String(r[5]||''),Number(r[18])||0,toll||'']]);
-    sh.getRange(R,1,1,7).setBackground(bg).setHorizontalAlignment('left');
-    sh.getRange(R,6,1,1).setNumberFormat('#,##0');
-    if (toll) sh.getRange(R,7,1,1).setNumberFormat('#,##0');
-    R++;
-  });
+  // 明細（バッチ書き込みで高速化）
+  if (items.length > 0) {
+    var batchVals = [], batchBgs = [], hasToll = false;
+    items.forEach(function(r,i){
+      var dStr = Utilities.formatDate(r[9],'Asia/Tokyo','M/d');
+      var bg   = i%2===0 ? null : '#f5f5f5';
+      var toll = Number(r[19])||0;
+      if (toll) hasToll = true;
+      batchVals.push([i+1,dStr,String(r[11]||''),String(r[12]||''),String(r[5]||''),Number(r[18])||0,toll||'']);
+      batchBgs.push([bg,bg,bg,bg,bg,bg,bg]);
+    });
+    var detailRange = sh.getRange(R,1,items.length,7);
+    detailRange.setValues(batchVals);
+    detailRange.setBackgrounds(batchBgs);
+    detailRange.setHorizontalAlignment('left');
+    sh.getRange(R,6,items.length,1).setNumberFormat('#,##0');
+    if (hasToll) sh.getRange(R,7,items.length,1).setNumberFormat('#,##0');
+    R += items.length;
+  }
   // 集計行
   R++;
   merge(R,3,1,3).setValue('売上合計').setHorizontalAlignment('right').setFontWeight('bold');
@@ -11494,8 +11502,8 @@ function ensureRequiredSheets(masterSsId) {
   });
 }
 
-//  14-3: ②客用SS→全③各客SSにヘッダー・設定を反映（syncToAllClientSS）
-//  ②客用SSのメニュー「📤 各客に反映」から実行。データ行は一切消さない。
+//  14-3: ①修正用SS→全③各客SSにヘッダー・設定を反映（syncToAllClientSS）
+//  ①修正用SSのメニュー「🌐 全客SS（③）に反映」から実行（①②どちらからも実行可能）。データ行は一切消さない。
 //  ②の __TEMPLATE_SS__ シートのB1から①修正用SSのIDを取得し会社登録シートを参照する。
 //
 //  ★ M&A後の引き継ぎメモ ★

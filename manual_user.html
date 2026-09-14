@@ -257,6 +257,9 @@ html { scroll-behavior: smooth; }
 .card { scroll-margin-top: 90px; }
 #pending { scroll-margin-top: 90px; }
 .ss-wrap { margin-top: 16px; }
+.ss-annotate-wrap { position: relative; display: block; margin-top: 16px; }
+.ss-annotate-wrap .ss-img { margin-top: 0; }
+.anno-tab { position: absolute; border: 3px solid #f5c518; border-radius: 3px; pointer-events: none; bottom: 0.5%; right: 2%; width: 11%; height: 5%; }
 .ss-img { max-width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; image-rendering: -webkit-optimize-contrast; image-rendering: pixelated; }
 
 @media (max-width: 680px) {
@@ -296,7 +299,7 @@ html { scroll-behavior: smooth; }
 
 <div class="toc-wrap">
   <div class="toc-inner">
-    <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 29</span>」の機能一覧</div>
+    <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 30</span>」の機能一覧</div>
     <div class="toc-grid">
       <a class="toc-item done" href="#feat-01"><span class="toc-n">①</span> 👑 <span class="toc-name">ID自動採番</span></a>
       <a class="toc-item done" href="#feat-02"><span class="toc-n">②</span> 👑 <span class="toc-name">トン数正規化</span></a>
@@ -327,6 +330,7 @@ html { scroll-behavior: smooth; }
       <a class="toc-item" href="#pending"><span class="toc-n">㉗</span><span class="toc-name">配車表CSV/Excel取込</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">㉘</span><span class="toc-name">onEdit処理の高速化</span></a>
       <a class="toc-item done" href="#feat-29"><span class="toc-n">㉙</span> 👑 <span class="toc-name">日付への現在時刻付与</span></a>
+      <a class="toc-item done" href="#feat-30"><span class="toc-n">㉚</span> 👑 <span class="toc-name">請求書生成</span></a>
     </div>
   </div>
 </div>
@@ -334,7 +338,7 @@ html { scroll-behavior: smooth; }
 <main class="main">
 
   <!-- ──────── 確認済み機能 ──────── -->
-  <div class="sec-title">確認済み機能 <span class="sec-badge">12 / 29</span></div>
+  <div class="sec-title">確認済み機能 <span class="sec-badge">13 / 30</span></div>
   <div class="grid">
 
     <!-- 1 -->
@@ -682,6 +686,39 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
+    <!-- 30 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">30</span>
+        <span class="cat cat-doc">帳票・出力</span>
+        <span class="feat-name">請求書生成</span>
+      </div>
+      <div class="card-body">
+
+        <div class="block">
+          <div class="blk-label manual">📋 手順</div>
+          <ul class="pts">
+            <li>メニュー「📒 経理・出力」→「🧾 請求書生成」を選ぶ</li>
+            <li>ダイアログが開く。マスタID・取引先名カナ・会社名・電話のどれかから顧客を選ぶ（4つは連動していて、1つ選ぶと残り3つも自動で一致する）</li>
+            <li>期間を確認する（初期値は今月1日〜末日）。必要なら変更する</li>
+            <li>消費税率を確認する（初期値10%）</li>
+            <li>「生成」ボタンを押す</li>
+            <li>完了すると下部の「請求書」タブに請求書シートが自動生成される</li>
+          </ul>
+        </div>
+
+        <div class="ss-wrap"><img src="screenshots/31-01-menu.png" class="ss-img" alt="請求書生成メニュー選択"></div>
+        <div class="ss-wrap"><img src="screenshots/31-02-dialog.png" class="ss-img" alt="請求書生成ダイアログ初期状態"></div>
+        <div class="ss-wrap"><img src="screenshots/31-03-select.png" class="ss-img" alt="顧客・期間・税率入力後"></div>
+        <div class="ss-wrap"><img src="screenshots/31-04-btn.png" class="ss-img" alt="生成ボタンを押す"></div>
+        <div class="ss-annotate-wrap">
+          <img src="screenshots/31-05-sheet.png" class="ss-img" alt="生成された請求書シート">
+          <span class="anno-tab"></span>
+        </div>
+
+      </div>
+    </div>
+
   </div><!-- /grid -->
 
   <!-- ──────── 今後の対応予定 ──────── -->
@@ -802,7 +839,7 @@ html { scroll-behavior: smooth; }
 
 </main>
 
-<footer class="ftr">運行シート 操作説明書 — 現場スタッフ向け — v836 — 2026-07-27</footer>
+<footer class="ftr">運行シート 操作説明書 — 現場スタッフ向け — v1128 — 2026-09-14</footer>
 
 <script>
 // カードに feat-XX のIDを自動付与（TOCリンク用）
