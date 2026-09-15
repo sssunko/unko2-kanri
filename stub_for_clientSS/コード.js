@@ -116,8 +116,8 @@ function createManualSheet()      { return UnkouLib.createManualSheet(); }
 function createSupportSheet()     { return UnkouLib.createSupportSheet(); }
 function setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }
 function showExportDialog()             { return UnkouLib.showExportDialog(); }
-function exportSheetAsCsvBase64(a)      { return UnkouLib.exportSheetAsCsvBase64(a); }
-function exportSelectedSheetsAsExcel(a) { return UnkouLib.exportSelectedSheetsAsExcel(a); }
+function exportSheetAsCsvBase64(a,b)      { return UnkouLib.exportSheetAsCsvBase64(a,b); }
+function exportSelectedSheetsAsExcel(a,b) { return UnkouLib.exportSelectedSheetsAsExcel(a,b); }
 function exportPlBundle(a)              { return UnkouLib.exportPlBundle(a); }
 // installTriggersはライブラリ経由にするとScriptAppが①を向くためローカル実装
 function installTriggers() {
