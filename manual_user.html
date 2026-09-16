@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>運行シート 操作説明書 — 現場スタッフ向け</title>
+<title>操作説明書 — 現場スタッフ向け</title>
 <style>
 /* ── CSS変数 ── */
 :root {
@@ -172,10 +172,15 @@ body {
 }
 
 .card-body { padding: 14px 18px 16px; }
+.clr-none { font-size: 10px; color: var(--muted); margin-left: auto; flex-shrink: 0; }
+.clr-tag  { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.clr-grp  { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-shrink: 0; }
 
 /* ── BLOCK TYPES ── */
 .block { margin-bottom: 10px; }
 .block:last-child { margin-bottom: 0; }
+.ss-wrap + .block { margin-top: 20px; }
+.block + .ss-wrap { margin-top: 6px; }
 
 .blk-label {
   display: inline-flex; align-items: center; gap: 6px;
@@ -185,6 +190,11 @@ body {
 .blk-label.auto { background: var(--auto-bg); color: var(--auto-tx); }
 .blk-label.warn { background: var(--warn-bg); color: var(--warn-tx); }
 .blk-label.tip  { background: var(--tip-bg);  color: var(--tip-tx);  }
+.block:not(:has(ul,ol)) > .blk-label:not(.auto):not(.warn):not(.tip) {
+  font-size: 13px; font-weight: 600; background: none;
+  padding: 0 2px; border-radius: 0; letter-spacing: 0;
+  color: var(--text); margin-bottom: 2px;
+}
 
 .pts { list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .pts li {
@@ -252,15 +262,15 @@ html { scroll-behavior: smooth; }
 .toc-item.done { border-left-color: var(--gold); color: var(--text); }
 .toc-item:hover { background: var(--card-hover); }
 .toc-item.done:hover { border-left-color: var(--gold-text); }
+.toc-sep { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: var(--muted); padding: 5px 0 2px; letter-spacing: .04em; border-bottom: 1px solid var(--border); margin-top: 2px; }
 .toc-n { font-size: 14px; flex-shrink: 0; line-height: 1; }
+.toc-chip { display:inline-block; width:9px; height:9px; border-radius:2px; vertical-align:middle; margin-left:3px; border:1px solid rgba(255,255,255,.18); flex-shrink:0; }
 .toc-name { flex: 1; }
 .card { scroll-margin-top: 90px; }
 #pending { scroll-margin-top: 90px; }
 .ss-wrap { margin-top: 16px; }
-.ss-annotate-wrap { position: relative; display: block; margin-top: 16px; }
-.ss-annotate-wrap .ss-img { margin-top: 0; }
-.anno-tab { position: absolute; border: 3px solid #f5c518; border-radius: 3px; pointer-events: none; bottom: 0.5%; right: 2%; width: 11%; height: 5%; }
-.ss-img { max-width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; image-rendering: -webkit-optimize-contrast; image-rendering: pixelated; }
+.ss-img { max-width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; image-rendering: auto; }
+.ss-cap { margin: 4px 0 0 2px; font-size: 11px; color: #aaa; }
 
 @media (max-width: 680px) {
   .hdr { padding: 18px 16px; }
@@ -272,6 +282,96 @@ html { scroll-behavior: smooth; }
   .toc-wrap { padding: 18px 16px; }
   .toc-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ─── 大中小 NAVIGATION ─── */
+.nav-view { display: none; }
+.nav-view.active { display: block; min-height: calc(100vh - 60px); }
+.nav-inner { max-width: 1120px; margin: 0 auto; padding: 32px 40px 64px; }
+.nav-lbl { font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
+.nav-bc { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dim); margin-bottom: 24px; flex-wrap: wrap; }
+.nav-bc-lnk { color: var(--gold); cursor: pointer; font-weight: 600; }
+.nav-bc-lnk:hover { text-decoration: underline; }
+.nav-bc-sep { opacity: .4; }
+.nav-bc-cur { color: var(--text); font-weight: 500; }
+.sheet-grid-nav { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.sheet-ncard { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 22px 24px; cursor: pointer; transition: border-color .15s; }
+.sheet-ncard:hover { border-color: var(--gold); }
+.sheet-ncard-name { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+.sheet-ncard-bar-wrap { background: var(--border); border-radius: 3px; height: 5px; overflow: hidden; margin-bottom: 7px; }
+.sheet-ncard-bar-fill { height: 100%; background: var(--gold); border-radius: 3px; }
+.sheet-ncard-stat { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.item-row-list { display: flex; flex-direction: column; gap: 4px; }
+.item-row-nav { display: grid; grid-template-columns: 36px 90px 1fr 48px; align-items: center; gap: 12px; padding: 10px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color .12s; }
+.item-row-nav:hover { border-color: var(--gold); }
+.item-row-num { font-size: 11px; color: var(--dim); font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.item-row-name { font-size: 14px; font-weight: 600; }
+.ibadge-ok { font-size: 10px; background: #0d2c18; color: #4ade80; padding: 2px 7px; border-radius: 4px; font-weight: 700; text-align: center; }
+.ibadge-pend { font-size: 10px; background: #2a1f00; color: #fbbf24; padding: 2px 7px; border-radius: 4px; font-weight: 700; text-align: center; }
+.main { display: none; }
+.main.sm-active { display: block; }
+.main .sec-title { display: none; }
+.main .pending-grid { display: none; }
+.main .grid .card { display: none; }
+.main .grid .card.ac { display: block; }
+.view-小-nav { display: none; align-items: center; gap: 6px; font-size: 12px; color: var(--dim); margin-bottom: 20px; flex-wrap: wrap; }
+.view-小-nav.show { display: flex; }
+.view-小-nav .nav-bc-lnk { color: var(--gold); cursor: pointer; font-weight: 600; }
+.view-小-nav .nav-bc-lnk:hover { text-decoration: underline; }
+.view-小-nav .nav-bc-sep { opacity: .4; }
+.view-小-nav .nav-bc-cur { color: var(--text); }
+.pend-card { background: var(--surface); border: 1px dashed var(--border); border-radius: 8px; padding: 28px 20px; color: var(--dim); font-size: 13px; text-align: center; }
+@media (max-width: 680px) {
+  .nav-inner { padding: 20px 16px 48px; }
+  .item-row-nav { grid-template-columns: 28px 1fr 40px; gap: 8px; }
+  .item-row-nav .cat { display: none; }
+}
+/* 大ビュー：シートカード小型化 */
+.sheet-ncard { padding: 8px 14px; border-radius: 8px; }
+.sheet-ncard-name { font-size: 13px; font-weight: 700; margin-bottom: 0; }
+.sheet-ncard-bar-wrap, .sheet-ncard-stat { display: none; }
+.sheet-ncard-pend { opacity: .4; cursor: default; pointer-events: none; }
+.sheet-grid-nav { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+/* 中ビュー：カードグリッド全表示 */
+.main.md-active { display: block; }
+.main.md-active .sec-title { display: block; }
+.main.md-active .grid .card { display: block; }
+.main.md-active .pending-grid { display: block; }
+.main.md-active .view-小-nav { display: none; }
+/* ナビボタン */
+.md-nav-bar { display: none; padding: 14px 0 10px; gap: 8px; }
+.main.md-active .md-nav-bar { display: flex; }
+.nav-btn { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 700; color: var(--gold); cursor: pointer; line-height: 1.4; }
+.nav-btn:hover { border-color: var(--gold); background: var(--surface); }
+/* TOC 表示制御 */
+.toc-wrap { display: none; }
+.toc-nav-bar { display: none; max-width: 1120px; margin: 0 auto; padding: 14px 40px 8px; gap: 8px; }
+.toc-nav-bar.show { display: flex; }
+/* シートカード デザイン */
+.sheet-ncard-ready { border-color: var(--gold); background:rgba(212,175,55,.08); box-shadow:0 0 0 1px rgba(212,175,55,.25), 0 4px 14px rgba(212,175,55,.12); }
+.sheet-ncard-ready .sheet-ncard-name { color: var(--gold); }
+.sheet-ncard-ready::before { color: var(--gold); }
+.sheet-grid-nav { counter-reset: sheet-num; }
+.sheet-ncard::before { counter-increment: sheet-num; content: counter(sheet-num, decimal-leading-zero); display: block; font-size: 10px; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
+.sheet-grp-hd { grid-column:1/-1; font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; padding:7px 14px; border-radius:5px; margin-top:16px; }
+.sheet-grp-hd:first-child { margin-top:0; }
+.sheet-grp-hd.g-red    { color:#ef9a9a; border-left:4px solid #c62828; background:linear-gradient(90deg,rgba(198,40,40,.22) 0%,rgba(198,40,40,.06) 100%); }
+.sheet-grp-hd.g-green  { color:#a5d6a7; border-left:4px solid #2e7d32; background:linear-gradient(90deg,rgba(46,125,50,.22) 0%,rgba(46,125,50,.06) 100%); }
+.sheet-grp-hd.g-purple { color:#ce93d8; border-left:4px solid #6a1b9a; background:linear-gradient(90deg,rgba(106,27,154,.22) 0%,rgba(106,27,154,.06) 100%); }
+.sheet-grp-hd.g-orange { color:#ffab91; border-left:4px solid #e65100; background:linear-gradient(90deg,rgba(230,81,0,.22) 0%,rgba(230,81,0,.06) 100%); }
+.sheet-grp-hd.g-blue   { color:#90caf9; border-left:4px solid #1565c0; background:linear-gradient(90deg,rgba(21,101,192,.22) 0%,rgba(21,101,192,.06) 100%); }
+.sheet-grp-hd.g-pink   { color:#f48fb1; border-left:4px solid #880e4f; background:linear-gradient(90deg,rgba(136,14,79,.22) 0%,rgba(136,14,79,.06) 100%); }
+.sheet-ncard[data-g="red"]    { border-left:3px solid #c62828; background:rgba(198,40,40,.09); }
+.sheet-ncard[data-g="red"]::before    { color:#e57373; }
+.sheet-ncard[data-g="green"]  { border-left:3px solid #2e7d32; background:rgba(46,125,50,.09); }
+.sheet-ncard[data-g="green"]::before  { color:#81c784; }
+.sheet-ncard[data-g="purple"] { border-left:3px solid #6a1b9a; background:rgba(106,27,154,.09); }
+.sheet-ncard[data-g="purple"]::before { color:#ba68c8; }
+.sheet-ncard[data-g="orange"] { border-left:3px solid #e65100; background:rgba(230,81,0,.09); }
+.sheet-ncard[data-g="orange"]::before { color:#ff8a65; }
+.sheet-ncard[data-g="blue"]   { border-left:3px solid #1565c0; background:rgba(21,101,192,.09); }
+.sheet-ncard[data-g="blue"]::before   { color:#64b5f6; }
+.sheet-ncard[data-g="pink"]   { border-left:3px solid #880e4f; background:rgba(136,14,79,.09); }
+.sheet-ncard[data-g="pink"]::before   { color:#f48fb1; }
 </style>
 </head>
 <body>
@@ -280,65 +380,127 @@ html { scroll-behavior: smooth; }
   <div class="hdr-inner">
     <div>
       <div class="hdr-label">unko2-kanri — 現場スタッフ向け</div>
-      <div class="hdr-title">運行シート 操作説明書</div>
+      <div class="hdr-title">操作説明書</div>
       <div class="hdr-sub">自動入力・気をつけること・困ったときの操作</div>
     </div>
     <button class="theme-btn" onclick="toggleTheme()">☀ / ☾</button>
   </div>
 </header>
 
-<div class="intro">
-  <div class="intro-inner">
-    <span class="intro-icon">💡</span>
-    <p class="intro-text">
-      <strong>「🔵 自動」</strong>と書いてある項目は操作不要です。入力するだけで自動処理されます。<br>
-      <strong>「⚠️ 注意」</strong>と書いてある項目は、間違えやすい点を説明しています。
-    </p>
+<!-- ─── 大 VIEW: シート一覧 ─── -->
+<div class="nav-view active" id="view-大">
+  <div class="nav-inner">
+    <div class="nav-lbl">シート一覧</div>
+    <div class="sheet-grid-nav">
+      <div class="sheet-grp-hd g-red">配車・運行系</div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="red"><div class="sheet-ncard-name">配車板</div></div>
+      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('unkou')"><div class="sheet-ncard-name">運行　全37項目</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="red"><div class="sheet-ncard-name">集計表</div></div>
+      <div class="sheet-grp-hd g-green">マスタ・設定系</div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属マスタ</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属運行</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">マスタ</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">設定</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自社設定</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">管理者</div></div>
+      <div class="sheet-grp-hd g-purple">単価・設定系</div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="purple"><div class="sheet-ncard-name">PL設定</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="purple"><div class="sheet-ncard-name">距離マスタ</div></div>
+      <div class="sheet-grp-hd g-orange">帳票・書類系</div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="orange"><div class="sheet-ncard-name">PL</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="orange"><div class="sheet-ncard-name">請求書</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="orange"><div class="sheet-ncard-name">支払確認書</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="orange"><div class="sheet-ncard-name">受領書_耳</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="orange"><div class="sheet-ncard-name">仕訳表</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="orange"><div class="sheet-ncard-name">監査用</div></div>
+      <div class="sheet-grp-hd g-blue">ガイド・メモ系</div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="blue"><div class="sheet-ncard-name">使い方</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="blue"><div class="sheet-ncard-name">説明書</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="blue"><div class="sheet-ncard-name">サポート</div></div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="blue"><div class="sheet-ncard-name">メモ</div></div>
+    </div>
   </div>
 </div>
 
+<!-- ─── 中 VIEW: 項目一覧 ─── -->
+<div class="nav-view" id="view-中">
+  <div class="nav-inner">
+    <div class="nav-bc">
+      <span class="nav-bc-lnk" onclick="go大()">シート一覧</span>
+      <span class="nav-bc-sep">›</span>
+      <span class="nav-bc-cur" id="view-中-ttl">運行シート</span>
+    </div>
+    <div class="item-row-list" id="item-list-nav"></div>
+  </div>
+</div>
+
+<div class="toc-nav-bar" id="toc-nav-bar">
+  <button class="nav-btn" onclick="go大()">◀ シート一覧</button>
+</div>
 <div class="toc-wrap">
   <div class="toc-inner">
-    <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 30</span>」の機能一覧</div>
+    <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 37</span>」の機能一覧</div>
     <div class="toc-grid">
-      <a class="toc-item done" href="#feat-01"><span class="toc-n">①</span> 👑 <span class="toc-name">ID自動採番</span></a>
-      <a class="toc-item done" href="#feat-02"><span class="toc-n">②</span> 👑 <span class="toc-name">トン数正規化</span></a>
-      <a class="toc-item done" href="#feat-03"><span class="toc-n">③</span> 👑 <span class="toc-name">車番自動補完</span></a>
-      <a class="toc-item done" href="#feat-04"><span class="toc-n">④</span> 👑 <span class="toc-name">車種変換</span></a>
-      <a class="toc-item done" href="#feat-05"><span class="toc-n">⑤</span> 👑 <span class="toc-name">時刻の正規化と日付合成</span></a>
-      <a class="toc-item done" href="#feat-06"><span class="toc-n">⑥</span> 👑 <span class="toc-name">車番全角→半角変換</span></a>
-      <a class="toc-item done" href="#feat-07"><span class="toc-n">⑦</span> 👑 <span class="toc-name">書式自動設定</span></a>
-      <a class="toc-item done" href="#feat-08"><span class="toc-n">⑧</span> 👑 <span class="toc-name">請求→実費高速コピー 🟠</span></a>
-      <a class="toc-item done" href="#feat-09"><span class="toc-n">⑨</span> 👑 <span class="toc-name">合計高速代 自動計算</span></a>
-      <a class="toc-item done" href="#feat-10"><span class="toc-n">⑩</span> 👑 <span class="toc-name">日付変更時の自動ソート</span></a>
-      <a class="toc-item done" href="#feat-11"><span class="toc-n">⑪</span> 👑 <span class="toc-name">有休行の色付け</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑫</span><span class="toc-name">休み行の色付け</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑬</span><span class="toc-name">配車漏れ警告色</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑭</span><span class="toc-name">資格期限アラート色</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑮</span><span class="toc-name">ID重複・車番不一致の警告</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑯</span><span class="toc-name">保護列の色</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑰</span><span class="toc-name">色凡例メモの自動設定</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑱</span><span class="toc-name">時刻入力の順序チェック</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑲</span><span class="toc-name">ヘッダー行の自動復元</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">⑳</span><span class="toc-name">ID・車番一括補完（手動）</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉑</span><span class="toc-name">手動の日付順並び替え</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉒</span><span class="toc-name">今月分の行一括生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉓</span><span class="toc-name">翌月分の行一括生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉔</span><span class="toc-name">前月分アーカイブ</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉕</span><span class="toc-name">車番連絡のメール送信</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉖</span><span class="toc-name">ファイル添付</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉗</span><span class="toc-name">配車表CSV/Excel取込</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">㉘</span><span class="toc-name">onEdit処理の高速化</span></a>
-      <a class="toc-item done" href="#feat-29"><span class="toc-n">㉙</span> 👑 <span class="toc-name">日付への現在時刻付与</span></a>
-      <a class="toc-item done" href="#feat-30"><span class="toc-n">㉚</span> 👑 <span class="toc-name">請求書生成</span></a>
+      <div class="toc-sep">【入力補助】セルに入力するだけで自動処理</div>
+      <a class="toc-item done" href="#feat-01"><span class="toc-n">1</span><span class="toc-name">ID自動採番</span></a>
+      <a class="toc-item done" href="#feat-02"><span class="toc-n">2</span><span class="toc-name">トン数正規化</span></a>
+      <a class="toc-item done" href="#feat-03"><span class="toc-n">3</span><span class="toc-name">車番自動補完</span></a>
+      <a class="toc-item done" href="#feat-04"><span class="toc-n">4</span><span class="toc-name">車種変換</span></a>
+      <a class="toc-item done" href="#feat-05"><span class="toc-n">5</span><span class="toc-name">車番 全角→半角変換</span></a>
+      <a class="toc-item done" href="#feat-06"><span class="toc-n">6</span><span class="toc-name">日付への現在時刻付与</span></a>
+      <a class="toc-item done" href="#feat-07"><span class="toc-n">7</span><span class="toc-name">時刻の正規化と日付合成</span></a>
+      <div class="toc-sep">【自動計算】入力値から自動集計・同期</div>
+      <a class="toc-item done" href="#feat-08"><span class="toc-n">8</span><span class="toc-name">書式自動設定</span></a>
+      <a class="toc-item done" href="#feat-09"><span class="toc-n">9</span><span class="toc-name">請求→実費高速コピー<span class="toc-chip" style="background:#E65100;border-color:#ff9a60"></span></span></a>
+      <a class="toc-item done" href="#feat-10"><span class="toc-n">10</span><span class="toc-name">合計高速代 自動計算</span></a>
+      <a class="toc-item done" href="#feat-11"><span class="toc-n">11</span><span class="toc-name">日付変更時の自動ソート</span></a>
+      
+      
+      <div class="toc-sep">【警告・保護】異常検知と自動修復</div>
+      <a class="toc-item done" href="#feat-12"><span class="toc-n">12</span><span class="toc-name">時刻入力の順序チェック</span></a>
+      <a class="toc-item done" href="#feat-13"><span class="toc-n">13</span><span class="toc-name">資格期限の警告ポップアップ</span></a>
+      <a class="toc-item done" href="#feat-14"><span class="toc-n">14</span><span class="toc-name">ID重複・車番不一致の警告<span class="toc-chip" style="background:#ff1744"></span></span></a>
+      <a class="toc-item done" href="#feat-15"><span class="toc-n">15</span><span class="toc-name">ヘッダー行の自動復元</span></a>
+      <div class="toc-sep">【色表示】セルや行の色で状態を視覚化</div>
+      <a class="toc-item done" href="#feat-16"><span class="toc-n">16</span><span class="toc-name">有休行の色付け<span class="toc-chip" style="background:#e0e0e0"></span></span></a>
+      <a class="toc-item done" href="#feat-17"><span class="toc-n">17</span><span class="toc-name">休み行の色付け<span class="toc-chip" style="background:#9e9e9e"></span></span></a>
+      <a class="toc-item done" href="#feat-18"><span class="toc-n">18</span><span class="toc-name">配車漏れ警告色<span class="toc-chip" style="background:#fff9c4;border-color:rgba(0,0,0,.2)"></span></span></a>
+      <a class="toc-item done" href="#feat-19"><span class="toc-n">19</span><span class="toc-name">保護列の色<span class="toc-chip" style="background:#eceff1;border-color:rgba(0,0,0,.15)"></span></span></a>
+      <a class="toc-item done" href="#feat-20"><span class="toc-n">20</span><span class="toc-name">資格期限アラート色（A列）<span class="toc-chip" style="background:#ffcdd2;border-color:#e88"></span><span class="toc-chip" style="background:#bbdefb;border-color:#8ac"></span><span class="toc-chip" style="background:#c8e6c9;border-color:#8b8"></span></span></a>
+      <a class="toc-item done" href="#feat-21"><span class="toc-n">21</span><span class="toc-name">色凡例メモの自動設定</span></a>
+      <div class="toc-sep">【バックグラウンド】裏側で動く自動処理</div>
+      <a class="toc-item done" href="#feat-22"><span class="toc-n">22</span><span class="toc-name">マスタ編集時連動</span></a>
+      <div class="toc-sep">【配車板】配車板メニュー操作</div>
+      <a class="toc-item done" href="#feat-23"><span class="toc-n">23</span><span class="toc-name">配車ダッシュボード</span></a>
+      <a class="toc-item done" href="#feat-24"><span class="toc-n">24</span><span class="toc-name">選択行の配車確定解除</span></a>
+      <div class="toc-sep">【手動操作】運行シートのメニュー操作</div>
+      <a class="toc-item done" href="#feat-25"><span class="toc-n">25</span><span class="toc-name">ID・車番一括補完（手動）</span></a>
+      <a class="toc-item done" href="#feat-26"><span class="toc-n">26</span><span class="toc-name">写真・ファイル取込</span></a>
+      <a class="toc-item done" href="#feat-27"><span class="toc-n">27</span><span class="toc-name">運行シートCSV/Excel取込</span></a>
+      <div class="toc-sep">【帳票・出力】書類生成・メール送信・出力</div>
+      <a class="toc-item done" href="#feat-28"><span class="toc-n">28</span><span class="toc-name">発注書・指示書の作成・送信</span></a>
+      <a class="toc-item done" href="#feat-29"><span class="toc-n">29</span><span class="toc-name">車番連絡の作成・送信</span></a>
+      <a class="toc-item done" href="#feat-30"><span class="toc-n">30</span><span class="toc-name">受領書の耳生成</span></a>
+      <a class="toc-item done" href="#feat-31"><span class="toc-n">31</span><span class="toc-name">請求書生成</span></a>
+      <a class="toc-item done" href="#feat-32"><span class="toc-n">32</span><span class="toc-name">CSV・Excel出力</span></a>
+      <div class="toc-sep">【シート管理】月次生成・システム復旧</div>
+      <a class="toc-item done" href="#feat-33"><span class="toc-n">33</span><span class="toc-name">今月分生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">34</span><span class="toc-name">翌月分生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">35</span><span class="toc-name">前月分アーカイブ</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">36</span><span class="toc-name">シート再生成</span></a>
+      <a class="toc-item" href="#pending"><span class="toc-n">37</span><span class="toc-name">ヘッダー復旧＋保護</span></a>
     </div>
   </div>
 </div>
 
 <main class="main">
+  <div class="md-nav-bar">
+    <button class="nav-btn" onclick="go大()">◀ シート一覧</button>
+  </div>
+  <div class="view-小-nav" id="bc-小"></div>
 
   <!-- ──────── 確認済み機能 ──────── -->
-  <div class="sec-title">確認済み機能 <span class="sec-badge">13 / 30</span></div>
+  <div class="sec-title">確認済み機能 <span class="sec-badge">28 / 38</span></div>
   <div class="grid">
 
     <!-- 1 -->
@@ -347,6 +509,9 @@ html { scroll-behavior: smooth; }
         <span class="num">01</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">ID自動採番</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -373,6 +538,9 @@ html { scroll-behavior: smooth; }
         <span class="num">02</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">トン数正規化</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -392,6 +560,9 @@ html { scroll-behavior: smooth; }
         <span class="num">03</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">車番自動補完</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -422,6 +593,9 @@ html { scroll-behavior: smooth; }
         <span class="num">04</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">車種 全角→半角・大文字統一変換</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -440,7 +614,55 @@ html { scroll-behavior: smooth; }
       <div class="card-hdr">
         <span class="num">05</span>
         <span class="cat cat-input">入力補助</span>
+        <span class="feat-name">車番 全角→半角自動変換</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>F列（車番）に「１０１」など全角で入力しても「101」に自動変換される</li>
+            <li>操作は不要</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/06-carnum.png" class="ss-img" alt="車番全角→半角変換"></div>
+      </div>
+    </div>
+
+    <!-- 6 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">06</span>
+        <span class="cat cat-input">入力補助</span>
+        <span class="feat-name">日付への現在時刻付与</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>J列（日付）に「7/26」や「７/２６」など入力すると今年の正しい日付として保存される</li>
+            <li>シートの表示は日付のみ（時刻は内部に保存）。アプリの一覧では日付＋時刻（例：7/26　14:35）で表示される</li>
+            <li>操作は不要</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-datetime.png" class="ss-img" alt="日付への現在時刻付与 ビフォーアフター"></div>
+      </div>
+    </div>
+
+    <!-- 7 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">07</span>
+        <span class="cat cat-input">入力補助</span>
         <span class="feat-name">時刻の正規化と日付合成</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -460,31 +682,15 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 6 -->
+    <!-- 8 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">06</span>
-        <span class="cat cat-input">入力補助</span>
-        <span class="feat-name">車番 全角→半角自動変換</span>
-      </div>
-      <div class="card-body">
-        <div class="block">
-          <div class="blk-label auto">🔵 自動</div>
-          <ul class="pts">
-            <li>F列（車番）に「１０１」など全角で入力しても「101」に自動変換される</li>
-            <li>操作は不要</li>
-          </ul>
-        </div>
-        <div class="ss-wrap"><img src="screenshots/06-carnum.png" class="ss-img" alt="車番全角→半角変換"></div>
-      </div>
-    </div>
-
-    <!-- 7 -->
-    <div class="card">
-      <div class="card-hdr">
-        <span class="num">07</span>
+        <span class="num">08</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">書式自動設定</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -499,15 +705,15 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 8 -->
+    <!-- 9 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">08</span>
+        <span class="num">09</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">請求高速 → 実費高速 コピー</span>
-        <div class="color-chip">
-          <div class="chip-dot" style="background:#E65100;border-color:#ff9a60;"></div>
-          <span>🟠 オレンジ文字</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け</span>
+          <div class="color-chip" style="background:#E65100;border:1px solid #ff9a60;width:14px;height:14px;border-radius:3px;" title="#E65100 オレンジ文字"></div>
         </div>
       </div>
       <div class="card-body">
@@ -530,12 +736,15 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 9 -->
+    <!-- 10 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">09</span>
+        <span class="num">10</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">合計高速代 自動計算</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -557,56 +766,186 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 10 -->
+    <!-- 11 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">10</span>
+        <span class="num">11</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">日付変更時の自動ソート</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
           <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>J列（日付）を変更すると自動で「日付の早い順 → 同じ日は乗務員名の五十音順」に並び替わる</li>
+            <li>J列（日付）を変更すると自動で、運行シートと集計表の両方を日付昇順→乗務員名昇順で強制ソートする</li>
             <li>並び替えで行の色やファイルのリンクがズレることはない</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label tip">💡 手動でも実行できる</div>
+          <div class="blk-label tip">💡 手動でも並べ替えできる</div>
+          <ul class="pts">
+            <li>基本はJ列（日付）の▼フィルタボタン → 「昇順」で並べ替えできる</li>
+            <li>日付が正しく並ばない場合は下のメニューから実行する</li>
+          </ul>
           <div class="menu-op">📋 毎日の配車業務 → 🔃 日付順並び替え</div>
         </div>
-        <div class="ss-wrap"><img src="screenshots/10-sort.png" class="ss-img" alt="日付変更時の自動ソート"></div>
+        <div class="ss-wrap"><img src="screenshots/10-sort-menu.png" class="ss-img" alt="日付順並び替えメニュー"></div>
       </div>
     </div>
 
-    <!-- 29 -->
-    <div class="card">
+    <!-- feat-12 -->
+    <div class="card" id="feat-12">
       <div class="card-hdr">
-        <span class="num">29</span>
-        <span class="cat cat-input">入力補助</span>
-        <span class="feat-name">日付への現在時刻付与</span>
+        <span class="num">12</span>
+        <span class="cat cat-guard">警告・保護</span>
+        <span class="feat-name">時刻入力の順序チェック</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
           <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>J列（日付）に「7/26」や「７/２６」など入力すると今年の正しい日付として保存される</li>
-            <li>シートの表示は日付のみ（時刻は内部に保存）。アプリの一覧では日付＋時刻（例：7/26　14:35）で表示される</li>
-            <li>操作は不要</li>
+            <li>N〜R列（誘導→積完→休憩開始→休憩終了→降完）は必ず順番通りにしか入力できない</li>
+            <li>前の時刻が空のまま次の列を入力しようとすると、入力がキャンセルされてエラーが表示される</li>
           </ul>
         </div>
-        <div class="ss-wrap"><img src="screenshots/29-datetime.png" class="ss-img" alt="日付への現在時刻付与 ビフォーアフター"></div>
+        <div class="block">
+          <div class="blk-label warn">⚠️ 入力の順番</div>
+          <ul class="pts">
+            <li>点呼前完了 → 誘導(N) → 積完(O) → 休憩開始(P) → 休憩終了(Q) → 点呼後完了 → 降完(R) の順で入力すること</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label warn">① 誘導(N)が空のままR列（降完）を入力しようとした場合</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-4.png" class="ss-img" alt="R列（降完）を先に入力しようとした状態"></div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-5.png" class="ss-img" style="width:auto;max-width:100%;" alt="順序エラー：先に誘導時刻を入力してください"></div>
+        <div class="block">
+          <div class="blk-label warn">② 誘導(N)が空のままO列（積完）を入力しようとした場合</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-6.png" class="ss-img" alt="O列（積完）を先に入力しようとした状態"></div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-7.png" class="ss-img" style="width:auto;max-width:100%;" alt="順序エラー：先に誘導時刻を入力してください"></div>
+        <div class="block">
+          <div class="blk-label auto">✅ 全列を順序通りに入力した状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-new0.png" class="ss-img" alt="全列正常入力完了の状態"></div>
       </div>
     </div>
 
-    <!-- 11 -->
-    <div class="card" id="feat-11">
+    <!-- feat-13 -->
+    <div class="card" id="feat-13">
       <div class="card-hdr">
-        <span class="num">11</span>
-        <span class="cat cat-color">色表示</span>
+        <span class="num">13</span>
+        <span class="cat cat-guard">警告・保護</span>
+        <span class="feat-name">資格期限の警告ポップアップ（SS起動時）</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（SS起動時）</div>
+          <ul class="pts">
+            <li>SS起動時に、自車専属マスタの資格期限（免許証：60日以内 / 安全教育・健康診断・適性診断：30日以内）を全乗務員分チェックし、該当者がいる場合はポップアップで一覧を表示する</li>
+            <li>「期限切れ」と「まもなく期限」を区別して表示する</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label tip">💡 日付の修正は20番（資格期限アラート色）の自車専属マスタを参照してください</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/13-expiry-popup-0.png" class="ss-img" alt="資格期限の警告ポップアップ"></div>
+      </div>
+    </div>
+
+    <!-- feat-14 -->
+    <div class="card" id="feat-14">
+      <div class="card-hdr">
+        <span class="num">14</span>
+        <span class="cat cat-guard">警告・保護</span>
+        <span class="feat-name">ID重複・車番不一致の警告</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け</span>
+          <div class="color-chip" style="background:#ff1744;width:14px;height:14px;border-radius:3px;" title="#ff1744 ID衝突"></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（入力のたびに）</div>
+          <ul class="pts">
+            <li>同じIDで車番または日付が異なる行があると、ID欄（A列）が赤くなる</li>
+            <li>衝突が解消されると自動で赤が消える</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label warn">① 同じIDが2行入力された状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/14-id-collision-1.png" class="ss-img" alt="同じIDが2行ある状態（ID衝突）"></div>
+        <div class="block">
+          <div class="blk-label auto">② IDを別々に修正した状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/14-id-collision-2.png" class="ss-img" alt="IDが別々になり衝突解消"></div>
+      </div>
+    </div>
+
+    <!-- feat-15 -->
+    <div class="card" id="feat-15">
+      <div class="card-hdr">
+        <span class="num">15</span>
+        <span class="cat cat-guard">警告・保護</span>
+        <span class="feat-name">ヘッダー行の自動復元</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（入力のたびに）</div>
+          <ul class="pts">
+            <li>1行目（項目名の行）を誤って削除・書き換えても、自動でもとの項目名に復元される</li>
+            <li>復元時に「列構成を元に戻しました」のポップアップが表示される</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 正常な状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/15-header-normal-0.png" class="ss-img" alt="ヘッダー行が正常な状態"></div>
+        <div class="block">
+          <div class="blk-label">② 1行目のセルを削除した状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/15-header-deleted-0.png" class="ss-img" alt="ヘッダー行を削除した状態"></div>
+        <div class="block">
+          <div class="blk-label">③ 「列構成を元に戻しました」のポップアップが表示</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/15-header-popup-0.png" class="ss-img" alt="復元ポップアップ"></div>
+        <div class="block">
+          <div class="blk-label">④ 自動でヘッダーが復元された状態</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/15-header-restored-0.png" class="ss-img" alt="ヘッダー行が復元された状態"></div>
+        <div class="block">
+          <div class="blk-label manual">🟡 手動（自動復元が効かなかった場合）</div>
+          <ul class="pts">
+            <li>メニュー「システム設定・保守」→「🔑 ヘッダー復旧＋保護」を実行</li>
+            <li>全対象シート（運行・集計表・マスタ等）のヘッダーをまとめて正規の状態に戻し、シート保護を再設定する</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/15-header-menu-0.png" class="ss-img" alt="メニュー：ヘッダー復旧＋保護"></div>
+      </div>
+    </div>
+
+    <!-- 13 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">16</span>
         <span class="feat-name">有休行の色付け</span>
-        <div class="color-chip" style="background:#e0e0e0;border:1px solid #bbb;width:14px;height:14px;border-radius:3px;margin-left:auto;flex-shrink:0;"></div>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け</span>
+          <div class="color-chip" style="background:#e0e0e0;border:1px solid #bbb;width:14px;height:14px;border-radius:3px;" title="#e0e0e0 有休"></div>
+        </div>
       </div>
       <div class="card-body">
         <div class="block">
@@ -617,241 +956,961 @@ html { scroll-behavior: smooth; }
             <li>操作は不要</li>
           </ul>
         </div>
-        <div class="ss-wrap"><img src="screenshots/11-color-yukyu.png" class="ss-img" alt="有休行の薄グレー着色"></div>
+        <div class="ss-wrap"><img src="screenshots/11-color-yukyu.png" class="ss-img" alt="有休行の着色（薄グレー）"></div>
       </div>
     </div>
 
+    <!-- 13 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">17</span>
+        <span class="feat-name">休み行の色付け</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け</span>
+          <div class="color-chip" style="background:#9e9e9e;width:14px;height:14px;border-radius:3px;" title="#9e9e9e 休み"></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>L列（積地）に「休み」と入力すると行全体が濃グレーになる</li>
+            <li>SS開き直し（F5）後も自動で再適用される</li>
+            <li>操作は不要</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/11-color-yukyu.png" class="ss-img" alt="休み行の着色（濃グレー）"></div>
+      </div>
+    </div>
+
+    <!-- 14 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">18</span>
+        <span class="feat-name">配車漏れ警告色</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け</span>
+          <div class="color-chip" style="background:#fff9c4;border:1px solid #ccc;width:14px;height:14px;border-radius:3px;" title="#fff9c4 配車漏れ"></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>L列（積地）が空でIDがある行のL列が薄黄になる</li>
+            <li>L列に積地を入力すると薄黄が消える</li>
+            <li>削除して空欄に戻すと薄黄が再適用される</li>
+            <li>SS開き直し（F5）後も自動で再適用される</li>
+            <li>有休・休み行（グレー）には薄黄は付かない</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/12-color-haisha.png" class="ss-img" alt="配車漏れ警告色（薄黄）"></div>
+      </div>
+    </div>
+
+    <!-- feat-19 -->
+    <div class="card" id="feat-19">
+      <div class="card-hdr">
+        <span class="num">19</span>
+        <span class="feat-name">保護列の色（薄青グレー）</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け</span>
+          <div class="color-chip" style="background:#eceff1;border:1px solid #bbb;width:14px;height:14px;border-radius:3px;" title="#eceff1 保護列"></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（SS開き直し・入力のたびに）</div>
+          <ul class="pts">
+            <li>V列（合計高速代）・Y列（連絡端末）・Z列（データ端末）のセルに薄青グレーの背景色が自動で付く</li>
+            <li>IDが入力されている行（2行目以降）が対象</li>
+            <li>「この列は自動計算・自動入力のため手で入力しないでください」という視覚的なサインです</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 標準の状態（薄青グレーが適用されている）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/19-protect-normal-0.png" class="ss-img" alt="保護列の薄青グレー（標準）"></div>
+        <div class="block">
+          <div class="blk-label">② 誤って入力した場合</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/19-protect-input-0.png" class="ss-img" alt="保護列に誤入力した状態"></div>
+        <div class="block">
+          <div class="blk-label">③ 次の編集・F5（開き直し）後に薄青グレーが元に戻る</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/19-protect-restored-0.png" class="ss-img" alt="薄青グレーが復元された状態"></div>
+      </div>
+    </div>
+
+    <!-- 15 -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">20</span>
+        <span class="feat-name">資格期限アラート色（A列）</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け</span>
+          <div class="color-chip" style="background:#ffcdd2;border:1px solid #e88;width:14px;height:14px;border-radius:3px;" title="期限切れ"></div>
+          <div class="color-chip" style="background:#bbdefb;border:1px solid #8ac;width:14px;height:14px;border-radius:3px;" title="当日"></div>
+          <div class="color-chip" style="background:#c8e6c9;border:1px solid #8b8;width:14px;height:14px;border-radius:3px;" title="7日以内"></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（画面を開き直すたびに）</div>
+          <ul class="pts">
+            <li>乗務員マスタの資格期限（免許証・安全教育・健康診断・適性診断）を全員分チェックし、最も期限が近い項目の状態でID欄（A列）の背景色が自動で変わります</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">色の意味（ID欄 A列）</div>
+          <ul class="pts">
+            <li>① 淡い赤：いずれかの資格期限が過ぎている</li>
+            <li>② 淡い青：いずれかの資格期限が今日</li>
+            <li>③ 淡い緑：いずれかの資格期限が7日以内</li>
+            <li>④ 色なし（白）：4項目すべて余裕あり</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/13-expiry-a.png" class="ss-img" alt="資格期限アラート色（A列）運行シート"></div>
+        <div class="block" style="margin-top:14px;">
+          <div class="blk-label tip">💡 A1セルにカーソルを合わせると色の意味の一覧が表示されます</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/13-expiry-legend.png" class="ss-img" alt="色の意味（一覧メモ）"></div>
+        <div class="block" style="margin-top:14px;">
+          <div class="blk-label">色が付かない場合</div>
+          <ul class="pts">
+            <li>① 有休・休みの行（グレーの行）には色が付きません</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/13-expiry-gray.png" class="ss-img" alt="有休・休み行（グレー）には色が付かない"></div>
+        <div class="block" style="margin-top:14px;">
+          <ul class="pts">
+            <li>② 区分欄が空の行（自社登録外の車両）には色が付きません</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/13-expiry-nodiv.png" class="ss-img" alt="区分欄が空の行には色が付かない"></div>
+        <div class="block" style="margin-top:14px;">
+          <div class="blk-label">乗務員マスタ（AH〜AK列）</div>
+          <ul class="pts">
+            <li>期限切れは赤文字で表示</li>
+          </ul>
+        </div>
+        <div class="ss-wrap" style="margin-top:10px;"><img src="screenshots/13-expiry-master.png" class="ss-img" alt="乗務員マスタ AH〜AK期限列"></div>
+      </div>
+    </div>
+
+    <!-- feat-21 -->
+    <div class="card" id="feat-21">
+      <div class="card-hdr">
+        <span class="num">21</span>
+        <span class="feat-name">色凡例メモの自動設定</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（SS開き直しのたびに）</div>
+          <ul class="pts">
+            <li>セルの色が何を意味するかを、ヘッダーセルに「メモ」として自動で書き込む</li>
+            <li>セルにカーソルを乗せると吹き出しでメモが表示される</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① A1セル（ID列ヘッダー）— ID列・行全体の色の意味</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/21-legend-a1-0.png" class="ss-img" alt="A1セルのメモ（色凡例）"></div>
+        <div class="block">
+          <div class="blk-label">② L1セル（積地列ヘッダー）— 薄黄（配車漏れ）の意味</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/21-legend-l1-0.png" class="ss-img" alt="L1セルのメモ（配車漏れ薄黄の説明）"></div>
+      </div>
+    </div>
+
+    <!-- feat-22 -->
+    <div class="card" id="feat-22">
+      <div class="card-hdr">
+        <span class="num">22</span>
+        <span class="feat-name">マスタ編集時連動</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（運行状態を変更したとき）</div>
+          <ul class="pts">
+            <li>自車専属マスタシートの「運行状態」欄を変更すると「いつから適用しますか？」が表示され、ボタンを押すと運行シートに自動反映される</li>
+            <li>必ず<strong>1台ずつ</strong>行うこと（複数台の同時変更は非対応）</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">▶ 待機 → 運行 に変えた場合（行の追加）</div>
+          <ul class="pts">
+            <li>「待機」を「運行」に変更しポップアップの該当ボタンを押すと、選択した日付以降の行が運行シートに自動で追加される</li>
+            <li>「待機」はトラックはあるが乗務員がいない場合や、乗務員の怪我等で長期休暇の際などに使用する</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 変更前（車番5678は運行シートに存在しない）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-add-sheet-before-0.png" class="ss-img" alt="変更前 運行シートに車番5678は存在しない"></div>
+        <div class="block">
+          <div class="blk-label">② 自車専属マスタのS-0002が待機の状態から運行に変更</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-add-before-0.png" class="ss-img" alt="自車専属マスタ S-0002が待機"></div>
+        <div class="block">
+          <div class="blk-label">③ 「いつから適用しますか？」ポップアップ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-add-popup-0.png" class="ss-img" alt="いつから適用しますか？ポップアップ（追加）"></div>
+        <div class="block">
+          <div class="blk-label">④ S-0002が運行に変わった</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-add-after-0.png" class="ss-img" alt="変更後 S-0002が運行に変わった"></div>
+        <div class="block" style="margin-top:14px;">
+          <div class="blk-label">▶ 運行 → 待機 / 故障 に変えた場合（行の削除）</div>
+          <ul class="pts">
+            <li>「運行」を「待機」または「故障」に変更しポップアップの該当ボタンを押すと、配車が入っていない空の行が運行シートから削除される</li>
+            <li>間違えた場合や運行に戻す場合は同じ手順で「運行」に変更すれば再追加できる</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 「運行状態」欄をクリックして変更</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-del-dropdown-0.png" class="ss-img" alt="ドロップダウンで待機/故障を選択"></div>
+        <div class="block">
+          <div class="blk-label">② 「いつから適用しますか？」ポップアップ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-del-popup-0.png" class="ss-img" alt="いつから適用しますか？ポップアップ（削除）"></div>
+        <div class="block">
+          <div class="blk-label">③ 変更後（待機に変わった）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-del-after-master-0.png" class="ss-img" alt="変更後 S-0002が待機に変わった"></div>
+        <div class="block">
+          <div class="blk-label">④ 運行シートから空の行が削除された</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/22-del-after-sheet-0.png" class="ss-img" alt="運行シートから空行が削除された状態"></div>
+        <div class="block" style="margin-top:14px;">
+          <div class="blk-label tip">💡 ポップアップの選択肢について</div>
+          <ul class="pts">
+            <li>本日以降：今日から月末の未配車行を整理</li>
+            <li>今月以降：月初から月末の未配車行を整理</li>
+            <li>全期間（制限なし）：すべての未配車行を整理</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- feat-23 -->
+    <div class="card" id="feat-23">
+      <div class="card-hdr">
+        <span class="num">23</span>
+        <span class="feat-name">配車ダッシュボード</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
+          <ul class="pts">
+            <li>「毎日の記帳業務」→「🚚 配車ダッシュボード」から起動</li>
+            <li>本日分の運行シートで積地（L列）が空欄の行（配車未確定）を一覧表示</li>
+            <li>配車漏れ件数を大きく表示。0件なら「✅ 配車漏れなし」と表示される</li>
+            <li>30秒ごとに自動更新。「🔄 更新」ボタンで手動更新も可能</li>
+            <li>積地列が空欄の行 = 運行シートで配車漏れ警告色（薄黄）が付いている行と同じ</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① メニューから「配車ダッシュボード」を選択</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/23-menu-0.png" class="ss-img" alt="メニュー 配車ダッシュボード"></div>
+        <div class="block">
+          <div class="blk-label">② 配車漏れなし（本日の積地未入力が0件）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/23-ok-0.png" class="ss-img" alt="配車ダッシュボード 配車漏れなし"></div>
+        <div class="block">
+          <div class="blk-label">③ 配車漏れあり（積地が空欄の行が一覧表示）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/23-ng-0.png" class="ss-img" alt="配車ダッシュボード 配車漏れあり"></div>
+        <div class="block">
+          <div class="blk-label">④ 運行シート：積地（L列）が空欄の行がダッシュボードに表示される（配車漏れ警告色の薄黄が付いている行と同じ）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/23-sheet-0.png" class="ss-img" alt="運行シート 積地列が空欄の行（配車漏れ）"></div>
+      </div>
+    </div>
+
+    <!-- feat-24 -->
+    <div class="card" id="feat-24">
+      <div class="card-hdr">
+        <span class="num">24</span>
+        <span class="feat-name">選択行の配車確定解除</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
+          <ul class="pts">
+            <li>配車確定した内容を取り消したい場合、運行シートまたは配車板シートで対象行にセルを合わせてメニュー「🔓 選択行の配車確定解除」を実行</li>
+            <li>配車板から実行：N列・AC列の登録IDを読み取り、運行シート・集計表から該当行を削除し配車板をリセット</li>
+            <li>運行シートから実行：A列のIDを読み取り、同じIDを運行シート・集計表から削除し配車板もリセット</li>
+            <li>削除前に確認ダイアログあり。OKで運行シート・集計表から該当行が完全に削除される</li>
+            <li>配車板シートのIDが消え、進捗「確定」表示と背景色（ピンク）が白に戻る</li>
+            <li>配車板・運行シートどちらからでも同じ操作で実行できる（それ以外のシートからはエラー）</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 配車板シート：配車確定済みの行（ピンク背景）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/24-joho-before-0.png" class="ss-img" alt="配車板 配車確定済みの行"></div>
+        <div class="block">
+          <div class="blk-label">② 運行シートに自動登録されている</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/24-unkou-before-0.png" class="ss-img" alt="運行シート 配車確定行が登録された状態"></div>
+        <div class="block">
+          <div class="blk-label">③ 運行シートで解除したい行のID列にセルを合わせる</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/24-sheet-0.png" class="ss-img" alt="運行シート V-2793セルを選択"></div>
+        <div class="block">
+          <div class="blk-label">④ メニュー「選択行の配車確定解除」を選択</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/24-menu-0.png" class="ss-img" alt="メニュー 選択行の配車確定解除"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 内容を確認してOKを押す</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/24-popup-0.png" class="ss-img" alt="マッチング解除 確認ポップアップ"></div>
+        <div class="block">
+          <div class="blk-label">⑥ 運行シートから該当の配車行が削除される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/24-sheet-empty-0.png" class="ss-img" alt="運行シート 削除後"></div>
+        <div class="block">
+          <div class="blk-label">⑦ 配車板シートのIDが消え、背景色が白に戻る</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/24-joho-0.png" class="ss-img" alt="配車板 リセット後"></div>
+        <div class="block">
+          <div class="blk-label warn">⚠️ 注意</div>
+          <ul class="pts">
+            <li>解除すると運行シート・集計表から該当行が完全に削除される（元に戻せない）</li>
+            <li>配車板・運行シートどちらを選択中でも同じ操作で実行できる</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- feat-25 -->
+    <div class="card" id="feat-25">
+      <div class="card-hdr">
+        <span class="num">25</span>
+        <span class="feat-name">ID・車番一括補完（手動）</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
+          <ul class="pts">
+            <li>CSVインポートや複数行のコピー＆ペーストでデータを一括入力した後、IDや車番が入っていない行に対して使用する</li>
+            <li>A列のIDが空でB〜K列にデータがある行にV-XXXXを一括採番、F列（車番）または乗務員名が空の行を自車専属マスタから一括補完し、集計表を全件再同期する</li>
+            <li>メニュー「🆔 ID・車番一括補完」を実行する</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- feat-26 -->
+    <div class="card" id="feat-26">
+      <div class="card-hdr">
+        <span class="num">26</span>
+        <span class="feat-name">写真・ファイル取込</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
+          <ul class="pts">
+            <li>運行シートのデータ行（任意の1行）にセルを合わせてから実行する</li>
+            <li>メニュー「📷 写真・ファイル取込」をクリックすると、画面右端にアップロードパネルが表示される</li>
+            <li>「ファイル選択」をクリックしてアップロードするファイルを選択する（画像・PDF・Excel・Wordなど複数ファイルの同時選択可）</li>
+            <li>「アップロード」をクリックするとGoogleドライブにファイルが保存され、選択した行の管理データ列にリンクが自動で追加される</li>
+            <li>Googleフォトの写真は、フォトアプリで写真を長押し→共有→ダウンロードしてからここで選択する</li>
+            <li>パネルを閉じた後も反映済みのためそのまま閉じてよい</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 運行シートで対象の行にセルを合わせる</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step1-id.png" class="ss-img" alt="V-2756のデータ行を選択"></div>
+        <div class="block">
+          <div class="blk-label">② メニュー「📷 写真・ファイル取込」をクリック</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step2-menu.png" class="ss-img" alt="メニュー 写真・ファイル取込"></div>
+        <div class="block">
+          <div class="blk-label">③ 画面右端にアップロードパネルが表示される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step3-sidebar.png" class="ss-img" alt="アップロードサイドバー"></div>
+        <div class="block">
+          <div class="blk-label">④ 「ファイル選択」をクリックしてファイルを選ぶ（複数選択可）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step4-fileselect.png" class="ss-img" alt="ファイル選択ボタン"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 「アップロード」をクリック</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step5-upload.png" class="ss-img" alt="アップロードボタン"></div>
+        <div class="block">
+          <div class="blk-label">⑥ パネルを閉じても反映済み</div>
+          <ul class="pts">
+            <li>アップロード完了後はパネルをそのまま閉じてよい。閉じた後もドライブへの保存とリンクの追記は完了している</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">⑦ 完了メッセージが表示される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step7-done.png" class="ss-img" alt="アップロード完了メッセージ"></div>
+        <div class="block">
+          <div class="blk-label">⑧ 管理データ列の該当行にリンクが自動で追加される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/26-step8-url.png" class="ss-img" alt="管理データ列にURLが追加された状態"></div>
+      </div>
+    </div>
+
+
     <!-- 27 -->
-    <div class="card" id="feat-27">
+    <div class="card">
       <div class="card-hdr">
         <span class="num">27</span>
         <span class="cat cat-import">データ取込</span>
-        <span class="feat-name">配車表・名簿 CSV/Excelの一括取込</span>
+        <span class="feat-name">運行シートCSV/Excel取込</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
       </div>
       <div class="card-body">
-
         <div class="block">
-          <div class="blk-label manual">📋 手順（全シート共通）</div>
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
-            <li>メニュー「📥 データ読み込み（CSV）」→ 取込先（運行シート / 自車専属マスタ / マスタ（取引先））を選択</li>
-            <li>「📋 貼付シート作成」を押すと、専用の貼付用シートが自動生成される</li>
-            <li>取り込みたいデータ（Excelや他システムからコピー、ヘッダー行ごとコピーする）を貼付シートに貼り付ける</li>
-            <li>「▶ 貼付データ取込」を押すと、ヘッダー行の項目名を自動で読み取り、1行目にシステムの正式な列名が書き込まれる</li>
-            <li>内容を確認して「✅ この内容で確定・反映」を押すと、各シートにデータが追加される</li>
-            <li><strong>取込後にメニュー「⚙️ システム設定・保守」→「📃 集計表再生成」を押すと集計表に反映される</strong>（運行シート取込時）</li>
-            <li><strong>列の追加・ヘッダーを更新した場合は「🗂 シート再生成」を押すこと</strong></li>
+            <li>CSVやExcelのデータを運行シートに一括取込する機能</li>
+            <li>列の対応（マッピング）は自動設定。重複データは自動スキップ</li>
           </ul>
         </div>
-
         <div class="block">
-          <div class="blk-label">自動マッピングの仕組み</div>
+          <div class="blk-label">① メニュー「データ読み込み（CSV）」→「運行シート」→「📋 貼付シート作成」を選ぶ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step1-menu-create.png" class="ss-img" alt="貼付シート作成メニュー"></div>
+        <div class="block">
+          <div class="blk-label">② 作られた取込シートにCSV/Excelデータを3行目以降に貼り付ける</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step2-sheet-data.png" class="ss-img" alt="データ貼り付け状態"></div>
+        <div class="block">
+          <div class="blk-label">③ メニュー「▶ 貼付データ取込」を選ぶ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step3-menu-import.png" class="ss-img" alt="貼付データ取込メニュー"></div>
+        <div class="block">
+          <div class="blk-label">④ マッピング自動設定完了のアラートが表示される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step4-alert-step1.png" class="ss-img" alt="マッピング完了アラート"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 2行目のプルダウンでマッピングを確認（通常は修正不要）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step5-mapping-row.png" class="ss-img" alt="2行目マッピング行"></div>
+        <div class="block">
+          <div class="blk-label">⑥ メニュー「✅ この内容で確定・反映」を選ぶ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step6-menu-confirm.png" class="ss-img" alt="確定・反映メニュー"></div>
+        <div class="block">
+          <div class="blk-label">⑦ 取込完了アラートが表示される（反映件数・取込シート削除を通知）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step7-alert-done.png" class="ss-img" alt="取込完了アラート"></div>
+        <div class="block">
+          <div class="blk-label">⑧ 取込データが運行シートに反映される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/27-step8-result.png" class="ss-img" alt="運行シート反映結果"></div>
+      </div>
+    </div>
+
+
+    <!-- 28 -->
+    <div class="card" id="feat-28">
+      <div class="card-hdr">
+        <span class="num">28</span>
+        <span class="cat cat-doc">帳票・送信</span>
+        <span class="feat-name">発注書・指示書の作成・送信</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
-            <li>「運賃」「売上金額」「貨物運賃」はすべて自動で「売上」として認識される</li>
-            <li>「ドライバー」「運転手」「乗務員」もすべて「乗務員名」として認識される（辞書による表記ゆれ吸収）</li>
-            <li>ヘッダー名で判断できない列は、データの内容（電話番号形式・郵便番号形式・カタカナなど）で自動推定する</li>
-            <li>「住所1」「住所2」のように同じ列が複数ある場合は、<strong>列の並び順どおりに空白でつなげて1列に統合</strong>される。先に並んでいる列が先頭になる</li>
-            <li>売上・日付・高速代などの数値・日付列は統合しない（最後の列の値を採用）</li>
+            <li>運行シートの行を選択して発注書・指示書を作成し、印刷・メール・FAX送信できる</li>
+            <li>FAX送信は各会社のFAX機に接続して送信する（事前にFAX番号の登録が必要）</li>
           </ul>
         </div>
-
         <div class="block">
-          <div class="blk-label">各シートの取込ルール</div>
+          <div class="blk-label">① 運行シートで対象行のIDセルをクリックして選択する</div>
+        </div>
+        <div class="block">
+          <div class="blk-label">② メニュー「帳票・送信メニュー」→「① 発注書・指示書を作成（協力会社・乗務員用）」を選ぶ</div>
+        </div>
+        <div class="block">
+          <div class="blk-label">③ 発注書・指示書のプレビューが開く。「印刷/PDF保存」「メール送信」「FAX送信」のいずれかを押す</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-1-button.png" class="ss-img" alt="発注書・指示書ボタン"></div>
+        <div class="block">
+          <div class="blk-label">④ 「発注書・指示書を発行済にしました」のポップアップが表示される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-2-popup.png" class="ss-img" alt="発注書・指示書発行済ポップアップ"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 運行シートの「発注書・指示書」列に送信日時が自動で記録される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-3-sheet.png" class="ss-img" alt="発注書・指示書日時記録"></div>
+        <div class="block">
+          <div class="blk-label tip">💡 指示先（発注先）の保存と履歴補完</div>
           <ul class="pts">
-            <li><strong>運行シート：</strong>新規行として末尾に追記。車番・乗務員名があれば自車専属マスタから会社名・トン数・車種などを自動補完</li>
-            <li><strong>自車専属マスタ：</strong>車番＋乗務員名が両方一致する行は上書き更新。一致なしは新規追記</li>
-            <li><strong>取引先（マスタ）シート：</strong>新規行として追記。会社名・電話・FAX・郵便番号・住所・銀行情報・インボイス情報・入金条件など全項目に対応</li>
+            <li>プレビュー画面の「■ 指示書」欄に「保存」「履歴」ボタンが表示される</li>
           </ul>
         </div>
-
+        <div class="ss-wrap"><img src="screenshots/28-step3-shijisho-empty.png" class="ss-img" alt="指示書欄（空）"></div>
         <div class="block">
-          <div class="blk-label">⚠️ 注意事項</div>
+          <div class="blk-label">⑥ 指示先の会社名・電話番号・担当者名・住所を入力する</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-step4-shijisho-filled.png" class="ss-img" alt="指示書欄（入力後）"></div>
+        <div class="block">
+          <div class="blk-label">⑦ 「保存」を押すと指示先が履歴に登録される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-step5-shijisho-saving.png" class="ss-img" alt="保存中"></div>
+        <div class="block">
+          <div class="blk-label">⑧ 「履歴」を押すと過去に使用した指示先の一覧が表示される。選ぶとフォームに自動入力される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/28-step6-shijisho-saved.png" class="ss-img" alt="履歴ボタン"></div>
+        <div class="ss-wrap"><img src="screenshots/28-step7-shijisho-history.png" class="ss-img" alt="指示先履歴"></div>
+      </div>
+    </div>
+
+
+    <!-- 29 -->
+    <div class="card" id="feat-29">
+      <div class="card-hdr">
+        <span class="num">29</span>
+        <span class="cat cat-doc">帳票・送信</span>
+        <span class="feat-name">車番連絡の作成・送信</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
-            <li>取込は<strong>すべて新規追加</strong>（運行・取引先）または<strong>上書き更新</strong>（自車専属マスタのみ、車番＋乗務員名一致時）。既存データの空欄だけ埋めるモードはない</li>
-            <li><strong>取込前にデータの全項目を揃えておくこと。</strong>後から追記・補完する手段はないため、一回で必要な列をすべて含めた状態で取り込む</li>
-            <li>住所を住所1・住所2に分けている場合、<strong>貼り付ける前に列順を確認すること</strong>（住所1を左、住所2を右に並べる）</li>
-            <li>ヘッダー行も含めてコピーすること。ヘッダー行がないと項目名を自動認識できない</li>
-            <li>貼付後に辞書v10が反映されていない場合は「🗂 シート再生成」を一度押してから再取込する</li>
+            <li>運行シートの行を選択して車番連絡を作成し、印刷・メール・FAX送信できる</li>
+            <li>FAX送信は各会社のFAX機に接続して送信する（事前にFAX番号の登録が必要）</li>
           </ul>
         </div>
-
         <div class="block">
-          <div class="blk-label">🧪 テストデータ</div>
+          <div class="blk-label">① 運行シートで対象行のIDセルをクリックして選択する</div>
+        </div>
+        <div class="block">
+          <div class="blk-label">② メニュー「帳票・送信メニュー」→「② 車番連絡を作成（荷主用）」を選ぶ</div>
+        </div>
+        <div class="block">
+          <div class="blk-label">③ 車番連絡のプレビューが開く。「印刷/PDF保存」「メール送信」「FAX送信」のいずれかを押す</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-1-button.png" class="ss-img" alt="車番連絡ボタン"></div>
+        <div class="block">
+          <div class="blk-label">④ 「車番連絡を発行済にしました」のポップアップが表示される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-2-popup.png" class="ss-img" alt="車番連絡発行済ポップアップ"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 運行シートの「車番連絡」列に送信日時が自動で記録される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-3-sheet.png" class="ss-img" alt="車番連絡日時記録"></div>
+        <div class="block">
+          <div class="blk-label tip">💡 協力会社の看板名・車番・乗務員・携帯番号の保存と履歴補完</div>
           <ul class="pts">
-            <li>「🗂 シート再生成」を押すと「運行客テスト」シートが自動で作成される（既存の場合はスキップ）</li>
-            <li>このシートは架空の運行データ（運行日・ドライバー・車番号・積込先・納品先・運賃・高速代など）が入ったサンプル。取込の動作確認に使える</li>
-            <li>内容をコピーして貼付シートに貼り付け、取込が正しく動くか確認する</li>
+            <li>プレビュー画面の「■ 車両・乗務員情報」に「保存」「履歴」ボタンが表示される</li>
           </ul>
         </div>
-
+        <div class="ss-wrap"><img src="screenshots/29-step3-yousha-empty.png" class="ss-img" alt="車両・乗務員情報欄（空）"></div>
+        <div class="block">
+          <div class="blk-label">⑥ 看板名・車番・乗務員名・携帯番号を入力する</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-step4-yousha-filled.png" class="ss-img" alt="車両・乗務員情報欄（入力後）"></div>
+        <div class="block">
+          <div class="blk-label">⑦ 「保存」を押すと協力会社履歴に登録される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-step5-yousha-saving.png" class="ss-img" alt="保存中"></div>
+        <div class="block">
+          <div class="blk-label">⑧ 「履歴」を押すと過去に使用した協力会社一覧が表示される。選ぶとフォームに自動入力される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/29-step6-yousha-saved.png" class="ss-img" alt="履歴ボタン"></div>
+        <div class="ss-wrap"><img src="screenshots/29-step7-yousha-history.png" class="ss-img" alt="協力会社履歴"></div>
+        <div class="block">
+          <div class="blk-label tip">💡 印刷・メール・FAX送信を実行した際にも自動で協力会社履歴が保存される</div>
+        </div>
       </div>
     </div>
 
     <!-- 30 -->
-    <div class="card">
+    <div class="card" id="feat-30">
       <div class="card-hdr">
         <span class="num">30</span>
-        <span class="cat cat-doc">帳票・出力</span>
-        <span class="feat-name">請求書生成</span>
+        <span class="cat cat-doc">帳票・送信</span>
+        <span class="feat-name">受領書の耳生成</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
       </div>
       <div class="card-body">
-
         <div class="block">
-          <div class="blk-label manual">📋 手順</div>
+          <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
-            <li>メニュー「📒 経理・出力」→「🧾 請求書生成」を選ぶ</li>
-            <li>ダイアログが開く。マスタID・取引先名カナ・会社名・電話のどれかから顧客を選ぶ（4つは連動していて、1つ選ぶと残り3つも自動で一致する）</li>
-            <li>期間を確認する（初期値は今月1日〜末日）。必要なら変更する</li>
-            <li>消費税率を確認する（初期値10%）</li>
-            <li>「生成」ボタンを押す</li>
-            <li>完了すると下部の「請求書」タブに請求書シートが自動生成される</li>
+            <li>運行シートのデータを絞り込んで受領書の耳（配送控えスリップ）を一括生成し、A4縦PDF印刷できる</li>
+            <li>荷主・会社名・日付・車番・乗務員名・積地・降地の7項目で絞り込み可能（空白=全件対象）</li>
+            <li>生成と同時に、対象行の運行シート「受領書」列に発行日時が自動で記録される</li>
           </ul>
         </div>
-
-        <div class="ss-wrap"><img src="screenshots/31-01-menu.png" class="ss-img" alt="請求書生成メニュー選択"></div>
-        <div class="ss-wrap"><img src="screenshots/31-02-dialog.png" class="ss-img" alt="請求書生成ダイアログ初期状態"></div>
-        <div class="ss-wrap"><img src="screenshots/31-03-select.png" class="ss-img" alt="顧客・期間・税率入力後"></div>
-        <div class="ss-wrap"><img src="screenshots/31-04-btn.png" class="ss-img" alt="生成ボタンを押す"></div>
-        <div class="ss-annotate-wrap">
-          <img src="screenshots/31-05-sheet.png" class="ss-img" alt="生成された請求書シート">
-          <span class="anno-tab"></span>
+        <div class="block">
+          <div class="blk-label">① メニュー「帳票・送信メニュー」→「🗒 受領書の耳生成」を選ぶ</div>
         </div>
-
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/30-1-menu.png" class="ss-img" alt="受領書の耳生成メニュー"><div style="position:absolute;top:67.3%;left:47.6%;width:50.4%;height:13.6%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">② 絞り込みポップアップが開く</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/30-2-popup.png" class="ss-img" alt="絞り込みポップアップ"></div>
+        <div class="block">
+          <div class="blk-label">③ 絞り込み条件を選ぶ（空白=全件対象）</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/30-3-select.png" class="ss-img" alt="絞り込み条件選択"><div style="position:absolute;top:20.1%;left:10.4%;width:64.8%;height:49.5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">④ 「生成」を押す</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/30-4-generate.png" class="ss-img" alt="生成ボタン"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 受領書_耳シートが生成される</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/30-5-sheet.png" class="ss-img" alt="受領書_耳シート生成"><div style="position:absolute;top:95.0%;left:56.6%;width:8.2%;height:4.3%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label tip">💡 生成と同時に、運行シートの「受領書」列に発行日時が自動で記録される</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/30-ss-col2.png" class="ss-img" alt="受領書列に発行日時が自動記録"><div style="position:absolute;top:0%;left:87.2%;width:6.5%;height:100%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">⑥ 「印刷用PDFを開く」を押す</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/30-6-pdfbtn.png" class="ss-img" alt="印刷用PDFを開くボタン"><div style="position:absolute;top:83.1%;left:10.7%;width:40.9%;height:10.0%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">⑦ A4縦のPDFが表示される。そのまま印刷できる</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/30-7-pdf.png" class="ss-img" alt="受領書PDF印刷プレビュー"></div>
       </div>
+    </div>
+
+    <!-- 31 -->
+    <div class="card" id="feat-31">
+      <div class="card-hdr">
+        <span class="num">31</span>
+        <span class="cat cat-doc">帳票・送信</span>
+        <span class="feat-name">請求書生成</span>
+        <div class="clr-grp">
+          <span class="clr-tag">自動での色付け　無</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 メニューから操作</div>
+          <ul class="pts">
+            <li>取引先ごとの請求書シートを自動生成する。対象期間の運行データを集計して、売上・高速代・消費税・合計金額を自動で計算する</li>
+            <li>4つのドロップダウン（マスタID / 取引先名カナ / 会社名 / 電話）はいずれかを選ぶと残り3つが自動で同期される</li>
+            <li>期間の初期値は当月1日〜末日、消費税率の初期値は10%</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① メニュー「📒 経理・出力」→「🧾 請求書生成」を選ぶ</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/31-01-menu.png" class="ss-img" alt="請求書生成メニュー選択"><div style="position:absolute;top:46%;left:49%;width:50%;height:14%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">② ダイアログが開く</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/31-02-dialog.png" class="ss-img" alt="請求書生成ダイアログ初期状態"></div>
+        <div class="block">
+          <div class="blk-label">③ 顧客・期間・消費税率を選ぶ<br>4つのドロップダウン（マスタID / 取引先名カナ / 会社名 / 電話）は連動。いずれか1つ選ぶと残り3つが自動同期される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/31-03-select.png" class="ss-img" alt="顧客・期間・税率入力後"></div>
+        <div class="block">
+          <div class="blk-label">④ 「生成」ボタンを押す</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/31-04-btn.png" class="ss-img" alt="生成ボタンを押す"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 「請求書」シートが自動生成される</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/31-05-sheet.png" class="ss-img" alt="生成された請求書シート"><div style="position:absolute;top:95%;left:84%;width:13%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+      </div>
+    </div>
+
+
+    <!-- 32 -->
+    <div class="card" id="feat-32">
+      <div class="card-hdr">
+        <span class="num">32</span>
+        <span class="cat cat-doc">帳票・出力</span>
+        <span class="feat-name">CSV・Excel出力</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 メニューから操作</div>
+          <ul class="pts">
+            <li>運行シートなどのデータをCSVまたはExcelファイルとしてPCにダウンロードできる</li>
+            <li>会計ソフトへの取込・バックアップなど用途によって必要なシートを選択してダウンロードしてください</li>
+            <li>チェックボックスで出力対象シートを選択。「全選択」「全解除」リンクで一括操作可能</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① メニュー「📒 経理・出力」→「💾 CSV・Excel出力」を選ぶ</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/32-1-menu.png" class="ss-img" alt="CSV・Excel出力メニュー選択"><div style="position:absolute;top:80%;left:48%;width:51%;height:13%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">② ダイアログが開く。全シートが一覧表示される（非表示シートは除外）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/32-2-dialog.png" class="ss-img" alt="データ出力ダイアログ"></div>
+        <div class="block">
+          <div class="blk-label">③ 出力したいシートにチェックを入れる</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/32-3-select.png" class="ss-img" alt="運行シートを選択"><div style="position:absolute;top:56%;left:4%;width:92%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div style="font-size:12px;font-weight:800;color:var(--gold);border-bottom:1px solid var(--border);padding:12px 0 5px;margin-top:4px;letter-spacing:.04em">Excel出力</div>
+        <div class="block">
+          <div class="blk-label">・「選択シートをExcel DL」ボタンを押す</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/32-4-excel-btn.png" class="ss-img" alt="Excel DLボタン"></div>
+        <div class="block">
+          <div class="blk-label">・「生成中...（数秒かかります）」に変わる。そのまま待つ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/32-5-generating.png" class="ss-img" alt="生成中"></div>
+        <div class="block">
+          <div class="blk-label">・Excelファイルがダウンロードされる</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/32-6-excel-open.png" class="ss-img" alt="ダウンロードしたExcelを開いた画面"></div>
+        <div style="font-size:12px;font-weight:800;color:var(--gold);border-bottom:1px solid var(--border);padding:12px 0 5px;margin-top:4px;letter-spacing:.04em">CSV出力</div>
+        <div class="block">
+          <div class="blk-label">・各シート行の「CSV」ボタンを押す</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/32-7-csv-btn.png" class="ss-img" alt="CSVボタン"></div>
+        <div class="block">
+          <div class="blk-label">・「取得中...」に変わる。そのまま待つ</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/32-8-csv-getting.png" class="ss-img" alt="取得中"></div>
+        <div class="block">
+          <div class="blk-label">・CSVファイルがダウンロードされる（BOM付きUTF-8）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/32-9-csv-open.png" class="ss-img" alt="CSVを開いた画面"></div>
+      </div>
+    </div>
+
+    <!-- feat-33 -->
+    <div class="card" id="feat-33">
+      <div class="card-hdr">
+        <span class="num">33</span>
+        <span class="cat cat-menu">シート管理</span>
+        <span class="feat-name">今月分生成</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 メニューから操作</div>
+          <ul class="pts">
+            <li>自車専属マスタの「運行状態」が「運行」になっている車両を対象に、今月まだ生成されていない日付分の行を運行シートに追加する</li>
+            <li>車番ごとに最後に生成した日を確認し、翌日以降の未生成分のみを追加。データが1件もない車両は1日から生成する</li>
+            <li>全車両が月末まで生成済みの場合のみブロックされる。一部の車両が途中まで済でも、未生成の車両・日付があれば実行できる</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">【事前確認】自車専属マスタの「運行状態」が「運行」の車両が生成対象</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/33-1-master.png" class="ss-img" alt="自車専属マスタ 運行状態確認"><div style="position:absolute;top:16.5%;left:54.5%;width:13%;height:13%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">① メニュー「🗓 月次処理」→「📅 今月分生成」を選ぶ</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/33-2-menu.png" class="ss-img" alt="今月分生成 メニュー選択"><div style="position:absolute;top:65%;left:51%;width:48%;height:10%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">② 完了ポップアップが表示される。生成した月・行数が確認できる</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/33-3-popup.png" class="ss-img" alt="今月分生成完了ポップアップ"></div>
+        <div class="block">
+          <div class="blk-label">③ 運行シートに今月1日から本日までの行が追加されている</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/33-4-result.png" class="ss-img" alt="運行シート 生成結果"><div style="position:absolute;top:94.5%;left:13%;width:6%;height:5.5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label warn">⚠️ 注意</div>
+          <ul class="pts">
+            <li>「運行状態」が「運行」以外（待機・故障など）の車両は生成されない</li>
+            <li>すでに生成済みの日付は重複追加しない。途中から追加実行しても既存データは変わらない</li>
+            <li>全車両が月末まで生成済みの場合は「すでに生成済みです」と表示されブロックされる</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 34 - pending -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">34</span>
+        <span class="cat cat-menu">シート管理</span>
+        <span class="feat-name">翌月分生成</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+    </div>
+
+    <!-- 35 - pending -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">35</span>
+        <span class="cat cat-menu">シート管理</span>
+        <span class="feat-name">前月分アーカイブ</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+    </div>
+
+    <!-- 36 - pending -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">36</span>
+        <span class="cat cat-menu">シート管理</span>
+        <span class="feat-name">シート再生成</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+    </div>
+
+    <!-- 37 - pending -->
+    <div class="card">
+      <div class="card-hdr">
+        <span class="num">37</span>
+        <span class="cat cat-infra">シート管理</span>
+        <span class="feat-name">ヘッダー復旧＋保護</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
     </div>
 
   </div><!-- /grid -->
 
-  <!-- ──────── 今後の対応予定 ──────── -->
-  <div class="sec-title" id="pending" style="margin-top:52px;">
-    今後の対応予定（未確認）
-    <span class="sec-badge gray">16 件</span>
-  </div>
-
-  <div class="pending-grid">
-
-    <div class="pitem">
-      <span class="pnum">12</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">休み行の色付け</span>
-      <div class="pcolor"><div class="pchip" style="background:#9e9e9e;"></div>濃グレー</div>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">13</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">配車漏れ警告色</span>
-      <div class="pcolor"><div class="pchip" style="background:#fff9c4;border-color:#ccc;"></div>薄黄</div>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">14</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">資格期限アラート色（A列）</span>
-      <div class="pcolor">
-        <div class="pchip" style="background:#ffcdd2;border-color:#e88;"></div>
-        <div class="pchip" style="background:#bbdefb;border-color:#8ac;"></div>
-        <div class="pchip" style="background:#c8e6c9;border-color:#8b8;"></div>
-        🔴🔵🟢
-      </div>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">15</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">ID重複・車番不一致の警告</span>
-      <div class="pcolor"><div class="pchip" style="background:#ff1744;"></div>🔴 濃い赤</div>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">16</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">保護列の色</span>
-      <div class="pcolor"><div class="pchip" style="background:#eceff1;border-color:#bbb;"></div>薄青グレー</div>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">17</span>
-      <span class="cat cat-color" style="font-size:9px;padding:1px 6px;flex-shrink:0;">色表示</span>
-      <span class="pname">色凡例メモの自動設定</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">18</span>
-      <span class="cat cat-guard" style="font-size:9px;padding:1px 6px;flex-shrink:0;">警告・保護</span>
-      <span class="pname">時刻入力の順序チェック</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">19</span>
-      <span class="cat cat-guard" style="font-size:9px;padding:1px 6px;flex-shrink:0;">警告・保護</span>
-      <span class="pname">ヘッダー行の自動復元</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">20</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">ID・車番の一括補完（手動）</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">21</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">手動の日付順並び替え</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">22</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">今月分の行一括生成</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">23</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">翌月分の行一括生成</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">24</span>
-      <span class="cat cat-menu" style="font-size:9px;padding:1px 6px;flex-shrink:0;">メニュー</span>
-      <span class="pname">前月分アーカイブ</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">25</span>
-      <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
-      <span class="pname">車番連絡のメール送信</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">26</span>
-      <span class="cat cat-doc" style="font-size:9px;padding:1px 6px;flex-shrink:0;">帳票・送信</span>
-      <span class="pname">ファイル添付</span>
-    </div>
-
-    <div class="pitem">
-      <span class="pnum">28</span>
-      <span class="cat cat-infra" style="font-size:9px;padding:1px 6px;flex-shrink:0;">インフラ</span>
-      <span class="pname">onEdit処理の高速化</span>
-    </div>
-
-  </div><!-- /pending-grid -->
 
 </main>
 
-<footer class="ftr">運行シート 操作説明書 — 現場スタッフ向け — v1128 — 2026-09-14</footer>
+<footer class="ftr">操作説明書 — 現場スタッフ向け — v1128</footer>
 
 <script>
-// カードに feat-XX のIDを自動付与（TOCリンク用）
-document.querySelectorAll('.grid .card').forEach(function(c) {
-  var n = c.querySelector('.num');
-  if (n) c.id = 'feat-' + n.textContent.trim();
-});
+(function(){
+var curSheet='unkou';
+var ITEMS=[];
 
-function toggleTheme() {
-  var r = document.documentElement;
-  r.setAttribute('data-theme', r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+function initItems(){
+  document.querySelectorAll('.grid .card').forEach(function(c){
+    var numEl=c.querySelector('.num');
+    if(!numEl) return;
+    var num=parseInt(numEl.textContent.trim(),10);
+    var nameEl=c.querySelector('.feat-name');
+    var catEl=c.querySelector('.cat');
+    ITEMS.push({
+      num:num,
+      name:nameEl?nameEl.textContent.trim():'',
+      cat:catEl?catEl.textContent.trim():'',
+      catCls:catEl?catEl.className:'',
+      status:(num<=31)?'済':'未',
+      el:c
+    });
+  });
+  ITEMS.sort(function(a,b){return a.num-b.num;});
+  buildList();
 }
+
+function buildList(){
+  var el=document.getElementById('item-list-nav');
+  if(!el) return;
+  el.innerHTML=ITEMS.map(function(item){
+    return '<div class="item-row-nav" onclick="nav小('+item.num+')">'
+      +'<span class="item-row-num">'+String(item.num).padStart(2,'0')+'</span>'
+      +'<span class="'+item.catCls+'" style="font-size:9px;padding:1px 6px">'+item.cat+'</span>'
+      +'<span class="item-row-name">'+item.name+'</span>'
+      +'<span class="'+(item.status==='済'?'ibadge-ok':'ibadge-pend')+'">'+item.status+'</span>'
+      +'</div>';
+  }).join('');
+}
+
+window.go大=function(){
+  document.getElementById('view-大').classList.add('active');
+  document.getElementById('view-中').classList.remove('active');
+  var m=document.querySelector('main.main');
+  m.classList.remove('sm-active');
+  m.classList.remove('md-active');
+  document.querySelector('.toc-wrap').style.display='none';
+  document.getElementById('toc-nav-bar').classList.remove('show');
+  window.scrollTo(0,0);
+};
+
+window.go中=function(sheet){
+  curSheet=sheet;
+  document.getElementById('view-大').classList.remove('active');
+  document.getElementById('view-中').classList.remove('active');
+  var m=document.querySelector('main.main');
+  m.classList.remove('sm-active');
+  m.classList.remove('md-active');
+  document.querySelectorAll('.grid .card').forEach(function(c){c.classList.remove('ac');});
+  document.querySelector('.toc-wrap').style.display='block';
+  document.getElementById('toc-nav-bar').classList.add('show');
+  window.scrollTo(0,0);
+};
+
+window.nav小=function(num){
+  var item=ITEMS.find(function(i){return i.num===num;});
+  if(!item) return;
+  document.querySelectorAll('.grid .card').forEach(function(c){c.classList.remove('ac');});
+  item.el.classList.add('ac');
+  document.querySelector('.toc-wrap').style.display='none';
+  document.getElementById('toc-nav-bar').classList.remove('show');
+  var bc=document.getElementById('bc-小');
+  bc.className='view-小-nav show';
+  bc.innerHTML='<button class="nav-btn" onclick="go大()">◀ シート一覧</button>'
+    +'<button class="nav-btn" onclick="go中(\''+curSheet+'\')">◀ 項目一覧</button>'
+    +'<span class="nav-bc-sep" style="margin-left:4px">›</span>'
+    +'<span class="nav-bc-cur">'+String(num).padStart(2,'0')+'. '+item.name+'</span>';
+  document.getElementById('view-大').classList.remove('active');
+  document.getElementById('view-中').classList.remove('active');
+  var m=document.querySelector('main.main');
+  m.classList.remove('md-active');
+  m.classList.add('sm-active');
+  window.scrollTo(0,0);
+};
+
+function wireTocItems(){
+  document.querySelectorAll('.toc-item').forEach(function(a){
+    var numEl=a.querySelector('.toc-n');
+    if(!numEl) return;
+    var num=parseInt(numEl.textContent.trim(),10);
+    if(!num) return;
+    a.setAttribute('href','#');
+    a.onclick=function(e){e.preventDefault();window.nav小(num);};
+  });
+}
+
+window.toggleTheme=function(){
+  var r=document.documentElement;
+  r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark');
+};
+
+initItems();
+wireTocItems();
+})();
 </script>
 </body>
 </html>
+
+
+
+
+

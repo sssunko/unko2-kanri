@@ -91,6 +91,9 @@
 //            ・3-2-4: M〜Q列（時刻列）入力時 → 全角コロン・時刻のみ入力を正規化しDate型で保存
 //            ・3-2-5: U列（合計高速）数式を自動セット（=T-S）
 //            ・3-2-6: 集計表を該当IDで同期 → 孤立IDを削除
+//            ・3-2-7: D列（トン数）正規化＋車種分離 → 先頭の数字部分をD列（t付加）、残りの文字（英字・ひらがな・カタカナ・漢字問わず）をE列（車種）に分離
+//                     数字のみ入力は「4t」形式に統一してleft寄せ。「4W」「4t平ボ」「10ワゴン」等も対応
+//            ・3-2-8: E列（車種）正規化＋分離 → E列への「4W」等の混合入力もD列にトン数・E列に車種を分離。文字のみ入力は全角英字→半角大文字に統一
 //   3-3  : onEditMasterVehicle_(sheet, range)
 //            自車専属マスタ編集時の処理
 //            ・3-3-1: A列（ID）自動生成 → S-XXXX 形式
@@ -1085,7 +1088,7 @@ function sortBothSheetsByDate() {
 //  ①修正用SS専用メニュー（全機能フル搭載）。②客用SS・③各客SSはスタブの onOpen で表示。
 //  GASはサブメニューの2階層が上限のため、大カテゴリ＋直接項目の構成で実装。
 //  大カテゴリ: 🏠毎日の配車業務 / 📥データ読み込み / 📨帳票・送信 / 📒経理・出力
-//             / 📊PL管理 / 🗓月またぎ処理 / ⚙️システム設定・保守 / 🏢管理者専用
+//             / 📊PL管理 / 🗓月次処理 / ⚙️システム設定・保守 / 🏢管理者専用
 // ================================================================
 function onOpen(e) {
   // サイレント自動トリガー再構築（FULL権限時のみ有効・LIMITED時はtry-catchで自動スキップ）
@@ -1147,9 +1150,9 @@ function onOpen(e) {
     .addSubMenu(ui.createMenu('📊 PL管理')
       .addItem('📈 PL作成',                    'showPlDialog')
       .addItem('🗃 PL設定初期化',               'initFixedCostMaster'))
-    // ── 🗓 月またぎ処理 ────────────────────────────────────────────────
-    .addSubMenu(ui.createMenu('🗓 月またぎ処理')
-      .addItem('📆 今月分生成（途中契約）',       'generateCurrentMonth')
+    // ── 🗓 月次処理 ────────────────────────────────────────────────
+    .addSubMenu(ui.createMenu('🗓 月次処理')
+      .addItem('📆 今月分生成',                  'generateCurrentMonth')
       .addItem('📅 翌月分生成（前月アーカイブ）',  'generateNextMonth')
       .addItem('📦 前月分アーカイブ',            'archiveOldMonth'))
     // ── ⚙️ システム設定・保守 ──────────────────────────────────────────
@@ -1273,9 +1276,9 @@ function buildClientMenu() {
     .addSubMenu(ui.createMenu('📊 PL管理')
       .addItem('📈 PL作成',                    'showPlDialog')
       .addItem('🗃 PL設定初期化',               'initFixedCostMaster'))
-    // ── 🗓 月またぎ処理 ────────────────────────────────────────────────
-    .addSubMenu(ui.createMenu('🗓 月またぎ処理')
-      .addItem('📆 今月分生成（途中契約）',       'generateCurrentMonth')
+    // ── 🗓 月次処理 ────────────────────────────────────────────────
+    .addSubMenu(ui.createMenu('🗓 月次処理')
+      .addItem('📆 今月分生成',                  'generateCurrentMonth')
       .addItem('📅 翌月分生成（前月アーカイブ）',  'generateNextMonth')
       .addItem('📦 前月分アーカイブ',            'archiveOldMonth'))
     // ── ⚙️ システム設定・保守 ──────────────────────────────────────────
@@ -1710,6 +1713,8 @@ function onEdit(e) {
 //  ・F列（車番）編集時に自車専属マスタから区分〜携帯番号を自動補完
 //  ・T列（合計高速）の数式を自動セット
 //  ・集計表を同期し、孤立IDを削除
+//  ・D列（トン数）編集時【3-2-7】: 先頭の数字をD列（t付加・left寄せ）、残りの文字（英字・ひらがな・カタカナ・漢字等）をE列（車種）に分離
+//  ・E列（車種）編集時【3-2-8】: 数字+文字の混合入力はD列にトン数・E列に文字を分離。文字のみは全角英字→半角大文字に統一
 // ================================================================
 function onEditUnkou_(sheet, range, ss) {
   var startRow = range.getRow();
@@ -1762,23 +1767,69 @@ function onEditUnkou_(sheet, range, ss) {
     idLock.releaseLock();
   }
 
-  // D列(4)=トン数 一括正規化（D列が編集範囲に含まれる時だけ）
+  // D列(4)=トン数 一括正規化＋車種分離【3-2-7】（D列が編集範囲に含まれる時だけ）
+  // 数字部分→D列（t付加）、数字以外の文字部分（英字・ひらがな・カタカナ・漢字問わず）→E列（車種）に分離
   if (startRow >= 2 && editedCol <= 4 && editedEndCol >= 4) {
-    var _uTons = _allRowsData.map(function(r) { return [normalizeTons_(r[3])]; }); // D=index3
-    var _uChg  = _uTons.some(function(v, i) { return String(v[0]) !== String(_allRowsData[i][3]); });
-    if (_uChg) sheet.getRange(startRow, 4, numRows, 1).setValues(_uTons);
+    var _uTons    = [];
+    var _uTypeSep = []; // D列入力から分離したE列値（nullなら上書きしない）
+    for (var _di = 0; _di < _allRowsData.length; _di++) {
+      var _rv = String(_allRowsData[_di][3] || '').trim()
+        .replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); })
+        .replace(/[ｔＴ]/g, 't');
+      var _ms = _rv.match(/^([\d.]+)(?:[tT]|トン|ｔｏｎ|ton)?\s*(.+)$/);
+      if (_ms) {
+        _uTons.push([_ms[1] + 't']);
+        var _sep = _ms[2].trim().replace(/[Ａ-Ｚａ-ｚ]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); }).toUpperCase();
+        _uTypeSep.push(_sep);
+      } else {
+        _uTons.push([normalizeTons_(_allRowsData[_di][3])]);
+        _uTypeSep.push(null);
+      }
+    }
+    var _tonsChg = _uTons.some(function(v, i) { return String(v[0]) !== String(_allRowsData[i][3]); });
+    if (_tonsChg) {
+      sheet.getRange(startRow, 4, numRows, 1).setValues(_uTons);
+      for (var _di2 = 0; _di2 < numRows; _di2++) _allRowsData[_di2][3] = _uTons[_di2][0];
+    }
+    sheet.getRange(startRow, 4, numRows, 1).setHorizontalAlignment('left');
+    // 車種部分が分離された行のみE列に書き込む
+    if (_uTypeSep.some(function(v) { return v !== null; })) {
+      var _typeVals = _uTypeSep.map(function(v, i) { return [v !== null ? v : _allRowsData[i][4]]; });
+      sheet.getRange(startRow, 5, numRows, 1).setValues(_typeVals);
+      for (var _di3 = 0; _di3 < numRows; _di3++) if (_uTypeSep[_di3] !== null) _allRowsData[_di3][4] = _uTypeSep[_di3];
+    }
   }
-  // E列(5)=車種 小文字統一（全角Ｗ→半角・大文字→小文字。E列が編集範囲に含まれる時だけ）
+  // E列(5)=車種正規化＋数字+文字混合入力の分離【3-2-8】（E列が編集範囲に含まれる時だけ）
+  // 数字部分→D列（t付加）、文字部分→E列。文字のみ入力は全角英字→半角大文字に統一してE列に残す
   if (startRow >= 2 && editedCol <= 5 && editedEndCol >= 5) {
-    var _uType = _allRowsData.map(function(r) {
-      var tv = String(r[4] || '');
-      var tn = tv.replace(/[Ａ-Ｚａ-ｚ]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }).toUpperCase();
-      return [tn];
-    });
-    var _uTypeChg = _uType.some(function(v, i) { return String(v[0]) !== String(_allRowsData[i][4]); });
-    if (_uTypeChg) {
-      sheet.getRange(startRow, 5, numRows, 1).setValues(_uType);
-      for (var _ti = 0; _ti < numRows; _ti++) _allRowsData[_ti][4] = _uType[_ti][0];
+    var _eNewTons  = []; // E列入力から分離したD列値（nullなら書き込まない）
+    var _eNewTypes = [];
+    var _eHasTons  = false;
+    for (var _ei = 0; _ei < _allRowsData.length; _ei++) {
+      var _etv = String(_allRowsData[_ei][4] || '').trim()
+        .replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); })
+        .replace(/[ｔＴ]/g, 't');
+      var _ems = _etv.match(/^([\d.]+)(?:[tT]|トン|ｔｏｎ|ton)?\s*(.+)$/);
+      if (_ems) {
+        _eNewTons.push(_ems[1] + 't');
+        var _eTyp = _ems[2].trim().replace(/[Ａ-Ｚａ-ｚ]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); }).toUpperCase();
+        _eNewTypes.push([_eTyp]);
+        _eHasTons = true;
+      } else {
+        _eNewTons.push(null);
+        var _eTypN = _etv.replace(/[Ａ-Ｚａ-ｚ]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); }).toUpperCase();
+        _eNewTypes.push([_eTypN]);
+      }
+    }
+    var _eTypeChg = _eNewTypes.some(function(v, i) { return String(v[0]) !== String(_allRowsData[i][4]); });
+    if (_eTypeChg) {
+      sheet.getRange(startRow, 5, numRows, 1).setValues(_eNewTypes);
+      for (var _ei2 = 0; _ei2 < numRows; _ei2++) _allRowsData[_ei2][4] = _eNewTypes[_ei2][0];
+    }
+    if (_eHasTons) {
+      var _eTonVals = _eNewTons.map(function(t, i) { return [t !== null ? t : _allRowsData[i][3]]; });
+      sheet.getRange(startRow, 4, numRows, 1).setValues(_eTonVals).setHorizontalAlignment('left');
+      for (var _ei3 = 0; _ei3 < numRows; _ei3++) if (_eNewTons[_ei3] !== null) _allRowsData[_ei3][3] = _eNewTons[_ei3];
     }
   }
   // 点呼前完了・点呼後完了の列番号を動的取得（該当しうる列（23列目以降）が編集された時だけヘッダーを読む）
@@ -2382,6 +2433,7 @@ function syncVehicleToCurrentMonth_(veh, skipSort, applyDate, ss) {
         sheet.getRange(insertRow, 22, formulas.length, 1).setFormulas(formulas);
         sheet.getRange(insertRow, 10, rowsData.length, 1).setNumberFormat('yyyy/MM/dd');
         sheet.getRange(insertRow, 12, rowsData.length, 2).setNumberFormat('@');
+        sheet.getRange(insertRow, 4, rowsData.length, 1).setHorizontalAlignment('left');
       }
       commitLastId_(sheet, 'V-', nextNum - 1);
       SpreadsheetApp.flush();
@@ -3946,6 +3998,47 @@ function restoreSheetColumnOrder_(sheet, canonHdr, bkSheet) {
 }
 
 // onChange トリガーハンドラ（列削除・並び替え・シート追加削除を検知して復元）
+// ================================================================
+//  シート並び順・タブ色管理ユーティリティ
+// ================================================================
+function getExpectedSheetOrder_(isMaster) {
+  var order = [
+    '配車板','運行','集計表',
+    '自車専属マスタ','自車専属運行','マスタ','設定','自社設定','管理者',
+    'PL設定','距離マスタ',
+    'PL','請求書','支払確認書','受領書_耳','仕訳表','監査用',
+    '使い方','説明書','サポート','メモ'
+  ];
+  if (isMaster) order = order.concat(['会社登録','運行客テスト','マスタテスト','ダミー運行']);
+  return order;
+}
+function getSheetTabColors_() {
+  return {
+    '配車板':'#c62828','運行':'#c62828','集計表':'#c62828',
+    '自車専属マスタ':'#2e7d32','自車専属運行':'#2e7d32','マスタ':'#2e7d32','設定':'#2e7d32','自社設定':'#2e7d32','管理者':'#2e7d32',
+    'PL設定':'#6a1b9a','距離マスタ':'#6a1b9a',
+    'PL':'#e65100','請求書':'#e65100','支払確認書':'#e65100','受領書_耳':'#e65100','仕訳表':'#e65100','監査用':'#e65100',
+    '使い方':'#1565c0','説明書':'#1565c0','サポート':'#1565c0','メモ':'#1565c0',
+    '会社登録':'#880e4f','運行客テスト':'#880e4f','マスタテスト':'#880e4f','ダミー運行':'#880e4f'
+  };
+}
+function arrangeSheetsOrder_(ss) {
+  var isMaster = !ss.getSheetByName('__COMPANY_SS__') && !ss.getSheetByName('__TEMPLATE_SS__');
+  var order  = getExpectedSheetOrder_(isMaster);
+  var colors = getSheetTabColors_();
+  order.forEach(function(name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh) return;
+    try { sh.setTabColor(colors[name] || null); } catch(e) {}
+  });
+  // 逆順で1番目に移動 → order[0]が最終的に1番目になる
+  for (var i = order.length - 1; i >= 0; i--) {
+    var sh = ss.getSheetByName(order[i]);
+    if (!sh) continue;
+    try { ss.setActiveSheet(sh); ss.moveActiveSheet(1); } catch(e) {}
+  }
+}
+
 function dispatchStructureChange(e) {
   try {
     var ct = e.changeType;
@@ -4030,6 +4123,24 @@ function dispatchStructureChange(e) {
         }
       });
       if (restored) ss.toast('列構成を元に戻しました', '🔄', 4);
+
+      // シート移動検知：並び順がずれていたら即座に元に戻す
+      var expOrd = getExpectedSheetOrder_(isClientSs);
+      var existOrd = expOrd.filter(function(n) { return !!ss.getSheetByName(n); });
+      var visNames = ss.getSheets().filter(function(s) {
+        try { return !s.isSheetHidden() && existOrd.indexOf(s.getName()) !== -1; } catch(e2) { return false; }
+      }).map(function(s) { return s.getName(); });
+      var moved = false;
+      var lastIdx = -1;
+      for (var ki = 0; ki < visNames.length; ki++) {
+        var expIdx = existOrd.indexOf(visNames[ki]);
+        if (expIdx < lastIdx) { moved = true; break; }
+        lastIdx = expIdx;
+      }
+      if (moved) {
+        arrangeSheetsOrder_(ss);
+        ss.toast('シートの移動はできません。元に戻しました', '🚫', 4);
+      }
     } finally {
       cache.remove('__structureRestoring');
     }
@@ -4623,6 +4734,8 @@ function expandAndRefreshSheets() {
   });
   initImportDictionary_(ss);
   createImportTestSheetUnkou();
+  createDummyUnkouSheet_();
+  arrangeSheetsOrder_(ss);
   SpreadsheetApp.getUi().alert('シート再生成が完了しました。');
 }
 
@@ -5116,8 +5229,8 @@ function addStatusColumnToMaster() {
 
 // ================================================================
 //  4-6b: 今月分生成（generateCurrentMonth）  【大C / 中4 / 小4-6b】
-//  今日〜今月末日 × 運行中車両 のプレースホルダーIDを運行シートに生成する
-//  月途中で契約した会社の初期設定時に使用する
+//  車番ごとに今月の生成済み最終日を確認し、未生成分（データなしは1日〜、途中は翌日〜）を運行シートに生成する
+//  全車両が月末まで生成済みの場合のみブロック。月途中契約・追加生成どちらにも対応
 // ================================================================
 function generateCurrentMonth() {
   var ui    = SpreadsheetApp.getUi();
@@ -5128,7 +5241,6 @@ function generateCurrentMonth() {
   var today       = new Date();
   var curYear     = today.getFullYear();
   var curMon      = today.getMonth(); // 0-indexed
-  var startDay    = today.getDate();
   var daysInMonth = new Date(curYear, curMon + 1, 0).getDate();
 
   var master = ss.getSheetByName('自車専属マスタ');
@@ -5146,7 +5258,22 @@ function generateCurrentMonth() {
     return;
   }
 
-  var lock = LockService.getScriptLock();
+  // 運行シートの今月データを車番ごとの最終生成日マップにまとめる（専属含む全行が対象だが車番で絞る）
+  var lastRow = sheet.getLastRow();
+  var carLastDayMap = {};
+  if (lastRow >= 2) {
+    var unkouData = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+    for (var i = 0; i < unkouData.length; i++) {
+      var dv = unkouData[i][9]; // J列(index9)=日付
+      if (dv instanceof Date && dv.getFullYear() === curYear && dv.getMonth() === curMon) {
+        var carNo = String(unkouData[i][5] || '').trim(); // F列(index5)=車番
+        var d = dv.getDate();
+        if (!carLastDayMap[carNo] || d > carLastDayMap[carNo]) carLastDayMap[carNo] = d;
+      }
+    }
+  }
+
+  var lock = LockService.getDocumentLock();
   try { lock.waitLock(30000); } catch(e) { ui.alert('ロック取得失敗: ' + e.message); return; }
 
   try {
@@ -5155,11 +5282,15 @@ function generateCurrentMonth() {
     var rowsData  = [];
     var formulas  = [];
 
-    for (var day = startDay; day <= daysInMonth; day++) {
-      var dateObj = new Date(curYear, curMon, day);
-      for (var v2 = 0; v2 < activeVehicles.length; v2++) {
-        var veh   = activeVehicles[v2];
-        var rowId = 'V-' + String(nextNum).padStart(4, '0');
+    for (var v2 = 0; v2 < activeVehicles.length; v2++) {
+      var veh       = activeVehicles[v2];
+      var carNo2    = String(veh[7] || '').trim(); // マスタindex7=車番
+      var lastGenDay = carLastDayMap[carNo2] || 0;
+      if (lastGenDay >= daysInMonth) continue; // この車両は月末まで生成済み
+      var startDay  = lastGenDay > 0 ? lastGenDay + 1 : 1; // データなしは1日から
+      for (var day = startDay; day <= daysInMonth; day++) {
+        var dateObj = new Date(curYear, curMon, day);
+        var rowId   = 'V-' + String(nextNum).padStart(4, '0');
         nextNum++;
         var rn = insertRow + rowsData.length;
         rowsData.push([
@@ -5173,10 +5304,16 @@ function generateCurrentMonth() {
       }
     }
 
+    if (rowsData.length === 0) {
+      ui.alert('📅 今月分生成\n\n' + curYear + '年' + (curMon + 1) + '月分は全車両月末まで生成済みです。\n重複生成はできません。');
+      return;
+    }
+
     sheet.getRange(insertRow, 1, rowsData.length, 26).setValues(rowsData);
     sheet.getRange(insertRow, 22, formulas.length, 1).setFormulas(formulas);
     sheet.getRange(insertRow, 10, rowsData.length, 1).setNumberFormat('yyyy/MM/dd');
     sheet.getRange(insertRow, 12, rowsData.length, 2).setNumberFormat('@');
+    sheet.getRange(insertRow, 4, rowsData.length, 1).setHorizontalAlignment('left');
     commitLastId_(sheet, 'V-', nextNum - 1);
     SpreadsheetApp.flush();
   } finally {
@@ -5186,12 +5323,10 @@ function generateCurrentMonth() {
   sortUnkouByDate_();
   applyHolidayRowColors_();
 
-  var generatedDays = daysInMonth - startDay + 1;
   ui.alert(
     '📅 今月分生成完了\n\n' +
-    curYear + '年' + (curMon + 1) + '月 ' + startDay + '日〜' + daysInMonth + '日\n' +
-    activeVehicles.length + '台 × ' + generatedDays + '日 = ' +
-    (activeVehicles.length * generatedDays) + '行を生成しました。'
+    curYear + '年' + (curMon + 1) + '月\n' +
+    rowsData.length + '行を生成しました。'
   );
 }
 
@@ -5247,7 +5382,7 @@ function generateNextMonth() {
   var daysInMonth = new Date(nextYear, nextMon + 1, 0).getDate();
 
   // LockServiceでID採番の競合を防止
-  var lock = LockService.getScriptLock();
+  var lock = LockService.getDocumentLock();
   try { lock.waitLock(30000); } catch(e) { ui.alert('ロック取得失敗: ' + e.message); return; }
 
   try {
@@ -5282,6 +5417,7 @@ function generateNextMonth() {
     sheet.getRange(insertRow, 10, rowsData.length, 1).setNumberFormat('yyyy/MM/dd');
     // 積地・降地列をテキスト書式（数値化防止）
     sheet.getRange(insertRow, 12, rowsData.length, 2).setNumberFormat('@');
+    sheet.getRange(insertRow, 4, rowsData.length, 1).setHorizontalAlignment('left');
     commitLastId_(sheet, 'V-', nextNum - 1);
     SpreadsheetApp.flush();
 
@@ -8019,11 +8155,11 @@ function createUsageSheet() {
     '荷主への車番連絡を作成してメール/FAX送信',
     '車番が確定したとき');
   sp();
-  section('■ 🗓 月またぎ処理');
+  section('■ 🗓 月次処理');
   menuRow('📅 翌月分生成（前月アーカイブ）',
     '翌月の運行行を一括生成し、当月分をアーカイブ',
     '月末（25日頃）');
-  menuRow('📆 今月分生成（途中契約）',
+  menuRow('📆 今月分生成',
     '月途中から利用開始するときに今月分の運行行を生成',
     '月途中から使い始めるとき');
   sp();
@@ -9535,6 +9671,7 @@ function clearUketorishoTimestamps() {
 function ensureSheetsOnOpen() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   try { ensureCompanySettingSheet_(ss); } catch(e) {}
+  try { arrangeSheetsOrder_(ss); } catch(e) {}
 }
 
 
@@ -12250,6 +12387,88 @@ function createImportTestSheetUnkou() {
   sh.getRange(2, 1, rows.length, headers.length).setValues(rows);
   sh.autoResizeColumns(1, headers.length);
 }
+// ================================================================
+//  13-11: ダミー運行シート自動生成（createDummyUnkouSheet_）  【大A / 中13 / 小13-11】
+//  シート再生成(F5)時に「ダミー運行」シートが存在しない場合のみ作成
+//  2026/7/1〜9/16 × 4台のダミー運行データを挿入（時刻は距離別ランダム）
+// ================================================================
+function createDummyUnkouSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var name = 'ダミー運行';
+  if (ss.getSheetByName(name)) return;
+  var sh = ss.insertSheet(name);
+
+  var headers = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','備考','管理データ','連絡(端末)','データ(端末)','点呼前完了','点呼後完了','装備その他','発注書・指示書','車番連絡','受領書','帳票備考'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#efefef');
+
+  var vehicles = [
+    {co:'テスト連絡', ban:'大阪か001', nm:'山田 太郎', tel:'090-1111-0001', kanban:'テスト連絡'},
+    {co:'テスト物産', ban:'大阪か002', nm:'鈴木 花子', tel:'090-2222-0002', kanban:'テスト物産'},
+    {co:'テスト商工', ban:'大阪か003', nm:'田中 一郎', tel:'090-3333-0003', kanban:'テスト商工'},
+    {co:'テスト物流', ban:'大阪か004', nm:'佐藤 美咲', tel:'090-4444-0004', kanban:'テスト物流'}
+  ];
+  var clients = ['A社','B社','C社','D社'];
+  var routes = [
+    {from:'大阪市港区',    to:'大阪市西区',       dist:0},
+    {from:'堺市堺区',      to:'大阪市住之江区',   dist:0},
+    {from:'守口市',        to:'八尾市',           dist:0},
+    {from:'吹田市',        to:'摂津市',           dist:0},
+    {from:'大阪市此花区',  to:'神戸市灘区',       dist:1},
+    {from:'堺市北区',      to:'京都市南区',       dist:1},
+    {from:'大阪市大正区',  to:'兵庫県尼崎市',     dist:1},
+    {from:'大阪市鶴見区',  to:'京都市伏見区',     dist:1},
+    {from:'大阪市住之江区',to:'滋賀県草津市',     dist:2},
+    {from:'八尾市',        to:'奈良県橿原市',     dist:2},
+    {from:'大阪市港区',    to:'兵庫県宝塚市',     dist:2},
+    {from:'守口市',        to:'奈良県生駒市',     dist:2}
+  ];
+
+  function rnd5(min, max) { return Math.floor(Math.random() * (max - min) / 5) * 5 + min; }
+  function addMin(base, min) { return new Date(base.getTime() + min * 60000); }
+
+  var rows = [];
+  var idNum = 1;
+  var clientIdx = 0;
+  var periods = [{yr:2026,mo:6,days:31},{yr:2026,mo:7,days:31},{yr:2026,mo:8,days:16}];
+
+  periods.forEach(function(p) {
+    for (var day = 1; day <= p.days; day++) {
+      var dateObj = new Date(p.yr, p.mo, day);
+      vehicles.forEach(function(veh) {
+        var route   = routes[Math.floor(Math.random() * routes.length)];
+        var d       = route.dist;
+        var client  = clients[clientIdx % 4]; clientIdx++;
+        var preMin  = d===0 ? rnd5(410,450) : d===1 ? rnd5(380,420) : rnd5(350,390);
+        var yMin    = d===0 ? rnd5(450,510) : d===1 ? rnd5(420,480) : rnd5(390,450);
+        var sMin    = yMin   + rnd5(60,90);
+        var k1Min   = sMin   + rnd5(d===0?180:d===1?210:240, d===0?240:d===1?270:300);
+        var k2Min   = k1Min  + rnd5(30,60);
+        var koMin   = k2Min  + rnd5(d===0?90:d===1?120:150, d===0?150:d===1?180:210);
+        var postMin = koMin  + rnd5(30,60);
+        var uriage  = d===0 ? (Math.floor(Math.random()*13)+32)*1000 : d===1 ? (Math.floor(Math.random()*16)+42)*1000 : (Math.floor(Math.random()*13)+55)*1000;
+        var sReq    = d===0 ? 0 : d===1 ? Math.floor(Math.random()*3)*1000 : (Math.floor(Math.random()*4)+1)*1000;
+        var base = new Date(p.yr, p.mo, day, 0, 0, 0, 0);
+        rows.push([
+          'D-'+String(idNum).padStart(4,'0'), '専属', veh.co, 4, 'W', veh.ban, veh.nm, veh.tel, veh.kanban,
+          dateObj, client, route.from, route.to,
+          addMin(base,yMin), addMin(base,sMin), addMin(base,k1Min), addMin(base,k2Min), addMin(base,koMin),
+          uriage, sReq>0?sReq:'', sReq>0?sReq:'', sReq>0?0:'',
+          '','','','',
+          addMin(base,preMin), addMin(base,postMin),
+          '','','','',''
+        ]);
+        idNum++;
+      });
+    }
+  });
+
+  sh.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  sh.getRange(2, 10, rows.length, 1).setNumberFormat('yyyy/MM/dd');
+  sh.getRange(2, 14, rows.length, 5).setNumberFormat('M/d HH:mm');
+  sh.getRange(2, 27, rows.length, 2).setNumberFormat('M/d HH:mm');
+  sh.autoResizeColumns(1, headers.length);
+}
+
 function getPasteSheetName_() {
   var t = PropertiesService.getDocumentProperties().getProperty('PASTE_IMPORT_TYPE') || 'unkou';
   return { unkou: '__運行取込__', master: '__自車専属マスタ取込__', cust: '__取引先取込__' }[t] || '__取込用__';
@@ -16415,6 +16634,7 @@ function generateNextMonthSilent_(ss) {
     sheet.getRange(insertRow, 22, formulas.length, 1).setFormulas(formulas);
     sheet.getRange(insertRow, 10, rowsData.length, 1).setNumberFormat('yyyy/MM/dd');
     sheet.getRange(insertRow, 12, rowsData.length, 2).setNumberFormat('@');
+    sheet.getRange(insertRow, 4, rowsData.length, 1).setHorizontalAlignment('left');
     commitLastId_(sheet, 'V-', nextNum - 1);
     SpreadsheetApp.flush();
   } finally {
