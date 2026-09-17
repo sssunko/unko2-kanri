@@ -1608,7 +1608,7 @@ html { scroll-behavior: smooth; }
         </div>
         <div class="ss-wrap"><img src="screenshots/27-step8-result.png" class="ss-img" alt="運行シート反映結果"></div>
         <div class="block">
-          <div class="blk-label">🔧 実装概要（MA向け）</div>
+          <div class="blk-label">🔧 実装概要</div>
           <ul class="pts">
             <li>createPasteImportSheetUnkou → 取込用シート「__運行取込__」を生成（ヘッダー・マッピング行付き）</li>
             <li>executePasteImportUnkou → applyPasteImportMapping_でCSVヘッダーと内部fieldIdを自動照合してマッピング行に反映</li>
@@ -1676,7 +1676,7 @@ html { scroll-behavior: smooth; }
         <div class="ss-wrap"><img src="screenshots/28-step6-shijisho-saved.png" class="ss-img" alt="履歴ボタン"></div>
         <div class="ss-wrap"><img src="screenshots/28-step7-shijisho-history.png" class="ss-img" alt="指示先履歴"></div>
         <div class="block">
-          <div class="blk-label">🔧 実装概要（MA向け）</div>
+          <div class="blk-label">🔧 実装概要</div>
           <ul class="pts">
             <li>showHatchuDocDialog → getDocumentData_('sum')で運行シート・集計表・マスタからデータ取得しdocumentPreview.htmlをモーダル表示</li>
             <li>markDocumentIssued(rowId, docType, ssId) → openById(ssId)で運行シートの発行済み列を更新（ssId引数必須）</li>
@@ -1743,7 +1743,7 @@ html { scroll-behavior: smooth; }
         <div class="ss-wrap"><img src="screenshots/29-step6-yousha-saved.png" class="ss-img" alt="履歴ボタン"></div>
         <div class="ss-wrap"><img src="screenshots/29-step7-yousha-history.png" class="ss-img" alt="協力会社履歴"></div>
         <div class="block">
-          <div class="blk-label">🔧 実装概要（MA向け）</div>
+          <div class="blk-label">🔧 実装概要</div>
           <ul class="pts">
             <li>showShabanDocDialog → getDocumentData_('unkou')で運行シートからデータ取得しdocumentPreview.htmlをモーダル表示（金額は売上列）</li>
             <li>markDocumentIssued・sendDocumentEmailは28番（発注書）と共通の実装</li>
@@ -1807,7 +1807,7 @@ html { scroll-behavior: smooth; }
         </div>
         <div class="ss-wrap"><img src="screenshots/30-7-pdf.png" class="ss-img" alt="受領書PDF印刷プレビュー"></div>
         <div class="block">
-          <div class="blk-label">🔧 実装概要（MA向け）</div>
+          <div class="blk-label">🔧 実装概要</div>
           <ul class="pts">
             <li>showUketorishoDialog（16-1）→ 運行シートから荷主・会社名・日付・車番・乗務員・積地・降地の選択肢を収集し、モーダルダイアログを表示</li>
             <li>generateUketorishoSheet（16-2）→ フィルタ条件に合う行を抽出・日付昇順ソート後、受領書_耳シートに3列×7行=21件/ページのレイアウトを生成。自社設定シートから自社名を取得して右下に表示</li>
@@ -1860,7 +1860,7 @@ html { scroll-behavior: smooth; }
         </div>
         <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/31-05-sheet.png" class="ss-img" alt="生成された請求書シート"><div style="position:absolute;top:95%;left:84%;width:13%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
-          <div class="blk-label">🔧 実装概要（MA向け）</div>
+          <div class="blk-label">🔧 実装概要</div>
           <ul class="pts">
             <li>showInvoiceDialog（16-3）：マスタシートから顧客一覧を取得してインラインHTMLでモーダルダイアログを生成。google.script.run経由でgenerateInvoiceBatchを呼び出す</li>
             <li>generateInvoiceBatch（16-3b）：会社名リストを受け取り各社に対しgenerateInvoiceSheetを順次呼び出す</li>
@@ -1928,7 +1928,7 @@ html { scroll-behavior: smooth; }
         </div>
         <div class="ss-wrap"><img src="screenshots/32-9-csv-open.png" class="ss-img" alt="CSVを開いた画面"></div>
         <div class="block">
-          <div class="blk-label">🔧 実装概要（MA向け）</div>
+          <div class="blk-label">🔧 実装概要</div>
           <ul class="pts">
             <li>showExportDialog（17-6b）: ss.getSheets()で非表示除外後、ssIdをHTMLに埋め込みダイアログ表示</li>
             <li>exportSheetAsCsvBase64（17-6b-1）: 引数(ssId, sheetName)。openById→getValues→BOM付きUTF-8 CSV→base64Encode返却</li>

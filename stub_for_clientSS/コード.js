@@ -113,6 +113,7 @@ function sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }
 function fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }
 function createUsageSheet()       { return UnkouLib.createUsageSheet(); }
 function createManualSheet()      { return UnkouLib.createManualSheet(); }
+function createManualMASheet()    { return UnkouLib.createManualMASheet(); }
 function createSupportSheet()     { return UnkouLib.createSupportSheet(); }
 function setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }
 function showExportDialog()             { return UnkouLib.showExportDialog(); }

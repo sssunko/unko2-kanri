@@ -80,7 +80,7 @@ body {
 .hdr {
   background: var(--surface);
   border-bottom: 2px solid var(--gold);
-  padding: 28px 40px 24px;
+  padding: 10px 40px 8px;
   position: sticky; top: 0; z-index: 100;
 }
 .hdr-inner {
@@ -89,10 +89,10 @@ body {
 }
 .hdr-label {
   font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
-  color: var(--gold); font-weight: 700; margin-bottom: 5px;
+  color: var(--gold); font-weight: 700; margin-bottom: 2px;
 }
-.hdr-title { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1.25; }
-.hdr-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.hdr-title { font-size: 16px; font-weight: 800; color: var(--text); line-height: 1.25; }
+.hdr-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .theme-btn {
   background: var(--border); border: none; color: var(--muted);
   padding: 5px 12px; border-radius: 6px; cursor: pointer;
@@ -383,7 +383,10 @@ html { scroll-behavior: smooth; }
       <div class="hdr-title">操作説明書</div>
       <div class="hdr-sub">自動入力・気をつけること・困ったときの操作</div>
     </div>
-    <button class="theme-btn" onclick="toggleTheme()">☀ / ☾</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div id="hdr-nav-btns" style="display:none;gap:8px;"></div>
+      <button class="theme-btn" onclick="toggleTheme()">☀ / ☾</button>
+    </div>
   </div>
 </header>
 
@@ -434,9 +437,7 @@ html { scroll-behavior: smooth; }
   </div>
 </div>
 
-<div class="toc-nav-bar" id="toc-nav-bar">
-  <button class="nav-btn" onclick="go大()">◀ シート一覧</button>
-</div>
+<div class="toc-nav-bar" id="toc-nav-bar"></div>
 <div class="toc-wrap">
   <div class="toc-inner">
     <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 37</span>」の機能一覧</div>
@@ -485,8 +486,8 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-32"><span class="toc-n">32</span><span class="toc-name">CSV・Excel出力</span></a>
       <div class="toc-sep">【シート管理】月次生成・システム復旧</div>
       <a class="toc-item done" href="#feat-33"><span class="toc-n">33</span><span class="toc-name">今月分生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">34</span><span class="toc-name">翌月分生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">35</span><span class="toc-name">前月分アーカイブ</span></a>
+      <a class="toc-item done" href="#feat-34"><span class="toc-n">34</span><span class="toc-name">翌月分生成</span></a>
+      <a class="toc-item done" href="#feat-35"><span class="toc-n">35</span><span class="toc-name">前月分アーカイブ</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">36</span><span class="toc-name">シート再生成</span></a>
       <a class="toc-item" href="#pending"><span class="toc-n">37</span><span class="toc-name">ヘッダー復旧＋保護</span></a>
     </div>
@@ -494,9 +495,7 @@ html { scroll-behavior: smooth; }
 </div>
 
 <main class="main">
-  <div class="md-nav-bar">
-    <button class="nav-btn" onclick="go大()">◀ シート一覧</button>
-  </div>
+  <div class="md-nav-bar"></div>
   <div class="view-小-nav" id="bc-小"></div>
 
   <!-- ──────── 確認済み機能 ──────── -->
@@ -1753,26 +1752,108 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 34 - pending -->
-    <div class="card">
+    <!-- feat-34 -->
+    <div class="card" id="feat-34">
       <div class="card-hdr">
         <span class="num">34</span>
         <span class="cat cat-menu">シート管理</span>
         <span class="feat-name">翌月分生成</span>
         <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
       </div>
-      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 毎月20日 深夜0時に自動実行</div>
+          <ul class="pts">
+            <li>自車専属マスタの「運行状態」が「運行」の車両を対象に、来月1日〜月末分の行を運行シートに一括追加する</li>
+            <li>同時に前月分のデータが別のスプレッドシートとして自動的にアーカイブ保存される</li>
+            <li>手動で実行したい場合はメニューから操作できる</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">【現在の状態】翌月生成前：当月のデータが最後まで入っている</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/34-1-current.png" class="ss-img" alt="当月分の運行シート（翌月生成前）"><div style="position:absolute;top:95%;left:10%;width:7%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">① メニュー「🗓 月次処理」→「📅 翌月分生成（前月アーカイブ）」を選ぶ</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/34-2-menu.png" class="ss-img" alt="翌月分生成 メニュー選択"><div style="position:absolute;top:73%;left:51%;width:48%;height:10%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">② 完了ポップアップが表示される。生成した月・台数・行数が確認できる</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/34-3-popup.png" class="ss-img" alt="翌月分生成完了ポップアップ"></div>
+        <div class="block">
+          <div class="blk-label">③ 運行シートに来月分の行が追加されている</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/34-4-result.png" class="ss-img" alt="翌月分生成後の運行シート"><div style="position:absolute;top:42%;left:0%;width:99%;height:54%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">④ 前月分のデータが別のスプレッドシートとして自動的にアーカイブ保存される</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/34-5-archive-tab.png" class="ss-img" alt="アーカイブSSが作成された通知"></div>
+        <div class="block">
+          <div class="blk-label">アーカイブSSには「運行」「集計表」の2シートのみが保存されている</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/34-6-archive-sheet.png" class="ss-img" alt="アーカイブSSの中身"><div style="position:absolute;top:95%;left:0.5%;width:15%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label warn">⚠️ 注意</div>
+          <ul class="pts">
+            <li>「運行状態」が「運行」以外（待機・故障など）の車両は生成されない</li>
+            <li>全車両の来月分がすでに生成済みの場合のみ「すでに生成済みです」と表示されブロックされる</li>
+            <li>毎月20日に自動実行されるため、通常は手動操作不要</li>
+          </ul>
+        </div>
+      </div>
     </div>
 
-    <!-- 35 - pending -->
-    <div class="card">
+    <!-- feat-35 -->
+    <div class="card" id="feat-35">
       <div class="card-hdr">
         <span class="num">35</span>
         <span class="cat cat-menu">シート管理</span>
         <span class="feat-name">前月分アーカイブ</span>
         <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
       </div>
-      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label tip">💡 翌月分生成（34番）と同時に自動実行</div>
+          <ul class="pts">
+            <li>今月より前のデータを別のスプレッドシートに値のみで保存し、元の運行シートから削除する</li>
+            <li>手動で実行したい場合はメニューから単独で操作できる</li>
+            <li>アーカイブ先：Driveの「運行管理_アーカイブ / 会社名 / YYYY年MM月_会社名」</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">【現在の状態】運行シートに前月分データが残っている</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/35-1-before.png" class="ss-img" alt="運行シートに前月分がある状態"><div style="position:absolute;top:93%;left:11%;width:5%;height:7%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">① メニュー「🗓 月次処理」→「📦 前月分アーカイブ」を選ぶ</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/35-2-menu.png" class="ss-img" alt="前月分アーカイブ メニュー選択"><div style="position:absolute;top:64%;left:52%;width:47%;height:12%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">② 完了ポップアップが表示される。アーカイブした月・行数・保存先が確認できる</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/35-3-popup.png" class="ss-img" alt="アーカイブ完了ポップアップ"></div>
+        <div class="block">
+          <div class="blk-label">③ 運行シートから前月分が削除され、当月以降のデータのみになる</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/35-4-after.png" class="ss-img" alt="前月分削除後の運行シート"></div>
+        <div class="block">
+          <div class="blk-label">④ DriveにアーカイブSSが作成されている</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/35-5-drive.png" class="ss-img" alt="DriveにアーカイブSS作成" style="border:3px solid #f5c400;box-sizing:border-box;"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 開くと「運行」「集計表」の2シートのみが保存されている</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/35-6-archive.png" class="ss-img" alt="アーカイブSS中身"><div style="position:absolute;top:95%;left:0.5%;width:15%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label warn">⚠️ 注意</div>
+          <ul class="pts">
+            <li>今月より前のデータがすべてアーカイブ対象（複数月分まとめてアーカイブされる場合もある）</li>
+            <li>アーカイブ後は元の運行シートからそのデータは削除される</li>
+            <li>翌月分生成（34番）と同時に自動実行されるため、通常は手動操作不要</li>
+          </ul>
+        </div>
+      </div>
     </div>
 
     <!-- 36 - pending -->
@@ -1850,6 +1931,8 @@ window.go大=function(){
   m.classList.remove('md-active');
   document.querySelector('.toc-wrap').style.display='none';
   document.getElementById('toc-nav-bar').classList.remove('show');
+  var hbn=document.getElementById('hdr-nav-btns');
+  hbn.innerHTML=''; hbn.style.display='none';
   window.scrollTo(0,0);
 };
 
@@ -1863,6 +1946,9 @@ window.go中=function(sheet){
   document.querySelectorAll('.grid .card').forEach(function(c){c.classList.remove('ac');});
   document.querySelector('.toc-wrap').style.display='block';
   document.getElementById('toc-nav-bar').classList.add('show');
+  var hbn=document.getElementById('hdr-nav-btns');
+  hbn.innerHTML='<button class="nav-btn" onclick="go大()">◀ シート一覧</button>';
+  hbn.style.display='flex';
   window.scrollTo(0,0);
 };
 
@@ -1875,6 +1961,10 @@ window.nav小=function(num){
   document.getElementById('toc-nav-bar').classList.remove('show');
   var bc=document.getElementById('bc-小');
   bc.className='view-小-nav show';
+  var hbn=document.getElementById('hdr-nav-btns');
+  hbn.innerHTML='<button class="nav-btn" onclick="go大()">◀ シート一覧</button>'
+    +'<button class="nav-btn" onclick="go中(\''+curSheet+'\')">◀ 項目一覧</button>';
+  hbn.style.display='flex';
   bc.innerHTML='<button class="nav-btn" onclick="go大()">◀ シート一覧</button>'
     +'<button class="nav-btn" onclick="go中(\''+curSheet+'\')">◀ 項目一覧</button>'
     +'<span class="nav-bc-sep" style="margin-left:4px">›</span>'
