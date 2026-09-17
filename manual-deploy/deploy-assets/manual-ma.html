@@ -368,6 +368,9 @@ html { scroll-behavior: smooth; }
 .sheet-ncard[data-g="blue"]::before   { color:#64b5f6; }
 .sheet-ncard[data-g="pink"]   { border-left:3px solid #880e4f; background:rgba(136,14,79,.09); }
 .sheet-ncard[data-g="pink"]::before   { color:#f48fb1; }
+.sheet-grp-hd.g-gray { color:#b0bec5; border-left:4px solid #455a64; background:linear-gradient(90deg,rgba(69,90,100,.22) 0%,rgba(69,90,100,.06) 100%); }
+.sheet-ncard[data-g="gray"] { border-left:3px solid #455a64; background:rgba(69,90,100,.09); }
+.sheet-ncard[data-g="gray"]::before { color:#90a4ae; }
 .main.md-active .sec-title { display: block; }
 .main.md-active .grid .card { display: block; }
 .main.md-active .pending-grid { display: block; }
@@ -384,7 +387,7 @@ html { scroll-behavior: smooth; }
 <header class="hdr">
   <div class="hdr-inner">
     <div>
-      <div class="hdr-label">unko2-kanri — 保守エンジニア向け</div>
+      <div class="hdr-label">smart-simple-system — 保守エンジニア向け</div>
       <div class="hdr-title">機能解説書</div>
       <div class="hdr-sub">全22シート · コード参照 · 技術仕様</div>
     </div>
@@ -402,7 +405,7 @@ html { scroll-behavior: smooth; }
     <div class="sheet-grid-nav">
       <div class="sheet-grp-hd g-red">配車・運行系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="red"><div class="sheet-ncard-name">配車板</div></div>
-      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('unkou')"><div class="sheet-ncard-name">運行　全37項目</div></div>
+      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('unkou')"><div class="sheet-ncard-name">運行　全35項目</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="red"><div class="sheet-ncard-name">集計表</div></div>
       <div class="sheet-grp-hd g-green">マスタ・設定系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属マスタ</div></div>
@@ -431,6 +434,8 @@ html { scroll-behavior: smooth; }
       <div class="sheet-ncard sheet-ncard-pend" data-g="pink"><div class="sheet-ncard-name">運行客テスト</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="pink"><div class="sheet-ncard-name">マスタテスト</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="pink"><div class="sheet-ncard-name">ダミー運行</div></div>
+      <div class="sheet-grp-hd g-gray">その他 / 共通</div>
+      <div class="sheet-ncard sheet-ncard-pend" data-g="gray"><div class="sheet-ncard-name">共通機能　準備中</div></div>
     </div>
   </div>
 </div>
@@ -513,7 +518,7 @@ html { scroll-behavior: smooth; }
 <div class="toc-nav-bar" id="toc-nav-bar"></div>
 <div class="toc-wrap">
   <div class="toc-inner">
-    <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 37</span>」の機能一覧</div>
+    <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 35</span>」の機能一覧</div>
     <div class="toc-grid">
       <div class="toc-sep">【入力補助】セルに入力するだけで自動処理</div>
       <a class="toc-item done" href="#feat-01"><span class="toc-n">1</span><span class="toc-name">ID自動採番</span></a>
@@ -557,12 +562,10 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-30"><span class="toc-n">30</span><span class="toc-name">受領書の耳生成</span></a>
       <a class="toc-item done" href="#feat-31"><span class="toc-n">31</span><span class="toc-name">請求書生成</span></a>
       <a class="toc-item done" href="#feat-32"><span class="toc-n">32</span><span class="toc-name">CSV・Excel出力</span></a>
-      <div class="toc-sep">【シート管理】月次生成・システム復旧</div>
+      <div class="toc-sep">【シート管理】月次生成</div>
       <a class="toc-item done" href="#feat-33"><span class="toc-n">33</span><span class="toc-name">今月分生成</span></a>
       <a class="toc-item done" href="#feat-34"><span class="toc-n">34</span><span class="toc-name">翌月分生成</span></a>
       <a class="toc-item done" href="#feat-35"><span class="toc-n">35</span><span class="toc-name">前月分アーカイブ</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">36</span><span class="toc-name">シート再生成</span></a>
-      <a class="toc-item" href="#pending"><span class="toc-n">37</span><span class="toc-name">ヘッダー復旧＋保護</span></a>
     </div>
   </div>
 </div>
@@ -2122,7 +2125,7 @@ function initItems(){
       name:nameEl?nameEl.textContent.trim():'',
       cat:catEl?catEl.textContent.trim():'',
       catCls:catEl?catEl.className:'',
-      status:(num<=31)?'済':'未',
+      status:(num<=35)?'済':'未',
       el:c
     });
   });

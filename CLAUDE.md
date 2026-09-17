@@ -1,4 +1,4 @@
-
+﻿
 
 Claude · MD
 ■ 計画構造（恒久・全セッション共通）
@@ -86,7 +86,7 @@ text
 ■ 技術仕様・構成管理
 1. システム概要
 実行プラットフォーム: Google Apps Script (GAS) V8ランタイム + SpreadsheetApp + PropertiesService
-ローカル開発環境: c:\gas\unko2-kanri\
+ローカル開発環境: C:\gas\smart-simple-system\
 デプロイコマンド: node deploy.js "デプロイ時の修正説明"
 2. 3層配信（デプロイ）アーキテクチャ
 text

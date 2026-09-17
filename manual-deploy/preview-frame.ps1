@@ -1,4 +1,4 @@
-# preview-frame.ps1
+﻿# preview-frame.ps1
 # 使い方: .\preview-frame.ps1 -img "screenshots/35-1-before.png" -top 93 -left 11 -w 5 -h 7
 param(
   [string]$img,
@@ -8,7 +8,7 @@ param(
   [double]$h
 )
 Add-Type -AssemblyName System.Drawing
-$base = "C:\gas\unko2-kanri\manual-deploy\deploy-assets"
+$base = "C:\gas\smart-simple-system\manual-deploy\deploy-assets"
 $src = Join-Path $base $img
 $out = Join-Path $base "frame-preview.png"
 $bmp = [System.Drawing.Bitmap]::new($src)

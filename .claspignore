@@ -3,6 +3,7 @@ client-template/**
 node_modules/**
 stub_for_motoSS/**
 stub_for_clientSS/**
+manual-deploy/**
 stub_motoSS.js
 stub_clientSS.js
 build_stub.js

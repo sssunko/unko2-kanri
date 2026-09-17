@@ -1,10 +1,10 @@
-# 運行管理システム 引き継ぎ文書
+﻿# 運行管理システム 引き継ぎ文書
 
 ---
 
 ## システム概要
 - Google Apps Script (GAS) V8 + SpreadsheetApp + PropertiesService
-- ローカルファイル: `c:\gas\unko2-kanri\コード.js` / `index.html`
+- ローカルファイル: `C:\gas\smart-simple-system\コード.js` / `index.html`
 - デプロイ: `npx clasp push` → 既存デプロイIDを指定して更新（古いデプロイは自動削除）
 - バージョン上限対策: `clasp deploy -i {ID} -d "番号_内容"` で上書き更新のみ
 
@@ -61,7 +61,7 @@
 
 ### ①修正用SSへのデプロイ
 ```powershell
-# c:\gas\unko2-kanri\ で実行
+# C:\gas\smart-simple-system\ で実行
 $PROD_ID = "AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU"
 clasp push --force
 clasp deploy -i $PROD_ID -d "番号_内容"
