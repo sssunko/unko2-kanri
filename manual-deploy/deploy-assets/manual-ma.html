@@ -406,7 +406,7 @@ html { scroll-behavior: smooth; }
       <div class="sheet-grp-hd g-red">配車・運行系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="red"><div class="sheet-ncard-name">配車板</div></div>
       <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('unkou')"><div class="sheet-ncard-name">運行　全35項目</div></div>
-      <div class="sheet-ncard sheet-ncard-pend" data-g="red"><div class="sheet-ncard-name">集計表</div></div>
+      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('shuukei')"><div class="sheet-ncard-name">集計表　1 / 18項目</div></div>
       <div class="sheet-grp-hd g-green">マスタ・設定系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属マスタ</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属運行</div></div>
@@ -516,7 +516,7 @@ html { scroll-behavior: smooth; }
 </div>
 
 <div class="toc-nav-bar" id="toc-nav-bar"></div>
-<div class="toc-wrap">
+<div class="toc-wrap" id="toc-wrap-unkou">
   <div class="toc-inner">
     <div class="toc-heading">▼ 運行シートに搭載された「<span class="hi">全 35</span>」の機能一覧</div>
     <div class="toc-grid">
@@ -570,13 +570,45 @@ html { scroll-behavior: smooth; }
   </div>
 </div>
 
+<div class="toc-wrap" id="toc-wrap-shuukei" style="display:none">
+  <div class="toc-inner">
+    <div class="toc-heading">▼ 集計表に搭載された「<span class="hi">全 18</span>」の機能一覧</div>
+    <div class="toc-grid">
+      <div class="toc-sep">【自動同期】運行シート編集時に自動反映</div>
+      <a class="toc-item done" href="#"><span class="toc-n">1</span><span class="toc-name">運行シートからの自動同期</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">2</span><span class="toc-name">孤立ID自動削除</span></a>
+      <div class="toc-sep">【自動計算】値の自動計算</div>
+      <a class="toc-item pend" href="#"><span class="toc-n">3</span><span class="toc-name">燃料代自動計算</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">4</span><span class="toc-name">支払い自動計算</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">5</span><span class="toc-name">利益自動計算</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">6</span><span class="toc-name">仮日数・給料・%自動引き当て</span></a>
+      <div class="toc-sep">【色表示】セルや行の色で状態を視覚化</div>
+      <a class="toc-item pend" href="#"><span class="toc-n">7</span><span class="toc-name">利益マイナス行の薄赤着色</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">8</span><span class="toc-name">時刻間隔異常の色警告</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">9</span><span class="toc-name">拘束時間13時間超えオレンジ</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">10</span><span class="toc-name">期限列の色付け</span></a>
+      <div class="toc-sep">【警告・保護】編集制御</div>
+      <a class="toc-item pend" href="#"><span class="toc-n">11</span><span class="toc-name">編集ブロック（手入力列以外）</span></a>
+      <div class="toc-sep">【手動操作】メニューからの操作</div>
+      <a class="toc-item pend" href="#"><span class="toc-n">12</span><span class="toc-name">集計表再生成</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">13</span><span class="toc-name">経費自動入力</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">14</span><span class="toc-name">支払い再計算</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">15</span><span class="toc-name">日付順並び替え</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">16</span><span class="toc-name">住所確認</span></a>
+      <a class="toc-item pend" href="#"><span class="toc-n">17</span><span class="toc-name">距離計算</span></a>
+      <div class="toc-sep">【帳票・出力】書類生成</div>
+      <a class="toc-item pend" href="#"><span class="toc-n">18</span><span class="toc-name">監査用表生成</span></a>
+    </div>
+  </div>
+</div>
+
 <main class="main">
   <div class="md-nav-bar"></div>
   <div class="view-小-nav" id="bc-小"></div>
 
   <!-- ──────── 確認済み機能 ──────── -->
   <div class="sec-title">確認済み機能 <span class="sec-badge">28 / 38</span></div>
-  <div class="grid">
+  <div class="grid" id="grid-unkou">
 
     <!-- 1 -->
     <div class="card">
@@ -2101,7 +2133,69 @@ html { scroll-behavior: smooth; }
       <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
     </div>
 
-  </div><!-- /grid -->
+  </div><!-- /grid-unkou -->
+
+  <!-- ──────── 集計表 機能カード ──────── -->
+  <div class="grid" id="grid-shuukei" style="display:none">
+
+    <!-- 集計表 1 -->
+    <div class="card" id="feat-s01">
+      <div class="card-hdr">
+        <span class="num">01</span>
+        <span class="cat cat-calc">自動同期</span>
+        <span class="feat-name">運行シートからの自動同期</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-1（onEdit）→ 1-3（delaySyncSummary_）→ 4-2（syncSummaryForId_ L3330〜3646）</span>
+        <div class="block">
+          <div class="blk-label">🔵 処理概要</div>
+          <ul class="pts">
+            <li>運行シートのセルを編集すると <code>onEdit(e)</code>（コード.js 3-1）が発火し、<code>delaySyncSummary_(id, ss)</code>（1-3）を経由して <code>syncSummaryForId_(targetId, ss)</code>（4-2）が呼ばれる</li>
+            <li>対象IDの全行を運行シートから集計し（荷主・積地・降地・時刻・売上等）、集計表の既存行を上書き更新または新規挿入する</li>
+            <li>距離(W=23)・ガソリン代(Y=25)・支払い(AA=27)・備考(AD=30)・その他手当(AI=35) の手入力値は既存値を保持して上書きしない</li>
+            <li>重複行が存在する場合は後から走査してすべて削除する（コード.js 4-2 末尾の dupIds ループ）</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 運行シートのデータが</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/01-sync-unkou-before-0.png" class="ss-img" alt="運行シート 変更前（降地：東京都）"></div>
+        <div class="block">
+          <div class="blk-label">② 集計表に反映</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/01-sync-shuukei-before-0.png" class="ss-img" alt="集計表 変更前（降地：東京都）"></div>
+        <div class="block">
+          <div class="blk-label">③ 運行シートを変更すると</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/01-sync-unkou-after-0.png" class="ss-img" alt="運行シート 変更後（降地：名古屋市）"></div>
+        <div class="block">
+          <div class="blk-label">④ 集計表にも反映</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/01-sync-shuukei-after-0.png" class="ss-img" alt="集計表 変更後（降地：名古屋市）"></div>
+      </div>
+    </div>
+
+    <!-- 集計表 2〜18 pending -->
+    <div class="card"><div class="card-hdr"><span class="num">02</span><span class="cat cat-calc">自動同期</span><span class="feat-name">孤立ID自動削除</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">03</span><span class="cat cat-calc">自動計算</span><span class="feat-name">燃料代自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">04</span><span class="cat cat-calc">自動計算</span><span class="feat-name">支払い自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">05</span><span class="cat cat-calc">自動計算</span><span class="feat-name">利益自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">06</span><span class="cat cat-calc">自動計算</span><span class="feat-name">仮日数・給料・%自動引き当て</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">07</span><span class="cat cat-color">色表示</span><span class="feat-name">利益マイナス行の薄赤着色</span><div class="clr-grp"><span class="clr-swatch" style="background:#ffebee"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">08</span><span class="cat cat-color">色表示</span><span class="feat-name">時刻間隔異常の色警告</span><div class="clr-grp"><span class="clr-swatch" style="background:#ffd600"></span><span class="clr-swatch" style="background:#4fc3f7"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">09</span><span class="cat cat-color">色表示</span><span class="feat-name">拘束時間13時間超えオレンジ</span><div class="clr-grp"><span class="clr-swatch" style="background:#ff9800"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">10</span><span class="cat cat-color">色表示</span><span class="feat-name">期限列の色付け</span><div class="clr-grp"><span class="clr-swatch" style="background:#ffcdd2"></span><span class="clr-swatch" style="background:#bbdefb"></span><span class="clr-swatch" style="background:#c8e6c9"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">11</span><span class="cat cat-guard">警告・保護</span><span class="feat-name">編集ブロック（手入力列以外）</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">12</span><span class="cat cat-menu">手動操作</span><span class="feat-name">集計表再生成</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">13</span><span class="cat cat-menu">手動操作</span><span class="feat-name">経費自動入力</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">14</span><span class="cat cat-menu">手動操作</span><span class="feat-name">支払い再計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">15</span><span class="cat cat-menu">手動操作</span><span class="feat-name">日付順並び替え</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">16</span><span class="cat cat-menu">手動操作</span><span class="feat-name">住所確認</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">17</span><span class="cat cat-menu">手動操作</span><span class="feat-name">距離計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">18</span><span class="cat cat-doc">帳票・出力</span><span class="feat-name">監査用表生成</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+
+  </div><!-- /grid-shuukei -->
 
 
 </main>
@@ -2111,32 +2205,50 @@ html { scroll-behavior: smooth; }
 <script>
 (function(){
 var curSheet='unkou';
-var ITEMS=[];
+var SHEETS_ITEMS={unkou:[],shuukei:[]};
+var SHEET_GRIDS={unkou:'grid-unkou',shuukei:'grid-shuukei'};
+var SHEET_TOCS={unkou:'toc-wrap-unkou',shuukei:'toc-wrap-shuukei'};
+
+function hideAllSheets(){
+  Object.keys(SHEET_GRIDS).forEach(function(s){
+    var g=document.getElementById(SHEET_GRIDS[s]);
+    if(g) g.style.display='none';
+    var t=document.getElementById(SHEET_TOCS[s]);
+    if(t) t.style.display='none';
+  });
+}
 
 function initItems(){
-  document.querySelectorAll('.grid .card').forEach(function(c){
-    var numEl=c.querySelector('.num');
-    if(!numEl) return;
-    var num=parseInt(numEl.textContent.trim(),10);
-    var nameEl=c.querySelector('.feat-name');
-    var catEl=c.querySelector('.cat');
-    ITEMS.push({
-      num:num,
-      name:nameEl?nameEl.textContent.trim():'',
-      cat:catEl?catEl.textContent.trim():'',
-      catCls:catEl?catEl.className:'',
-      status:(num<=35)?'済':'未',
-      el:c
+  var sheetGridMap={unkou:'grid-unkou',shuukei:'grid-shuukei'};
+  Object.keys(sheetGridMap).forEach(function(sheet){
+    var grid=document.getElementById(sheetGridMap[sheet]);
+    if(!grid) return;
+    grid.querySelectorAll('.card').forEach(function(c){
+      var numEl=c.querySelector('.num');
+      if(!numEl) return;
+      var num=parseInt(numEl.textContent.trim(),10);
+      var nameEl=c.querySelector('.feat-name');
+      var catEl=c.querySelector('.cat');
+      var isPend=!!c.querySelector('.pend-card');
+      SHEETS_ITEMS[sheet].push({
+        num:num,
+        name:nameEl?nameEl.textContent.trim():'',
+        cat:catEl?catEl.textContent.trim():'',
+        catCls:catEl?catEl.className:'',
+        status:isPend?'未':'済',
+        el:c
+      });
     });
+    SHEETS_ITEMS[sheet].sort(function(a,b){return a.num-b.num;});
   });
-  ITEMS.sort(function(a,b){return a.num-b.num;});
   buildList();
 }
 
 function buildList(){
   var el=document.getElementById('item-list-nav');
   if(!el) return;
-  el.innerHTML=ITEMS.map(function(item){
+  var items=SHEETS_ITEMS[curSheet]||[];
+  el.innerHTML=items.map(function(item){
     return '<div class="item-row-nav" onclick="nav小('+item.num+')">'
       +'<span class="item-row-num">'+String(item.num).padStart(2,'0')+'</span>'
       +'<span class="'+item.catCls+'" style="font-size:9px;padding:1px 6px">'+item.cat+'</span>'
@@ -2152,7 +2264,7 @@ window.go大=function(){
   var m=document.querySelector('main.main');
   m.classList.remove('sm-active');
   m.classList.remove('md-active');
-  document.querySelector('.toc-wrap').style.display='none';
+  hideAllSheets();
   document.getElementById('toc-nav-bar').classList.remove('show');
   var hbn=document.getElementById('hdr-nav-btns');
   hbn.innerHTML=''; hbn.style.display='none';
@@ -2166,21 +2278,28 @@ window.go中=function(sheet){
   var m=document.querySelector('main.main');
   m.classList.remove('sm-active');
   m.classList.remove('md-active');
-  document.querySelectorAll('.grid .card').forEach(function(c){c.classList.remove('ac');});
-  document.querySelector('.toc-wrap').style.display='block';
+  hideAllSheets();
+  var grid=document.getElementById(SHEET_GRIDS[sheet]);
+  if(grid) grid.style.display='';
+  var toc=document.getElementById(SHEET_TOCS[sheet]);
+  if(toc) toc.style.display='block';
+  document.querySelectorAll('.card').forEach(function(c){c.classList.remove('ac');});
   document.getElementById('toc-nav-bar').classList.add('show');
   var hbn=document.getElementById('hdr-nav-btns');
   hbn.innerHTML='<button class="nav-btn" onclick="go大()">◀ シート一覧</button>';
   hbn.style.display='flex';
+  buildList();
   window.scrollTo(0,0);
 };
 
 window.nav小=function(num){
-  var item=ITEMS.find(function(i){return i.num===num;});
+  var items=SHEETS_ITEMS[curSheet]||[];
+  var item=items.find(function(i){return i.num===num;});
   if(!item) return;
-  document.querySelectorAll('.grid .card').forEach(function(c){c.classList.remove('ac');});
+  document.querySelectorAll('.card').forEach(function(c){c.classList.remove('ac');});
   item.el.classList.add('ac');
-  document.querySelector('.toc-wrap').style.display='none';
+  var activeToc=document.getElementById(SHEET_TOCS[curSheet]);
+  if(activeToc) activeToc.style.display='none';
   document.getElementById('toc-nav-bar').classList.remove('show');
   var bc=document.getElementById('bc-小');
   bc.className='view-小-nav show';
@@ -2202,6 +2321,7 @@ window.nav小=function(num){
 
 function wireTocItems(){
   document.querySelectorAll('.toc-item').forEach(function(a){
+    if(a.classList.contains('pend')) return;
     var numEl=a.querySelector('.toc-n');
     if(!numEl) return;
     var num=parseInt(numEl.textContent.trim(),10);
@@ -2218,6 +2338,8 @@ window.toggleTheme=function(){
 
 initItems();
 wireTocItems();
+document.getElementById('grid-shuukei').style.display='none';
+document.getElementById('toc-wrap-shuukei').style.display='none';
 })();
 </script>
 </body>
