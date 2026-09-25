@@ -440,7 +440,7 @@ html { scroll-behavior: smooth; }
           <div class="blk-label">入力時・自動</div>
           <ul class="pts">
             <li>B〜K列のいずれかに入力があり A列が空の行に、V-XXXX 形式（4桁連番）の IDを自動採番</li>
-            <li>ScriptLock（ScriptApp.getLockService().getScriptLock()）による排他制御。複数端末・担当者が同時入力しても番号は重複しない</li>
+            <li>1-1b（<code>getSsLock_</code>＝客SS単位の DocumentLock）による排他制御。複数端末・担当者が同時入力しても番号は重複しない</li>
           </ul>
         </div>
         <div class="block">
@@ -466,7 +466,8 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">入力時・自動</div>
           <ul class="pts">
-            <li>D列（トン数）編集時に <code>normalizeTons_()</code> を呼び出し、「4t」「4T」「4トン」「4.0t」「4.0」等を数値 4 に変換</li>
+            <li>D列（トン数）編集時に先頭の数字を取り出して「4t」形式にそろえる（全角数字・「T」「トン」表記も対応）。数字だけの入力は <code>normalizeTons_()</code>（1-1d）で「t」を付ける</li>
+            <li>「4W」「4t平」のように数字の後ろに文字が続く場合は、その文字を車種としてE列に分けて書き込む（全角英字は半角大文字に統一）</li>
             <li>onEdit トリガー内で即時処理（GAS実行遅延の影響を受けない同期処理）</li>
             <li>CSV取込や多行貼り付けも対象。変換後にセルを上書き</li>
           </ul>
@@ -722,7 +723,7 @@ html { scroll-behavior: smooth; }
         <span class="clr-none">無</span>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2（onEditUnkou_ L1806〜1821）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2（onEditUnkou_）</span>
         <div class="block">
           <div class="blk-label">入力時・自動</div>
           <ul class="pts">
@@ -764,7 +765,7 @@ html { scroll-behavior: smooth; }
         <span class="clr-none">無</span>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7c（showExpiryAlert L14274〜14333）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7d（showExpiryAlert）</span>
         <div class="block">
           <div class="blk-label">SS起動時・自動</div>
           <ul class="pts">
@@ -793,7 +794,7 @@ html { scroll-behavior: smooth; }
         <div class="color-chip" style="background:#ff1744;width:14px;height:14px;border-radius:3px;margin-left:auto;flex-shrink:0;" title="#ff1744 ID衝突"></div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7b（markIdCollisions_ L698〜747）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7b（markIdCollisions_）</span>
         <div class="block">
           <div class="blk-label">SS起動時・onEdit・自動</div>
           <ul class="pts">
@@ -827,13 +828,15 @@ html { scroll-behavior: smooth; }
         <span class="clr-none">無</span>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: onChange L10803〜10815 / dispatchStructureChange L3858〜3881 / getSheetHeaderDef_ L3706〜3716</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 14-2b（dispatchInstalledEdit）・4-2k（dispatchStructureChange）・4-2e-1（restoreHeaderRowIfBroken_）・4-2g（restoreSheetColumnOrder_）・4-2d（getSheetHeaderDef_）</span>
         <div class="block">
           <div class="blk-label">onEdit・onChange・自動</div>
           <ul class="pts">
             <li>1行目（row===1）が編集されると <code>getSheetHeaderDef_</code> で正規ヘッダー配列を取得し <code>setValues([canonHdr])</code> で即時上書き復元</li>
-            <li>列の削除・並び替えなどの構造変更は <code>dispatchStructureChange</code> で検知し、正規列順に修復後 <code>ss.toast('列構成を元に戻しました')</code> を表示</li>
-            <li>定義済みシート：運行・集計表・自車専属マスタ・自車専属運行・マスタ・設定</li>
+            <li>1行目の行削除・行挿入は <code>dispatchStructureChange</code>（onChange）で検知し、<code>restoreHeaderRowIfBroken_</code>（4-2e-1）が挿入行の削除またはヘッダー行の再挿入を行い、4-2e で保護・色を整えて <code>ss.toast('ヘッダー行を元に戻しました')</code> を表示</li>
+            <li>見出しが正常なときは <code>clearHeaderStyleFromBlankRows_</code>（4-2e-2）が、見出しの色を引き継いだ直下の空行を通常の入力行（白・太字なし・罫線なし）に戻す</li>
+            <li>列の削除・並び替えなどの構造変更は <code>dispatchStructureChange</code> で検知し、4-2g で正規列順に修復後 <code>ss.toast('列構成を元に戻しました')</code> を表示</li>
+            <li>対象シート（4-2d-1 getHeaderSheetNames_）：運行・集計表・自車専属マスタ・自車専属運行・マスタ・設定・配車板・距離マスタ・PL設定・管理者・会社登録（修正用SSのみ）・指示先履歴・指示先ID別・協力会社履歴。会社登録は列が末尾に追加されるため、正しい見出しを DocumentProperties（HDR_SNAPSHOT_会社登録）に記録して使う（4-2d-2・4-2d-3）</li>
           </ul>
         </div>
         <div class="block">
@@ -1025,10 +1028,11 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">処理概要（コード.js: 1-7c）</div>
           <ul class="pts">
-            <li>関数: applyExpiryWarningColors_(ss, sheet)</li>
-            <li>起動経路: onOpen → checkMasterExpiries_ → 本関数。LockService（DocumentLock）+ PropertiesService（EXPIRY_POPUP_TS）で30秒デバウンスによる多重起動ガード済み</li>
-            <li>expiryMap構築: 自車専属マスタのAH〜AK列（免許証・安全教育・健康診断・適性診断）を全行一括読み込み。乗務員名をキーに4列の最小残日数を値として格納</li>
-            <li>A列着色ロジック: d &lt; 0 → #ffcdd2（赤・期限切れ）/ d === 0 → #bbdefb（青・当日）/ d ≤ 7 → #c8e6c9（緑・7日以内）/ それ以外は現色を維持</li>
+            <li>関数: applyExpiryWarningColors_(ss)（呼び出し口 applyExpiryWarningColors()）</li>
+            <li>起動経路: ①は onOpen（2-1）から直接、②③はスタブの onOpen から呼び出し口経由で実行。さらに 1-7（applyHolidayRowColors_）の最後でも毎回実行される</li>
+            <li>expiryMap構築: 自車専属マスタの1行目から「免許証有効期限・安全教育次回予定日・健康診断次回予定日・適性診断次回予定日」の列を見出し名で特定（通常AH〜AK列）し全行一括読み込み。乗務員名をキーに4列の最小残日数を値として格納</li>
+            <li>A列着色ロジック: 運行シートG列（乗務員名）で引き当て、d &lt; 0 → #ffcdd2（赤・期限切れ）/ d === 0 → #bbdefb（青・当日）/ d ≤ 7 → #c8e6c9（緑・7日以内）/ 8日以上・区分が空・マスタに乗務員なし → 期限色だけ外す</li>
+            <li>IDが空の行、有休・休みのグレー行（#e0e0e0・#9e9e9e）、ID重複の赤（#ff1744）の行は色を変えない</li>
           </ul>
         </div>
         <div class="block">
@@ -1090,9 +1094,9 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7c L651 / L684 / L822〜833</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7（applyHolidayRowColors_）・1-7c（applyExpiryWarningColors_）</span>
         <div class="block">
-          <div class="blk-label">SS起動時・自動（applyExpiryWarningColors_ / onOpen経由）</div>
+          <div class="blk-label">SS起動時・自動（applyHolidayRowColors_・applyExpiryWarningColors_ / onOpen経由）</div>
           <ul class="pts">
             <li>運行シート A1: <code>setNote</code> でID列・行全体の色の意味（7項目）を書き込む</li>
             <li>運行シート L1（積地ヘッダー）: <code>setNote</code> で薄黄（配車漏れ）の意味を書き込む</li>
@@ -1238,7 +1242,7 @@ html { scroll-behavior: smooth; }
         <span class="clr-none">無</span>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 15-1b（cancelDispatch L12317〜12397）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 15-1b（cancelDispatch）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動実行（メニュー「🔓 選択行の配車確定解除」）</div>
           <ul class="pts">
@@ -1297,13 +1301,13 @@ html { scroll-behavior: smooth; }
         <span class="clr-none">無</span>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 4-2b（fillMissingIdsAndCars L3557〜3657）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 4-2b（fillMissingIdsAndCars）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動実行（メニュー「🆔 ID・車番一括補完」）</div>
           <ul class="pts">
             <li>CSVインポートや複数行のコピー＆ペーストでデータを一括入力した後、IDや車番が入っていない行に対して使用する</li>
             <li>A列のIDが空でB〜K列にデータがある行にV-XXXXを一括採番、F列（車番）または乗務員名が空の行を自車専属マスタから一括補完し、集計表を全件再同期する</li>
-            <li>A列空・B〜K列にデータあり → V-XXXX 形式で採番（LockService.getScriptLock で二重採番防止）</li>
+            <li>A列空・B〜K列にデータあり → V-XXXX 形式で採番（1-1b の客SS単位ロックで二重採番防止）</li>
             <li>F列(車番)またはG列(乗務員名)が空 → 自車専属マスタから補完（社外協力会社はマスタ外のため補完されない）</li>
             <li>補完後は syncSummaryForId_ で集計表を再同期 → sortUnkouByDate_ でソート → applyHolidayRowColors_ で色付け</li>
           </ul>
@@ -1319,7 +1323,7 @@ html { scroll-behavior: smooth; }
         <span class="clr-none">無</span>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 2-4（showUploadSidebar L1428〜1484）・9-2c（uploadFileToRow L7183〜7200）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 2-4（showUploadSidebar）・9-2c（uploadFileToRow）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動実行（メニュー「📷 写真・ファイル取込」）</div>
           <ul class="pts">
@@ -1377,7 +1381,7 @@ html { scroll-behavior: smooth; }
         <span class="clr-none">無</span>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> csvImport.html: 13-1〜13-8 / コード.js: importBulkRows（L12591）・doImportFromSheet_（L12349）・applyPasteImportMapping_（L12349〜）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> csvImport.html: 13-1〜13-8 / コード.js: 13-6（importBulkRows）・13-4d（doImportFromSheet_）・13-4a（applyPasteImportMapping_）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
@@ -1424,7 +1428,7 @@ html { scroll-behavior: smooth; }
             <li>executePasteImportUnkou → applyPasteImportMapping_でCSVヘッダーと内部fieldIdを自動照合してマッピング行に反映</li>
             <li>confirmPasteImport → doImportFromSheet_でマッピング行に従いimportBulkRowsを呼び出し。日付・車番・乗務員名・積地・降地・売上の複合キーで重複スキップ</li>
             <li>Excelエラー値（#N/A等）は自動スキップ。点呼前後完了（timePrevRoll・timePostRoll）も取込対象</li>
-            <li>コード番号：csvImport.html 13-1〜13-8 / コード.js 12591（importBulkRows）・12349（doImportFromSheet_）</li>
+            <li>コード番号：csvImport.html 13-1〜13-8 / コード.js 13-6（importBulkRows）・13-4d（doImportFromSheet_）</li>
           </ul>
         </div>
       </div>
@@ -1440,7 +1444,7 @@ html { scroll-behavior: smooth; }
         <span class="clr-none">無</span>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 14-2c（showHatchuDocDialog L13811）・14-2e（getDocumentData_ L13841）・14-4（markDocumentIssued）・14-5（sendDocumentEmail L13237）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 14-2c（showHatchuDocDialog）・14-2e（getDocumentData_）・14-4（markDocumentIssued）・14-5（sendDocumentEmail）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
@@ -1488,7 +1492,7 @@ html { scroll-behavior: smooth; }
         <span class="clr-none">無</span>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 14-2d（showShabanDocDialog L13826）・14-2e（getDocumentData_ L13841）・14-4（markDocumentIssued）・14-5（sendDocumentEmail L13237）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 14-2d（showShabanDocDialog）・14-2e（getDocumentData_）・14-4（markDocumentIssued）・14-5（sendDocumentEmail）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">

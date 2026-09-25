@@ -406,7 +406,7 @@ html { scroll-behavior: smooth; }
       <div class="sheet-grp-hd g-red">配車・運行系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="red"><div class="sheet-ncard-name">配車板</div></div>
       <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('unkou')"><div class="sheet-ncard-name">運行　全35項目</div></div>
-      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('shuukei')"><div class="sheet-ncard-name">集計表　1 / 18項目</div></div>
+      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('shuukei')"><div class="sheet-ncard-name">集計表　2 / 18項目</div></div>
       <div class="sheet-grp-hd g-green">マスタ・設定系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属マスタ</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属運行</div></div>
@@ -576,7 +576,7 @@ html { scroll-behavior: smooth; }
     <div class="toc-grid">
       <div class="toc-sep">【自動同期】運行シート編集時に自動反映</div>
       <a class="toc-item done" href="#"><span class="toc-n">1</span><span class="toc-name">運行シートからの自動同期</span></a>
-      <a class="toc-item pend" href="#"><span class="toc-n">2</span><span class="toc-name">孤立ID自動削除</span></a>
+      <a class="toc-item done" href="#"><span class="toc-n">2</span><span class="toc-name">孤立ID自動削除</span></a>
       <div class="toc-sep">【自動計算】値の自動計算</div>
       <a class="toc-item pend" href="#"><span class="toc-n">3</span><span class="toc-name">燃料代自動計算</span></a>
       <a class="toc-item pend" href="#"><span class="toc-n">4</span><span class="toc-name">支払い自動計算</span></a>
@@ -626,7 +626,7 @@ html { scroll-behavior: smooth; }
           <div class="blk-label">入力時・自動</div>
           <ul class="pts">
             <li>B〜K列のいずれかに入力があり A列が空の行に、V-XXXX 形式（4桁連番）の IDを自動採番</li>
-            <li>ScriptLock（ScriptApp.getLockService().getScriptLock()）による排他制御。複数端末・担当者が同時入力しても番号は重複しない</li>
+            <li>1-1b（<code>getSsLock_</code>＝客SS単位の DocumentLock）による排他制御。複数端末・担当者が同時入力しても番号は重複しない</li>
           </ul>
         </div>
         <div class="block">
@@ -654,7 +654,8 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">入力時・自動</div>
           <ul class="pts">
-            <li>D列（トン数）編集時に <code>normalizeTons_()</code> を呼び出し、「4t」「4T」「4トン」「4.0t」「4.0」等を数値 4 に変換</li>
+            <li>D列（トン数）編集時に先頭の数字を取り出して「4t」形式にそろえる（全角数字・「T」「トン」表記も対応）。数字だけの入力は <code>normalizeTons_()</code>（1-1d）で「t」を付ける</li>
+            <li>「4W」「4t平」のように数字の後ろに文字が続く場合は、その文字を車種としてE列に分けて書き込む（全角英字は半角大文字に統一）</li>
             <li>onEdit トリガー内で即時処理（GAS実行遅延の影響を受けない同期処理）</li>
             <li>CSV取込や多行貼り付けも対象。変換後にセルを上書き</li>
           </ul>
@@ -928,7 +929,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2（onEditUnkou_ L1806〜1821）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-2（onEditUnkou_）</span>
         <div class="block">
           <div class="blk-label">入力時・自動</div>
           <ul class="pts">
@@ -972,7 +973,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7c（showExpiryAlert L14274〜14333）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7d（showExpiryAlert）</span>
         <div class="block">
           <div class="blk-label">SS起動時・自動</div>
           <ul class="pts">
@@ -1004,7 +1005,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7b（markIdCollisions_ L698〜747）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7b（markIdCollisions_）</span>
         <div class="block">
           <div class="blk-label">SS起動時・onEdit・自動</div>
           <ul class="pts">
@@ -1040,13 +1041,15 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: onChange L10803〜10815 / dispatchStructureChange L3858〜3881 / getSheetHeaderDef_ L3706〜3716</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 14-2b（dispatchInstalledEdit）・4-2k（dispatchStructureChange）・4-2e-1（restoreHeaderRowIfBroken_）・4-2g（restoreSheetColumnOrder_）・4-2d（getSheetHeaderDef_）</span>
         <div class="block">
           <div class="blk-label">onEdit・onChange・自動</div>
           <ul class="pts">
             <li>1行目（row===1）が編集されると <code>getSheetHeaderDef_</code> で正規ヘッダー配列を取得し <code>setValues([canonHdr])</code> で即時上書き復元</li>
-            <li>列の削除・並び替えなどの構造変更は <code>dispatchStructureChange</code> で検知し、正規列順に修復後 <code>ss.toast('列構成を元に戻しました')</code> を表示</li>
-            <li>定義済みシート：運行・集計表・自車専属マスタ・自車専属運行・マスタ・設定</li>
+            <li>1行目の行削除・行挿入は <code>dispatchStructureChange</code>（onChange）で検知し、<code>restoreHeaderRowIfBroken_</code>（4-2e-1）が挿入行の削除またはヘッダー行の再挿入を行い、4-2e で保護・色を整えて <code>ss.toast('ヘッダー行を元に戻しました')</code> を表示</li>
+            <li>見出しが正常なときは <code>clearHeaderStyleFromBlankRows_</code>（4-2e-2）が、見出しの色を引き継いだ直下の空行を通常の入力行（白・太字なし・罫線なし）に戻す</li>
+            <li>列の削除・並び替えなどの構造変更は <code>dispatchStructureChange</code> で検知し、4-2g で正規列順に修復後 <code>ss.toast('列構成を元に戻しました')</code> を表示</li>
+            <li>対象シート（4-2d-1 getHeaderSheetNames_）：運行・集計表・自車専属マスタ・自車専属運行・マスタ・設定・配車板・距離マスタ・PL設定・管理者・会社登録（修正用SSのみ）・指示先履歴・指示先ID別・協力会社履歴。会社登録は列が末尾に追加されるため、正しい見出しを DocumentProperties（HDR_SNAPSHOT_会社登録）に記録して使う（4-2d-2・4-2d-3）</li>
           </ul>
         </div>
         <div class="block">
@@ -1238,10 +1241,11 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">処理概要（コード.js: 1-7c）</div>
           <ul class="pts">
-            <li>関数: applyExpiryWarningColors_(ss, sheet)</li>
-            <li>起動経路: onOpen → checkMasterExpiries_ → 本関数。LockService（DocumentLock）+ PropertiesService（EXPIRY_POPUP_TS）で30秒デバウンスによる多重起動ガード済み</li>
-            <li>expiryMap構築: 自車専属マスタのAH〜AK列（免許証・安全教育・健康診断・適性診断）を全行一括読み込み。乗務員名をキーに4列の最小残日数を値として格納</li>
-            <li>A列着色ロジック: d &lt; 0 → #ffcdd2（赤・期限切れ）/ d === 0 → #bbdefb（青・当日）/ d ≤ 7 → #c8e6c9（緑・7日以内）/ それ以外は現色を維持</li>
+            <li>関数: applyExpiryWarningColors_(ss)（呼び出し口 applyExpiryWarningColors()）</li>
+            <li>起動経路: ①は onOpen（2-1）から直接、②③はスタブの onOpen から呼び出し口経由で実行。さらに 1-7（applyHolidayRowColors_）の最後でも毎回実行される</li>
+            <li>expiryMap構築: 自車専属マスタの1行目から「免許証有効期限・安全教育次回予定日・健康診断次回予定日・適性診断次回予定日」の列を見出し名で特定（通常AH〜AK列）し全行一括読み込み。乗務員名をキーに4列の最小残日数を値として格納</li>
+            <li>A列着色ロジック: 運行シートG列（乗務員名）で引き当て、d &lt; 0 → #ffcdd2（赤・期限切れ）/ d === 0 → #bbdefb（青・当日）/ d ≤ 7 → #c8e6c9（緑・7日以内）/ 8日以上・区分が空・マスタに乗務員なし → 期限色だけ外す</li>
+            <li>IDが空の行、有休・休みのグレー行（#e0e0e0・#9e9e9e）、ID重複の赤（#ff1744）の行は色を変えない</li>
           </ul>
         </div>
         <div class="block">
@@ -1302,9 +1306,9 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7c L651 / L684 / L822〜833</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 1-7（applyHolidayRowColors_）・1-7c（applyExpiryWarningColors_）</span>
         <div class="block">
-          <div class="blk-label">SS起動時・自動（applyExpiryWarningColors_ / onOpen経由）</div>
+          <div class="blk-label">SS起動時・自動（applyHolidayRowColors_・applyExpiryWarningColors_ / onOpen経由）</div>
           <ul class="pts">
             <li>運行シート A1: <code>setNote</code> でID列・行全体の色の意味（7項目）を書き込む</li>
             <li>運行シート L1（積地ヘッダー）: <code>setNote</code> で薄黄（配車漏れ）の意味を書き込む</li>
@@ -1456,7 +1460,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 15-1b（cancelDispatch L12317〜12397）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 15-1b（cancelDispatch）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動実行（メニュー「🔓 選択行の配車確定解除」）</div>
           <ul class="pts">
@@ -1517,13 +1521,13 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 4-2b（fillMissingIdsAndCars L3557〜3657）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 4-2b（fillMissingIdsAndCars）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動実行（メニュー「🆔 ID・車番一括補完」）</div>
           <ul class="pts">
             <li>CSVインポートや複数行のコピー＆ペーストでデータを一括入力した後、IDや車番が入っていない行に対して使用する</li>
             <li>A列のIDが空でB〜K列にデータがある行にV-XXXXを一括採番、F列（車番）または乗務員名が空の行を自車専属マスタから一括補完し、集計表を全件再同期する</li>
-            <li>A列空・B〜K列にデータあり → V-XXXX 形式で採番（LockService.getScriptLock で二重採番防止）</li>
+            <li>A列空・B〜K列にデータあり → V-XXXX 形式で採番（1-1b の客SS単位ロックで二重採番防止）</li>
             <li>F列(車番)またはG列(乗務員名)が空 → 自車専属マスタから補完（社外協力会社はマスタ外のため補完されない）</li>
             <li>補完後は syncSummaryForId_ で集計表を再同期 → sortUnkouByDate_ でソート → applyHolidayRowColors_ で色付け</li>
           </ul>
@@ -1541,7 +1545,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 2-4（showUploadSidebar L1428〜1484）・9-2c（uploadFileToRow L7183〜7200）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 2-4（showUploadSidebar）・9-2c（uploadFileToRow）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動実行（メニュー「📷 写真・ファイル取込」）</div>
           <ul class="pts">
@@ -1601,7 +1605,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> csvImport.html: 13-1〜13-8 / コード.js: importBulkRows（L12591）・doImportFromSheet_（L12349）・applyPasteImportMapping_（L12349〜）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> csvImport.html: 13-1〜13-8 / コード.js: 13-6（importBulkRows）・13-4d（doImportFromSheet_）・13-4a（applyPasteImportMapping_）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
@@ -1648,7 +1652,7 @@ html { scroll-behavior: smooth; }
             <li>executePasteImportUnkou → applyPasteImportMapping_でCSVヘッダーと内部fieldIdを自動照合してマッピング行に反映</li>
             <li>confirmPasteImport → doImportFromSheet_でマッピング行に従いimportBulkRowsを呼び出し。日付・車番・乗務員名・積地・降地・売上の複合キーで重複スキップ</li>
             <li>Excelエラー値（#N/A等）は自動スキップ。点呼前後完了（timePrevRoll・timePostRoll）も取込対象</li>
-            <li>コード番号：csvImport.html 13-1〜13-8 / コード.js 12591（importBulkRows）・12349（doImportFromSheet_）</li>
+            <li>コード番号：csvImport.html 13-1〜13-8 / コード.js 13-6（importBulkRows）・13-4d（doImportFromSheet_）</li>
           </ul>
         </div>
       </div>
@@ -1666,7 +1670,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 14-2c（showHatchuDocDialog L13811）・14-2e（getDocumentData_ L13841）・14-4（markDocumentIssued）・14-5（sendDocumentEmail L13237）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 14-2c（showHatchuDocDialog）・14-2e（getDocumentData_）・14-4（markDocumentIssued）・14-5（sendDocumentEmail）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
@@ -1733,7 +1737,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 14-2d（showShabanDocDialog L13826）・14-2e（getDocumentData_ L13841）・14-4（markDocumentIssued）・14-5（sendDocumentEmail L13237）・14-11（getKyoryokuHistory）・14-12（saveKyoryokuHistory）・14-12i（saveKyoryokuHistory_）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 14-2d（showShabanDocDialog）・14-2e（getDocumentData_）・14-4（markDocumentIssued）・14-5（sendDocumentEmail）・14-11（getKyoryokuHistory）・14-12（saveKyoryokuHistory）・14-12i（saveKyoryokuHistory_）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
@@ -1799,7 +1803,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 16-1（showUketorishoDialog L14178）・16-2（generateUketorishoSheet L14261）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 16-1（showUketorishoDialog）・16-2（generateUketorishoSheet）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
@@ -2023,13 +2027,13 @@ html { scroll-behavior: smooth; }
         <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 4-7（generateNextMonth）・16582（setupMonthlyTrigger・generateNextMonthSilent_）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 4-7（generateNextMonth）・4-6e（setupMonthlyTrigger）・4-6c（generateNextMonthSilent_）</span>
         <div class="block">
           <ul class="pts">
-            <li>毎月20日 0:00 に時間起動トリガー（<code>setupMonthlyTrigger</code> で登録）が全客SSに対して <code>generateNextMonthSilent_</code> を呼び出して自動実行</li>
+            <li>毎月20日 0時台に時間起動トリガー（<code>setupMonthlyTrigger</code> で登録）が <code>scheduledGenerateNextMonth_</code>（4-6d）を実行し、全客SSに対して <code>generateNextMonthSilent_</code>（4-6c）を呼び出す</li>
             <li>手動メニューから呼ぶ場合は <code>generateNextMonth</code>（UI あり版）。内部ロジックは共通</li>
-            <li>自車専属マスタのB列（運行状態）=「運行」の車両を抽出し、来月1日〜月末分の行を運行シートに一括 appendRow</li>
-            <li>実行後に <code>archiveOldestMonthIfNeeded_</code> を呼び出して前月分を別SSにアーカイブ保存</li>
+            <li>自車専属マスタのB列（運行状態）=「運行」の車両を抽出し、来月1日〜月末分の行を運行シートに setValues で一括書き込み（来月分が1行でもあれば中止）</li>
+            <li>実行後に <code>archiveOldestMonthIfNeeded_</code>（4-8a）を呼び出し、運行シートに3か月以上のデータがあれば最古月だけを別SSにアーカイブ保存</li>
           </ul>
         </div>
         <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/34-1-current.png" class="ss-img" alt="当月分の運行シート（翌月生成前）"><div style="position:absolute;top:95%;left:10%;width:7%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
@@ -2046,7 +2050,7 @@ html { scroll-behavior: smooth; }
         </div>
         <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/34-4-result.png" class="ss-img" alt="翌月分生成後の運行シート"><div style="position:absolute;top:42%;left:0%;width:99%;height:54%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
-          <div class="blk-label">アーカイブSS（前月分）が自動作成される</div>
+          <div class="blk-label">アーカイブSS（3か月以上ある時の最古月）が自動作成される</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/34-5-archive-tab.png" class="ss-img" alt="アーカイブSSが作成された通知"></div>
         <div class="block">
@@ -2066,14 +2070,14 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label tip">💡 REF: コード.js 4-8（5449行）archiveOldMonth() / 4-8b（5551行）archiveMonthData_()</div>
+          <div class="blk-label tip">💡 REF: コード.js 4-8（archiveOldMonth）/ 4-8b（archiveMonthData_）</div>
           <ul class="pts">
-            <li>メニュー登録: コード.js 1157行 / 1284行「📦 前月分アーカイブ」→ archiveOldMonth()</li>
+            <li>メニュー登録: コード.js 2-1（onOpen）/ 2-1a（buildClientMenu）「📦 前月分アーカイブ」→ archiveOldMonth()</li>
             <li>今月より前の全月を古い月順に archiveMonthData_() で1月ずつ処理する</li>
             <li>保存先: Googleドライブ「運行管理_アーカイブ/会社名/YYYY年MM月_会社名」（SpreadsheetApp.create → Drive API でフォルダ移動）</li>
             <li>アーカイブ後は元の運行シートから該当行を削除（値のみコピー＋削除）</li>
             <li>自車専属マスタ J列（メールアドレス）の全員に編集権限を付与</li>
-            <li>翌月分生成（34番 generateNextMonthSilent_）から自動呼び出しされる</li>
+            <li>この関数はメニューからのみ実行。翌月分生成（34番）の後は <code>archiveOldestMonthIfNeeded_</code>（4-8a）が、3か月以上ある時だけ最古月を 4-8b でアーカイブする</li>
           </ul>
         </div>
         <div class="block">
@@ -2105,7 +2109,7 @@ html { scroll-behavior: smooth; }
           <ul class="pts">
             <li>今月より前のデータが全件対象（複数月まとめてアーカイブ可）</li>
             <li>アーカイブ後は元の運行シートからそのデータは削除される</li>
-            <li>翌月分生成（34番）と同時に自動実行されるため、通常は手動操作不要</li>
+            <li>翌月分生成（34番）の後に自動でアーカイブされるのは、3か月以上たまった時の一番古い月だけ。今月より前をまとめて片付けたい時はこのメニューを使う</li>
           </ul>
         </div>
       </div>
@@ -2147,11 +2151,12 @@ html { scroll-behavior: smooth; }
         <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 3-1（onEdit）→ 1-3（delaySyncSummary_）→ 4-2（syncSummaryForId_ L3330〜3646）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 14-2（installedOnEdit_）→ 14-2b（dispatchInstalledEdit）→ 4-2（syncSummaryForId_）／4件以上は 4-1（generateSummary）</span>
         <div class="block">
           <div class="blk-label">🔵 処理概要</div>
           <ul class="pts">
-            <li>運行シートのセルを編集すると <code>onEdit(e)</code>（コード.js 3-1）が発火し、<code>delaySyncSummary_(id, ss)</code>（1-3）を経由して <code>syncSummaryForId_(targetId, ss)</code>（4-2）が呼ばれる</li>
+            <li>運行シートのセルを編集すると、インストール型onEditトリガー <code>installedOnEdit_</code>（14-2）から <code>dispatchInstalledEdit</code>（14-2b）が呼ばれ、編集範囲のIDごとに <code>syncSummaryForId_(targetId, ss)</code>（4-2）を実行する</li>
+            <li>編集範囲のIDが4件以上のときは <code>generateSummary</code>（4-1）で集計表全体を再生成する</li>
             <li>対象IDの全行を運行シートから集計し（荷主・積地・降地・時刻・売上等）、集計表の既存行を上書き更新または新規挿入する</li>
             <li>距離(W=23)・ガソリン代(Y=25)・支払い(AA=27)・備考(AD=30)・その他手当(AI=35) の手入力値は既存値を保持して上書きしない</li>
             <li>重複行が存在する場合は後から走査してすべて削除する（コード.js 4-2 末尾の dupIds ループ）</li>
@@ -2176,8 +2181,61 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 集計表 2〜18 pending -->
-    <div class="card"><div class="card-hdr"><span class="num">02</span><span class="cat cat-calc">自動同期</span><span class="feat-name">孤立ID自動削除</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card" id="feat-s02">
+      <div class="card-hdr">
+        <span class="num">02</span>
+        <span class="cat cat-calc">自動同期</span>
+        <span class="feat-name">孤立ID自動削除</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 4-2k（dispatchStructureChange）→ 1-4（cleanAllOrphanSummary_）→ 4-1（generateSummary）</span>
+        <div class="block">
+          <div class="blk-label">🔵 処理概要</div>
+          <ul class="pts">
+            <li>行削除では <code>onEdit</code> が発火しないため、<code>onChange</code> トリガー（<code>onStructureChange_</code>）で検知して 1-4 を呼ぶ</li>
+            <li>運行シートにないIDの行を集計表から一括削除する</li>
+            <li>集計表から欠けたIDがあれば 4-1 で集計表を一括再生成し、手入力値は <code>_BK_集計表</code> から復元する</li>
+            <li>採番・集計表同期のロックは 1-1b（<code>getSsLock_</code>）で客SS単位に排他制御する</li>
+            <li>ロック待ちで集計表に同期できなかったIDは <code>PENDING_SUM_IDS</code> に記録し、1-4 の最後にまとめて同期する</li>
+            <li>採番は発行済み最大番号を <code>MAX_ID_NUM_*</code>（開発者メタデータ）に保持し、一度使った番号は再利用しない</li>
+            <li>客SS単位のロックが取得できない実行環境では全客SS共通のロックで代替し、<code>_ErrorLog_</code> に記録する</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 運行シートの行を削除すると集計表からも消える</div>
+        </div>
+        <div class="block">
+          <div class="blk-label">運行シートの行を</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-orphan-unkou-before-0.png" class="ss-img" alt="運行シート 削除前（D-0033あり）"></div>
+        <div class="block">
+          <div class="blk-label">↓ 削除すると</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-orphan-unkou-after-0.png" class="ss-img" alt="運行シート 削除後（D-0033なし）"></div>
+        <div class="block">
+          <div class="blk-label">↓ 集計表からも自動で消える</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-orphan-shuukei-after-0.png" class="ss-img" alt="集計表 D-0033が自動削除"></div>
+        <div class="block">
+          <div class="blk-label">② 逆に集計表の行を削除したら元に戻る</div>
+        </div>
+        <div class="block">
+          <div class="blk-label">集計表の行を</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-restore-shuukei-before-0.png" class="ss-img" alt="集計表 削除前（D-0032選択）"></div>
+        <div class="block">
+          <div class="blk-label">↓ 削除したら</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-restore-shuukei-deleted-0.png" class="ss-img" alt="集計表 D-0032削除直後"></div>
+        <div class="block">
+          <div class="blk-label">↓ 自動で元に戻る</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-restore-shuukei-after-0.png" class="ss-img" alt="集計表 D-0032が自動復元"></div>
+      </div>
+    </div>
+
+    <!-- 集計表 3〜18 pending -->
     <div class="card"><div class="card-hdr"><span class="num">03</span><span class="cat cat-calc">自動計算</span><span class="feat-name">燃料代自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
     <div class="card"><div class="card-hdr"><span class="num">04</span><span class="cat cat-calc">自動計算</span><span class="feat-name">支払い自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
     <div class="card"><div class="card-hdr"><span class="num">05</span><span class="cat cat-calc">自動計算</span><span class="feat-name">利益自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>

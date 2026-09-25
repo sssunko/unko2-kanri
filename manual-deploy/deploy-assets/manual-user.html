@@ -401,7 +401,7 @@ html { scroll-behavior: smooth; }
       <div class="sheet-grp-hd g-red">配車・運行系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="red"><div class="sheet-ncard-name">配車板</div></div>
       <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('unkou')"><div class="sheet-ncard-name">運行　全35項目</div></div>
-      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('shuukei')"><div class="sheet-ncard-name">集計表　1 / 18項目</div></div>
+      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('shuukei')"><div class="sheet-ncard-name">集計表　2 / 18項目</div></div>
       <div class="sheet-grp-hd g-green">マスタ・設定系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属マスタ</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属運行</div></div>
@@ -503,7 +503,7 @@ html { scroll-behavior: smooth; }
     <div class="toc-grid">
       <div class="toc-sep">【自動同期】運行シート編集時に自動反映</div>
       <a class="toc-item done" href="#"><span class="toc-n">1</span><span class="toc-name">運行シートからの自動同期</span></a>
-      <a class="toc-item pend" href="#"><span class="toc-n">2</span><span class="toc-name">孤立ID自動削除</span></a>
+      <a class="toc-item done" href="#"><span class="toc-n">2</span><span class="toc-name">孤立ID自動削除</span></a>
       <div class="toc-sep">【自動計算】値の自動計算</div>
       <a class="toc-item pend" href="#"><span class="toc-n">3</span><span class="toc-name">燃料代自動計算</span></a>
       <a class="toc-item pend" href="#"><span class="toc-n">4</span><span class="toc-name">支払い自動計算</span></a>
@@ -580,7 +580,8 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label auto">🔵 自動</div>
           <ul class="pts">
-            <li>D列（トン数）に「4t」「4トン」「4.0」などで入力しても「4」に自動変換される</li>
+            <li>D列（トン数）に「4」「４」「4T」「4トン」などで入力しても「4t」の形に自動でそろう</li>
+            <li>「4W」「4t平」のように車種まで続けて入力すると、車種部分はE列（車種）に自動で分けられる</li>
             <li>操作は不要。どの書き方でも正しく集計される</li>
           </ul>
         </div>
@@ -940,8 +941,11 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label auto">🔵 自動（入力のたびに）</div>
           <ul class="pts">
-            <li>1行目（項目名の行）を誤って削除・書き換えても、自動でもとの項目名に復元される</li>
-            <li>復元時に「列構成を元に戻しました」のポップアップが表示される</li>
+            <li>1行目（項目名の行）のセルを消したり書き換えたりしても、自動でもとの項目名に戻る</li>
+            <li>1行目を行ごと削除したり、1行目の上に行を挿入したりしても自動で戻る</li>
+            <li>見出しのすぐ下に行を挿入した場合は、通常の白い入力行になる（見出しは常に1行だけ）</li>
+            <li>運行シートだけでなく、1行目が見出しになっている全シート（集計表・配車板・自車専属マスタ・マスタ・設定・距離マスタ・PL設定・管理者など）で同じように戻る</li>
+            <li>行を戻した時は画面右下に「ヘッダー行を元に戻しました」、列の削除・並び替えを戻した時は「列構成を元に戻しました」と表示される</li>
           </ul>
         </div>
         <div class="block">
@@ -1800,7 +1804,7 @@ html { scroll-behavior: smooth; }
           <div class="blk-label tip">💡 毎月20日 深夜0時に自動実行</div>
           <ul class="pts">
             <li>自車専属マスタの「運行状態」が「運行」の車両を対象に、来月1日〜月末分の行を運行シートに一括追加する</li>
-            <li>同時に前月分のデータが別のスプレッドシートとして自動的にアーカイブ保存される</li>
+            <li>生成後、運行シートに3か月以上のデータがあれば、一番古い月が別のスプレッドシートに自動でアーカイブ保存される</li>
             <li>手動で実行したい場合はメニューから操作できる</li>
           </ul>
         </div>
@@ -1821,7 +1825,7 @@ html { scroll-behavior: smooth; }
         </div>
         <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/34-4-result.png" class="ss-img" alt="翌月分生成後の運行シート"><div style="position:absolute;top:42%;left:0%;width:99%;height:54%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
-          <div class="blk-label">④ 前月分のデータが別のスプレッドシートとして自動的にアーカイブ保存される</div>
+          <div class="blk-label">④ 3か月以上のデータがあれば、一番古い月が別のスプレッドシートに自動でアーカイブ保存される</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/34-5-archive-tab.png" class="ss-img" alt="アーカイブSSが作成された通知"></div>
         <div class="block">
@@ -1832,7 +1836,7 @@ html { scroll-behavior: smooth; }
           <div class="blk-label warn">⚠️ 注意</div>
           <ul class="pts">
             <li>「運行状態」が「運行」以外（待機・故障など）の車両は生成されない</li>
-            <li>全車両の来月分がすでに生成済みの場合のみ「すでに生成済みです」と表示されブロックされる</li>
+            <li>来月分のデータが1行でもすでにあると「既に存在します」と表示されブロックされる</li>
             <li>毎月20日に自動実行されるため、通常は手動操作不要</li>
           </ul>
         </div>
@@ -1849,7 +1853,7 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="card-body">
         <div class="block">
-          <div class="blk-label tip">💡 翌月分生成（34番）と同時に自動実行</div>
+          <div class="blk-label tip">💡 メニューから手動で実行（翌月分生成の後は、3か月以上たまった時だけ一番古い月が自動でアーカイブされる）</div>
           <ul class="pts">
             <li>今月より前のデータを別のスプレッドシートに値のみで保存し、元の運行シートから削除する</li>
             <li>手動で実行したい場合はメニューから単独で操作できる</li>
@@ -1885,7 +1889,7 @@ html { scroll-behavior: smooth; }
           <ul class="pts">
             <li>今月より前のデータがすべてアーカイブ対象（複数月分まとめてアーカイブされる場合もある）</li>
             <li>アーカイブ後は元の運行シートからそのデータは削除される</li>
-            <li>翌月分生成（34番）と同時に自動実行されるため、通常は手動操作不要</li>
+            <li>翌月分生成（34番）の後に自動でアーカイブされるのは、3か月以上たまった時の一番古い月だけ。今月より前をまとめて片付けたい時はこのメニューを使う</li>
           </ul>
         </div>
       </div>
@@ -1938,7 +1942,8 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label warn">⚠️ 注意</div>
           <ul class="pts">
-            <li>一括貼り付けや大量変更の後は自動同期が追いつかない場合があります。その場合はメニュー「📃 集計表再生成」を実行してください</li>
+            <li>一度に4件以上の運行をまとめて貼り付け・変更した時は、集計表全体が自動で作り直される</li>
+            <li>集計表の内容が運行シートと合わないと感じた時は、メニュー「📃 集計表再生成」を実行してください</li>
           </ul>
         </div>
         <div class="block">
@@ -1960,8 +1965,62 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 集計表 2〜18 pending -->
-    <div class="card"><div class="card-hdr"><span class="num">02</span><span class="cat cat-calc">自動同期</span><span class="feat-name">孤立ID自動削除</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card" id="feat-s02">
+      <div class="card-hdr">
+        <span class="num">02</span>
+        <span class="cat cat-calc">自動同期</span>
+        <span class="feat-name">孤立ID自動削除</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>運行シートで行を削除すると、集計表の同じIDの行もすぐに自動で削除される</li>
+            <li>集計表の行を誤って削除しても、すぐに自動で元に戻る（集計表の行は削除できません）</li>
+            <li>何行まとめて削除しても、裏で処理してから一括で反映される</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label warn">⚠️ 注意</div>
+          <ul class="pts">
+            <li>集計表の行が元に戻る時、距離・ガソリン代・支払い・備考・その他手当の手入力値は1日1回の自動バックアップ時点の値で戻ります。バックアップ後に入力した値は再入力してください</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 運行シートの行を削除すると集計表からも消える</div>
+        </div>
+        <div class="block">
+          <div class="blk-label">運行シートの行を</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-orphan-unkou-before-0.png" class="ss-img" alt="運行シート 削除前（D-0033あり）"></div>
+        <div class="block">
+          <div class="blk-label">↓ 削除すると</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-orphan-unkou-after-0.png" class="ss-img" alt="運行シート 削除後（D-0033なし）"></div>
+        <div class="block">
+          <div class="blk-label">↓ 集計表からも自動で消える</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-orphan-shuukei-after-0.png" class="ss-img" alt="集計表 D-0033が自動削除"></div>
+        <div class="block">
+          <div class="blk-label">② 逆に集計表の行を削除したら元に戻る</div>
+        </div>
+        <div class="block">
+          <div class="blk-label">集計表の行を</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-restore-shuukei-before-0.png" class="ss-img" alt="集計表 削除前（D-0032選択）"></div>
+        <div class="block">
+          <div class="blk-label">↓ 削除したら</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-restore-shuukei-deleted-0.png" class="ss-img" alt="集計表 D-0032削除直後"></div>
+        <div class="block">
+          <div class="blk-label">↓ 自動で元に戻る</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/02-restore-shuukei-after-0.png" class="ss-img" alt="集計表 D-0032が自動復元"></div>
+      </div>
+    </div>
+
+    <!-- 集計表 3〜18 pending -->
     <div class="card"><div class="card-hdr"><span class="num">03</span><span class="cat cat-calc">自動計算</span><span class="feat-name">燃料代自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
     <div class="card"><div class="card-hdr"><span class="num">04</span><span class="cat cat-calc">自動計算</span><span class="feat-name">支払い自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
     <div class="card"><div class="card-hdr"><span class="num">05</span><span class="cat cat-calc">自動計算</span><span class="feat-name">利益自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
