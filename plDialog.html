@@ -298,6 +298,8 @@
   <div id="status"></div>
 
   <script>
+var TOOL_SSID  = '<?= toolSsId ?>';  // 対象SSのID
+var TOOL_TOKEN = '<?= toolToken ?>'; // 管理画面から開いた時だけ入る管理者ログイン状態（スプレッドシートからは空）
     var ALL  = {};
     var unit = 'monthly';
 
@@ -377,7 +379,7 @@
           setLoading(false);
           setStatus('❌ ' + (e.message || String(e)), 'err');
         })
-        .generatePl(filters);
+        .generatePl(filters, TOOL_SSID, TOOL_TOKEN);
     }
 
     function toggleFmtOptions() {
@@ -412,7 +414,7 @@
           setLoading(false);
           setStatus('❌ ' + (e.message || String(e)), 'err');
         })
-        .exportPlBundle({ includeJournal: inclJ, includePl: inclP, journalFormat: jFmt });
+        .exportPlBundle({ includeJournal: inclJ, includePl: inclP, journalFormat: jFmt }, TOOL_SSID, TOOL_TOKEN);
     }
 
     // 初期ロード
@@ -426,7 +428,7 @@
       .withFailureHandler(function(e) {
         setStatus('初期化エラー: ' + (e.message || e), 'err');
       })
-      .getPlFilterOptions();
+      .getPlFilterOptions(TOOL_SSID, TOOL_TOKEN);
   </script>
 </body>
 </html>

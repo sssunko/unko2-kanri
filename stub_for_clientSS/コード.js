@@ -15,6 +15,9 @@ function onOpen(e) {
   } catch(_ex0) {}
   // 通常パス（LIMITED では上記は無害スキップ済み）
   UnkouLib.buildClientMenu();
+  // ログイン確認（未ログインなら期限アラートは出さず、最後にログイン画面を出す。アラートはログイン後に出る）
+  var _ssLoggedIn = false;
+  try { _ssLoggedIn = UnkouLib.isSsLoggedIn(); } catch(_liEx) {}
   try { UnkouLib.convertLegacyAdminDataUrls(); } catch(e) {}
   try { UnkouLib.applyHolidayRowColors(); } catch(e) {}
   try {
@@ -27,7 +30,7 @@ function onOpen(e) {
   try {
     var _epDp = PropertiesService.getDocumentProperties();
     var _epTs = Number(_epDp.getProperty('EXPIRY_POPUP_TS') || 0);
-    if (Date.now() - _epTs >= 30000) {
+    if (_ssLoggedIn && Date.now() - _epTs >= 30000) {
       _epDp.setProperty('EXPIRY_POPUP_TS', String(Date.now()));
       UnkouLib.showExpiryAlert();
     }
@@ -59,7 +62,12 @@ function onOpen(e) {
       }
     }
   } catch(e) {}
+  if (!_ssLoggedIn) { try { UnkouLib.showSsLoginDialog(); } catch(_lgEx) {} }
 }
+
+// セルを選んだ時、ログイン画面を閉じたままならもう一度出す
+function onSelectionChange(e)  { try { UnkouLib.checkSsLoginOnSelect(e); } catch(ex) {} }
+function loginSs(a,b,c)        { return UnkouLib.loginSs(a,b,c); }
 
 function doGet(e)            { return UnkouLib.doGet(e); }
 function onEdit(e)           { return UnkouLib.onEdit(e); }
@@ -117,9 +125,9 @@ function createManualMASheet()    { return UnkouLib.createManualMASheet(); }
 function createSupportSheet()     { return UnkouLib.createSupportSheet(); }
 function setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }
 function showExportDialog()             { return UnkouLib.showExportDialog(); }
-function exportSheetAsCsvBase64(a,b)      { return UnkouLib.exportSheetAsCsvBase64(a,b); }
-function exportSelectedSheetsAsExcel(a,b) { return UnkouLib.exportSelectedSheetsAsExcel(a,b); }
-function exportPlBundle(a)              { return UnkouLib.exportPlBundle(a); }
+function exportSheetAsCsvBase64(a,b,c)    { return UnkouLib.exportSheetAsCsvBase64(a,b,c); }
+function exportSelectedSheetsAsExcel(a,b,c) { return UnkouLib.exportSelectedSheetsAsExcel(a,b,c); }
+function exportPlBundle(a,b,c)              { return UnkouLib.exportPlBundle(a,b,c); }
 // installTriggersはライブラリ経由にするとScriptAppが①を向くためローカル実装
 function installTriggers() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -133,15 +141,14 @@ function installTriggers() {
   ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);
 }
 
+// 夜間の距離計算：このSSのIDと、このスタブのスクリプトID（ライブラリ側で登録済みのものと照合）を渡す
 function calcDistanceTrigger_() {
   try {
-    var parents = DriveApp.getFileById(ScriptApp.getScriptId()).getParents();
-    if (!parents.hasNext()) return;
-    UnkouLib.calcDistanceForSS(parents.next().getId());
+    UnkouLib.calcDistanceForSS(SpreadsheetApp.getActiveSpreadsheet().getId(), ScriptApp.getScriptId());
   } catch(e) {}
 }
 function onStructureChange_(e)  { UnkouLib.dispatchStructureChange(e); }
-function setRecalcChoice(a)       { return UnkouLib.setRecalcChoice(a); }
+function setRecalcChoice(a,b)     { return UnkouLib.setRecalcChoice(a,b); }
 function executeStatusSync(a,b,c){ return UnkouLib.executeStatusSync(a,b,c); }
 function syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }
 
@@ -157,32 +164,30 @@ function executePasteImportMaster()     { return UnkouLib.executePasteImportMast
 function executePasteImportCust()       { return UnkouLib.executePasteImportCust(); }
 function executePasteImport()            { return UnkouLib.executePasteImport(); }
 function confirmPasteImport()            { return UnkouLib.confirmPasteImport(); }
-function getPasteImportHeader(a)         { return UnkouLib.getPasteImportHeader(a); }
-function savePasteImportMapping(a,b,c)   { return UnkouLib.savePasteImportMapping(a,b,c); }
 function showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }
-function prepareEtcImport(a,b,c)         { return UnkouLib.prepareEtcImport(a,b,c); }
-function executeEtcImport(a,b,c,d)       { return UnkouLib.executeEtcImport(a,b,c,d); }
-function getImportDictionary(a,b)        { return UnkouLib.getImportDictionary(a,b); }
-function importBulkRows(a,b,c)           { return UnkouLib.importBulkRows(a,b,c); }
-function saveImportAliases(a,b,c)        { return UnkouLib.saveImportAliases(a,b,c); }
+function prepareEtcImport(a,b,c,d)         { return UnkouLib.prepareEtcImport(a,b,c,d); }
+function executeEtcImport(a,b,c,d,e)       { return UnkouLib.executeEtcImport(a,b,c,d,e); }
+function getImportDictionary(a,b,c)        { return UnkouLib.getImportDictionary(a,b,c); }
+function importBulkRows(a,b,c,d,e,f)       { return UnkouLib.importBulkRows(a,b,c,d,e,f); }
+function saveImportAliases(a,b,c,d)        { return UnkouLib.saveImportAliases(a,b,c,d); }
 
 // ── 帳票・送信 ────────────────────────────────────────────────────────
 function showHatchuDocDialog()           { return UnkouLib.showHatchuDocDialog(); }
 function showShabanDocDialog()           { return UnkouLib.showShabanDocDialog(); }
 function showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(); }
 function generateUketorishoSheet(a)      { return UnkouLib.generateUketorishoSheet(a); }
-function sendDocumentEmail(a,b,c)        { return UnkouLib.sendDocumentEmail(a,b,c); }
-function markDocumentIssued(a,b,c)       { return UnkouLib.markDocumentIssued(a,b,c); }
-function getShijisakiHistory(a,b)        { return UnkouLib.getShijisakiHistory(a,b); }
-function saveShijisakiHistory(a,b,c)     { return UnkouLib.saveShijisakiHistory(a,b,c); }
-function getShijisakiByRowId(a,b)           { return UnkouLib.getShijisakiByRowId(a,b); }
-function saveShijisakiByRowId(a,b,c,d)     { return UnkouLib.saveShijisakiByRowId(a,b,c,d); }
-function deleteShijisakiHistory(a,b,c,d,e,f){ return UnkouLib.deleteShijisakiHistory(a,b,c,d,e,f); }
-function getKyoryokuHistory(a,b)            { return UnkouLib.getKyoryokuHistory(a,b); }
-function saveKyoryokuHistory(a,b,c)         { return UnkouLib.saveKyoryokuHistory(a,b,c); }
+function sendDocumentEmail(a,b,c,d)        { return UnkouLib.sendDocumentEmail(a,b,c,d); }
+function markDocumentIssued(a,b,c,d)       { return UnkouLib.markDocumentIssued(a,b,c,d); }
+function getShijisakiHistory(a,b,c)        { return UnkouLib.getShijisakiHistory(a,b,c); }
+function saveShijisakiHistory(a,b,c,d)     { return UnkouLib.saveShijisakiHistory(a,b,c,d); }
+function getShijisakiByRowId(a,b,c)           { return UnkouLib.getShijisakiByRowId(a,b,c); }
+function saveShijisakiByRowId(a,b,c,d,e)     { return UnkouLib.saveShijisakiByRowId(a,b,c,d,e); }
+function deleteShijisakiHistory(a,b,c,d,e,f,g){ return UnkouLib.deleteShijisakiHistory(a,b,c,d,e,f,g); }
+function getKyoryokuHistory(a,b,c)            { return UnkouLib.getKyoryokuHistory(a,b,c); }
+function saveKyoryokuHistory(a,b,c,d)         { return UnkouLib.saveKyoryokuHistory(a,b,c,d); }
 function showPlDialog()                  { return UnkouLib.showPlDialog(); }
-function getPlFilterOptions()            { return UnkouLib.getPlFilterOptions(); }
-function generatePl(a)                   { return UnkouLib.generatePl(a); }
+function getPlFilterOptions(a,b)            { return UnkouLib.getPlFilterOptions(a,b); }
+function generatePl(a,b,c)                   { return UnkouLib.generatePl(a,b,c); }
 function exportPlJournalCsv()            { return UnkouLib.exportPlJournalCsv(); }
 function initFixedCostMaster()           { return UnkouLib.initFixedCostMaster(); }
 
@@ -204,7 +209,7 @@ function generateAuditSheet()           { return UnkouLib.generateAuditSheet(); 
 // 古いインストール済みトリガー経由の発火（引数あり）は即return（多重ポップアップ封じ）
 function checkMasterExpiries(e)         { return; }  // デコイ：ゾンビトリガー空振り
 function showDispatchDashboard()        { return UnkouLib.showDispatchDashboard(); }
-function getDispatchDashboardData()     { return UnkouLib.getDispatchDashboardData(); }
+function getDispatchDashboardData(a,b)     { return UnkouLib.getDispatchDashboardData(a,b); }
 
 // ── アプリ連携（端末↔SS） ────────────────────────────────────────────
 function storeCompanySsId(a)              { return UnkouLib.storeCompanySsId(a); }
@@ -212,14 +217,14 @@ function getInitialData(a,b)              { return UnkouLib.getInitialData(a,b);
 function linkAddress(a,b)                 { return UnkouLib.linkAddress(a,b); }
 function unlinkAddress(a)                 { return UnkouLib.unlinkAddress(a); }
 function saveRunState(a,b,c)              { return UnkouLib.saveRunState(a,b,c); }
-function loadRunState()                   { return UnkouLib.loadRunState(); }
+function loadRunState(a,b)                { return UnkouLib.loadRunState(a,b); }
 function clearRunState(a,b)               { return UnkouLib.clearRunState(a,b); }
 function getTodayRoutes(a,b)              { return UnkouLib.getTodayRoutes(a,b); }
 function createParentRows(a,b,c,d,e,f)   { return UnkouLib.createParentRows(a,b,c,d,e,f); }
-function setPickComplete(a,b,c)           { return UnkouLib.setPickComplete(a,b,c); }
-function setRest(a,b,c,d)                { return UnkouLib.setRest(a,b,c,d); }
-function setDropComplete(a,b,c)           { return UnkouLib.setDropComplete(a,b,c); }
-function updateRouteData(a,b,c,d)         { return UnkouLib.updateRouteData(a,b,c,d); }
+function setPickComplete(a,b,c,d)           { return UnkouLib.setPickComplete(a,b,c,d); }
+function setRest(a,b,c,d,e)                { return UnkouLib.setRest(a,b,c,d,e); }
+function setDropComplete(a,b,c,d)           { return UnkouLib.setDropComplete(a,b,c,d); }
+function updateRouteData(a,b,c,d,e)       { return UnkouLib.updateRouteData(a,b,c,d,e); }
 function deleteRunRows(a,b,c)             { return UnkouLib.deleteRunRows(a,b,c); }
 function clearTimeCell(a,b,c,d,e)         { return UnkouLib.clearTimeCell(a,b,c,d,e); }
 function getListData(a,b,c,d)             { return UnkouLib.getListData(a,b,c,d); }
@@ -234,32 +239,38 @@ function uploadTerminalFile(a,b,c,d)      { return UnkouLib.uploadTerminalFile(a
 function getMyNotices(a,b)               { return UnkouLib.getMyNotices(a,b); }
 function getRoutesById(a,b,c)             { return UnkouLib.getRoutesById(a,b,c); }
 function getNoticeByRow(a,b,c)            { return UnkouLib.getNoticeByRow(a,b,c); }
-function markAsRead(a,b)                  { return UnkouLib.markAsRead(a,b); }
-function getReadNotices(a)               { return UnkouLib.getReadNotices(a); }
+function markAsRead(a,b,c)                { return UnkouLib.markAsRead(a,b,c); }
+function getReadNotices(a,b)             { return UnkouLib.getReadNotices(a,b); }
 function agreeContract(a,b,c,d,e)        { return UnkouLib.agreeContract(a,b,c,d,e); }
 function queueFileUpload(a,b,c,d)        { return UnkouLib.queueFileUpload(a,b,c,d); }
 function recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }
 function clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }
-function getCarInfoByNumber(a,b)         { return UnkouLib.getCarInfoByNumber(a,b); }
-function deleteTerminalFile(a,b,c)       { return UnkouLib.deleteTerminalFile(a,b,c); }
-function replaceTerminalFile(a,b,c,d,e,f){ return UnkouLib.replaceTerminalFile(a,b,c,d,e,f); }
-function appendTerminalFileAdmin(a,b,c,d,e){ return UnkouLib.appendTerminalFileAdmin(a,b,c,d,e); }
-function saveTermNoticeByDriver(a,b,c)   { return UnkouLib.saveTermNoticeByDriver(a,b,c); }
-function appendAdminFileById(a,b,c,d,e)  { return UnkouLib.appendAdminFileById(a,b,c,d,e); }
-function deleteAdminFileById(a,b,c)      { return UnkouLib.deleteAdminFileById(a,b,c); }
-function replaceAdminFileById(a,b,c,d,e,f){ return UnkouLib.replaceAdminFileById(a,b,c,d,e,f); }
+function getCarInfoByNumber(a,b,c)       { return UnkouLib.getCarInfoByNumber(a,b,c); }
+function deleteTerminalFile(a,b,c,d)     { return UnkouLib.deleteTerminalFile(a,b,c,d); }
+function replaceTerminalFile(a,b,c,d,e,f,g){ return UnkouLib.replaceTerminalFile(a,b,c,d,e,f,g); }
+function appendTerminalFileAdmin(a,b,c,d,e,f){ return UnkouLib.appendTerminalFileAdmin(a,b,c,d,e,f); }
+function saveTermNoticeByDriver(a,b,c,d) { return UnkouLib.saveTermNoticeByDriver(a,b,c,d); }
+function appendAdminFileById(a,b,c,d,e,f){ return UnkouLib.appendAdminFileById(a,b,c,d,e,f); }
+function deleteAdminFileById(a,b,c,d)    { return UnkouLib.deleteAdminFileById(a,b,c,d); }
+function replaceAdminFileById(a,b,c,d,e,f,g){ return UnkouLib.replaceAdminFileById(a,b,c,d,e,f,g); }
 
 // ── 管理画面（親アプリ）────────────────────────────────────────────────
-function getParentSheets(a)            { return UnkouLib.getParentSheets(a); }
-function getSheetTableData(a,b)        { return UnkouLib.getSheetTableData(a,b); }
-function saveSheetRowData(a,b,c,d)     { return UnkouLib.saveSheetRowData(a,b,c,d); }
-function appendSheetRow(a,b,c)         { return UnkouLib.appendSheetRow(a,b,c); }
-function deleteSheetRow(a,b,c)         { return UnkouLib.deleteSheetRow(a,b,c); }
-function afterSaveJoho(a,b,c)          { return UnkouLib.afterSaveJoho(a,b,c); }
-function afterSaveJohoFull(a,b)        { return UnkouLib.afterSaveJohoFull(a,b); }
-function appendJohoRow(a,b)            { return UnkouLib.appendJohoRow(a,b); }
-function linkAdminEmail(a,b)           { return UnkouLib.linkAdminEmail(a,b); }
-function getLinkedAdminEmail(a)        { return UnkouLib.getLinkedAdminEmail(a); }
+function getParentSheets(a,b)          { return UnkouLib.getParentSheets(a,b); }
+function getSheetTableData(a,b,c)      { return UnkouLib.getSheetTableData(a,b,c); }
+function saveSheetRowData(a,b,c,d,e)   { return UnkouLib.saveSheetRowData(a,b,c,d,e); }
+function appendSheetRow(a,b,c,d)       { return UnkouLib.appendSheetRow(a,b,c,d); }
+function deleteSheetRow(a,b,c,d)       { return UnkouLib.deleteSheetRow(a,b,c,d); }
+function afterSaveJoho(a,b,c,d)        { return UnkouLib.afterSaveJoho(a,b,c,d); }
+function afterSaveJohoFull(a,b,c)      { return UnkouLib.afterSaveJohoFull(a,b,c); }
+function appendJohoRow(a,b,c)          { return UnkouLib.appendJohoRow(a,b,c); }
+function lookupCompanyContact(a,b,c,d) { return UnkouLib.lookupCompanyContact(a,b,c,d); }
+function matchAndConfirmDispatchFromApp(a,b,c) { return UnkouLib.matchAndConfirmDispatchFromApp(a,b,c); }
+function linkAdminEmail(a,b,c,d)       { return UnkouLib.linkAdminEmail(a,b,c,d); }
+function getLinkedAdminEmail(a,b)      { return UnkouLib.getLinkedAdminEmail(a,b); }
+function logoutAdmin(a,b)              { return UnkouLib.logoutAdmin(a,b); }
+function runParentSystemAction(a,b,c,d)  { return UnkouLib.runParentSystemAction(a,b,c,d); }
+function createToolTicket(a,b)         { return UnkouLib.createToolTicket(a,b); }
+function renderTool(a,b,c,d)           { return UnkouLib.renderTool(a,b,c,d); }
 function removeAllProtections()        { return UnkouLib.removeAllProtections(); }
 
 // ── バックアップ・復旧 ────────────────────────────────────────────────

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<!--
+  toolPage.html：管理画面から別タブで開く画面の入口（コード.js 2-2 の ?page=tool）
+  T-1: URLの#以降の引換券（t=…）を読み、P-5g（renderTool）に渡して画面のHTMLを受け取る
+  T-2: 受け取ったHTMLでこのページを書き換える（閉じるボタンはこのタブを閉じる）
+-->
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif; padding: 24px; color: #333; }
+  .err { color: #c62828; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+  <div id="msg">読み込み中...</div>
+<script>
+var TOOL_SS  = '<?= companySsId ?>';
+var TOOL     = '<?= tool ?>';
+var TOOL_OPT = { sheetName: '<?= sheetName ?>', row: '<?= row ?>' };
+
+// T-1: 引換券を読んで画面のHTMLを受け取る
+google.script.url.getLocation(function(loc) {
+  var m = String(loc.hash || '').match(/(?:^|&)t=([A-Za-z0-9]+)/);
+  if (!m) { showErr('管理画面からもう一度開いてください'); return; }
+  google.script.run
+    .withSuccessHandler(function(r) { openTool(r); })
+    .withFailureHandler(function(e) { showErr(e && e.message ? e.message : String(e)); })
+    .renderTool(TOOL, TOOL_SS, m[1], TOOL_OPT);
+});
+
+// T-2: 受け取ったHTMLでページを書き換える
+function openTool(r) {
+  try { google.script.host.close = function() { window.close(); }; } catch (e) {}
+  document.open();
+  document.write(r.html);
+  document.close();
+  try { document.title = r.title; } catch (e) {}
+}
+
+function showErr(t) {
+  var el = document.getElementById('msg');
+  el.className = 'err';
+  el.textContent = t;
+}
+</script>
+</body>
+</html>

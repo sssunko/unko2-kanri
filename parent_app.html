@@ -59,7 +59,7 @@
     .ym-display { font-size:18px; font-weight:900; color:#fff; text-align:center; flex:1; }
 
     /* A-3: フォーム */
-    input[type="text"], input[type="date"], input[type="number"], input[type="time"], select, textarea {
+    input[type="text"], input[type="password"], input[type="date"], input[type="number"], input[type="time"], select, textarea {
       width:100%; padding:10px; background:#2c2c2c; color:white;
       border:1px solid #444; border-radius:8px; margin-bottom:10px; font-size:14px;
     }
@@ -198,11 +198,13 @@
     </div>
   </div>
   <div class="card">
-    <h3>アドレス紐づけ</h3>
+    <h3>メールアドレス・パスワード</h3>
     <input type="text" id="adminEmailInput" placeholder="管理者シートに登録されたメールアドレス">
+    <input type="password" id="adminPasswordInput" placeholder="パスワード" style="margin-top:8px;">
+    <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="adminKeepInput" checked> ログインしたままにする</label>
     <div class="btn-group">
-      <button class="mini-btn btn-link"   onclick="handleAdminLink()">紐づけ</button>
-      <button class="mini-btn btn-unlink" onclick="handleAdminUnlink()">解除</button>
+      <button class="mini-btn btn-link"   onclick="handleAdminLink()">ログイン</button>
+      <button class="mini-btn btn-unlink" onclick="handleAdminUnlink()">ログアウト</button>
     </div>
     <div id="adminStatusText" style="color:#4caf50;font-size:13px;margin-top:10px;font-weight:bold;">状態：待機中</div>
   </div>
@@ -302,6 +304,11 @@
   <div id="termDataBox" style="max-width:500px;margin:40px auto;background:#1e1e1e;border-radius:16px;padding:20px;"></div>
 </div>
 
+<!-- システムメニューの途中の質問（はい/いいえ等） -->
+<div class="edit-overlay" id="askOverlay">
+  <div class="edit-box" id="askBox"></div>
+</div>
+
 <div id="toast"></div>
 
 <input type="file" id="fileInput" style="display:none" accept="image/*,application/pdf,video/*">
@@ -311,8 +318,13 @@
 //  変数定義
 // ================================================================
 var _ssId        = '<?= companySsId ?>';
+var _appUrl      = '<?= appUrl ?>';  // このアプリのURL（画面を別タブで開く時に使う）
 var _email       = '';
 var _name        = '';
+var _token       = '';  // 管理者ログイン状態（サーバーが発行）。全てのサーバー呼び出しに付ける
+var _loggedIn    = false;
+// ログイン状態の保存先：「ログインしたままにする」ありは端末に残す（localStorage）、なしはこのタブの間だけ（sessionStorage）
+function tokenStore_(keep) { return keep ? localStorage : sessionStorage; }
 var currentSheet   = '';
 var currentHeaders = [];
 var currentRows    = [];
@@ -390,44 +402,58 @@ var btnColors = [
 //  C-1: 初期化
 // ================================================================
 document.addEventListener('DOMContentLoaded', function() {
-  if (_ssId) {
-    google.script.run.storeCompanySsId(_ssId);
-  }
   try {
-    _email = localStorage.getItem('pa_em_' + _ssId) || '';
-    _name  = localStorage.getItem('pa_nm_' + _ssId) || '';
+    _token = sessionStorage.getItem('pa_tk_' + _ssId) || localStorage.getItem('pa_tk_' + _ssId) || '';
+    document.getElementById('adminEmailInput').value = localStorage.getItem('pa_em_' + _ssId) || '';
   } catch(e) {}
-  if (_email) {
-    document.getElementById('adminEmailInput').value = _email;
-    document.getElementById('adminEmail').innerText  = _email;
-    document.getElementById('adminName').innerText   = _name;
-    document.getElementById('adminStatusText').innerText = '状態：紐づけOK';
-    document.getElementById('adminStatusText').style.color = '#4caf50';
-    google.script.run
-      .withSuccessHandler(function(r) {
-        if (r && r.email) {
-          _email = r.email; _name = r.name;
-          document.getElementById('adminEmail').innerText = _email;
-          document.getElementById('adminName').innerText  = _name;
-        }
-      })
-      .withFailureHandler(function(){})
-      .getLinkedAdminEmail(_ssId);
-    document.getElementById('homeAdminName').innerText  = _name;
-    document.getElementById('homeAdminEmail').innerText = _email;
-    showScreen('homeScreen', '管理者メニュー');
-    if (!_homeLoaded) { _homeLoaded = true; renderHomeButtons(); }
-  } else {
-    showScreen('loginScreen', '管理者ログイン');
-  }
+  // 保存済みのログイン状態がまだ有効か（②客用SSはログイン不要）をサーバーで確認してからホームを開く
+  document.getElementById('adminStatusText').innerText = '状態：確認中...';
+  document.getElementById('adminStatusText').style.color = '#aaa';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      if (r && r.ok) {
+        _loggedIn = true;
+        _email = r.email; _name = r.name;
+        document.getElementById('adminEmail').innerText = _email;
+        document.getElementById('adminName').innerText  = _name;
+        document.getElementById('adminStatusText').innerText = '状態：ログイン中';
+        document.getElementById('adminStatusText').style.color = '#4caf50';
+        document.getElementById('homeAdminName').innerText  = _name;
+        document.getElementById('homeAdminEmail').innerText = _email;
+        showScreen('homeScreen', '管理者メニュー');
+        if (!_homeLoaded) { _homeLoaded = true; renderHomeButtons(); }
+      } else {
+        clearAdminLogin_();
+        document.getElementById('adminStatusText').innerText = '状態：もう一度ログインしてください';
+        document.getElementById('adminStatusText').style.color = '#f9a825';
+        showScreen('loginScreen', '管理者ログイン');
+      }
+    })
+    .withFailureHandler(function() {
+      document.getElementById('adminStatusText').innerText = '状態：通信エラー';
+      document.getElementById('adminStatusText').style.color = '#f44336';
+      showScreen('loginScreen', '管理者ログイン');
+    })
+    .getLinkedAdminEmail(_ssId, _token);
 });
 
+// 端末に保存したログイン状態を消す（アドレス入力欄の値は残す）
+function clearAdminLogin_() {
+  _token = ''; _email = ''; _name = ''; _loggedIn = false;
+  try { localStorage.removeItem('pa_tk_' + _ssId); sessionStorage.removeItem('pa_tk_' + _ssId); localStorage.removeItem('pa_nm_' + _ssId); } catch(e) {}
+  document.getElementById('adminEmail').innerText = '';
+  document.getElementById('adminName').innerText  = '';
+}
+
 // ================================================================
-//  C-3: 紐づけ処理
+//  C-3: ログイン処理（メールアドレス＋パスワード）
 // ================================================================
 function handleAdminLink() {
   var em = document.getElementById('adminEmailInput').value.trim();
+  var pw = document.getElementById('adminPasswordInput').value;
+  var keep = document.getElementById('adminKeepInput').checked;
   if (!em) { alert('アドレスを入力してください'); return; }
+  if (!pw) { alert('パスワードを入力してください'); return; }
   document.getElementById('adminStatusText').innerText = '状態：照会中...';
   document.getElementById('adminStatusText').style.color = '#aaa';
   google.script.run
@@ -439,14 +465,17 @@ function handleAdminLink() {
         alert(msg);
         return;
       }
-      _email = r.email; _name = r.name;
+      _email = r.email; _name = r.name; _token = r.token; _loggedIn = true;
       try {
         localStorage.setItem('pa_em_' + _ssId, _email);
         localStorage.setItem('pa_nm_' + _ssId, _name);
+        localStorage.removeItem('pa_tk_' + _ssId); sessionStorage.removeItem('pa_tk_' + _ssId);
+        tokenStore_(keep).setItem('pa_tk_' + _ssId, _token);
       } catch(e) {}
+      document.getElementById('adminPasswordInput').value = '';
       document.getElementById('adminEmail').innerText = _email;
       document.getElementById('adminName').innerText  = _name;
-      document.getElementById('adminStatusText').innerText = '状態：紐づけOK';
+      document.getElementById('adminStatusText').innerText = '状態：ログイン中';
       document.getElementById('adminStatusText').style.color = '#4caf50';
     })
     .withFailureHandler(function(err) {
@@ -454,23 +483,19 @@ function handleAdminLink() {
       document.getElementById('adminStatusText').style.color = '#f44336';
       alert('通信エラー：' + err.message);
     })
-    .linkAdminEmail(em, _ssId);
+    .linkAdminEmail(em, _ssId, pw, keep);
 }
 
 // ================================================================
-//  C-4: 解除処理
+//  C-4: ログアウト処理
 // ================================================================
 function handleAdminUnlink() {
-  if (!confirm('紐づけを解除しますか？')) return;
-  _email = ''; _name = '';
-  try {
-    localStorage.removeItem('pa_em_' + _ssId);
-    localStorage.removeItem('pa_nm_' + _ssId);
-  } catch(e) {}
+  if (!confirm('ログアウトしますか？')) return;
+  if (_token) google.script.run.withFailureHandler(function(){}).logoutAdmin(_ssId, _token);
+  clearAdminLogin_();
+  try { localStorage.removeItem('pa_em_' + _ssId); } catch(e) {}
   document.getElementById('adminEmailInput').value = '';
-  document.getElementById('adminEmail').innerText  = '';
-  document.getElementById('adminName').innerText   = '';
-  document.getElementById('adminStatusText').innerText = '状態：解除しました';
+  document.getElementById('adminStatusText').innerText = '状態：ログアウトしました';
   document.getElementById('adminStatusText').style.color = '#f9a825';
 }
 
@@ -493,8 +518,8 @@ function showScreen(id, title) {
 }
 function showLogin() { showScreen('loginScreen', '管理者ログイン'); }
 function goHome() {
-  if (!_email) {
-    alert('先に管理者アドレスを紐づけしてください');
+  if (!_loggedIn) {
+    alert('先に管理者ログインをしてください');
     showLogin();
     return;
   }
@@ -534,7 +559,7 @@ function renderHomeButtons() {
     .withFailureHandler(function() {
       grid.innerHTML = '<div style="color:#ff5252;text-align:center;">シート取得エラー</div>';
     })
-    .getParentSheets(_ssId);
+    .getParentSheets(_ssId, _token);
 }
 
 function toggleCat(ci) {
@@ -671,7 +696,7 @@ function fetchSheetData() {
       document.getElementById('sheetTableWrap').innerHTML =
         '<div style="padding:20px;text-align:center;color:#ff5252;">データ取得エラー: ' + (err.message || err) + '</div>';
     })
-    .getSheetTableData(currentSheet, _ssId);
+    .getSheetTableData(currentSheet, _ssId, _token);
 }
 
 // ================================================================
@@ -1026,7 +1051,7 @@ function renderTable() {
                   if (currentSheet === '配車板') doAfterSaveJoho(rn_, ci__);
                 })
                 .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-                .saveSheetRowData(currentSheet, rn_, rowData, _ssId);
+                .saveSheetRowData(currentSheet, rn_, rowData, _ssId, _token);
             })(rn, ci_);
           });
           td.style.textAlign = 'center';
@@ -1071,7 +1096,7 @@ function renderTable() {
                   if (currentSheet === '配車板') doAfterSaveJoho(rn_, ci__);
                 })
                 .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-                .saveSheetRowData(currentSheet, rn_, rowData, _ssId);
+                .saveSheetRowData(currentSheet, rn_, rowData, _ssId, _token);
             })(rn, ci_);
           });
           // 配車板：確定/キャンセル行のselect文字色を直接設定
@@ -1109,7 +1134,7 @@ function renderTable() {
                   if (currentSheet === '配車板') doAfterSaveJoho(rn_, ci__);
                 })
                 .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-                .saveSheetRowData(currentSheet, rn_, rowData, _ssId);
+                .saveSheetRowData(currentSheet, rn_, rowData, _ssId, _token);
             })(rn, ci_);
           });
         } else {
@@ -1329,7 +1354,7 @@ function addParentTermFile(id) {
             alert('エラー: ' + er.message);
             done++; if (done === files.length) { fetchSheetData(); setTimeout(function(){ refreshParentTermDataModal(id); }, 800); }
           })
-          .appendTerminalFileAdmin(id, file.name, b64, file.type, _ssId);
+          .appendTerminalFileAdmin(id, file.name, b64, file.type, _ssId, _token);
       };
       reader.readAsDataURL(file);
     });
@@ -1345,7 +1370,7 @@ function deleteParentTermFile(id, url) {
       setTimeout(function(){ refreshParentTermDataModal(id); }, 800);
     })
     .withFailureHandler(function(er) { alert('エラー: ' + er.message); })
-    .deleteTerminalFile(id, url, _ssId);
+    .deleteTerminalFile(id, url, _ssId, _token);
 }
 
 function deleteParentTermFileFromEdit(id, url) {
@@ -1357,7 +1382,7 @@ function deleteParentTermFileFromEdit(id, url) {
       if (rowIdx >= 0 && rowIdx < currentRows.length) buildEditModal(currentRows[rowIdx]);
     })
     .withFailureHandler(function(er) { alert('エラー: ' + er.message); })
-    .deleteTerminalFile(id, url, _ssId);
+    .deleteTerminalFile(id, url, _ssId, _token);
 }
 
 function changeParentTermFile(id, oldUrl) {
@@ -1381,7 +1406,7 @@ function changeParentTermFile(id, oldUrl) {
           }, 800);
         })
         .withFailureHandler(function(er) { alert('エラー: ' + er.message); })
-        .replaceTerminalFile(id, oldUrl, file.name, b64, file.type, _ssId);
+        .replaceTerminalFile(id, oldUrl, file.name, b64, file.type, _ssId, _token);
     };
     reader.readAsDataURL(file);
   };
@@ -1408,7 +1433,7 @@ function saveEditRow() {
     google.script.run
       .withSuccessHandler(function(r) { toast(r && r.ok ? '✓ 追加しました' : '追加失敗: ' + (r ? r.msg : '')); fetchSheetData(); })
       .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-      .appendSheetRow(currentSheet, newData, _ssId);
+      .appendSheetRow(currentSheet, newData, _ssId, _token);
   } else {
     var _savedRowIdx = editRowIndex;
     var _isJohoSave  = (currentSheet === '配車板');
@@ -1419,13 +1444,13 @@ function saveEditRow() {
           google.script.run
             .withSuccessHandler(function() { fetchSheetData(); })
             .withFailureHandler(function(e) { toast('配車板後処理エラー: ' + e.message); fetchSheetData(); })
-            .afterSaveJohoFull(_ssId, _savedRowIdx);
+            .afterSaveJohoFull(_ssId, _savedRowIdx, _token);
         } else {
           fetchSheetData();
         }
       })
       .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-      .saveSheetRowData(currentSheet, _savedRowIdx, newData, _ssId);
+      .saveSheetRowData(currentSheet, _savedRowIdx, newData, _ssId, _token);
   }
 }
 
@@ -1593,7 +1618,7 @@ function renderJohoSplit(rows) {
                 google.script.run
                   .withSuccessHandler(function(r) { toast(r && r.ok ? '✓' : '保存失敗'); if (r && r.ok) doAfterSaveJoho(rn_, ci__); })
                   .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-                  .saveSheetRowData(currentSheet, rn_, rd, _ssId);
+                  .saveSheetRowData(currentSheet, rn_, rd, _ssId, _token);
               })(rn, ci_);
             });
           }
@@ -1619,7 +1644,7 @@ function renderJohoSplit(rows) {
               google.script.run
                 .withSuccessHandler(function(r) { toast(r && r.ok ? '✓ 保存' : '保存失敗'); if (r && r.ok) doAfterSaveJoho(rn_, ci__); })
                 .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-                .saveSheetRowData(currentSheet, rn_, rd, _ssId);
+                .saveSheetRowData(currentSheet, rn_, rd, _ssId, _token);
             })(rn, ci_);
           });
           td.appendChild(sel);
@@ -1637,7 +1662,7 @@ function renderJohoSplit(rows) {
               google.script.run
                 .withSuccessHandler(function(r) { toast(r && r.ok ? '✓ 保存' : '保存失敗'); if (r && r.ok) doAfterSaveJoho(rn_, ci__); })
                 .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-                .saveSheetRowData(currentSheet, rn_, rd, _ssId);
+                .saveSheetRowData(currentSheet, rn_, rd, _ssId, _token);
             })(rn, ci_);
           });
         } else {
@@ -1685,7 +1710,7 @@ function johoAddSave() {
       fetchSheetData();
     })
     .withFailureHandler(function(e) { toast('追加エラー: ' + e.message); })
-    .appendJohoRow(rowData, _ssId);
+    .appendJohoRow(rowData, _ssId, _token);
 }
 
 // ================================================================
@@ -1697,7 +1722,7 @@ function doAfterSaveJoho(rn, ci_) {
       if (r && r.ok) fetchSheetData();
     })
     .withFailureHandler(function(e) { toast('配車板後処理エラー: ' + e.message); })
-    .afterSaveJoho(_ssId, rn, ci_ + 1);
+    .afterSaveJoho(_ssId, rn, ci_ + 1, _token);
 }
 
 // ================================================================
@@ -1718,7 +1743,7 @@ function doMatchAndConfirmFromApp(resolvedType) {
       else       { toast('⚠ ' + (r.error || '配車確定に失敗しました')); }
     })
     .withFailureHandler(function(e) { toast('配車確定エラー: ' + e.message); })
-    .matchAndConfirmDispatchFromApp(_ssId, (resolvedType !== undefined && resolvedType !== null) ? resolvedType : null);
+    .matchAndConfirmDispatchFromApp(_ssId, (resolvedType !== undefined && resolvedType !== null) ? resolvedType : null, _token);
 }
 
 // ================================================================
@@ -1743,7 +1768,7 @@ function _setupJohoModalAutoFill(mode) {
         if (r.tel && telInp) telInp.value = r.tel;
         if (r.fax && faxInp) faxInp.value = r.fax;
       })
-      .lookupCompanyContact(_ssId, name, side);
+      .lookupCompanyContact(_ssId, name, side, _token);
   });
 }
 
@@ -1779,7 +1804,7 @@ function deleteRow(rowNum) {
   google.script.run
     .withSuccessHandler(function(r) { toast(r && r.ok ? '✓ 削除しました' : '削除失敗: ' + (r ? r.msg : '')); fetchSheetData(); })
     .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-    .deleteSheetRow(currentSheet, rowNum, _ssId);
+    .deleteSheetRow(currentSheet, rowNum, _ssId, _token);
 }
 
 // ================================================================
@@ -1808,7 +1833,7 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
         fetchSheetData();
       })
       .withFailureHandler(function(err) { toast('エラー: ' + err.message); })
-      .appendAdminFileById(rowId, file.name, base64, file.type, _ssId);
+      .appendAdminFileById(rowId, file.name, base64, file.type, _ssId, _token);
   };
   reader.readAsDataURL(file);
   this.value = '';
@@ -1837,8 +1862,9 @@ function downloadCSV() {
 function downloadExcel() {
   toast('Excelダウンロード準備中...');
   google.script.run
-    .withSuccessHandler(function(b64) {
-      if (!b64) { toast('失敗'); return; }
+    .withSuccessHandler(function(r) {
+      if (!r || !r.ok || !r.base64) { toast('失敗' + (r && r.msg ? '：' + r.msg : '')); return; }
+      var b64 = r.base64;
       var bin = atob(b64), bytes = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       var blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -1849,7 +1875,7 @@ function downloadExcel() {
       toast('✓ Excelダウンロード完了');
     })
     .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-    .exportSheetAsCsvBase64(currentSheet);
+    .exportSelectedSheetsAsExcel(_ssId, [currentSheet], _token);
 }
 
 // ================================================================
@@ -1861,14 +1887,113 @@ document.addEventListener('click', function(e) {
   var w = document.querySelector('.sys-menu-wrap');
   if (w && !w.contains(e.target)) closeSysMenu();
 });
+// 画面を出すメニュー → 別タブで開く画面の種類
+var SYS_TOOLS = {
+  showCsvImportDialogUnkou: 'csvUnkou', showCsvImportDialogMaster: 'csvMaster', showCsvImportDialogCust: 'csvCust',
+  showDispatchDashboard: 'dispatch', showEtcImportDialog: 'etc', showExportDialog: 'export',
+  showHatchuDocDialog: 'hatchu', showShabanDocDialog: 'shaban', showPlDialog: 'pl'
+};
+// 行を使うメニュー → 行を選べるシート
+var SYS_ROW_SHEETS = {
+  cancelDispatch: ['配車板', '運行'], autoFillExpense: ['自車専属マスタ'],
+  showHatchuDocDialog: ['運行', '集計表'], showShabanDocDialog: ['運行', '集計表']
+};
+var _pickRow = null;  // 行を選ぶ待ち（{ fn, label }）
+
+// システムメニューの実行（このURLのSSに対して動く）
 function runSys(fn, label) {
   closeSysMenu();
-  if (!confirm(label + ' を実行しますか？')) return;
+  if (fn === 'matchAndConfirmDispatch') {
+    if (!confirm(label + ' を実行しますか？')) return;
+    doMatchAndConfirmFromApp();
+    return;
+  }
+  var need = SYS_ROW_SHEETS[fn];
+  if (need) {
+    if (need.indexOf(currentSheet) === -1) { alert('先に「' + need.join('」または「') + '」シートを開いてから実行してください'); return; }
+    _pickRow = { fn: fn, label: label };
+    toast('対象の行をタップしてください（' + label + '）');
+    return;
+  }
+  proceedSys_(fn, label, {});
+}
+
+// 行を選ぶ待ちの時は、表の行のタップを対象行として受け取る
+document.addEventListener('click', function(ev) {
+  if (!_pickRow) return;
+  var tr = ev.target && ev.target.closest ? ev.target.closest('tr[data-row-num]') : null;
+  if (!tr) return;
+  ev.preventDefault(); ev.stopPropagation();
+  var p = _pickRow; _pickRow = null;
+  proceedSys_(p.fn, p.label, { sheetName: currentSheet, row: parseInt(tr.dataset.rowNum, 10), numRows: 1 });
+}, true);
+
+function proceedSys_(fn, label, opts) {
+  if (SYS_TOOLS[fn]) { openToolTab_(SYS_TOOLS[fn], opts); return; }
+  if (!confirm(label + ' を実行しますか？' + (opts.row ? '（' + opts.sheetName + ' の ' + opts.row + '行目）' : ''))) return;
+  runSysCall_(fn, label, opts);
+}
+
+function runSysCall_(fn, label, opts) {
   toast('実行中: ' + label + '...');
   google.script.run
-    .withSuccessHandler(function() { toast('✓ ' + label + ' 完了'); })
-    .withFailureHandler(function(e) { toast('エラー: ' + e.message); })
-    [fn]();
+    .withSuccessHandler(function(r) {
+      if (r && r.needAnswer) {
+        askAnswer_(r.needAnswer, function(ans) {
+          if (ans === 'CANCEL' || (ans && ans.button === 'CANCEL')) { toast('中止しました'); return; }
+          opts.answers = (opts.answers || []).concat([ans]);
+          runSysCall_(fn, label, opts);
+        });
+        return;
+      }
+      toast('✓ ' + label + ' 完了');
+      var msgs = (r && r.messages) ? r.messages : [];
+      if (msgs.length) alert(msgs.join('\n\n'));
+      if (currentSheet) fetchSheetData();
+    })
+    .withFailureHandler(function(e) { toast('エラー: ' + e.message); alert('エラー: ' + e.message); })
+    .runParentSystemAction(fn, _ssId, _token, opts);
+}
+
+// 処理の途中の質問（はい/いいえ・入力）を聞く
+function askAnswer_(q, cb) {
+  var text = (q.title ? q.title + '\n\n' : '') + q.msg;
+  if (q.type === 'prompt') {
+    var t = prompt(text);
+    cb(t === null ? { button: 'CANCEL', text: '' } : { button: 'OK', text: t });
+    return;
+  }
+  var btns = q.buttons === 'YES_NO' ? [['YES', 'はい', 'eb-save'], ['NO', 'いいえ', 'eb-close']]
+           : q.buttons === 'YES_NO_CANCEL' ? [['YES', 'はい', 'eb-save'], ['NO', 'いいえ', 'eb-close'], ['CANCEL', 'キャンセル', 'eb-delete']]
+           : q.buttons === 'OK_CANCEL' ? [['OK', 'OK', 'eb-save'], ['CANCEL', 'キャンセル', 'eb-close']]
+           : [['OK', 'OK', 'eb-save']];
+  var ov = document.getElementById('askOverlay');
+  var box = document.getElementById('askBox');
+  box.innerHTML = '<div class="edit-val" style="white-space:pre-wrap;">' + esc(text) + '</div><div class="edit-btns" id="askBtns"></div>';
+  var area = document.getElementById('askBtns');
+  btns.forEach(function(b) {
+    var el = document.createElement('button');
+    el.className = 'edit-btn ' + b[2];
+    el.textContent = b[1];
+    el.onclick = function() { ov.classList.remove('show'); cb(b[0]); };
+    area.appendChild(el);
+  });
+  ov.classList.add('show');
+}
+
+// 画面を別タブで開く（引換券をサーバーから受け取り、URLの#以降に付ける）
+function openToolTab_(tool, opts) {
+  var w = window.open('', '_blank');
+  toast('画面を準備中...');
+  google.script.run
+    .withSuccessHandler(function(ticket) {
+      var url = _appUrl + '?page=tool&tool=' + encodeURIComponent(tool) + '&ssId=' + encodeURIComponent(_ssId)
+        + (opts && opts.row ? '&sheet=' + encodeURIComponent(opts.sheetName) + '&row=' + opts.row : '')
+        + '#t=' + ticket;
+      if (w) w.location.href = url; else window.open(url, '_blank');
+    })
+    .withFailureHandler(function(e) { if (w) w.close(); toast('エラー: ' + e.message); alert('エラー: ' + e.message); })
+    .createToolTicket(_ssId, _token);
 }
 
 // ================================================================

@@ -78,6 +78,7 @@ table.prev tr.err td { background:rgba(211,47,47,0.1) !important; color:#ff5252;
 <script>
 var ST = '<?= sheetType ?>';
 var SSID = '<?= currentSsId ?>';
+var TOOL_TOKEN = '<?= toolToken ?>'; // 管理画面から開いた時だけ入る管理者ログイン状態（スプレッドシートからは空）
 var wb = null, dict = [], rawJson = [], headerRow = 0, firstDataRow = 0, parsedRows = [], extractedYM = null, rowYMMap = [], rawBuf = null, rawFileName = '';
 var fields = [];
 var _getDefVal = null;
@@ -225,7 +226,7 @@ function _doMergeAndLoad(names) {
   google.script.run
     .withSuccessHandler(function(d){ dict = d||[]; buildMappingUI(); })
     .withFailureHandler(function(){ dict = []; buildMappingUI(); })
-    .getImportDictionary(ST, SSID);
+    .getImportDictionary(ST, SSID, TOOL_TOKEN);
 }
 
 // ヘッダー行を特定（キーワードスコア最大の行を選ぶ — タイトル行への誤検知を防ぐ）
@@ -758,14 +759,14 @@ function doImport() {
         bar('❌ 登録エラー: '+(err.message||String(err)),'error');
         document.getElementById('btnOk').disabled=false;
       })
-      .importBulkRows(ST,chunks[sent],SSID,isLast,isLast?validRows:null);
+      .importBulkRows(ST,chunks[sent],SSID,isLast,isLast?validRows:null,TOOL_TOKEN);
   }
 
   if(newAliases.length>0) {
     google.script.run
       .withSuccessHandler(runImp)
       .withFailureHandler(function(){ bar('列名の学習保存に失敗しました。取込は続行します。','info'); setTimeout(runImp,500); })
-      .saveImportAliases(ST,newAliases,SSID);
+      .saveImportAliases(ST,newAliases,SSID,TOOL_TOKEN);
   } else { runImp(); }
 }
 

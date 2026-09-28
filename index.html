@@ -834,10 +834,12 @@
 // ============================================================
 //  C-1: 初期データ取得（起動時）
 //  ★解除ボタン以外では紐づけを絶対に消さない
-//  URLパラメータ ?ssId=xxx がある場合、先にサーバーへ保存してから getInitialData を呼ぶ
+//  COMPANY_SS_ID（URLの ?ssId=xxx、無い時はサーバーが入れたこのURLのSSのID）を全てのサーバー呼び出しに付ける
 // ============================================================
 var COMPANY_SS_ID = '<?= companySsId ?>'; // doGet(e) から渡される会社のスプレッドシートID
 var LS_EMAIL_KEY = 'unkouLinkedEmail' + (COMPANY_SS_ID ? '_' + COMPANY_SS_ID : '');
+// 旧版（SS指定なしで開いた時）の保存名から1回だけ引き継ぐ（本人確認はサーバー側で毎回行う）
+try { if (!localStorage.getItem(LS_EMAIL_KEY) && localStorage.getItem('unkouLinkedEmail')) localStorage.setItem(LS_EMAIL_KEY, localStorage.getItem('unkouLinkedEmail')); } catch(e) {}
 function getMyEmail() { return localStorage.getItem(LS_EMAIL_KEY) || ''; }
 
 window.onload = function() {
@@ -1214,7 +1216,7 @@ function fillCarFromMaster() {
     document.getElementById('step1Kanban').value = info.company || '';
     document.getElementById('step1Name').value   = info.name    || '';
     document.getElementById('step1Tel').value    = info.tel     || '';
-  }).getCarInfoByNumber(carVal, COMPANY_SS_ID);
+  }).getCarInfoByNumber(carVal, COMPANY_SS_ID, getMyEmail());
 }
 
 // ============================================================
@@ -1622,7 +1624,7 @@ function showList() {
   google.script.run
     .withSuccessHandler(function(r) { readIds = r || []; loadList(); })
     .withFailureHandler(function() { readIds = []; loadList(); })
-    .getReadNotices(getMyEmail());
+    .getReadNotices(getMyEmail(), COMPANY_SS_ID);
 }
 
 function prevMonth() { listMonth--; if (listMonth===0) { listMonth=12; listYear--; } filterDateFrom=''; filterDateTo=''; loadList(); }
@@ -2358,7 +2360,7 @@ function deleteTermFileDirect(id, encodedUrl) {
   google.script.run
     .withSuccessHandler(function(){ delete _editDataCache[id]; openTermDataModal(id);})
     .withFailureHandler(function(e){alert('処理に失敗しました。通信状況を確認して再度お試しください。\n（エラー：'+e.message+'）');})
-    .deleteTerminalFile(id, decodeURIComponent(encodedUrl), COMPANY_SS_ID);
+    .deleteTerminalFile(id, decodeURIComponent(encodedUrl), COMPANY_SS_ID, getMyEmail());
 }
 function changeTermFileDirect(id, oldUrl) {
   var input=document.createElement('input'); input.type='file'; input.accept='image/*,.pdf,.doc,.docx,.xls,.xlsx';
@@ -2370,7 +2372,7 @@ function changeTermFileDirect(id, oldUrl) {
       google.script.run
         .withSuccessHandler(function(){ delete _editDataCache[id]; openTermDataModal(id);})
         .withFailureHandler(function(e){alert('エラー: '+e.message);})
-        .replaceTerminalFile(id,oldUrl,file.name,b64,file.type, COMPANY_SS_ID);
+        .replaceTerminalFile(id,oldUrl,file.name,b64,file.type, COMPANY_SS_ID, getMyEmail());
     };
     reader.readAsDataURL(file);
   };
@@ -2399,7 +2401,7 @@ function addAdminFile(id) {
         google.script.run
           .withSuccessHandler(function(){ upNext(); })
           .withFailureHandler(function(err){ upFails.push(file.name); upNext(); })
-          .appendAdminFileById(id,file.name,b64,file.type, COMPANY_SS_ID);
+          .appendAdminFileById(id,file.name,b64,file.type, COMPANY_SS_ID, getMyEmail());
       };
       reader.readAsDataURL(file);
     }
@@ -2412,7 +2414,7 @@ function deleteAdminFile(id, encodedUrl) {
   google.script.run
     .withSuccessHandler(function(){ delete _editDataCache[id]; openEditModal(id);})
     .withFailureHandler(function(e){alert('処理に失敗しました。通信状況を確認して再度お試しください。\n（エラー：'+e.message+'）');})
-    .deleteAdminFileById(id, decodeURIComponent(encodedUrl), COMPANY_SS_ID);
+    .deleteAdminFileById(id, decodeURIComponent(encodedUrl), COMPANY_SS_ID, getMyEmail());
 }
 function changeAdminFile(id, oldUrl) {
   var input=document.createElement('input'); input.type='file'; input.accept='image/*,.pdf,.doc,.docx,.xls,.xlsx';
@@ -2424,7 +2426,7 @@ function changeAdminFile(id, oldUrl) {
       google.script.run
         .withSuccessHandler(function(){ delete _editDataCache[id]; openEditModal(id);})
         .withFailureHandler(function(e){alert('エラー: '+e.message);})
-        .replaceAdminFileById(id,oldUrl,file.name,b64,file.type, COMPANY_SS_ID);
+        .replaceAdminFileById(id,oldUrl,file.name,b64,file.type, COMPANY_SS_ID, getMyEmail());
     };
     reader.readAsDataURL(file);
   };
@@ -2665,7 +2667,7 @@ function deleteTermFile(id, encodedUrl) {
   google.script.run
     .withSuccessHandler(function(){ delete _editDataCache[id]; openEditModal(id);})
     .withFailureHandler(function(e){alert('処理に失敗しました。通信状況を確認して再度お試しください。\n（エラー：'+e.message+'）');})
-    .deleteTerminalFile(id, url, COMPANY_SS_ID);
+    .deleteTerminalFile(id, url, COMPANY_SS_ID, getMyEmail());
 }
 function changeTermFile(id, oldUrl) {
   var input=document.createElement('input'); input.type='file'; input.accept='image/*,.pdf,.doc,.docx,.xls,.xlsx';
@@ -2677,7 +2679,7 @@ function changeTermFile(id, oldUrl) {
       google.script.run
         .withSuccessHandler(function(){ delete _editDataCache[id]; openEditModal(id);})
         .withFailureHandler(function(e){alert('エラー: '+e.message);})
-        .replaceTerminalFile(id,oldUrl,file.name,b64,file.type, COMPANY_SS_ID);
+        .replaceTerminalFile(id,oldUrl,file.name,b64,file.type, COMPANY_SS_ID, getMyEmail());
     };
     reader.readAsDataURL(file);
   };
@@ -2697,7 +2699,7 @@ function saveTermNoticeFromEdit(id) {
       setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},2000);
     })
     .withFailureHandler(function(e){ alert('保存エラー: '+e.message); })
-    .saveTermNoticeByDriver(id, val, COMPANY_SS_ID);
+    .saveTermNoticeByDriver(id, val, COMPANY_SS_ID, getMyEmail());
 }
 
 // ============================================================
@@ -2839,7 +2841,7 @@ function openHomeNoticeDetail(idx) {
   h+='</div></div>';
   document.getElementById('noticeDetailBody').innerHTML=h;
   noticeReturnTo='home'; showScreen('noticeDetail','連絡詳細');
-  google.script.run.withFailureHandler(function(e){console.error(e);}).markAsRead(n.id, getMyEmail());
+  google.script.run.withFailureHandler(function(e){console.error(e);}).markAsRead(n.id, getMyEmail(), COMPANY_SS_ID);
   var el=document.getElementById('homeNotice_'+n.id);
   if(el) el.remove();
   var area=document.getElementById('noticeArea');
@@ -2858,7 +2860,7 @@ function openNoticeDetail(id, alreadyRead) {
   h+='</div></div>';
   document.getElementById('noticeDetailBody').innerHTML=h;
   noticeReturnTo='list'; showScreen('noticeDetail','連絡詳細');
-  if(!alreadyRead){ if(readIds.indexOf(id)===-1) readIds.push(id); google.script.run.withFailureHandler(function(e){console.error(e);}).markAsRead(id, getMyEmail()); }
+  if(!alreadyRead){ if(readIds.indexOf(id)===-1) readIds.push(id); google.script.run.withFailureHandler(function(e){console.error(e);}).markAsRead(id, getMyEmail(), COMPANY_SS_ID); }
 }
 function closeNoticeDetail() {
   if(noticeReturnTo==='home'){ goHome(); loadNotices(); }

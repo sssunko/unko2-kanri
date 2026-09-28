@@ -80,6 +80,7 @@ table.doc-tbl td.num{text-align:right;}
 <script>
 var DATA = <?!= docData ?>;
 var TYPE = '<?!= docType ?>';
+var TOOL_TOKEN = '<?= toolToken ?>'; // 管理画面から開いた時だけ入る管理者ログイン状態（スプレッドシートからは空）
 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmtMoney(v){
@@ -191,7 +192,7 @@ function loadHistory() {
   google.script.run
     .withSuccessHandler(renderHistory)
     .withFailureHandler(function(e) { document.getElementById('sh-list').innerHTML = '<div style="color:red;">エラー: ' + (e && e.message ? e.message : String(e)) + '</div>'; })
-    .getShijisakiHistory(DATA.client, DATA.ssId);
+    .getShijisakiHistory(DATA.client, DATA.ssId, TOOL_TOKEN);
 }
 
 function renderHistory(list) {
@@ -235,7 +236,7 @@ function deleteHistory(i) {
       renderHistory(window._sjHistory);
     })
     .withFailureHandler(function(err) { alert('削除に失敗しました: ' + err.message); })
-    .deleteShijisakiHistory(DATA.client, r.company, r.tel, r.person, r.addr, DATA.ssId);
+    .deleteShijisakiHistory(DATA.client, r.company, r.tel, r.person, r.addr, DATA.ssId, TOOL_TOKEN);
 }
 
 function pickHistory(i) {
@@ -264,7 +265,7 @@ function onSaveShijisaki() {
       if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
       alert('保存に失敗しました: ' + err.message);
     })
-    .saveShijisakiByRowId(DATA.id, sj, DATA.client, DATA.ssId);
+    .saveShijisakiByRowId(DATA.id, sj, DATA.client, DATA.ssId, TOOL_TOKEN);
 }
 
 function requestClose() {
@@ -281,7 +282,7 @@ function saveAndClose() {
   google.script.run
     .withSuccessHandler(function() { _hasUnsaved = false; google.script.host.close(); })
     .withFailureHandler(function() { google.script.host.close(); })
-    .saveShijisakiByRowId(DATA.id, sj, DATA.client, DATA.ssId);
+    .saveShijisakiByRowId(DATA.id, sj, DATA.client, DATA.ssId, TOOL_TOKEN);
 }
 
 function discardAndClose() {
@@ -312,7 +313,7 @@ function onSaveKyoryoku() {
       if (btn) { btn.disabled = false; btn.textContent = '💾 保存'; }
       alert('保存に失敗しました: ' + (e && e.message ? e.message : String(e)));
     })
-    .saveKyoryokuHistory(DATA.client, yh, DATA.ssId);
+    .saveKyoryokuHistory(DATA.client, yh, DATA.ssId, TOOL_TOKEN);
 }
 
 function loadKyoryokuHistory() {
@@ -322,7 +323,7 @@ function loadKyoryokuHistory() {
   google.script.run
     .withSuccessHandler(renderKyoryokuHistory)
     .withFailureHandler(function(e) { document.getElementById('yh-list').innerHTML = '<div style="color:red;">エラー: ' + (e && e.message ? e.message : String(e)) + '</div>'; })
-    .getKyoryokuHistory(DATA.client, DATA.ssId);
+    .getKyoryokuHistory(DATA.client, DATA.ssId, TOOL_TOKEN);
 }
 
 function renderKyoryokuHistory(list) {
@@ -380,15 +381,15 @@ function onPrint() {
   if (TYPE === 'hatchu') {
     var sj = getShijisaki();
     if (sj.company || sj.tel || sj.person || sj.addr) {
-      google.script.run.saveShijisakiHistory(DATA.client, sj, DATA.ssId);
+      google.script.run.saveShijisakiHistory(DATA.client, sj, DATA.ssId, TOOL_TOKEN);
     }
   } else {
     var yhP = getKyoryoku();
     if (yhP.signboard || yhP.car || yhP.driver || yhP.phone) {
-      google.script.run.saveKyoryokuHistory(DATA.client, yhP, DATA.ssId);
+      google.script.run.saveKyoryokuHistory(DATA.client, yhP, DATA.ssId, TOOL_TOKEN);
     }
   }
-  google.script.run.markDocumentIssued(DATA.id, TYPE, DATA.ssId);
+  google.script.run.markDocumentIssued(DATA.id, TYPE, DATA.ssId, TOOL_TOKEN);
 }
 
 function onEmailSend() {
@@ -400,7 +401,7 @@ function onEmailSend() {
   var btn = document.getElementById('btn-email');
   btn.disabled = true; btn.textContent = '送信中...';
   if (TYPE === 'hatchu') { DATA.shijisaki = getShijisaki(); }
-  else { var yhE = getKyoryoku(); if (yhE.signboard || yhE.car || yhE.driver || yhE.phone) google.script.run.saveKyoryokuHistory(DATA.client, yhE, DATA.ssId); }
+  else { var yhE = getKyoryoku(); if (yhE.signboard || yhE.car || yhE.driver || yhE.phone) google.script.run.saveKyoryokuHistory(DATA.client, yhE, DATA.ssId, TOOL_TOKEN); }
   google.script.run
     .withSuccessHandler(function(r) {
       if (r && r.ok) {
@@ -416,7 +417,7 @@ function onEmailSend() {
       alert('エラー: ' + e.message);
       btn.disabled = false; btn.textContent = '✉️ メール送信';
     })
-    .sendDocumentEmail(DATA, TYPE, 'email');
+    .sendDocumentEmail(DATA, TYPE, 'email', TOOL_TOKEN);
 }
 
 function onFaxSend() {
@@ -428,7 +429,7 @@ function onFaxSend() {
   var btn = document.getElementById('btn-fax');
   btn.disabled = true; btn.textContent = '送信中...';
   if (TYPE === 'hatchu') { DATA.shijisaki = getShijisaki(); }
-  else { var yhF = getKyoryoku(); if (yhF.signboard || yhF.car || yhF.driver || yhF.phone) google.script.run.saveKyoryokuHistory(DATA.client, yhF, DATA.ssId); }
+  else { var yhF = getKyoryoku(); if (yhF.signboard || yhF.car || yhF.driver || yhF.phone) google.script.run.saveKyoryokuHistory(DATA.client, yhF, DATA.ssId, TOOL_TOKEN); }
   google.script.run
     .withSuccessHandler(function(r) {
       if (r && r.ok) {
@@ -444,7 +445,7 @@ function onFaxSend() {
       alert('エラー: ' + e.message);
       btn.disabled = false; btn.textContent = '📠 FAX送信';
     })
-    .sendDocumentEmail(DATA, TYPE, 'fax');
+    .sendDocumentEmail(DATA, TYPE, 'fax', TOOL_TOKEN);
 }
 
 (function(){
@@ -460,7 +461,7 @@ function onFaxSend() {
         document.getElementById('sj-person').textContent  = d.person ||'';
         document.getElementById('sj-addr').textContent    = d.addr   ||'';
       })
-      .getShijisakiByRowId(DATA.id, DATA.ssId);
+      .getShijisakiByRowId(DATA.id, DATA.ssId, TOOL_TOKEN);
   }
 })();
 </script>

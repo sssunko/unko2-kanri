@@ -105,6 +105,8 @@ tbody tr:hover td { background: #ffeaea; }
 <div id="content"><div class="loading">読み込み中...</div></div>
 
 <script>
+var TOOL_SSID  = '<?= toolSsId ?>';  // 対象SSのID
+var TOOL_TOKEN = '<?= toolToken ?>'; // 管理画面から開いた時だけ入る管理者ログイン状態（スプレッドシートからは空）
 var _timer;
 
 function loadData() {
@@ -115,7 +117,7 @@ function loadData() {
     .withFailureHandler(function(e) {
       document.getElementById('content').innerHTML = '<div class="err">エラー: ' + (e.message||e) + '</div>';
     })
-    .getDispatchDashboardData();
+    .getDispatchDashboardData(TOOL_SSID, TOOL_TOKEN);
 }
 
 function render(data) {

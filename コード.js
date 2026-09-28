@@ -40,13 +40,15 @@
 //   1-6  : applyDateTimeFormat_(sheet, startRow, numRows)
 //            時刻列へのM/d HH:mm書式適用
 //   1-7  : applyHolidayRowColors_(ss)
-//            積地（L列=12）背景色設定
+//            有休・休み・配車漏れ・保護列の背景色設定
 //   1-7b : markIdCollisions_(ss)
 //            IDが重複している行のA列を赤色でマーク
 //   1-7c : applyExpiryWarningColors_(ss)
 //            期限アラート色付け
 //   1-7d : showExpiryAlert
 //            期限アラート
+//   1-7d-1: collectExpiryWarnings_(ss)
+//            期限切れ・期限間近の一覧作成
 //   1-8  : sortUnkouByDate_(companySsId, skipBlankDelete)
 //            運行シートを日付順に並び替え
 //   1-9  : sortSummaryByDate_(companySsId)
@@ -64,19 +66,33 @@
 //   2-2  : doGet(e)
 //            Webアプリ起動
 //   2-2b : storeCompanySsId(ssId)
-//            ssIdをUserPropertiesに保存
+//            旧版画面との互換用の受け口
 //   2-2c : getTargetSS_(ssId)
 //            対象スプレッドシート取得
 //   2-2d : validateDriverEmail_(email, companySsId)
 //            ドライバー認証
+//   2-2e : cleanupLegacySharedKeys_()
+//            旧版が全客共通の保存場所に残した値の削除
 //   2-3  : showSidebar()
 //            サイドバー表示
 //   2-4  : showUploadSidebar()
 //            写真・ファイル取込サイドバー
 //   2-5  : showDispatchDashboard()
 //            配車ダッシュボード表示
-//   2-5b : getDispatchDashboardData()
+//   2-5b : getDispatchDashboardData(ssId, token)
 //            配車ダッシュボード用データ取得
+//   2-6  : isSsLoggedIn()
+//            SSを開いた時のログイン確認
+//   2-6a : showSsLoginDialog()
+//            SSのログイン画面表示
+//   2-6b : loginSs(email, password, keep)
+//            SSのログイン実行
+//   2-6c : checkSsLoginOnSelect(e)
+//            セル選択時のログイン確認
+//   2-6d : ssLoginRequired_(ss)
+//            ログインが必要なSSか判定
+//   2-6e : ssLoginStateKey_(ss)
+//            SSのログイン状態の保存キー
 //
 // ── グループ3：スプレッドシート自動処理（onEdit） ───
 //   3-1  : onEdit(e)
@@ -100,16 +116,16 @@
 //   3-4  : onEditMasterCustomer_(sheet, range)
 //            マスタ（取引先）編集時の処理
 //   3-5  : onEditJoho_(sheet, range, ss)
-//            情報シート編集時の処理
+//            配車板編集時の処理
 //   3-5a : registerJohoRowToUnkou_(johoSheet, rowNum, confirmedCol, ss)
-//            情報シート1行を運行シートに即登録
+//            配車板1行を運行シートに即登録
 //   3-5b : refreshJohoColors_(ss)
-//            情報シート全行の進捗色を一括再適用
+//            配車板全行の進捗色を一括再適用
 //   3-5c : afterSaveJoho / afterSaveJohoFull
 //            配車板保存後処理
-//   3-5d : appendJohoRow(rowData, ssId)
+//   3-5d : appendJohoRow(rowData, ssId, token)
 //            親アプリの配車板行追加
-//   3-5e : lookupCompanyContact(ssId, companyName, side)
+//   3-5e : lookupCompanyContact(ssId, companyName, side, token)
 //            親アプリの会社名TEL/FAX照会
 //
 // ── グループ4：集計表・シート構造管理 ───────────────
@@ -117,8 +133,10 @@
 //            集計表再生成
 //   4-1a : generateSummaryCore_(ss, extraOld)
 //            集計表再生成の本体
-//   4-1b : convertLegacyAdminDataUrls_()
+//   4-1b : convertLegacyAdminDataUrls_(ss)
 //            管理側データURLをリッチテキストに一括変換
+//   4-1c : migrateSummaryTollSign_(ss)
+//            集計表の合計(高速代)を請求−実費にそろえる
 //   4-2  : syncSummaryForId_(targetId, ss)
 //            集計表をID単位で同期
 //   4-2a : ensureSettingItems_(ss)
@@ -231,7 +249,7 @@
 //            住所選択結果の受け取り
 //   4-9o : calcDistanceTrigger_()
 //            ①の距離計算定時実行
-//   4-9p : calcDistanceForSS(ssId)
+//   4-9p : calcDistanceForSS(ssId, scriptId)
 //            SS指定の距離一括計算
 //   4-10 : calcDistanceManual()
 //            距離計算手動実行
@@ -261,7 +279,7 @@
 // ── グループ5：端末アプリ 起動・紐づけ ──────────────
 //   5-1  : getInitialData(hintEmail, companySsId)
 //            起動時の初期データ一括取得
-//   5-1b : getCarInfoByNumber(carNo, companySsId)
+//   5-1b : getCarInfoByNumber(carNo, companySsId, auth)
 //            車番でマスタ検索
 //   5-2  : linkAddress(email, companySsId)
 //            紐づけ実行
@@ -271,7 +289,9 @@
 // ── グループ6：端末アプリ 運行進捗管理 ──────────────
 //   6-1  : saveRunState(state, email, companySsId)
 //            端末の運行進捗を保存
-//   6-2  : loadRunState()
+//   6-1b : runStatePrefix_(email, companySsId)
+//            運行進捗の保存キー接頭辞
+//   6-2  : loadRunState(email, companySsId)
 //            端末の運行進捗を読み込み
 //   6-3  : clearRunState(email, companySsId)
 //            端末の運行進捗をクリア
@@ -283,13 +303,13 @@
 //            IDとルートインデックスで行番号を動的検索
 //   7-2  : createParentRows(picks, drops, dateStr, overrideInfo, companySsId, email)
 //            運行シートへの行作成
-//   7-3  : setGuideComplete(id, routeIndex, companySsId)
+//   7-3  : setGuideComplete(id, routeIndex, companySsId, email)
 //            誘導時刻記録
-//   7-4  : setPickComplete(id, routeIndex, companySsId)
+//   7-4  : setPickComplete(id, routeIndex, companySsId, email)
 //            積完時刻記録
-//   7-5  : setRest(id, routeIndex, type, companySsId)
+//   7-5  : setRest(id, routeIndex, type, companySsId, email)
 //            休憩開始・終了時刻記録
-//   7-6  : setDropComplete(id, routeIndex, companySsId)
+//   7-6  : setDropComplete(id, routeIndex, companySsId, email)
 //            降完時刻記録
 //   7-7  : recordAction(actionType, id, routeIndex, stateObj, companySsId, email)
 //            状態保存＋時刻記録 一括実行
@@ -307,13 +327,13 @@
 //            時刻セルクリア
 //   8-4  : getListData(year, month, companySsId, email)
 //            運行一覧データ取得
-//   8-4b : clearListCache_(email)
+//   8-4b : clearListCache_(email, ssId)
 //            一覧データキャッシュ削除
 //   8-5  : getEditData(id, companySsId, email)
 //            編集用データ取得
 //   8-6  : saveEditData(obj, companySsId, email)
 //            編集データ保存
-//   8-6a : saveTermNoticeByDriver(id, termNotice, companySsId)
+//   8-6a : saveTermNoticeByDriver(id, termNotice, companySsId, auth)
 //            端末連絡保存
 //   8-6a-1: applySheetColors_(ss)
 //            シート色設定
@@ -341,13 +361,13 @@
 //            管理側ファイルURLをリッチテキストから取得
 //   8-6c : appendTerminalFile(id, fileName, base64Data, mimeType, companySsId, email)
 //            端末ファイル追加
-//   8-6c-a: appendTerminalFileAdmin(id, fileName, base64Data, mimeType, companySsId)
+//   8-6c-a: appendTerminalFileAdmin(id, fileName, base64Data, mimeType, companySsId, token)
 //            端末ファイル追加（管理者用・メール認証なし）
-//   8-6c-2: appendAdminFileById(id, fileName, base64Data, mimeType, companySsId)
+//   8-6c-2: appendAdminFileById(id, fileName, base64Data, mimeType, companySsId, auth)
 //            管理側ファイル追加・削除・差替（ID指定）
-//   8-6d : deleteTerminalFile(id, urlToDelete, companySsId)
+//   8-6d : deleteTerminalFile(id, urlToDelete, companySsId, auth)
 //            端末ファイル削除
-//   8-6e : replaceTerminalFile(id, oldUrl, fileName, base64Data, mimeType, companySsId)
+//   8-6e : replaceTerminalFile(id, oldUrl, fileName, base64Data, mimeType, companySsId, auth)
 //            端末ファイル差し替え
 //   8-7  : deleteRunById(id, companySsId, email)
 //            運行データ削除
@@ -378,10 +398,10 @@
 //   10-2 : getRoutesById(id, companySsId, email)
 //            ID指定行程取得
 //   10-2b: getNoticeByRow(id, companySsId, email)
-//            行番号指定で連絡事項取得
-//   10-3 : markAsRead(id, email)
+//            ID指定で連絡事項取得
+//   10-3 : markAsRead(id, email, companySsId)
 //            既読管理・既読にする
-//   10-4 : getReadNotices(email)
+//   10-4 : getReadNotices(email, companySsId)
 //            既読管理・既読一覧取得
 //
 // ── グループ11：会社セットアップ・配布メール（管理者用）────────────────
@@ -483,9 +503,9 @@
 //            マスタupsert
 //   13-4f: confirmPasteImport()
 //            貼付取込確定・反映
-//   13-5 : getImportDictionary(sheetType, companySsId)
+//   13-5 : getImportDictionary(sheetType, companySsId, token)
 //            辞書データ取得
-//   13-6 : importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaymentRows)
+//   13-6 : importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaymentRows, token)
 //            データ一括登録
 //   13-7 : buildSheetRow_(sheetType, id, fieldMap, ss)
 //            シート行データ構築
@@ -497,13 +517,13 @@
 //            インポート用日付変換
 //   13-10: toImportNum_(v)
 //            インポート数値変換補助
-//   13-10a: saveImportAliases(sheetType, newMappings, companySsId)
+//   13-10a: saveImportAliases(sheetType, newMappings, companySsId, token)
 //            辞書エイリアス自動保存
 //   13-10b: showEtcImportDialog()
 //            ETC利用明細インポートダイアログ表示
-//   13-11: prepareEtcImport(csvText, colConfig, companySsId)
+//   13-11: prepareEtcImport(csvText, colConfig, companySsId, token)
 //            ETC照合準備
-//   13-12: executeEtcImport(etcRows, carResolution, overwriteManual, companySsId)
+//   13-12: executeEtcImport(etcRows, carResolution, overwriteManual, companySsId, token)
 //            ETC照合実行
 //   13-13: extractCarNum_(carStr)
 //            車番末尾数字抽出
@@ -547,25 +567,25 @@
 //            客SSスクリプト内容の診断
 //   14-3x: repairOneClientSS()
 //            特定1社のスタブを強制修復
-//   14-4 : markDocumentIssued(rowId, docType, ssId)
+//   14-4 : markDocumentIssued(rowId, docType, ssId, token)
 //            帳票発行済マーク
-//   14-5 : sendDocumentEmail(docData, docType, method)
+//   14-5 : sendDocumentEmail(docData, docType, method, token)
 //            帳票メール／FAX送信
-//   14-6 : getShijisakiHistory(clientName, ssId)
+//   14-6 : getShijisakiHistory(clientName, ssId, token)
 //            指示先履歴取得
-//   14-7 : saveShijisakiHistory(clientName, shijisaki, ssId)
+//   14-7 : saveShijisakiHistory(clientName, shijisaki, ssId, token)
 //            指示先履歴保存・公開ラッパー
 //   14-7i: saveShijisakiHistory_(clientName, shijiData, ss)
 //            指示先履歴保存・内部実装
-//   14-8 : getShijisakiByRowId(rowId, ssId)
+//   14-8 : getShijisakiByRowId(rowId, ssId, token)
 //            行ID別指示先取得
-//   14-9 : saveShijisakiByRowId(rowId, shijiData, clientName, ssId)
+//   14-9 : saveShijisakiByRowId(rowId, shijiData, clientName, ssId, token)
 //            行ID別指示先保存
-//   14-10: deleteShijisakiHistory(clientName, company, tel, person, addr, ssId)
+//   14-10: deleteShijisakiHistory(clientName, company, tel, person, addr, ssId, token)
 //            指示先履歴削除
-//   14-11: getKyoryokuHistory(clientName, ssId)
+//   14-11: getKyoryokuHistory(clientName, ssId, token)
 //            協力会社履歴取得
-//   14-12: saveKyoryokuHistory(clientName, yousha, ssId)
+//   14-12: saveKyoryokuHistory(clientName, yousha, ssId, token)
 //            協力会社履歴保存・公開ラッパー
 //   14-12i: saveKyoryokuHistory_(clientName, youshaData, ss)
 //            協力会社履歴保存・内部実装
@@ -573,12 +593,12 @@
 // ── グループ15：配車確定 ─────────────
 //   15-1 : matchAndConfirmDispatch()
 //            配車確定・合体処理
-//   15-1a: matchAndConfirmDispatchFromApp(ssId, resolvedType)
+//   15-1a: matchAndConfirmDispatchFromApp(ssId, resolvedType, token)
 //            親アプリ版の配車確定
 //   15-1b: cancelDispatch()
 //            マッチング解除
 //   15-2 : buildJohoNewRow_(newRow, uIdx, cargoRow, vehRow, overrideType)
-//            情報シート→運行行データ組み立て
+//            配車板→運行行データ組み立て
 //   15-3 : ensureTestMasterSheet_(ss)
 //            テスト用マスタテストシート自動生成
 //   15-4 : ensureCompanySettingSheet_(ss)
@@ -594,7 +614,7 @@
 //   16-2b: clearUketorishoTimestamps()
 //            受領書耳の日時セルをクリア
 //   16-2c: ensureSheetsOnOpen()
-//            F5時の自社設定・テストマスタシート初期化ラッパー
+//            F5時の自社設定・シート並び順・合計(高速代)移行
 //   16-2d: prepareUketorishoForPrint()
 //            受領書耳の日時セルを印刷用に表示
 //   16-3 : showInvoiceDialog()
@@ -605,7 +625,7 @@
 //            請求書FAX送信
 //   16-4 : showPaymentDialog()
 //            支払確認書生成ダイアログ
-//   16-5 : getNextDocNum_(type)
+//   16-5 : getNextDocNum_(type, ss)
 //            書類用連番採番
 //   16-6 : generateInvoiceSheet(company, dateFrom, dateTo, taxRate)
 //            請求書シート生成
@@ -615,9 +635,9 @@
 // ── グループ17：PL（損益計算書）管理 ─────────────
 //   17-1 : showPlDialog()
 //            PLフィルタモーダル表示
-//   17-2 : getPlFilterOptions()
+//   17-2 : getPlFilterOptions(ssId, token)
 //            PLフィルタ選択肢取得
-//   17-3 : generatePl(filters)
+//   17-3 : generatePl(filters, ssId, token)
 //            PL生成メイン
 //   17-3a: buildPlBreakdown_(rows, unit)
 //            表示単位別内訳生成
@@ -631,35 +651,81 @@
 //            仕訳CSV出力
 //   17-6a: resolveJournalMapping_(label)
 //            仕訳行生成補助
-//   17-6a-2: exportPlBundle(opts)
+//   17-6a-2: exportPlBundle(opts, ssId, token)
 //            PL表+仕訳CSV ZIP出力
 //   17-6b: showExportDialog()
 //            CSV・Excel出力ダイアログ
-//   17-6b-1: exportSheetAsCsvBase64(ssId, sheetName)
+//   17-6b-1: exportSheetAsCsvBase64(ssId, sheetName, token)
 //            シートCSV取得
-//   17-6b-2: exportSelectedSheetsAsExcel(ssId, sheetNames)
+//   17-6b-2: exportSelectedSheetsAsExcel(ssId, sheetNames, token)
 //            選択シートExcel取得
+//   17-6b-3: verifyExportAccess_(ssId, token)
+//            書き出しの本人確認
+//   17-6b-4: buildExportDialogHtml_(ss, token)
+//            出力画面のHTML作成
 //   17-7 : initFixedCostMaster()
 //            固定費マスタ初期化
 //   17-7a: updatePlApportionment_(ss)
 //            PL設定按分を全マスタ行に即時反映
-//   17-7b: setRecalcChoice(choice)
+//   17-7b: setRecalcChoice(choice, ssId)
 //            マスタ変更時の再計算範囲保存
 //
 // ── グループP：管理画面（親アプリ） ─────────────
-//   P-1  : getParentSheets(companySsId)
+//   P-1  : getParentSheets(companySsId, token)
 //            管理画面用シート一覧取得
-//   P-2  : getSheetTableData(sheetName, companySsId)
+//   P-2  : getSheetTableData(sheetName, companySsId, token)
 //            管理画面用シートデータ取得
-//   P-3  : saveSheetRowData(sheetName, rowIndex, rowData, companySsId)
+//   P-3  : saveSheetRowData(sheetName, rowIndex, rowData, companySsId, token)
 //            管理画面用シート行保存
-//   P-4  : linkAdminEmail(email, companySsId)
-//            管理者紐づけ登録
-//   P-5  : getLinkedAdminEmail(companySsId)
+//   P-4  : linkAdminEmail(email, companySsId, password, keep)
+//            管理者ログイン
+//   P-4a : checkCompanyLogin_(ssId, email, password)
+//            ログインのアドレス・パスワード照合
+//   P-4b : getCompanyLogin_(ssId)
+//            そのSSのログイン情報取得
+//   P-4c : syncCompanyLogins_(regSheet)
+//            会社登録のログイン情報を写す
+//   P-4d : loginFingerprint_ / sha256Hex_
+//            ログイン情報の指紋
+//   P-4e : isTemplateSs_(ssId)
+//            ②客用SS（テンプレート）か判定
+//   P-4f : createAdminSession_(ssId, email, fp, keep)
+//            管理者ログイン状態の発行
+//   P-4g : verifyAdmin_(token, companySsId)
+//            管理者ログインの確認
+//   P-4h : verifyAppAuth_(auth, companySsId)
+//            アプリ共通の本人確認
+//   P-4i : isSheetContext_(companySsId)
+//            スプレッドシート画面からの呼び出しか判定
+//   P-4j : deleteExpiredLoginStates_(prefix)
+//            期限切れのログイン状態の削除
+//   P-4k : removeLegacyAdminPasswordColumn_(ss)
+//            管理者シートの旧パスワード列の撤去
+//   P-5  : getLinkedAdminEmail(companySsId, token)
 //            管理者情報取得
-//   P-6  : appendSheetRow(sheetName, rowData, companySsId)
+//   P-5a : logoutAdmin(companySsId, token)
+//            管理者ログアウト
+//   P-5b : runParentSystemAction(fnName, companySsId, token, opts)
+//            管理画面のシステムメニュー実行
+//   P-5c : getUiOrWeb_()
+//            画面部品の取得
+//   P-5d : toolSelection_(ss)
+//            選択中のシート・行の取得
+//   P-5e : useToolSs_(ssId, token)
+//            画面から呼ばれる処理の対象SS決定・本人確認
+//   P-5f : requireSheetUi_()
+//            スプレッドシート専用の処理か確認
+//   P-5g : renderTool(tool, companySsId, ticket, opts)
+//            管理画面から開く画面の作成
+//   P-5h : createToolTicket(companySsId, token)
+//            画面を開く引換券の発行
+//   P-5i : buildToolHtml_(tool, ss, token)
+//            画面のHTML作成
+//   P-5j : checkExpiriesForApp_()
+//            管理画面用の期限チェック
+//   P-6  : appendSheetRow(sheetName, rowData, companySsId, token)
 //            行追加
-//   P-7  : deleteSheetRow(sheetName, rowIndex, companySsId)
+//   P-7  : deleteSheetRow(sheetName, rowIndex, companySsId, token)
 //            行削除
 //
 // ================================================================
@@ -688,12 +754,12 @@
 //
 //  ▼ 中分類 ── 機能グループ（グループ番号と1:1対応）
 //
-//   中1   補助関数群　　　　　　　　　 1-1〜1-10（18件）
-//   中2   起動・メニュー　　　　　　　 2-1〜2-5b（11件）
+//   中1   補助関数群　　　　　　　　　 1-1〜1-10（19件）
+//   中2   起動・メニュー　　　　　　　 2-1〜2-6e（18件）
 //   中3   スプレッドシート自動処理　　 3-1〜3-5e（16件）
-//   中4   集計表・シート操作　　　　　 4-1〜4-13e（72件）
+//   中4   集計表・シート操作　　　　　 4-1〜4-13e（73件）
 //   中5   アプリ初期化・紐づけ　　　　 5-1〜5-3（4件）
-//   中6   端末 運行進捗管理　　　　　 6-1〜6-3（3件）
+//   中6   端末 運行進捗管理　　　　　 6-1〜6-3（4件）
 //   中7   端末 運行操作　　　　　　　 7-1〜7-9（10件）
 //   中8   端末 一覧・編集・ファイル　 8-1〜8-7（26件）
 //   中9   端末 連絡・ファイル　　　　 9-1〜9-4（9件）
@@ -704,8 +770,8 @@
 //   中14  トリガー・反映・帳票　　　　 14-1〜14-12i（27件）
 //   中15  配車確定　　　　　　　　　　 15-1〜15-5（7件）
 //   中16  受領書・請求書・支払確認書　 16-1〜16-7（12件）
-//   中17  PL管理　　　　　　　　　　 17-1〜17-7b（16件）
-//   中P   管理画面（親アプリ）　　　　 P-1〜P-7（7件）
+//   中17  PL管理　　　　　　　　　　 17-1〜17-7b（18件）
+//   中P   管理画面（親アプリ）　　　　 P-1〜P-7（28件）
 //   ※ 各番号の関数名・説明は上の「関数番号体系」目次を参照
 //
 // ──────────────────────────────────────────────────────────────────
@@ -722,56 +788,52 @@
 // ================================================================
 //
 // ================================================================
-// ■ スプレッドシート シート構成
+// ■ スプレッドシート シート構成（列の正規定義は 4-2d getSheetHeaderDef_ が正）
 // ================================================================
 //
-//   【設定シート】（2列）
-//     A列: トン数（例: 1t, 2t, 4t）
-//     B列: 基準燃費（L/km）
-//     ※ トン数に対応する燃費がここから引き当てられる
+//   【運行シート】（33列）
+//     A=ID, B=区分, C=会社名, D=トン数, E=車種, F=車番, G=乗務員名, H=携帯番号, I=看板名, J=日付, K=荷主, L=積地, M=降地, N=誘導時刻, O=積完時刻,
+//     P=休憩開始, Q=休憩終了, R=降完時刻, S=売上, T=請求(高速代), U=実費(高速代), V=合計(高速代), W=備考, X=管理データ, Y=連絡(端末), Z=データ(端末),
+//     AA=点呼前完了, AB=点呼後完了, AC=装備その他, AD=発注書・指示書, AE=車番連絡, AF=受領書, AG=帳票備考
+//     ※ 1つのIDに複数行（行程数分）が紐づく。V列（合計高速）＝請求(T)−実費(U)（同額なら空欄）
 //
-//   【運行シート】（25列）
-//     列番号: 1=ID, 2=区分, 3=会社名, 4=トン数, 5=車種, 6=車番, 7=乗務員名, 8=携帯番号,
-//             9=日付, 10=荷主名, 11=積地, 12=降地,
-//             13=誘導時刻, 14=積完時刻, 15=休憩開始, 16=休憩終了, 17=降完時刻,
-//             18=売上, 19=請求高速, 20=実費高速, 21=合計高速（数式: =T-S）,
-//             22=連絡事項（管理→端末）, 23=データ（管理側ファイルURLリッチテキスト）,
-//             24=連絡端末（端末→管理）, 25=データ端末（端末ファイルURLリッチテキスト）
-//     ※ 1つのIDに複数行（行程数分）が紐づく。時刻は各行程ごとではなく先頭行に集約。
+//   【集計表シート】（40列）
+//     A=ID, B=区分, C=会社名, D=トン数, E=車種, F=車番, G=乗務員名, H=携帯番号, I=看板名, J=日付, K=荷主, L=積地, M=降地, N=誘導時刻, O=積完時刻,
+//     P=休憩開始, Q=休憩終了, R=降完時刻, S=売上, T=請求(高速代), U=実費(高速代), V=合計(高速代), W=距離, X=燃費, Y=ガソリン代, Z=燃料代, AA=支払い,
+//     AB=経費合計, AC=利益, AD=備考, AE=仮日数, AF=給料, AG=％, AH=有休手当, AI=その他手当, AJ=点呼前完了, AK=点呼後完了, AL=拘束時間(h),
+//     AM=点呼前担当者, AN=点呼後担当者
+//     ※ 運行シートをID単位に1行へ集約。V＝請求−実費、Z＝距離÷燃費×ガソリン代（数式）、
+//        AC（利益）＝売上＋V−(燃料代＋支払い＋経費合計)。手入力可はW・Y・AA・AD・AI列、AE〜AGは自車専属マスタから引き当て
 //
-//   【集計表シート】（31列）
-//     列番号: 1〜8=運行シートと同じ基本情報,
-//             9〜21=日付〜合計高速（運行シートから集約）,
-//             22=距離（手入力）, 23=燃費（設定シート参照）, 24=ガソリン代（手入力）,
-//             25=燃料代（数式: =距離÷燃費×ガソリン代）,
-//             26=支払い（数式または手入力: 4-4で計算）,
-//             27=利益（数式: =売上−(合計高速+燃料代+支払)）,
-//             28=備考（手入力）,
-//             29=仮日数（自車専属マスタから引き当て）,
-//             30=給料（自車専属マスタから引き当て）,
-//             31=%（自車専属マスタから引き当て）
+//   【自車専属マスタシート】（38列）
+//     A=車両ID, B=運行状態, C=区分, D=会社名, E=看板名, F=トン数, G=車種, H=車番, I=乗務員名, J=携帯番号, K=アドレス, L=燃費, M=備考, N=仮日数,
+//     O=給料, P=％, Q=高速を引く（引くは〇、引かないは空欄）, R=車両リース代, S=任意保険料, T=自賠責保険料, U=重量税積立, V=車検費積立, W=整備費積立, X=タイヤ代積立,
+//     Y=修理積立, Z=駐車場代, AA=ETCリース料, AB=カーナビリース料, AC=通信費, AD=洗車費, AE=制服費, AF=その他固定費, AG=PL設定按分（参照）, AH=免許証有効期限,
+//     AI=安全教育次回予定日, AJ=健康診断次回予定日, AK=適性診断次回予定日, AL=担当管理者
+//     ※ K列（アドレス）は乗務員アプリの紐づけ・配布メールに使う。B列が「運行」の行だけ自車専属運行シートに抽出される
 //
-//   【自車専属マスタシート】（15列）
-//     列番号: 1=車両ID(S-XXXX), 2=運行状態, 3=区分, 4=会社名, 5=トン数, 6=車種,
-//             7=車番, 8=乗務員名, 9=携帯番号, 10=メールアドレス（端末紐づけ用）,
-//             11=燃費, 12=備考, 13=仮日数, 14=給料, 15=%
-//     ※ B列(2)の運行状態が「運行」の行のみ自車専属運行シートに抽出される
-//
-//   【自車専属運行シート】（15列）
-//     自車専属マスタから「運行」状態の車両のみ抽出した参照用シート
+//   【自車専属運行シート】（16列）
+//     自車専属マスタのA〜P列のうち、運行状態が「運行」の車両だけを抽出した参照用シート（4-5）
 //
 //   【マスタシート（取引先）】（22列）
-//     列番号: 1=ID(M-XXXX), 2=取引先名カナ, 3=会社名, 4=電話, 5=FAX, 6=郵便番号, 7=住所,
-//             8=代表者, 9=配車担当, 10=銀行名, 11=支店名, 12=種別, 13=番号, 14=名義, 15=備考,
-//             16=メールアドレス, 17=入金サイクル, 18=入金サイト, 19=受領書送付先郵便番号,
-//             20=受領書送付先住所, 21=インボイス登録番号, 22=インボイス発行者名（自社名）
+//     A=マスタID, B=取引先名カナ, C=会社名, D=電話, E=FAX, F=郵便番号, G=住所, H=代表者, I=配車担当, J=銀行名, K=支店名, L=種別, M=番号, N=名義,
+//     O=備考, P=メールアドレス, Q=入金サイクル, R=入金サイト, S=受領書送付先郵便番号, T=受領書送付先住所, U=インボイス登録番号, V=インボイス発行者名（自社名）
+//
+//   【設定シート】（6列）
+//     A=トン数, B=基準燃費, C=有休設定, D=有休金額, E=業務前点検, F=業務後点検
+//     ※ トン数に対応する基準燃費を引き当てる。C・D列は有休の日額、E・F列は業務前後の点検項目
+//
+//   【配車板シート】（29列）
+//     A=チェック(貨物), B=進捗(貨物), C=会社名(貨物), D=TEL(貨物), E=FAX(貨物), F=日付, G=品名, H=トン数, I=車種, J=積地, K=降地, L=金額(売上),
+//     M=備考(貨物), N=貨物登録ID, O=チェック(車両), P=進捗(車両), Q=会社名(車両), R=TEL(車両), S=FAX(車両), T=日付(車両), U=看板名, V=トン数(車両),
+//     W=車種(車両), X=車番, Y=乗務員名, Z=携帯番号, AA=金額(支払), AB=備考(車両), AC=車両登録ID
 //
 // ================================================================
 
 
 // ================================================================
 //  1-1: ID番号取得補助関数  【大B / 中1 / 小1-1】
-//  指定シートのA列から既存IDの最大番号を取得し+1した値を返す
+//  指定シートのA列にある最大番号と、発行済み最大番号の記録（1-1a）の大きい方に+1した値を返す
 // ================================================================
 function getNextIdNum_(sheet, prefix) {
   var lastRow = sheet.getLastRow();
@@ -928,7 +990,8 @@ function logError_(context, e) {
 // ================================================================
 //  1-4: 集計表の孤立ID削除・欠落行復元  【大B / 中1 / 小1-4】
 //  運行シートに存在しないIDが集計表にある場合、その行を削除する
-//  運行シートにあるIDが集計表にない場合、再同期して行を復元し手入力列を_BK_集計表から戻す
+//  運行シートにあるIDが集計表にない場合、4-1a で集計表を一括再生成して復元し、手入力列を_BK_集計表から戻す
+//  最後に、ロック待ちで同期できなかったID（PENDING_SUM_IDS）をまとめて同期する
 // ================================================================
 function cleanAllOrphanSummary_(ssOpt) {
   var ss = ssOpt || SpreadsheetApp.getActiveSpreadsheet();
@@ -990,7 +1053,8 @@ function cleanAllOrphanSummary_(ssOpt) {
 
 // ================================================================
 //  1-5: 金額列へのコンマ書式適用（applyMoneyFormat_）  【大B / 中1 / 小1-5】
-//  指定シート・行範囲の金額列に #,##0 フォーマットをセットする
+//  指定シート・行範囲の金額列に #,##0（マイナスは赤）の書式をセットする
+//  運行はS〜V列、集計表はS〜W・Y〜AC・AH・AI列
 // ================================================================
 function applyMoneyFormat_(sheet, startRow, numRows, sheetType) {
   if (numRows <= 0) return;
@@ -1006,7 +1070,8 @@ function applyMoneyFormat_(sheet, startRow, numRows, sheetType) {
 
 // ================================================================
 //  1-6: 時刻列へのM/d HH:mm書式適用（applyDateTimeFormat_）  【大B / 中1 / 小1-6】
-//  誘導・積完・休憩開始・休憩終了・降完（M〜Q列=13〜17）に書式をセットする
+//  誘導・積完・休憩開始・休憩終了・降完（N〜R列=14〜18）に書式をセットする
+//  運行シートは点呼前完了・点呼後完了列、集計表は36・37列（点呼前後完了）にもセットする
 // ================================================================
 function applyDateTimeFormat_(sheet, startRow, numRows) {
   if (numRows <= 0) return;
@@ -1029,12 +1094,12 @@ function applyDateTimeFormat_(sheet, startRow, numRows) {
 
 
 // ================================================================
-//  1-7: 積地（L列=12）背景色設定（applyHolidayRowColors_）  【大B / 中1 / 小1-7】
-//  運行シート・集計表のL列(12=積地)に以下3パターンで背景色を付ける
-//  ・「休み」「有休」含む → グレー (#9e9e9e)
-//  ・空 かつ 日付(J列)が今日以降 → 黄色 (#fff9c4)  ← 配車漏れ警告
-//  ・その他 → なし (null)
-//  onOpen・generateSummary・generateNextMonth・onEdit から呼び出す
+//  1-7: 有休・休み・配車漏れ・保護列の背景色設定（applyHolidayRowColors_）  【大B / 中1 / 小1-7】
+//  運行シート：積地(L列)に「有休」→行全体 #e0e0e0、「休み」→行全体 #9e9e9e
+//  　IDあり・積地空 → L列だけ #fff9c4（配車漏れ警告）、IDあり行のV・Y・Z列 → #eceff1（保護列）
+//  　最終行より下の残骸色を除去し、L1セルに凡例メモを書く
+//  集計表：有休・休みの行全体色、IDあり・積地空のL列黄色。自車専属マスタ：B1セルに凡例メモ
+//  最後に 1-7c（期限色）・1-7b（ID重複）を実行する
 // ================================================================
 function applyHolidayRowColors_(ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1132,7 +1197,7 @@ function applyHolidayRowColors_(ss) {
   markIdCollisions_(ss);
 }
 // 1-7 の呼び出し口（スタブ・メニュー用）
-function applyHolidayRowColors() { applyHolidayRowColors_(); }
+function applyHolidayRowColors() { requireSheetUi_(); applyHolidayRowColors_(); }
 
 
 // ================================================================
@@ -1198,6 +1263,7 @@ function markIdCollisions_(ss) {
 //  運行シートのA列（ID）を乗務員ごとの最も近い期限に応じて着色する。
 //  淡い赤=期限超過 / 淡い青=当日 / 淡い緑=7日以内
 //  有休・休み行(グレー)・ID衝突行(#ff1744)には上書きしない。
+//  A1セルに色の凡例メモを書き、自車専属マスタの期限切れ日付を赤文字にする
 // ================================================================
 function applyExpiryWarningColors_(ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1296,14 +1362,15 @@ function applyExpiryWarningColors_(ss) {
   }
 }
 // 1-7c の呼び出し口（スタブ・メニュー用）
-function applyExpiryWarningColors() { applyExpiryWarningColors_(); }
+function applyExpiryWarningColors() { requireSheetUi_(); applyExpiryWarningColors_(); }
 
 
 // ================================================================
 //  1-8: 運行シートを日付順に並び替え（sortUnkouByDate_）  【大B / 中1 / 小1-8】
 //  運行シートのデータ行を J列(日付)昇順 → G列(乗務員名)昇順 でソートする
 //  ソート後に V列(22)の数式を行番号に合わせて再セットする
-//  generateNextMonth / 手動メニューから呼び出す
+//  背景色・リンク（X・Z列）もデータと一緒に移動し、書式を再適用する
+//  skipBlankDelete を指定しないときは、IDと日付が両方空の行を削除する
 // ================================================================
 function sortUnkouByDate_(companySsId, skipBlankDelete) {
   var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
@@ -1380,7 +1447,7 @@ function sortUnkouByDate_(companySsId, skipBlankDelete) {
 // ================================================================
 //  1-9: 集計表シートを日付順に並び替え（sortSummaryByDate_）  【大B / 中1 / 小1-9】
 //  集計表シートのデータ行を J列(日付)昇順 → G列(乗務員名)昇順 でソートする
-//  ソート後に数式列（V/Z/AB）を行番号に合わせて再セットする
+//  ソート後に合計(高速代)V（請求−実費）・燃料代Z・利益AC（売上＋V−(Z＋支払＋経費)）を値で計算して書き戻す
 // ================================================================
 function sortSummaryByDate_(companySsId) {
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
@@ -1403,11 +1470,11 @@ function sortSummaryByDate_(companySsId) {
   var writeData = indexed.map(function(item) {
     var row = item.row.slice();
     var tollReq = Number(row[19])||0, tollReal = Number(row[20])||0;
-    row[21] = (tollReq === 0 && tollReal === 0) ? '' : tollReal - tollReq;  // V
+    row[21] = (tollReq === 0 && tollReal === 0) ? '' : tollReq - tollReal;  // V=合計(高速代)=請求−実費
     row[25] = row[22] ? Math.round(Number(row[22])/(Number(row[23])||3)*(Number(row[24])||0)) : '';  // Z
     var vNS = typeof row[21]==='number'?row[21]:0, zNS = typeof row[25]==='number'?row[25]:0;
     var payNS = Number(row[26])||0, expNS = Number(row[27])||0, salesNS = Number(row[18])||0;
-    row[28] = (!salesNS&&!vNS&&!zNS&&!payNS&&!expNS) ? '' : salesNS-(vNS+zNS+payNS+expNS);  // AC
+    row[28] = (!salesNS&&!vNS&&!zNS&&!payNS&&!expNS) ? '' : salesNS+vNS-(zNS+payNS+expNS);  // AC=売上＋合計(高速代)−(燃料代＋支払＋経費)
     return row;
   });
   sheet.getRange(2, 1, numRows, cols).setValues(writeData);
@@ -1422,11 +1489,14 @@ function sortSummaryByDate_(companySsId) {
 
 // ================================================================
 //  1-10: 運行＋集計表を両方日付順並び替え（sortBothSheetsByDate）  【大B / 中1 / 小1-10】
-//  メニューボタンおよびonEditの日付変更時に呼び出す
+//  メニュー「🔃 日付順並び替え」から呼び出す
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function sortBothSheetsByDate() {
+  requireSheetUi_();
   sortUnkouByDate_();
   sortSummaryByDate_();
+  if (WEB_TOOL_) { WEB_TOOL_.messages.push('日付順に並び替えました'); return; }
   SpreadsheetApp.getActiveSpreadsheet().toast('日付順に並び替えました', '🔃 完了', 3);
 }
 
@@ -1437,8 +1507,13 @@ function sortBothSheetsByDate() {
 //  GASはサブメニューの2階層が上限のため、大カテゴリ＋直接項目の構成で実装。
 //  大カテゴリ: 🏠毎日の配車業務 / 📥データ読み込み / 📨帳票・送信 / 📒経理・出力
 //             / 📊PL管理 / 🗓月次処理 / ⚙️システム設定・保守 / 🏢管理者専用
+//  メニュー作成後：masterSsId保存・管理データURL変換（4-1b）・合計(高速代)の移行（4-1c）・色付け（1-7）・
+//  隠しシート整理・期限アラート（1-7d）・期限色（1-7c）・1日1回のバックアップ（4-2p）・エラー通知・
+//  管理者シートの旧パスワード列の撤去（P-4k）・共通保存値の掃除（2-2e）・会社登録のログイン情報の写し（P-4c）
+//  スプレッドシートから開いた時だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function onOpen(e) {
+  requireSheetUi_();
   // サイレント自動トリガー再構築（FULL権限時のみ有効・LIMITED時はtry-catchで自動スキップ）
   try {
     var _tgSs0 = SpreadsheetApp.getActiveSpreadsheet();
@@ -1539,6 +1614,13 @@ function onOpen(e) {
     );
   } catch(ex) {}
   try { convertLegacyAdminDataUrls_(); } catch(ex) {}
+  try { migrateSummaryTollSign_(SpreadsheetApp.getActiveSpreadsheet()); } catch(ex) {}
+  try { removeLegacyAdminPasswordColumn_(SpreadsheetApp.getActiveSpreadsheet()); } catch(ex) {}
+  try { cleanupLegacySharedKeys_(); } catch(ex) {}
+  try {
+    var _lgMsg = syncCompanyLogins_(SpreadsheetApp.getActiveSpreadsheet().getSheetByName('会社登録'));
+    if (_lgMsg) SpreadsheetApp.getActiveSpreadsheet().toast(_lgMsg, '⚠️ ログイン情報', 10);
+  } catch(ex) {}
   try { applyHolidayRowColors_(); } catch(ex) {}
   try {
     var _hideSs = SpreadsheetApp.getActiveSpreadsheet();
@@ -1575,8 +1657,10 @@ function onOpen(e) {
 //  2-1a: 客SS用メニュー構築（buildClientMenu）  【大C / 中2 / 小2-1a】
 //  ②客用SS・③各客SSのスタブの onOpen から呼ばれる
 //  メニュー定義をライブラリに置き、ライブラリのバージョン更新だけでメニューが追随する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function buildClientMenu() {
+  requireSheetUi_();
   var ui = SpreadsheetApp.getUi();
   var menu = ui.createMenu('メニュー');
   menu
@@ -1655,21 +1739,22 @@ function buildClientMenu() {
 // ================================================================
 //  2-5: 配車ダッシュボード表示（showDispatchDashboard）  【大C / 中2 / 小2-5】
 //  メニュー「配車ダッシュボード」からサイドバーで当日の配車状況を一覧表示する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showDispatchDashboard() {
-  var html = HtmlService.createHtmlOutputFromFile('dispatchDashboard')
-    .setTitle('配車ダッシュボード')
-    .setWidth(520);
-  SpreadsheetApp.getUi().showSidebar(html);
+  requireSheetUi_();
+  var t = buildToolHtml_('dispatch', SpreadsheetApp.getActiveSpreadsheet(), '');
+  getUiOrWeb_().showSidebar(t.output.setWidth(t.width));
 }
 
 
 // ================================================================
 //  2-5b: 配車ダッシュボード用データ取得（getDispatchDashboardData）  【大A / 中2 / 小2-5b】
 //  本日分の運行シートで積地が空欄（配車未確定）の行だけを返す（配車漏れチェック用）
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function getDispatchDashboardData() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+function getDispatchDashboardData(ssId, token) {
+  var ss = useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   var unkouSheet = ss.getSheetByName('運行');
 
   var today    = new Date(); today.setHours(0, 0, 0, 0);
@@ -1710,12 +1795,109 @@ function getDispatchDashboardData() {
   };
 }
 
+// ================================================================
+//  2-6: SSを開いた時のログイン確認（isSsLoggedIn）  【大B / 中2 / 小2-6】
+//  スタブのonOpenから呼ばれる。ログインが必要なSS（2-6d）で、この利用者のログイン状態（2-6e）が有効なら true
+//  「ログインしたままにする」なしのログインは、ここで消して開くたびにログインさせる
+//  会社登録のアドレス・パスワードが変わった時も無効にする
+// ================================================================
+function isSsLoggedIn() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ssLoginRequired_(ss)) return true;
+  var props = PropertiesService.getScriptProperties();
+  var key = ssLoginStateKey_(ss);
+  var st = null;
+  try { st = JSON.parse(props.getProperty(key) || 'null'); } catch(e) {}
+  if (!st) return false;
+  var login = getCompanyLogin_(ss.getId());
+  if (!st.keep || Date.now() > st.exp || !login || loginFingerprint_(login) !== st.fp) {
+    props.deleteProperty(key);
+    return false;
+  }
+  return true;
+}
+
+
+// ================================================================
+//  2-6a: SSのログイン画面表示（showSsLoginDialog）  【大B / 中2 / 小2-6a】
+//  ssLogin.html（アドレス・パスワード・ログインしたままにする）をモーダルで表示する
+//  15秒以内の重ねての表示はしない（2-6 と 2-6c の両方から呼ばれるため）
+// ================================================================
+function showSsLoginDialog() {
+  requireSheetUi_();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ck = 'SSLOGIN_PROMPT_' + ssLoginStateKey_(ss);
+  var cache = CacheService.getDocumentCache();
+  if (cache.get(ck)) return;
+  cache.put(ck, '1', 15);
+  var html = HtmlService.createTemplateFromFile('ssLogin').evaluate().setWidth(380).setHeight(340);
+  SpreadsheetApp.getUi().showModalDialog(html, 'ログイン');
+}
+
+
+// ================================================================
+//  2-6b: SSのログイン実行（loginSs）  【大A / 中2 / 小2-6b】
+//  ssLogin.html から呼ばれる。P-4a で照合し、成功したらこの利用者のログイン状態（2-6e）を保存する
+//  keep=true（ログインしたままにする）は30日、false は12時間かつ次にSSを開くまで有効
+//  ログイン後に期限アラート（1-7d）を出す
+// ================================================================
+function loginSs(email, password, keep) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ssLoginRequired_(ss)) return { ok: true };
+  var chk = checkCompanyLogin_(ss.getId(), email, password);
+  if (!chk.ok) return chk;
+  deleteExpiredLoginStates_('sslogin_');
+  PropertiesService.getScriptProperties().setProperty(ssLoginStateKey_(ss), JSON.stringify({
+    fp: chk.fp, keep: !!keep, exp: Date.now() + (keep ? 30 * 24 : 12) * 60 * 60 * 1000
+  }));
+  try { showExpiryAlert(); } catch(e) {}
+  return { ok: true };
+}
+
+
+// ================================================================
+//  2-6c: セル選択時のログイン確認（checkSsLoginOnSelect）  【大B / 中2 / 小2-6c】
+//  スタブの onSelectionChange から呼ばれる。ログイン画面を×で閉じてログインしていなければ、ログイン画面を出し直す
+// ================================================================
+function checkSsLoginOnSelect(e) {
+  var ss = (e && e.source) ? e.source : SpreadsheetApp.getActiveSpreadsheet();
+  if (!ssLoginRequired_(ss)) return;
+  var st = null;
+  try { st = JSON.parse(PropertiesService.getScriptProperties().getProperty(ssLoginStateKey_(ss)) || 'null'); } catch(ex) {}
+  if (st && Date.now() <= st.exp) return;
+  showSsLoginDialog();
+}
+
+
+// ================================================================
+//  2-6d: ログインが必要なSSか判定（ssLoginRequired_）  【大B / 中2 / 小2-6d】
+//  客SS（__COMPANY_SS__ シートがある）で、②客用SS（P-4e）でなければ true。①修正用SSは false
+// ================================================================
+function ssLoginRequired_(ss) {
+  if (!ss || !ss.getSheetByName('__COMPANY_SS__')) return false;
+  return !isTemplateSs_(ss.getId());
+}
+
+
+// ================================================================
+//  2-6e: SSのログイン状態の保存キー（ssLoginStateKey_）  【大B / 中2 / 小2-6e】
+//  「sslogin_」＋SSのID＋「_」＋利用者ごとの一時キー（取れない時はアドレス）を返す
+// ================================================================
+function ssLoginStateKey_(ss) {
+  var u = '';
+  try { u = Session.getTemporaryActiveUserKey() || ''; } catch(e) {}
+  if (!u) { try { u = Session.getActiveUser().getEmail() || ''; } catch(e2) {} }
+  return 'sslogin_' + ss.getId() + '_' + u;
+}
+
 
 // ================================================================
 //  2-1b: メニュー再生成（reloadMenu）  【大C / 中2 / 小2-1b】
 //  スタブ更新後にメニューを即時反映させる。onOpenを再実行するだけ。
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function reloadMenu() {
+  requireSheetUi_();
   onOpen();
   SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3);
 }
@@ -1724,13 +1906,15 @@ function reloadMenu() {
 // ================================================================
 //  2-2: Webアプリ起動（doGet）  【大C / 中2 / 小2-2】
 //  URLアクセス時にWebアプリとして表示する。
-//  ?ssId=XXXX パラメータを受け取り、HTMLテンプレートに渡す。
-//  初回アクセス時に自分自身のWebアプリURLを自動取得してScript Propertiesに保存する。
-//  これにより会社SS作成時のアプリURLが自動で設定される（手動入力不要）。
+//  ?action=agree → 契約同意（12-4b）／?page=contract・terms・privacy → 各ページ／?page=parent・tool → 「準備中」（管理画面は販売開始後に着手）／それ以外 → index.html
+//  ?ssId=XXXX パラメータはHTMLテンプレートに渡す（無い時はスタブがついているSSのID）
+//  本番デプロイのURLでアクセスされた時だけ、そのURLを Script Properties（webAppUrl）に保存する
 // ================================================================
 function doGet(e) {
   var page   = (e && e.parameter && e.parameter.page)   ? e.parameter.page   : '';
   var ssId   = (e && e.parameter && e.parameter.ssId)   ? e.parameter.ssId   : '';
+  // URLにSS指定が無い時は、このURLのスタブがついているSSのIDを画面に渡す
+  if (!ssId) { try { var _own = SpreadsheetApp.getActiveSpreadsheet(); if (_own) ssId = _own.getId(); } catch(exOwn) {} }
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
 
   // 本番デプロイのURLのみ保存（テンプレートSS等からのアクセスで上書きされないよう限定）
@@ -1811,13 +1995,15 @@ function doGet(e) {
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }
 
-  // 管理画面ページ（?page=parent）
-  if (page === 'parent') {
-    var ptmpl = HtmlService.createTemplateFromFile('parent_app');
-    ptmpl.companySsId = ssId;
-    return ptmpl.evaluate()
-      .setTitle('運行管理システム 管理画面')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  // 管理画面ページ（?page=parent）・管理画面から開く画面（?page=tool）：販売開始後に着手するため、今は「準備中」だけを表示する
+  if (page === 'parent' || page === 'tool') {
+    return HtmlService.createHtmlOutput(
+      '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+      '<body style="font-family:sans-serif;padding:24px;text-align:center;">' +
+      '<p>管理画面は準備中です。</p>' +
+      '</body></html>'
+    ).setTitle('準備中 - 運行管理システム');
   }
 
   var tmpl = HtmlService.createTemplateFromFile('index');
@@ -1829,31 +2015,33 @@ function doGet(e) {
 
 
 // ================================================================
-//  2-2b: ssIdをUserPropertiesに保存（storeCompanySsId）  【大A / 中2 / 小2-2b】
-//  index.htmlのwindow.onload時にssIdがあれば呼ばれる。
-//  以降 getTargetSS_() でそのSSを開けるようにする。
+//  2-2b: 旧版画面との互換用の受け口（storeCompanySsId）  【大A / 中2 / 小2-2b】
+//  何も保存しない。SSは毎回の呼び出しで渡されるIDだけで決める
+//  （全客共通の保存領域に客のSSを覚えさせると、別の客のSSを開く原因になるため）
 // ================================================================
 function storeCompanySsId(ssId) {
-  if (ssId) PropertiesService.getUserProperties().setProperty('linkedSsId', ssId);
+  return;
 }
 
 
 // ================================================================
 //  2-2c: 対象スプレッドシート取得（getTargetSS_）  【大B / 中2 / 小2-2c】
-//  乗務員アプリからの呼び出し時は linkedSsId で会社SSを openById で開く。
-//  スプレッドシートメニューからの呼び出し時は getActiveSpreadsheet を返す。
+//  ssId があればそのSSを openById で開く。開けなければ例外で止める（別のSSに切り替えない）。
+//  ssId が無い時は、呼び出し元のスタブがついているSS（getActiveSpreadsheet）を返す。
 // ================================================================
 function getTargetSS_(ssId) {
-  var id = ssId || PropertiesService.getUserProperties().getProperty('linkedSsId');
-  if (id) {
-    try { return SpreadsheetApp.openById(id); } catch(e) {}
+  if (ssId) {
+    try { return SpreadsheetApp.openById(ssId); }
+    catch(e) { throw new Error('スプレッドシートを開けません（URLのSS指定を確認してください）'); }
   }
-  return SpreadsheetApp.getActiveSpreadsheet();
+  var active = SpreadsheetApp.getActiveSpreadsheet();
+  if (!active) throw new Error('スプレッドシートを特定できません');
+  return active;
 }
 
 // ================================================================
 //  2-2d: ドライバー認証（validateDriverEmail_）  【大B / 中2 / 小2-2d】
-//  自車専属マスタのJ列にメールアドレスが存在するか検証する
+//  自車専属マスタのK列（アドレス）にメールアドレスが存在するか検証する
 //  部外者アクセスは例外をスローして即遮断
 // ================================================================
 function validateDriverEmail_(email, companySsId) {
@@ -1871,12 +2059,38 @@ function validateDriverEmail_(email, companySsId) {
 
 
 // ================================================================
+//  2-2e: 旧版が全客共通の保存場所に残した値の削除（cleanupLegacySharedKeys_）  【大B / 中2 / 小2-2e】
+//  ①のonOpen（2-1）から呼ばれ、1回だけ実行する（済みの印：LEGACY_SHARED_KEYS_CLEANED）
+//  客を区別せずに保存していた値（紐づけ中のSS・アドレス、運行進捗12項目、既読、再計算日、住所選択の途中状態、
+//  管理者の紐づけ）を削除する。今は客ごと（SSのID付き）のキーだけを使う
+// ================================================================
+function cleanupLegacySharedKeys_() {
+  var sp = PropertiesService.getScriptProperties();
+  if (sp.getProperty('LEGACY_SHARED_KEYS_CLEANED')) return;
+  var up = PropertiesService.getUserProperties();
+  ['linkedSsId','linkedEmail','picks','drops','rows','runId','guideDone','pickDone','dropDone','phase',
+   'lastPickIndex','guideHistory','pickHistory','dropHistory'].forEach(function(k) { up.deleteProperty(k); });
+  Object.keys(up.getProperties()).forEach(function(k) { if (k.indexOf('admin_') === 0) up.deleteProperty(k); });
+  ['recalcFromDate','recalcFromDateSet','_addrDialogState_','readNotices'].forEach(function(k) { sp.deleteProperty(k); });
+  // 旧形式の既読キーは「readNotices_アドレス」（新形式は「readNotices_SSのID（40文字以上）_アドレス」）
+  Object.keys(sp.getProperties()).forEach(function(k) {
+    if (k.indexOf('readNotices_') !== 0) return;
+    var rest = k.slice('readNotices_'.length);
+    if (!/^[A-Za-z0-9_-]{40,}_/.test(rest)) sp.deleteProperty(k);
+  });
+  sp.setProperty('LEGACY_SHARED_KEYS_CLEANED', '1');
+}
+
+
+// ================================================================
 //  2-3: サイドバー表示（showSidebar）  【大C / 中2 / 小2-3】
-//  スプレッドシートのサイドバーとして表示する
+//  スプレッドシートのサイドバーとして表示する（開いているSSのIDを画面に渡す）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showSidebar() {
+  requireSheetUi_();
   var tmpl = HtmlService.createTemplateFromFile('index');
-  tmpl.companySsId = '';
+  tmpl.companySsId = SpreadsheetApp.getActiveSpreadsheet().getId();
   var html = tmpl.evaluate().setTitle('ホーム').setWidth(400);
   SpreadsheetApp.getUi().showSidebar(html);
 }
@@ -1884,9 +2098,11 @@ function showSidebar() {
 
 // ================================================================
 //  2-4: 写真・ファイル取込サイドバー（showUploadSidebar）  【大C / 中2 / 小2-4】
-//  運行シートの行を選択してメニューから起動 → W列に直接アップロード
+//  運行シートの行を選択してメニューから起動 → X列（管理データ）に直接アップロード
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showUploadSidebar() {
+  requireSheetUi_();
   var sheet = SpreadsheetApp.getActiveSheet();
   var row   = sheet.getActiveCell().getRow();
   if (sheet.getName() !== '運行' || row <= 1) {
@@ -1932,7 +2148,7 @@ function showUploadSidebar() {
     '  });' +
     '  function check(note){' +
     '    if(done<total)return;' +
-    '    var msg="✅ "+done+"件 完了。SSのW列にリンクが追加されました。"+note;' +
+    '    var msg="✅ "+done+"件 完了。SSのX列（管理データ）にリンクが追加されました。"+note;' +
     '    document.getElementById("msg").innerText=msg;' +
     '    document.querySelector("button").disabled=false;' +
     '  }' +
@@ -1987,7 +2203,7 @@ function onEdit(e) {
     }
 
     // ── 3-1-2: 運行シート V列(22) 合計高速 保護 ──────────────────────
-    // 合計高速は「実費高速 - 請求高速」の自動計算列なので直接編集を禁止する
+    // 合計高速は「請求高速(T) − 実費高速(U)」の自動計算列（同額なら空欄）なので直接編集を禁止する
     // 編集されたら即座に数式を復元する
     if (sheetName === '運行' && row > 1 && col === 22) {
       range.setFormula('=IF(U'+row+'=T'+row+',"",T'+row+'-U'+row+')');
@@ -2048,7 +2264,14 @@ function onEdit(e) {
     if (sheetName === '配車板')           { onEditJoho_(sheet, range, ss); return; }
     // 会社登録シートの処理はインストール型トリガー（installedOnEdit_）が担当する
     // シンプルトリガーはドライブ/メール/トリガー作成などの認証付き操作が不可のため
-    if (sheetName === '会社登録') return;
+    // F列（スプレッドシートURL）〜O列（ログインパスワード）の編集時はログイン情報を写し直す（P-4c）
+    if (sheetName === '会社登録') {
+      if (row > 1 && col <= 15 && range.getLastColumn() >= 6) {
+        var _lgMsg2 = syncCompanyLogins_(sheet);
+        if (_lgMsg2) ss.toast(_lgMsg2, '⚠️ ログイン情報', 10);
+      }
+      return;
+    }
     if (sheetName !== '運行') return;
     onEditUnkou_(sheet, range, ss);
   } catch (err) {}
@@ -2058,10 +2281,12 @@ function onEdit(e) {
 // ================================================================
 //  3-2: 運行シート編集時の処理（onEditUnkou_）  【大B / 中3 / 小3-2】
 //  ・A列が空で他列にデータがあればV-XXXXのIDを自動生成
-//  ・I列（日付）が00:00:00なら現在時刻を自動付加
-//  ・F列（車番）編集時に自車専属マスタから区分〜携帯番号を自動補完
-//  ・T列（合計高速）の数式を自動セット
-//  ・集計表を同期し、孤立IDを削除
+//  ・J列（日付）：M/D入力は今年の日付に変換、時刻が00:00:00なら現在時刻を付加
+//  ・F列（車番）：全角→半角に変換し、自車専属マスタからB〜I列（区分〜看板名）を自動補完
+//  ・V列（合計高速）の数式（請求−実費）を自動セット、T列入力時はU列が空なら同額をオレンジで自動コピー
+//  ・N〜R列・点呼列：時刻の正規化と入力順チェック（点呼前→誘導→積完→休憩開始→休憩終了→点呼後→降完）
+//  ・帳票発行日時列の正規化、行の背景色、金額・時刻書式、J列変更時の並び替え（1-8・1-9）、ID重複チェック（1-7b）
+//  ・集計表への反映は 14-2b（インストール型トリガー）が行う
 //  ・D列（トン数）編集時【3-2-7】: 先頭の数字をD列（t付加・left寄せ）、残りの文字（英字・ひらがな・カタカナ・漢字等）をE列（車種）に分離
 //  ・E列（車種）編集時【3-2-8】: 数字+文字の混合入力はD列にトン数・E列に文字を分離。文字のみは全角英字→半角大文字に統一
 // ================================================================
@@ -2250,7 +2475,7 @@ function onEditUnkou_(sheet, range, ss) {
       for (var _jm = 1; _jm < mData.length; _jm++) {
         if (String(mData[_jm][8] || '').trim() === _jDrName) {
           var _jEmail = String(mData[_jm][10] || '').trim();
-          if (_jEmail) { clearListCache_(_jEmail); }
+          if (_jEmail) { clearListCache_(_jEmail, sheet.getParent().getId()); }
           break;
         }
       }
@@ -2441,8 +2666,10 @@ function onEditUnkou_(sheet, range, ss) {
 // ================================================================
 //  3-2b: 自車専属マスタ車種列の大文字・半角一括クレンジング（cleanMasterCarType）
 //  1回限りの手動実行用。G列（車種）を大文字・半角に統一する。
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function cleanMasterCarType() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var master = ss.getSheetByName('自車専属マスタ');
   if (!master || master.getLastRow() < 2) return;
@@ -2487,6 +2714,8 @@ function onEditPlSettings_(sheet, range) {
 //    運行→薄赤, 待機→薄黄, 故障→薄緑, その他→なし
 //  ・トン数・燃費を設定シートの定義に合わせて正規化
 //  ・自車専属運行シートを自動更新
+//  ・給料と%は片方を入力するともう片方を消す（仮日数はどちらとも併用可）
+//  ・同じ車番・乗務員名の集計表の行を即同期し、経費列（Q〜AE）を手入力したら文字色を黒に戻す
 // ================================================================
 function onEditMasterVehicle_(sheet, range, ss) {
   var startRow = range.getRow();
@@ -2628,7 +2857,7 @@ function onEditMasterVehicle_(sheet, range, ss) {
   }
   refreshActiveVehiclesAuto_(ss);
   applyMasterVehicleWarnings_(sheet);
-  try { CacheService.getScriptCache().remove('cfg_master'); } catch(e) {}
+  try { CacheService.getScriptCache().remove('cfg_master_' + sheet.getParent().getId()); } catch(e) {}
 }
 
 
@@ -2670,8 +2899,8 @@ function applyMasterVehicleWarnings_(sheet) {
 // ================================================================
 //  3-3b: 車両ステータス変更時の運行シート同期（syncVehicleToCurrentMonth_）  【大B / 中3 / 小3-3b】
 //  自車専属マスタのB列（運行/故障/待機）変更時に呼ばれる
-//  ・今日以降の積地空（未配車）行を削除
-//  ・ステータスが「運行」なら今日〜今月末の行を再生成
+//  ・起点日以降で荷主(K)〜売上(S)が全て空の行を削除し、集計表からも同じIDを削除
+//  ・ステータスが「運行」なら起点日〜今月末の行を生成（既存日はスキップ、20日以降は翌月分も生成）
 //  ・skipSort=true のとき並び替え・色付けをスキップ（一括処理用）
 //  ・applyDate指定時は起点日以降の空行削除と生成を行う
 //  ・採番〜運行シート書き込みは1-1b（SS単位ロック）で排他制御（同時入力時のID重複防止）
@@ -2853,11 +3082,12 @@ function onEditMasterCustomer_(sheet, range) {
 
 
 // ================================================================
-//  3-5: 情報シート編集時の処理（onEditJoho_）  【大B / 中3 / 小3-5】
-//  「情報」シートでセルを編集した際に自動実行される内部関数。
-//  ① B列（進捗）変更 → 行全体の背景色を自動変更（放置=白/キャンセル・終了=グレー/確定=黄）
+//  3-5: 配車板編集時の処理（onEditJoho_）  【大B / 中3 / 小3-5】
+//  配車板シートでセルを編集した際に自動実行される内部関数。
+//  ① 進捗色：貨物(A〜N)はB列、車両(O〜AC)はP列で色分け（確定=黄/両側確定=ピンク/キャンセル・終了=グレー/それ以外=白）
+//  　トン数(H・V列)を正規化、金額(L・AA列)に #,##0 書式、B列/P列が「確定」になったら 3-5a で運行シートに登録
 //  ② C列（会社名・貨物）変更 → 取引先マスタを検索しTEL(D列)・FAX(E列)を自動入力
-//  ③ N列（会社名・車両）変更 → 自車専属マスタ→取引先マスタの順で検索しTEL(O列)・FAX(P列)を自動入力
+//  ③ Q列（会社名・車両）変更 → 自車専属マスタ→取引先マスタの順で検索しTEL(R列)・FAX(S列)を自動入力
 //
 //  M&A向け補足: このトリガーにより「手入力ゼロ」の配車受付が実現できる。
 //              貨物側は取引先マスタ（荷主情報）、車両側は自社車両マスタから
@@ -2900,9 +3130,9 @@ function onEditJoho_(sheet, range, ss) {
     if (_tvChg) sheet.getRange(effStart, tc, effRows, 1).setValues(_tvNew);
   });
 
-  // ── 金額列（L=12/Z=26）に #,##0 書式を適用 ──
+  // ── 金額列（L=12=金額(売上)/AA=27=金額(支払)）に #,##0 書式を適用 ──
   var _amtEnd = col + numCols - 1;
-  [12, 26].forEach(function(ac) {
+  [12, 27].forEach(function(ac) {
     if (ac < col || ac > _amtEnd) return;
     sheet.getRange(effStart, ac, effRows, 1).setNumberFormat('#,##0');
   });
@@ -2997,8 +3227,8 @@ function onEditJoho_(sheet, range, ss) {
 }
 
 // ================================================================
-//  3-5a: 情報シート1行を運行シートに即登録（registerJohoRowToUnkou_）  【大B / 中3 / 小3-5a】
-//  B列またはO列が'確定'に変わった時にonEditJoho_から呼ばれる
+//  3-5a: 配車板1行を運行シートに即登録（registerJohoRowToUnkou_）  【大B / 中3 / 小3-5a】
+//  B列またはP列が'確定'に変わった時にonEditJoho_から呼ばれる
 //  ・採番〜運行シート書き込みは1-1b（SS単位ロック）で排他制御（同時入力時のID重複防止）
 // ================================================================
 function registerJohoRowToUnkou_(johoSheet, rowNum, confirmedCol, ss) {
@@ -3038,7 +3268,7 @@ function registerJohoRowToUnkou_(johoSheet, rowNum, confirmedCol, ss) {
 }
 
 // ================================================================
-//  3-5b: 情報シート全行の進捗色を一括再適用（refreshJohoColors_）  【大B / 中3 / 小3-5b】
+//  3-5b: 配車板全行の進捗色を一括再適用（refreshJohoColors_）  【大B / 中3 / 小3-5b】
 //  コピペ後・シート再生成後に正しい進捗色を復元する
 // ================================================================
 function refreshJohoColors_(ss) {
@@ -3066,7 +3296,8 @@ function refreshJohoColors_(ss) {
 //  行色変更・会社名→TEL/FAX補完・確定→運行シート自動登録 を担う
 //  col1Based: 変更されたセルの列番号（1始まり）
 // ================================================================
-function afterSaveJoho(ssId, rowNum, col1Based) {
+function afterSaveJoho(ssId, rowNum, col1Based, token) {
+  verifyAdmin_(token, ssId);
   var ss = getTargetSS_(ssId);
   var sheet = ss.getSheetByName('配車板');
   if (!sheet || rowNum < 2) return { ok: false };
@@ -3074,7 +3305,8 @@ function afterSaveJoho(ssId, rowNum, col1Based) {
   return { ok: true };
 }
 // 3-5c（afterSaveJohoFull）: 編集モーダル用。貨物・車両両方の進捗チェックを一括実行
-function afterSaveJohoFull(ssId, rowNum) {
+function afterSaveJohoFull(ssId, rowNum, token) {
+  verifyAdmin_(token, ssId);
   var ss = getTargetSS_(ssId);
   var sheet = ss.getSheetByName('配車板');
   if (!sheet || rowNum < 2) return { ok: false };
@@ -3087,7 +3319,8 @@ function afterSaveJohoFull(ssId, rowNum) {
 //  日付列が空の先頭行に書き込む（appendRowはチェックボックスで末尾行に飛ぶため使わない）
 //  チェックボックス列は必ず false を書く。全行使用済みの場合のみ末尾に追加
 // ================================================================
-function appendJohoRow(rowData, ssId) {
+function appendJohoRow(rowData, ssId, token) {
+  verifyAdmin_(token, ssId);
   var ss = getTargetSS_(ssId);
   var sheet = ss.getSheetByName('配車板');
   if (!sheet) return { ok: false, msg: '配車板シートが見つかりません' };
@@ -3125,7 +3358,8 @@ function appendJohoRow(rowData, ssId) {
 //  3-5e: 親アプリの会社名TEL/FAX照会（lookupCompanyContact）  【大A / 中3 / 小3-5e】
 //  追加フォームで会社名入力時にTEL/FAXをリアルタイム補完するために使う
 // ================================================================
-function lookupCompanyContact(ssId, companyName, side) {
+function lookupCompanyContact(ssId, companyName, side, token) {
+  verifyAdmin_(token, ssId);
   var ss  = getTargetSS_(ssId);
   var res = { tel: '', fax: '' };
   if (!companyName) return res;
@@ -3173,7 +3407,8 @@ function lookupCompanyContact(ssId, companyName, side) {
 //  ・採番〜運行シート書き込みは1-1b（SS単位ロック）で排他制御（同時入力時のID重複防止）
 //  ・集計表同期はロック解除後に登録IDごとに実行
 // ================================================================
-function matchAndConfirmDispatchFromApp(ssId, resolvedType) {
+function matchAndConfirmDispatchFromApp(ssId, resolvedType, token) {
+  verifyAdmin_(token, ssId);
   var ss   = getTargetSS_(ssId);
   var joho = ss.getSheetByName('配車板');
   if (!joho || joho.getLastRow() < 2)
@@ -3324,17 +3559,19 @@ function matchAndConfirmDispatchFromApp(ssId, resolvedType) {
 //  ③ 既存の集計表 → 手入力値（距離・ガソリン代・支払・備考・仮日数等）を退避
 //  ④ 運行シートをID単位で集約（同IDの複数行は売上/高速合算・時刻は先勝ち）
 //  ⑤ 集計表を全クリアして新しいデータを書き込み
-//  ⑥ 各行に数式をセット（U列:合計高速 / Y列:燃料代 / AA列:利益）
+//  ⑥ 合計(高速代)V＝請求−実費・支払い・利益AC＝売上＋V−(燃料代＋支払＋経費)を値で計算し、燃料代Z列のみ数式
 //  ⑦ 時刻の間隔異常を色で警告（積完〜休憩4時間超=黄 / 休憩30分未満=水 / 休憩後〜降完4時間超=黄）
-//  ⑧ 利益がマイナスの行を薄赤で着色
-//  ⑨ 支払い再計算（4-4）を実行して支払額を更新
-//  ⑩ W列の旧URL形式をリッチテキストに変換
-//  ・生成後に支払い再計算（4-4）を自動実行
+//  ⑧ 利益マイナスの行を薄赤、拘束13時間超をオレンジ、支払条件不備・経費空欄をグレーで着色
+//  ⑨ 月締めロック（そのSSの recalcFromDate_SSID）より前の行は旧集計表の支払条件・経費を維持
+//  ⑩ 運行シートX列の旧URL形式をリッチテキストに変換（4-1b）し、色付け（1-7）・フィルター再作成を行う
+//  ・支払いは本体内で計算する（4-4 は呼ばない）
 //  ・1-1b（SS単位ロック）の順番待ちに入ってから本体（4-1a）を実行する（最大30秒待機）
 //    待ちきれなかった場合は中止してエラー記録・画面通知を出し、false を返す
 //  ・すでにロックを持っている処理（1-4・13-6）からは本体（4-1a）を直接呼ぶ
+//  ・ss なし（メニュー・管理画面）の時は、スプレッドシートから（管理画面からは P-5b を通した時）だけ動く（P-5f）
 // ================================================================
 function generateSummary(ss, extraOld) {
+  if (!ss) requireSheetUi_();
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   var lock = getSsLock_();
   if (!lock.tryLock(30000)) {
@@ -3493,7 +3730,7 @@ function generateSummaryCore_(ss, extraOld) {
   }
 
   // 月締めロック：再計算範囲の制限日付を取得（設定がなければ全期間）
-  var recalcFromStr_ = PropertiesService.getScriptProperties().getProperty('recalcFromDate');
+  var recalcFromStr_ = PropertiesService.getScriptProperties().getProperty('recalcFromDate_' + ss.getId());
   var recalcFrom_ = null;
   if (recalcFromStr_) {
     var rfp_ = recalcFromStr_.split('/');
@@ -3541,7 +3778,7 @@ function generateSummaryCore_(ss, extraOld) {
       gExpense = old.expense;
     }
     // V/Z/支払/利益を値で計算（数式廃止でフィルター時のズレを防止）
-    var vRow = (g.tollReq === 0 && g.tollReal === 0) ? '' : (Number(g.tollReal)||0)-(Number(g.tollReq)||0);
+    var vRow = (g.tollReq === 0 && g.tollReal === 0) ? '' : (Number(g.tollReq)||0)-(Number(g.tollReal)||0); // 合計(高速代)=請求−実費
     var zRow = old.distance ? Math.round(Number(old.distance)/Number(fuel)*(Number(old.gas)||0)) : '';
     var pctNumG = Number(pct)||0, kyuryoNumG = Number(kyuryo)||0, kariNumG = Number(kari)||0;
     var thisTollG = (Number(g.tollReal)||0)-(Number(g.tollReq)||0);
@@ -3557,7 +3794,7 @@ function generateSummaryCore_(ss, extraOld) {
     var vNG = typeof vRow==='number'?vRow:0, zNG = typeof zRow==='number'?zRow:0;
     var payNG = typeof payRow==='number'?payRow:(Number(old.pay)||0);
     var salesNG = Number(g.sales)||0, expNG = Number(gExpense)||0;
-    var acRow = (!salesNG&&!vNG&&!zNG&&!payNG&&!expNG) ? '' : salesNG-(vNG+zNG+payNG+expNG);
+    var acRow = (!salesNG&&!vNG&&!zNG&&!payNG&&!expNG) ? '' : salesNG+vNG-(zNG+payNG+expNG);
     // 点呼前後完了を Date に正規化（文字列・全角コロン対応）して集計表に書き込む
     var iBefore_g = normInspTime_(g.inspBefore, g.date);
     var iAfter_g  = normInspTime_(g.inspAfter,  g.date);
@@ -3627,7 +3864,7 @@ function generateSummaryCore_(ss, extraOld) {
       var rowZN   = typeof outRows[row-1][25]==='number' ? outRows[row-1][25] : 0;
       var rowPayN = typeof outRows[row-1][26]==='number' ? outRows[row-1][26] : 0;
       var rowExpN = Number(outRows[row-1][27])||0;
-      var calcProfit = (Number(g2.sales)||0)-(rowVN+rowZN+rowPayN+rowExpN);
+      var calcProfit = (Number(g2.sales)||0)+rowVN-(rowZN+rowPayN+rowExpN);
       var rowRed = calcProfit < 0 ? '#ffebee' : null;
       var rowBg_ = [];
       for (var c_ = 0; c_ < 40; c_++) rowBg_.push(rowRed);   // base: 全40列
@@ -3667,7 +3904,7 @@ function generateSummaryCore_(ss, extraOld) {
     sumSheet.getRange(outRows.length + 1, 1, prevLR_ - outRows.length, prevLC_).clearFormat();
   }
 
-  convertLegacyAdminDataUrls_();
+  convertLegacyAdminDataUrls_(ss);
   applyHolidayRowColors_(ss);
 
   // フィルターをデータ全列に再設定
@@ -3679,16 +3916,17 @@ function generateSummaryCore_(ss, extraOld) {
   // ヘッダー行（1行目）の枠線を確実にクリア（データ行の黄色枠が残らないように）
   sumSheet.getRange(1, 1, 1, Math.max(sumSheet.getLastColumn(), 40)).setBorder(false, false, false, false, false, false);
   // 再生成完了 → 次にマスタ編集したとき「いつから？」ダイアログが再表示されるようリセット
-  PropertiesService.getScriptProperties().deleteProperty('recalcFromDateSet');
+  PropertiesService.getScriptProperties().deleteProperty('recalcFromDateSet_' + ss.getId());
 }
 
 
 // ================================================================
 //  4-1b: 管理側データURLをリッチテキストに一括変換（convertLegacyAdminDataUrls_）  【大B / 中4 / 小4-1b】
 //  運行シートのX列(24)にプレーンURLが残っている行をリッチテキストに変換
+//  ss を渡せばそのSS、省略時は開いているSSが対象
 // ================================================================
-function convertLegacyAdminDataUrls_() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('運行');
+function convertLegacyAdminDataUrls_(ss) {
+  var sheet = (ss || SpreadsheetApp.getActiveSpreadsheet()).getSheetByName('運行');
   if (!sheet || sheet.getLastRow() < 2) return;
   var lastRow = sheet.getLastRow();
   var all = sheet.getDataRange().getValues();
@@ -3714,15 +3952,41 @@ function convertLegacyAdminDataUrls_() {
   }
 }
 // 4-1b の呼び出し口（スタブ・メニュー用）
-function convertLegacyAdminDataUrls() { convertLegacyAdminDataUrls_(); }
+function convertLegacyAdminDataUrls() { requireSheetUi_(); convertLegacyAdminDataUrls_(); }
+
+// ================================================================
+//  4-1c: 集計表の合計(高速代)を請求−実費にそろえる（migrateSummaryTollSign_）  【大B / 中4 / 小4-1c】
+//  集計表V列（合計(高速代)）を 請求(T)−実費(U) で書き直す（両方0なら空欄）。利益(AC)の金額は変わらない
+//  SSごとに1回だけ実行（DocumentProperties の SUM_TOLL_SIGN_V2 で判定）。①は2-1、②③は16-2c から呼ばれる
+//  1-1b（SS単位ロック）が取れない時は何もせず、次回起動時にやり直す
+// ================================================================
+function migrateSummaryTollSign_(ss) {
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
+  var dp = PropertiesService.getDocumentProperties();
+  if (dp.getProperty('SUM_TOLL_SIGN_V2') === '1') return;
+  var sh = ss.getSheetByName('集計表');
+  if (!sh || sh.getLastRow() < 2) { dp.setProperty('SUM_TOLL_SIGN_V2', '1'); return; }
+  var lock = getSsLock_();
+  if (!lock.tryLock(10000)) return;
+  try {
+    var n = sh.getLastRow() - 1;
+    var tu = sh.getRange(2, 20, n, 2).getValues();
+    var v = tu.map(function(r) {
+      var t = Number(r[0]) || 0, u = Number(r[1]) || 0;
+      return [(t === 0 && u === 0) ? '' : t - u];
+    });
+    sh.getRange(2, 22, n, 1).setValues(v);
+    dp.setProperty('SUM_TOLL_SIGN_V2', '1');
+  } finally { lock.releaseLock(); }
+}
 
 
 // ================================================================
 //  4-2: 集計表をID単位で同期（syncSummaryForId_）  【大B / 中4 / 小4-2】
 //  運行シートから対象IDのデータを集計し集計表の該当行を更新する
-//  ・AB〜AD列（仮日数・給料・%）を保持＆マスタから引き当て
-//  ・時刻色付け・利益マイナス赤を再適用
-//  ・数式（T列・X列・Z列）を再セット
+//  ・AE〜AG列（仮日数・給料・%）はマスタから引き当て、手入力列（距離・ガソリン代・支払・備考・その他手当）は保持
+//  ・色（利益マイナス・時刻間隔・拘束13時間超・支払条件不備）を再適用、重複行を削除、運行にないIDは行を削除
+//  ・燃料代Z列のみ数式、合計(高速代)V（請求−実費）・支払・利益ACは値で書き込む
 //  ・ロック待ちで同期できなかったIDはPENDING_SUM_IDSに記録し、1-4の最後にまとめて同期する
 // ================================================================
 function syncSummaryForId_(targetId, ss) {
@@ -3736,7 +4000,7 @@ function syncSummaryForId_(targetId, ss) {
   var syncCache = CacheService.getScriptCache();
   var fuelMap = {}, yukyuRate = 0;
   try {
-    var cachedCfg = syncCache.get('cfg_setting');
+    var cachedCfg = syncCache.get('cfg_setting_' + ss.getId());
     if (cachedCfg) { var co = JSON.parse(cachedCfg); fuelMap = co.fm; yukyuRate = co.yr; }
   } catch(cErr) {}
   if (!Object.keys(fuelMap).length) {
@@ -3749,12 +4013,12 @@ function syncSummaryForId_(targetId, ss) {
         if (String(sVals[s][2]||'').trim() === '有休') yukyuRate = Number(sVals[s][3]) || 0;
       }
     }
-    try { syncCache.put('cfg_setting', JSON.stringify({fm:fuelMap,yr:yukyuRate}), 300); } catch(cErr2) {}
+    try { syncCache.put('cfg_setting_' + ss.getId(), JSON.stringify({fm:fuelMap,yr:yukyuRate}), 300); } catch(cErr2) {}
   }
 
   var payCondMap = {};
   try {
-    var cachedMst = syncCache.get('cfg_master');
+    var cachedMst = syncCache.get('cfg_master_' + ss.getId());
     if (cachedMst) payCondMap = JSON.parse(cachedMst);
   } catch(cErr3) {}
   if (!Object.keys(payCondMap).length) {
@@ -3781,7 +4045,7 @@ function syncSummaryForId_(targetId, ss) {
         };
       }
     }
-    try { syncCache.put('cfg_master', JSON.stringify(payCondMap), 60); } catch(cErr4) {}
+    try { syncCache.put('cfg_master_' + ss.getId(), JSON.stringify(payCondMap), 60); } catch(cErr4) {}
   }
 
   var unkouData = unkouSheet.getDataRange().getValues();
@@ -3954,7 +4218,7 @@ function syncSummaryForId_(targetId, ss) {
     if (_lockAcq_) sumInsLock.releaseLock();
   }
 
-  var vSyncVal = (g.tollReq === 0 && g.tollReal === 0) ? '' : (Number(g.tollReal)||0)-(Number(g.tollReq)||0);
+  var vSyncVal = (g.tollReq === 0 && g.tollReal === 0) ? '' : (Number(g.tollReq)||0)-(Number(g.tollReal)||0); // 合計(高速代)=請求−実費
   sumSheet.getRange(sumRow, 22).setValue(vSyncVal);
   // 燃料代（Z=26列）に数式を設定（距離÷燃費×ガソリン代）
   sumSheet.getRange(sumRow, 26).setFormula('=IF(OR(W'+sumRow+'="",Y'+sumRow+'=""),"",ROUND(W'+sumRow+'/X'+sumRow+'*Y'+sumRow+',0))');
@@ -3989,7 +4253,7 @@ function syncSummaryForId_(targetId, ss) {
     ? Math.round(Number(keepDistance) / Number(fuel) * Number(keepGas)) : 0;
   var resolvedPaySync = finalPaySync !== null ? finalPaySync : (Number(keepPay)||0);
   var salesSync = Number(g.sales)||0;
-  var acSyncVal = (!salesSync&&!vSN&&!zSN&&!resolvedPaySync&&!expenseVal) ? '' : salesSync-(vSN+zSN+resolvedPaySync+(Number(expenseVal)||0));
+  var acSyncVal = (!salesSync&&!vSN&&!zSN&&!resolvedPaySync&&!expenseVal) ? '' : salesSync+vSN-(zSN+resolvedPaySync+(Number(expenseVal)||0));
   sumSheet.getRange(sumRow, 29).setValue(acSyncVal);
   sumSheet.getRange(sumRow, 34).setValue(yukyuVal);
   // ── 背景色を1配列に積んで1回のsetBackgroundsで書き込む（API呼び出しを削減）──
@@ -4143,12 +4407,14 @@ function ensureSettingItems_(ss) {
 //  ・A列が空でB〜K列にデータがあれば V-XXXX 形式のIDを自動採番
 //  ・F(車番)か G(乗務員名) の片方が空の場合、自車専属マスタから補完
 //  ・集計表を一括再同期して反映
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function fillMissingIdsAndCars() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet || sheet.getLastRow() < 2) {
-    SpreadsheetApp.getUi().alert('運行シートにデータがありません');
+    getUiOrWeb_().alert('運行シートにデータがありません');
     return;
   }
   var master = ss.getSheetByName('自車専属マスタ');
@@ -4160,7 +4426,7 @@ function fillMissingIdsAndCars() {
   // ① ID一括採番（ロック内でメモリ更新→A列を一括書き込み）
   var fillLock = getSsLock_();
   try { fillLock.waitLock(15000); } catch(e) {
-    SpreadsheetApp.getUi().alert('ロック取得失敗。しばらく後に再試行してください。');
+    getUiOrWeb_().alert('ロック取得失敗。しばらく後に再試行してください。');
     return;
   }
   var nextIdNum = getNextIdNum_(sheet, 'V-');
@@ -4236,7 +4502,7 @@ function fillMissingIdsAndCars() {
   sortUnkouByDate_();
   applyHolidayRowColors_();
 
-  SpreadsheetApp.getUi().alert(
+  getUiOrWeb_().alert(
     '✅ 完了\n' +
     'ID補完: ' + idCount + '行\n' +
     '車番/乗務員補完: ' + carCount + '箇所\n' +
@@ -4248,9 +4514,11 @@ function fillMissingIdsAndCars() {
 // ================================================================
 //  4-2c: 日時入力ダイアログ（showDateTimePicker / setDateTimeToActiveCell_）  【大C / 中4 / 小4-2c】
 //  選択中セルに日時（年月日 + 時刻）を入力するカスタムダイアログ
-//  メニュー「📅 日時入力」から起動
+//  現在どのメニューにも登録されておらず、呼び出し元はない
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showDateTimePicker() {
+  requireSheetUi_();
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var cell  = sheet.getActiveCell();
   var val   = cell.getValue();
@@ -4503,8 +4771,10 @@ function clearHeaderStyleFromBlankRows_(s, w) {
 // ================================================================
 //  4-2f: ヘッダー復旧メニュー（restoreHeaders）  【大C / 中4 / 小4-2f】
 //  4-2e を実行して完了アラートを出す
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function restoreHeaders() {
+  requireSheetUi_();
   restoreAndProtectHeaders_(SpreadsheetApp.getActiveSpreadsheet());
   SpreadsheetApp.getUi().alert('ヘッダー復旧＋保護が完了しました');
 }
@@ -4636,8 +4906,9 @@ function dispatchStructureChange(e) {
     }
     if (ct === 'INSERT_ROW' || ct === 'REMOVE_ROW') return;
     var cache = CacheService.getScriptCache();
-    if (cache.get('__structureRestoring')) return;
-    cache.put('__structureRestoring', '1', 60);
+    var _restoreKey = '__structureRestoring_' + e.source.getId();
+    if (cache.get(_restoreKey)) return;
+    cache.put(_restoreKey, '1', 60);
     try {
       var ss = e.source;
 
@@ -4741,7 +5012,7 @@ function dispatchStructureChange(e) {
         ss.toast('シートの移動はできません。元に戻しました', '🚫', 4);
       }
     } finally {
-      cache.remove('__structureRestoring');
+      cache.remove(_restoreKey);
     }
   } catch(ex) {}
 }
@@ -4843,6 +5114,7 @@ function backupAllSheets_(ss) {
 
 // 4-2p の呼び出し口（スタブ・メニュー用）
 function backupAllSheets() {
+  requireSheetUi_();
   backupAllSheets_(SpreadsheetApp.getActiveSpreadsheet());
 }
 
@@ -4853,8 +5125,13 @@ function backupAllSheets() {
 //  ・自車専属マスタに15経費列がなければ追加（按分計算用）
 //  ・自車専属運行シートをマスタから再生成（15列対応）
 //  ・末尾で initImportDictionary_（辞書v10更新）・createImportTestSheetUnkou（初回のみテストシート生成）を実行
+//  ・ほかに：対象シートの列順復元・見出し復旧（4-2e）、自車専属マスタの列整備（高速を引く・コンプラ4列・担当管理者）、
+//    管理者シート作成、燃費再計算、運行/集計表の点呼列追加、取引先メール列、点検項目（4-2a）、配車板の作成・移行、
+//    トン数・車種の一括正規化、色付け（8-6a-1・1-7）、シート並び順（4-2j）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function expandAndRefreshSheets() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   // ヘッダー修復の前に列順・データを正規位置へ復元（並び替え・削除後のズレを解消）
   ['運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定'].forEach(function(sname) {
@@ -5193,11 +5470,11 @@ function expandAndRefreshSheets() {
   //              荷主からの依頼（貨物情報）と手配した車両（車両情報）を
   //              同一シートで管理し、チェック→確定で運行シートへ自動登録できる。
   (function() {
-    // ── 列構成（A〜AB の28列） ────────────────────────────────────────
+    // ── 列構成（A〜AC の29列） ────────────────────────────────────────
     // [貨物側] A:チェック(貨物) B:進捗(貨物) C:会社名 D:TEL E:FAX F:日付 G:品名
     //          H:トン数 I:車種 J:積地 K:降地 L:金額(売上) M:備考(貨物) N:貨物登録ID
-    // [車両側] O:チェック(車両) P:進捗(車両) Q:会社名 R:TEL S:FAX T:看板名
-    //          U:トン数(車両) V:車種(車両) W:車番 X:乗務員名 Y:携帯 Z:金額(支払) AA:備考(車両) AB:車両登録ID
+    // [車両側] O:チェック(車両) P:進捗(車両) Q:会社名 R:TEL S:FAX T:日付(車両) U:看板名
+    //          V:トン数(車両) W:車種(車両) X:車番 Y:乗務員名 Z:携帯 AA:金額(支払) AB:備考(車両) AC:車両登録ID
     //
     // 貨物と車両がそれぞれ独立したチェック列・進捗列を持つ設計。
     // 貨物の進捗(B列)を変えても車両側(O-AA)の色は変わらず、逆も同様。
@@ -5358,7 +5635,7 @@ function expandAndRefreshSheets() {
   createImportTestSheetUnkou();
   createDummyUnkouSheet_();
   arrangeSheetsOrder_(ss);
-  SpreadsheetApp.getUi().alert('シート再生成が完了しました。');
+  getUiOrWeb_().alert('シート再生成が完了しました。');
 }
 
 
@@ -5366,8 +5643,10 @@ function expandAndRefreshSheets() {
 //  4-3c: 配車板 列ズレ修復（repairJohoSheet）  【大B / 中4 / 小4-3c】
 //  移行コードの誤実行により配車板のO〜AC列が1つ右にズレた場合の修復関数
 //  P列(16)にbool値(TRUE/FALSE)が入っていれば列ズレと判定し、左に1シフトして元に戻す
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function repairJohoSheet() {
+  requireSheetUi_();
   var ui    = SpreadsheetApp.getUi();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('配車板');
@@ -5483,23 +5762,26 @@ function refreshPlApportionColumn_(ss, sheet) {
 
 // ================================================================
 //  4-3b: 経費自動入力（autoFillExpense）  【大B / 中4 / 小4-3b】
-//  自車専属マスタで選択中の行のトン数（F列）を読み
+//  自車専属マスタで選択中の行（管理画面ではタップした行・P-5d）のトン数（F列）を読み
 //  トン数別平均値を15経費列（Q〜AE列）に一括セットする
 //  ・平均値セル → 文字色を赤にして「自動入力」とわかるようにする
 //  ・手入力済みセル（文字色が黒/null）は上書きしない
 //  ・トン数不明は4トンを使うか確認（1〜30t対応）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function autoFillExpense() {
-  var ui    = SpreadsheetApp.getUi();
+  requireSheetUi_();
+  var ui    = getUiOrWeb_();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getActiveSheet();
+  var _sel  = toolSelection_(ss);   // スプレッドシートは選択範囲、管理画面は指定した行（P-5d）
+  var sheet = _sel.sheet;
 
   if (sheet.getName() !== '自車専属マスタ') {
     ui.alert('自車専属マスタシートを開いた状態で実行してください。');
     return;
   }
 
-  var selRange    = sheet.getActiveRange();
+  var selRange    = _sel.range;
   var firstRow    = selRange.getRow();
   var numSelRows  = selRange.getNumRows();
   if (firstRow < 2) { ui.alert('データ行（2行目以降）を選択してください。'); return; }
@@ -5702,13 +5984,15 @@ function autoFillExpense() {
 
 // ================================================================
 //  4-4: 支払い再計算（calculatePaymentAmount）  【大B / 中4 / 小4-4】
-//  集計表のAB列(仮日数)・AC列(給料)・AD列(%)からY列(支払い)を計算する
-//  ・パターンA: %あり → (売上-合計高速代)×%/100
+//  集計表のAE列(仮日数)・AF列(給料)・AG列(%)からAA列(支払い)を計算し、有休手当(AH)・利益(AC)も書き込む
+//  ・パターンA: %あり → 売上×%/100（「高速を引く」=○の車両は（売上＋合計(高速代)）×%/100、合計(高速代)＝請求−実費）
 //  ・パターンB: %なし・給料と仮日数あり → 給料÷仮日数
 //              片方欠け → 欠けているセルを赤警告
 //  ・パターンC: 条件なし → Y列が空なら赤警告（手入力値は保持）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function calculatePaymentAmount(companySsId) {
+  requireSheetUi_();
   var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('集計表');
   if (!sheet) return;
@@ -5748,7 +6032,7 @@ function calculatePaymentAmount(companySsId) {
   for (var i = 0; i < data.length; i++) {
     var rowNum    = i + 2;
     var sales     = Number(data[i][18]) || 0;
-    var totalToll = Number(data[i][21]) || 0;  // V=col22
+    var totalToll = (Number(data[i][19]) || 0) - (Number(data[i][20]) || 0);  // 合計(高速代)=請求(T)−実費(U)
     var fuelCost  = Number(data[i][25]) || 0;  // Z=col26=燃料代
     var expense   = Number(data[i][27]) || 0;  // AB=col28=経費合計
     var kari      = Number(data[i][30]) || 0;  // AE=col31
@@ -5769,7 +6053,7 @@ function calculatePaymentAmount(companySsId) {
     var finalPay;
     if (pct > 0) {
       var effectiveTollC = (tollDeductC === '○') ? totalToll : 0;
-      finalPay = Math.round((sales - effectiveTollC) * (pct / 100));
+      finalPay = Math.round((sales + effectiveTollC) * (pct / 100));
       yCell.setValue(finalPay);
       if (isYukyu) yukyuVal = yukyuRate;
     } else if (kyuryo > 0 || kari > 0) {
@@ -5789,7 +6073,7 @@ function calculatePaymentAmount(companySsId) {
     yukyuVals.push([yukyuVal]);
     // AC(29)=利益 を更新
     var acAllEmpty = !sales && !totalToll && !fuelCost && !finalPay && !expense;
-    acVals.push([acAllEmpty ? '' : sales-(totalToll+fuelCost+finalPay+expense)]);
+    acVals.push([acAllEmpty ? '' : sales+totalToll-(fuelCost+finalPay+expense)]);
   }
 
   if (yukyuVals.length > 0) {
@@ -5802,10 +6086,11 @@ function calculatePaymentAmount(companySsId) {
 // ================================================================
 //  4-5: 自車専属運行シート更新（refreshActiveVehicles / refreshActiveVehiclesAuto_）  【大B / 中4 / 小4-5】
 //  自車専属マスタの運行状態=「運行」の行のみを抽出し
-//  自車専属運行シートに15列（A〜O列、仮日数/給料/%含む）で書き出す
+//  自車専属運行シートに16列（A〜P列、仮日数/給料/%含む）で書き出す
 //  refreshActiveVehicles() はメニューから呼ぶ呼び出し口
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
-function refreshActiveVehicles() { refreshActiveVehiclesAuto_(); }
+function refreshActiveVehicles() { requireSheetUi_(); refreshActiveVehiclesAuto_(); }
 // 4-5: 自車専属運行シート更新の本体
 function refreshActiveVehiclesAuto_(ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -5837,9 +6122,12 @@ function refreshActiveVehiclesAuto_(ss) {
 
 // ================================================================
 //  4-6: 自車専属マスタに「運行」列追加（addStatusColumnToMaster）  【大B / 中4 / 小4-6】
-//  B列が「運行」でなければB列を挿入し全行に「運行」をセットする
+//  B1が「運行」でなければB列を挿入し全行に「運行」をセットする
+//  ※ 現在どこからも呼ばれない。見出しは「運行状態」のため、実行すると毎回列が増える
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function addStatusColumnToMaster() {
+  requireSheetUi_();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('自車専属マスタ');
   if (!sheet) return;
@@ -5856,9 +6144,11 @@ function addStatusColumnToMaster() {
 //  車番ごとに今月の生成済み最終日を確認し、未生成分（データなしは1日〜、途中は翌日〜）を運行シートに生成する
 //  全車両が月末まで生成済みの場合のみブロック。月途中契約・追加生成どちらにも対応
 //  ・採番〜運行シート書き込みは1-1b（SS単位ロック）で排他制御（同時入力時のID重複防止）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function generateCurrentMonth() {
-  var ui    = SpreadsheetApp.getUi();
+  requireSheetUi_();
+  var ui    = getUiOrWeb_();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) { ui.alert('運行シートが見つかりません'); return; }
@@ -5967,9 +6257,11 @@ function generateCurrentMonth() {
 //  ・生成後に運行シートに3ヶ月以上のデータがあれば最古月を自動アーカイブ（4-8a呼び出し）
 //  ・重複防止: 次月データが既存なら処理中止
 //  ・1-1b（SS単位ロック）で同時実行によるID重複を防止
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function generateNextMonth() {
-  var ui = SpreadsheetApp.getUi();
+  requireSheetUi_();
+  var ui = getUiOrWeb_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) { ui.alert('運行シートが見つかりません'); return; }
@@ -6074,12 +6366,14 @@ function generateNextMonth() {
 
 // ================================================================
 //  4-8: 前月分アーカイブ（archiveOldMonth）  【大C / 中4 / 小4-8】
-//  前月（今月-1）の運行シート・集計表を別スプレッドシートに値のみで保存して元行を削除する
+//  今月より前の全月を古い月から1か月ずつ 4-8b で別スプレッドシートに値のみで保存し、元行を削除する
 //  保存先: Googleドライブ「運行管理_アーカイブ/会社名/YYYY年MM月_会社名」
-//  自車専属マスタのJ列（メールアドレス）に登録された全員に編集権限を付与
+//  自車専属マスタのK列（アドレス）に登録された全員に編集権限を付与
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function archiveOldMonth() {
-  var ui = SpreadsheetApp.getUi();
+  requireSheetUi_();
+  var ui = getUiOrWeb_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet || sheet.getLastRow() < 2) {
@@ -6172,7 +6466,7 @@ function archiveOldestMonthIfNeeded_(ss) {
 //   1. 対象月の行を収集
 //   2. 新規スプレッドシート作成・2シート(運行/集計表)に値のみ書き込み
 //   3. 「運行管理_アーカイブ/会社名/」フォルダへ移動
-//   4. 自車専属マスタJ列(メールアドレス)全員に編集権限を付与
+//   4. 自車専属マスタK列(アドレス)全員に編集権限を付与
 //   5. 運行シート・集計表から対象行を削除
 // ================================================================
 function archiveMonthData_(ss, year, month, companyName) {
@@ -6232,7 +6526,7 @@ function archiveMonthData_(ss, year, month, companyName) {
   companyFolder.addFile(newFile);
   DriveApp.getRootFolder().removeFile(newFile);
 
-  // 自車専属マスタのJ列(index[9]=メールアドレス)に登録された全員に編集権限を付与
+  // 自車専属マスタのK列(index[10]=アドレス)に登録された全員に編集権限を付与
   var master = ss.getSheetByName('自車専属マスタ');
   if (master && master.getLastRow() >= 2) {
     var mData = master.getRange(2, 1, master.getLastRow() - 1, 11).getValues();
@@ -6415,21 +6709,22 @@ function getInitialData(hintEmail, companySsId) {
 //  行程入力フォームの車番フィールドからマスタ補完に使用
 //  完全一致のみ。マスタにない車番は null を返す
 // ================================================================
-function getCarInfoByNumber(carNo, companySsId) {
+function getCarInfoByNumber(carNo, companySsId, auth) {
+  verifyAppAuth_(auth, companySsId);
   var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var master = ss.getSheetByName('自車専属マスタ');
   if (!master || master.getLastRow() < 2) return null;
   var mData = master.getRange(2, 1, master.getLastRow() - 1, 10).getValues();
   for (var i = 0; i < mData.length; i++) {
-    var masterCar = String(mData[i][6] || '').trim(); // G列(7)=車番
+    var masterCar = String(mData[i][7] || '').trim(); // H列(8)=車番
     if (!masterCar) continue;
     if (masterCar === carNo) {
       return {
-        tons:    String(mData[i][4] || '').trim(), // E列(5)=トン数
-        type:    String(mData[i][5] || '').trim(), // F列(6)=車種
-        company: String(mData[i][3] || '').trim(), // D列(4)=会社名（看板名）
-        name:    String(mData[i][7] || '').trim(), // H列(8)=乗務員名
-        tel:     String(mData[i][8] || '').trim()  // I列(9)=携帯番号
+        tons:    String(mData[i][5] || '').trim(), // F列(6)=トン数
+        type:    String(mData[i][6] || '').trim(), // G列(7)=車種
+        company: String(mData[i][3] || '').trim(), // D列(4)=会社名
+        name:    String(mData[i][8] || '').trim(), // I列(9)=乗務員名
+        tel:     String(mData[i][9] || '').trim()  // J列(10)=携帯番号
       };
     }
   }
@@ -6439,8 +6734,8 @@ function getCarInfoByNumber(carNo, companySsId) {
 
 // ================================================================
 //  5-2: 紐づけ実行（linkAddress）  【大A / 中5 / 小5-2】
-//  入力アドレスを自車専属マスタのJ列と照合し
-//  一致したら端末のPropertiesServiceに保存する（シートには書かない）
+//  入力アドレスを自車専属マスタのK列（アドレス）と照合し
+//  一致したら乗務員情報を返す（端末側がアドレスを保存する。サーバー・シートには書かない）
 // ================================================================
 function linkAddress(email, companySsId) {
   var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
@@ -6449,11 +6744,6 @@ function linkAddress(email, companySsId) {
   var rows = master.getDataRange().getValues();
   for (var i = 1; i < rows.length; i++) {
     if (String(rows[i][10]).trim() === String(email).trim()) {
-      var props = PropertiesService.getUserProperties();
-      props.setProperty('linkedEmail', email);
-      // 紐づけ時に会社SSのIDも保存（次回以降URLなしでも正しいSSを開ける）
-      var linkedSsId = props.getProperty('linkedSsId');
-      if (!linkedSsId) props.setProperty('linkedSsId', ss.getId());
       return {
         status: "紐づけOK", email: email,
         company: rows[i][3], tons: rows[i][5], type: rows[i][6],
@@ -6467,7 +6757,7 @@ function linkAddress(email, companySsId) {
 
 // ================================================================
 //  5-3: 紐づけ解除（unlinkAddress）  【大A / 中5 / 小5-3】
-//  端末のPropertiesServiceからアドレス情報を消去する
+//  サーバー側には紐づけを保存していないため、旧版が残した共通の保存値を消すだけ（端末側で消去する）
 // ================================================================
 function unlinkAddress(companySsId) {
   PropertiesService.getUserProperties().deleteProperty('linkedEmail');
@@ -6477,46 +6767,59 @@ function unlinkAddress(companySsId) {
 
 // ================================================================
 //  6-1: 端末の運行進捗を保存（saveRunState）  【大A / 中6 / 小6-1】
-//  picks/drops/rows/pickDone/dropDone/phase/lastPickRow/
-//  pickHistory/dropHistoryの9項目をsetPropertiesで一括保存
+//  picks/drops/rows/runId/guideDone/pickDone/dropDone/phase/lastPickIndex/
+//  guideHistory/pickHistory/dropHistory の12項目をsetPropertiesで一括保存
+//  保存キーは「run_SSのID_アドレス_項目名」（6-1b）で、客ごと・乗務員ごとに分ける
 // ================================================================
 function saveRunState(state, email, companySsId) {
   validateDriverEmail_(email, companySsId);
+  var pre = runStatePrefix_(email, companySsId);
   var p = PropertiesService.getUserProperties();
-  p.setProperties({
-    'picks':          JSON.stringify(state.picks          || []),
-    'drops':          JSON.stringify(state.drops          || []),
-    'rows':           JSON.stringify(state.rows           || []),
-    'runId':          state.runId                         || '',
-    'guideDone':      JSON.stringify(state.guideDone      || []),
-    'pickDone':       JSON.stringify(state.pickDone       || []),
-    'dropDone':       JSON.stringify(state.dropDone       || []),
-    'phase':          state.phase                         || '',
-    'lastPickIndex':  (state.lastPickIndex !== null && state.lastPickIndex !== undefined) ? String(state.lastPickIndex) : '',
-    'guideHistory':   JSON.stringify(state.guideHistory   || []),
-    'pickHistory':    JSON.stringify(state.pickHistory    || []),
-    'dropHistory':    JSON.stringify(state.dropHistory    || [])
-  }, false);
+  var obj = {};
+  obj[pre + 'picks']         = JSON.stringify(state.picks          || []);
+  obj[pre + 'drops']         = JSON.stringify(state.drops          || []);
+  obj[pre + 'rows']          = JSON.stringify(state.rows           || []);
+  obj[pre + 'runId']         = state.runId                         || '';
+  obj[pre + 'guideDone']     = JSON.stringify(state.guideDone      || []);
+  obj[pre + 'pickDone']      = JSON.stringify(state.pickDone       || []);
+  obj[pre + 'dropDone']      = JSON.stringify(state.dropDone       || []);
+  obj[pre + 'phase']         = state.phase                         || '';
+  obj[pre + 'lastPickIndex'] = (state.lastPickIndex !== null && state.lastPickIndex !== undefined) ? String(state.lastPickIndex) : '';
+  obj[pre + 'guideHistory']  = JSON.stringify(state.guideHistory   || []);
+  obj[pre + 'pickHistory']   = JSON.stringify(state.pickHistory    || []);
+  obj[pre + 'dropHistory']   = JSON.stringify(state.dropHistory    || []);
+  p.setProperties(obj, false);
+}
+
+
+// ================================================================
+//  6-1b: 運行進捗の保存キー接頭辞（runStatePrefix_）  【大B / 中6 / 小6-1b】
+//  「run_」＋SSのID＋「_」＋アドレス＋「_」を返す（6-1・6-2・6-3 共通）
+// ================================================================
+function runStatePrefix_(email, companySsId) {
+  return 'run_' + getTargetSS_(companySsId).getId() + '_' + String(email || '').trim().toLowerCase() + '_';
 }
 
 
 // ================================================================
 //  6-2: 端末の運行進捗を読み込み（loadRunState）  【大A / 中6 / 小6-2】
-//  getPropertiesで一括取得して返す
+//  その乗務員・そのSSの12項目（6-1b のキー）を一括取得して返す
 // ================================================================
-function loadRunState() {
+function loadRunState(email, companySsId) {
+  validateDriverEmail_(email, companySsId);
+  var pre = runStatePrefix_(email, companySsId);
   var all = PropertiesService.getUserProperties().getProperties();
-  function safeJ_(k, d) { try { return JSON.parse(all[k] || d); } catch(e) { return JSON.parse(d); } }
-  var lpi = all['lastPickIndex'];
+  function safeJ_(k, d) { try { return JSON.parse(all[pre + k] || d); } catch(e) { return JSON.parse(d); } }
+  var lpi = all[pre + 'lastPickIndex'];
   return {
     picks:         safeJ_('picks',        '[]'),
     drops:         safeJ_('drops',        '[]'),
     rows:          safeJ_('rows',         '[]'),
-    runId:         all['runId']           || '',
+    runId:         all[pre + 'runId']     || '',
     guideDone:     safeJ_('guideDone',    '[]'),
     pickDone:      safeJ_('pickDone',     '[]'),
     dropDone:      safeJ_('dropDone',     '[]'),
-    phase:         all['phase']           || '',
+    phase:         all[pre + 'phase']     || '',
     lastPickIndex: (lpi !== '' && lpi !== undefined && lpi !== null) ? Number(lpi) : null,
     guideHistory:  safeJ_('guideHistory', '[]'),
     pickHistory:   safeJ_('pickHistory',  '[]'),
@@ -6527,14 +6830,15 @@ function loadRunState() {
 
 // ================================================================
 //  6-3: 端末の運行進捗をクリア（clearRunState）  【大A / 中6 / 小6-3】
-//  linkedEmail（紐づけ）とreadNotices（既読管理）は消さない
-//  運行進捗の9項目だけ削除する
+//  readNotices（既読管理）は消さない
+//  その乗務員・そのSSの運行進捗12項目（6-1b のキー）だけ削除する
 // ================================================================
 function clearRunState(email, companySsId) {
   validateDriverEmail_(email, companySsId);
+  var pre  = runStatePrefix_(email, companySsId);
   var p    = PropertiesService.getUserProperties();
   var keys = ['picks','drops','rows','runId','guideDone','pickDone','dropDone','phase','lastPickIndex','guideHistory','pickHistory','dropHistory'];
-  for (var i = 0; i < keys.length; i++) { p.deleteProperty(keys[i]); }
+  for (var i = 0; i < keys.length; i++) { p.deleteProperty(pre + keys[i]); }
 }
 
 
@@ -6604,8 +6908,8 @@ function findRowByIdAndIndex_(sheet, id, routeIndex) {
 //  紐づけアドレスからマスタ情報を取得し運行シートに行程を書き込む
 //  ・同じ運行の行程は全て同じIDを付与
 //  ・日付をDate型（時刻付き）で書き込む
-//  ・LockServiceで同時書き込みによるID重複を防止
-//  ★STEP4追加: 今日の未割当プレースホルダー（積地空）があれば新規IDを生成せずそれを使用
+//  ・1-1b（SS単位ロック）で同時書き込みによるID重複を防止
+//  ・今日の未割当プレースホルダー（積地空）があれば新規IDを生成せずそれを使用
 //    → スプレッドシートで積地が先入力済みなら別ID生成（既存動作にフォールバック）
 //    → 複数行程の場合は先頭行をプレースホルダー更新、追加行程は末尾に新規追加（同ID）
 // ================================================================
@@ -6763,7 +7067,7 @@ function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, emai
     // 日付順にソート（新規行が末尾に追加されているため）
     sortUnkouByDate_(companySsId);
 
-    clearListCache_(email);
+    clearListCache_(email, ss.getId());
     return { rows: resultRows, id: sameId };
 
   } finally {
@@ -6775,8 +7079,10 @@ function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, emai
 // ================================================================
 //  7-3: 誘導時刻記録（setGuideComplete）  【大A / 中7 / 小7-3】
 //  IDとルートインデックスで行を動的検索してN列（14列目）に現在時刻を書き込む
+//  乗務員アドレスを 2-2d で確認してから動く
 // ================================================================
-function setGuideComplete(id, routeIndex, companySsId) {
+function setGuideComplete(id, routeIndex, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   var row = findRowByIdAndIndex_(sheet, id, routeIndex);
@@ -6792,8 +7098,10 @@ function setGuideComplete(id, routeIndex, companySsId) {
 // ================================================================
 //  7-4: 積完時刻記録（setPickComplete）  【大A / 中7 / 小7-4】
 //  IDとルートインデックスで行を動的検索してO列（15列目）に現在時刻を書き込む
+//  乗務員アドレスを 2-2d で確認してから動く
 // ================================================================
-function setPickComplete(id, routeIndex, companySsId) {
+function setPickComplete(id, routeIndex, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   var row = findRowByIdAndIndex_(sheet, id, routeIndex);
@@ -6808,8 +7116,10 @@ function setPickComplete(id, routeIndex, companySsId) {
 // ================================================================
 //  7-5: 休憩開始・終了時刻記録（setRest）  【大A / 中7 / 小7-5】
 //  IDとルートインデックスで行を動的検索して P列(16)/Q列(17) に現在時刻を書き込む
+//  乗務員アドレスを 2-2d で確認してから動く
 // ================================================================
-function setRest(id, routeIndex, type, companySsId) {
+function setRest(id, routeIndex, type, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   var row = findRowByIdAndIndex_(sheet, id, routeIndex);
@@ -6827,8 +7137,10 @@ function setRest(id, routeIndex, type, companySsId) {
 // ================================================================
 //  7-6: 降完時刻記録（setDropComplete）  【大A / 中7 / 小7-6】
 //  IDとルートインデックスで行を動的検索してR列（18列目）に現在時刻を書き込む
+//  乗務員アドレスを 2-2d で確認してから動く
 // ================================================================
-function setDropComplete(id, routeIndex, companySsId) {
+function setDropComplete(id, routeIndex, companySsId, email) {
+  validateDriverEmail_(email, companySsId);
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   var row = findRowByIdAndIndex_(sheet, id, routeIndex);
@@ -6851,11 +7163,11 @@ function recordAction(actionType, id, routeIndex, stateObj, companySsId, email) 
   var now = new Date();
   var hhmm = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   var timeField = null;
-  if      (actionType === 'guide')      { setGuideComplete(id, routeIndex, companySsId); timeField = 'guideTime'; }
-  else if (actionType === 'pick')       { setPickComplete(id, routeIndex, companySsId);  timeField = 'pickTime'; }
-  else if (actionType === 'restStart')  { setRest(id, routeIndex, 'start', companySsId); timeField = 'restStart'; }
-  else if (actionType === 'restEnd')    { setRest(id, routeIndex, 'end',   companySsId); timeField = 'restEnd'; }
-  else if (actionType === 'drop')       { setDropComplete(id, routeIndex, companySsId);  timeField = 'dropTime'; }
+  if      (actionType === 'guide')      { setGuideComplete(id, routeIndex, companySsId, email); timeField = 'guideTime'; }
+  else if (actionType === 'pick')       { setPickComplete(id, routeIndex, companySsId, email);  timeField = 'pickTime'; }
+  else if (actionType === 'restStart')  { setRest(id, routeIndex, 'start', companySsId, email); timeField = 'restStart'; }
+  else if (actionType === 'restEnd')    { setRest(id, routeIndex, 'end',   companySsId, email); timeField = 'restEnd'; }
+  else if (actionType === 'drop')       { setDropComplete(id, routeIndex, companySsId, email);  timeField = 'dropTime'; }
   else if (actionType === 'inspBefore') { setInspectionComplete_(id, 'before', companySsId); timeField = 'inspBefore'; }
   else if (actionType === 'inspAfter')  { setInspectionComplete_(id, 'after',  companySsId); timeField = 'inspAfter'; }
   else if (actionType === 'syncSummary') {
@@ -6863,7 +7175,7 @@ function recordAction(actionType, id, routeIndex, stateObj, companySsId, email) 
     var ssS = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
     if (id) delaySyncSummary_(id, ssS);
   }
-  clearListCache_(email);
+  clearListCache_(email, companySsId);
   return timeField ? {field: timeField, time: hhmm} : null;
 }
 
@@ -6985,7 +7297,7 @@ function deleteRunRows(id, companySsId, email) {
   del.sort(function(a, b) { return b - a; });
   for (var j = 0; j < del.length; j++) sheet.deleteRow(del[j]);
   if (id) delaySyncSummary_(id, ss);
-  clearListCache_(email);
+  clearListCache_(email, ss.getId());
 }
 
 
@@ -7011,7 +7323,7 @@ function clearTimeCell(id, routeIndex, col, companySsId, email) {
 //          → 未紐づけなら空のデータを返す
 //  8-4-2: 運行シートを全件読み込み、指定年月・乗務員名で絞り込みID単位に集約
 //          → 同一IDの複数行（複数行程）は売上/高速を合算・時刻は先頭行優先
-//          → dateSort はI列（初回行程登録時刻）のまま固定（積完時刻では更新しない）
+//          → dateSort はJ列（初回行程登録時刻）のまま固定（積完時刻では更新しない）
 //  8-4-3: X列(24)のデータURLを3段階フォールバックで取得
 //          ① セルのノート（getNotes）から → ② リッチテキスト（getRichTextValues）から
 //          → ③ プレーン値（getValues）がURLなら直接使用
@@ -7028,7 +7340,7 @@ function getListData(year, month, companySsId, email) {
   // マスタからメールアドレスが一致する乗務員名を特定（60秒キャッシュ）
   var listCache = CacheService.getUserCache();
   var myName = '';
-  var emailKey = 'driver_name_' + savedEmail.toLowerCase().replace(/[^a-z0-9]/g,'_');
+  var emailKey = 'driver_name_' + ss.getId() + '_' + savedEmail.toLowerCase().replace(/[^a-z0-9]/g,'_');
   try { myName = listCache.get(emailKey) || ''; } catch(e) {}
   if (!myName) {
     var master = ss.getSheetByName('自車専属マスタ');
@@ -7044,7 +7356,7 @@ function getListData(year, month, companySsId, email) {
   if (!myName) return {rows:[], total:{days:0,sales:0,toll:0,pay:0}};
 
   // 30秒キャッシュ（毎回フルシート読みを回避。書き込み操作後はclearListCache_で削除）
-  var _ldKey = 'ld_' + savedEmail.toLowerCase() + '_' + year + '_' + month;
+  var _ldKey = 'ld_' + ss.getId() + '_' + savedEmail.toLowerCase() + '_' + year + '_' + month;
   var _ldSC  = CacheService.getScriptCache();
   try { var _ldCached = _ldSC.get(_ldKey); if (_ldCached) return JSON.parse(_ldCached); } catch(e) {}
 
@@ -7210,15 +7522,16 @@ function getListData(year, month, companySsId, email) {
 
 // ================================================================
 //  8-4b: 一覧データキャッシュ削除（clearListCache_）  【大B / 中8 / 小8-4b】
-//  書き込み操作の後に呼び、8-4 の一覧データキャッシュを削除する
+//  書き込み操作の後に呼び、8-4 の一覧データキャッシュ（SSごと・乗務員ごと）を削除する
 // ================================================================
-function clearListCache_(email) {
+function clearListCache_(email, ssId) {
   if (!email) return;
+  if (!ssId) ssId = getTargetSS_('').getId();
   var sc = CacheService.getScriptCache();
   var now = new Date(), yr = now.getFullYear(), mo = now.getMonth() + 1;
   var prevMo = mo > 1 ? mo - 1 : 12, prevYr = mo > 1 ? yr : yr - 1;
-  try { sc.remove('ld_' + email.toLowerCase() + '_' + yr + '_' + mo); } catch(e) {}
-  try { sc.remove('ld_' + email.toLowerCase() + '_' + prevYr + '_' + prevMo); } catch(e) {}
+  try { sc.remove('ld_' + ssId + '_' + email.toLowerCase() + '_' + yr + '_' + mo); } catch(e) {}
+  try { sc.remove('ld_' + ssId + '_' + email.toLowerCase() + '_' + prevYr + '_' + prevMo); } catch(e) {}
 }
 
 
@@ -7244,7 +7557,7 @@ function getEditData(id, companySsId, email) {
     for (var s = 0; s < sumAll.length; s++) {
       if (String(sumAll[s][0]||'').trim() === String(id).trim()) {
         sumData.tollTotal = sumAll[s][21] !== '' ? sumAll[s][21] : '';
-        sumData.profit    = sumAll[s][27] !== '' ? sumAll[s][27] : '';
+        sumData.profit    = sumAll[s][28] !== '' ? sumAll[s][28] : '';  // AC=利益
         sumData.yukyu     = sumAll[s][33] !== '' ? Math.round(Number(sumAll[s][33])) : '';  // AH=有休手当
         sumData.other     = sumAll[s][34] !== '' ? Math.round(Number(sumAll[s][34])) : '';  // AI=その他手当
         var ibRaw = sumAll[s][35]; // AJ=点呼前完了
@@ -7443,9 +7756,9 @@ function saveEditData(obj, companySsId, email) {
       }
     }
   }
-  delaySyncSummary_(obj.id);
+  delaySyncSummary_(obj.id, ss);
   try { applyHolidayRowColors_(ss); } catch(e) {}
-  clearListCache_(email);
+  clearListCache_(email, ss.getId());
   } finally {
     lock.releaseLock();
   }
@@ -7456,7 +7769,8 @@ function saveEditData(obj, companySsId, email) {
 //  8-6a: 端末連絡保存（saveTermNoticeByDriver）  【大A / 中8 / 小8-6a】
 //  端末アプリの一覧編集モーダルから連絡(端末)(Y列=25)のみを書き込む
 // ================================================================
-function saveTermNoticeByDriver(id, termNotice, companySsId) {
+function saveTermNoticeByDriver(id, termNotice, companySsId, auth) {
+  verifyAppAuth_(auth, companySsId);
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
@@ -7573,8 +7887,10 @@ function applySumEditableBorders_(sumSheet, startRow, numRows) {
 // ================================================================
 //  8-6a-4: 全保護の解除（removeAllProtections）  【大C / 中8 / 小8-6a-4】
 //  全シートの範囲保護・シート保護をすべて解除する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function removeAllProtections() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var n = 0;
   ss.getSheets().forEach(function(s) {
@@ -7588,10 +7904,12 @@ function removeAllProtections() {
 //  8-6b: シート保護設定（setupSheetProtection）  【大C / 中8 / 小8-6b】
 //  集計表: 距離(W)・ガソリン代(Y)・支払い(AA)・備考(AD)・その他手当(AI)以外を保護し、手入力可セルに黄色枠を付ける
 //  運行シート: 連絡(端末)Y・データ(端末)Z列を保護する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function setupSheetProtection() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var ui = SpreadsheetApp.getUi();
+  var ui = getUiOrWeb_();
 
   var sumSheet = ss.getSheetByName('集計表');
   if (sumSheet) {
@@ -7642,8 +7960,10 @@ function setupSheetProtection() {
 //  8-6b-0a: 看板名列を既存シートに挿入（insertKanbanColumn）  【大C / 中8 / 小8-6b-0a】
 //  メニューから1回だけ実行する。I列（col9）に看板名を追加し
 //  既存行は会社名(C列)をデフォルト値として埋める。
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function insertKanbanColumn() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var ui = SpreadsheetApp.getUi();
 
@@ -7689,7 +8009,7 @@ function insertKanbanColumn() {
 
 // ================================================================
 //  8-6b-1: 端末ファイルURL一覧取得（getTerminalUrls_）  【大B / 中8 / 小8-6b-1】
-//  col25のリッチテキストからリンクURLを配列で返す
+//  col26（Z列・データ(端末)）のリッチテキストからリンクURLを配列で返す
 // ================================================================
 function getTerminalUrls_(sheet, rowNum) {
   var cell = sheet.getRange(rowNum, 26);
@@ -7745,7 +8065,7 @@ function getTerminalUrls_(sheet, rowNum) {
 
 // ================================================================
 //  8-6b-2: 端末ファイルURL一覧書込（setTerminalUrls_）  【大B / 中8 / 小8-6b-2】
-//  URLをリッチテキスト（ファイル1, ファイル2…）として col25 に書込む
+//  URLをリッチテキスト（ファイル1, ファイル2…）として col26（Z列）に書込む
 // ================================================================
 function setTerminalUrls_(sheet, rowNum, urls) {
   var cell = sheet.getRange(rowNum, 26);
@@ -7843,7 +8163,7 @@ function getAdminDataUrl_(sheet, rowNum) {
 
 // ================================================================
 //  8-6c: 端末ファイル追加（appendTerminalFile）  【大A / 中8 / 小8-6c】
-//  ファイルをDriveに保存しcol25のリッチテキストURLに追記する
+//  ファイルをDriveに保存しcol26（Z列）のリッチテキストURLに追記する
 // ================================================================
 function appendTerminalFile(id, fileName, base64Data, mimeType, companySsId, email) {
   validateDriverEmail_(email, companySsId);
@@ -7882,7 +8202,8 @@ function appendTerminalFile(id, fileName, base64Data, mimeType, companySsId, ema
 // ================================================================
 //  8-6c-a: 端末ファイル追加（管理者用・メール認証なし）  【大A / 中8 / 小8-6c-a】
 // ================================================================
-function appendTerminalFileAdmin(id, fileName, base64Data, mimeType, companySsId) {
+function appendTerminalFileAdmin(id, fileName, base64Data, mimeType, companySsId, token) {
+  verifyAdmin_(token, companySsId);
   var lock = getSsLock_();
   var gotLock = lock.tryLock(30000);
   if (!gotLock) {
@@ -7918,7 +8239,8 @@ function appendTerminalFileAdmin(id, fileName, base64Data, mimeType, companySsId
 // ================================================================
 //  8-6c-2: 管理側ファイル追加・削除・差替（ID指定）  【大A / 中8 / 小8-6c-2】
 // ================================================================
-function appendAdminFileById(id, fileName, base64Data, mimeType, companySsId) {
+function appendAdminFileById(id, fileName, base64Data, mimeType, companySsId, auth) {
+  verifyAppAuth_(auth, companySsId);
   var folder  = getOrCreateFolder_('運行データ');
   var decoded = Utilities.base64Decode(base64Data);
   var blob    = Utilities.newBlob(decoded, mimeType, fileName);
@@ -7940,7 +8262,8 @@ function appendAdminFileById(id, fileName, base64Data, mimeType, companySsId) {
 }
 
 // 8-6c-2: 管理側ファイル削除（ID指定）
-function deleteAdminFileById(id, urlToDelete, companySsId) {
+function deleteAdminFileById(id, urlToDelete, companySsId, auth) {
+  verifyAppAuth_(auth, companySsId);
   var sheet = getTargetSS_(companySsId).getSheetByName('運行');
   if (!sheet) return;
   var all = sheet.getDataRange().getValues();
@@ -7955,7 +8278,8 @@ function deleteAdminFileById(id, urlToDelete, companySsId) {
 }
 
 // 8-6c-2: 管理側ファイル差替（ID指定）
-function replaceAdminFileById(id, oldUrl, fileName, base64Data, mimeType, companySsId) {
+function replaceAdminFileById(id, oldUrl, fileName, base64Data, mimeType, companySsId, auth) {
+  verifyAppAuth_(auth, companySsId);
   var folder  = getOrCreateFolder_('運行データ');
   var decoded = Utilities.base64Decode(base64Data);
   var blob    = Utilities.newBlob(decoded, mimeType, fileName);
@@ -7979,9 +8303,10 @@ function replaceAdminFileById(id, oldUrl, fileName, base64Data, mimeType, compan
 
 // ================================================================
 //  8-6d: 端末ファイル削除（deleteTerminalFile）  【大A / 中8 / 小8-6d】
-//  col25のリッチテキストURLから指定URLを除去する
+//  col26（Z列）のリッチテキストURLから指定URLを除去する
 // ================================================================
-function deleteTerminalFile(id, urlToDelete, companySsId) {
+function deleteTerminalFile(id, urlToDelete, companySsId, auth) {
+  verifyAppAuth_(auth, companySsId);
   var sheet = getTargetSS_(companySsId).getSheetByName('運行');
   if (!sheet) return;
   var all = sheet.getDataRange().getValues();
@@ -7997,9 +8322,10 @@ function deleteTerminalFile(id, urlToDelete, companySsId) {
 
 // ================================================================
 //  8-6e: 端末ファイル差し替え（replaceTerminalFile）  【大A / 中8 / 小8-6e】
-//  col25のリッチテキストURLの指定URLを新URLに置き換える
+//  col26（Z列）のリッチテキストURLの指定URLを新URLに置き換える
 // ================================================================
-function replaceTerminalFile(id, oldUrl, fileName, base64Data, mimeType, companySsId) {
+function replaceTerminalFile(id, oldUrl, fileName, base64Data, mimeType, companySsId, auth) {
+  verifyAppAuth_(auth, companySsId);
   var folder  = getOrCreateFolder_('端末データ');
   var decoded = Utilities.base64Decode(base64Data);
   var blob    = Utilities.newBlob(decoded, mimeType, fileName);
@@ -8037,13 +8363,13 @@ function deleteRunById(id, companySsId, email) {
   delRows.sort(function(a,b){ return b-a; });
   for (var i = 0; i < delRows.length; i++) sheet.deleteRow(delRows[i]);
   delaySyncSummary_(id, ss);
-  clearListCache_(email);
+  clearListCache_(email, ss.getId());
 }
 
 
 // ================================================================
 //  9-1: 連絡事項保存（saveNotice）  【大A / 中9 / 小9-1】
-//  指定IDの運行シートU列（21列目）にテキストを書き込む
+//  指定IDの運行シートW列（23列目・備考＝管理側連絡）にテキストを書き込む
 // ================================================================
 function saveNotice(id, text, companySsId, email) {
   validateDriverEmail_(email, companySsId);
@@ -8062,9 +8388,11 @@ function saveNotice(id, text, companySsId, email) {
 // ================================================================
 //  9-2: ファイルアップロード・管理側（uploadFile）  【大A / 中9 / 小9-2】
 //  ファイルをGoogleドライブの「運行データ」フォルダに保存し
-//  URLを運行シートのV列（22列目）に書き込む
+//  URLを運行シートのX列（24列目・管理データ）に書き込む
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function uploadFile(id, fileName, base64Data, mimeType) {
+  requireSheetUi_();
   var folder  = getOrCreateFolder_('運行データ');
   var decoded = Utilities.base64Decode(base64Data);
   var blob    = Utilities.newBlob(decoded, mimeType, fileName);
@@ -8088,8 +8416,10 @@ function uploadFile(id, fileName, base64Data, mimeType) {
 // ================================================================
 //  9-2b: シートボタン用ファイルアップロードダイアログ（openFileUploadDialog）  【大C / 中9 / 小9-2b】
 //  運行シートで行を選択した状態でボタンを押すとダイアログが開く
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function openFileUploadDialog() {
+  requireSheetUi_();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getActiveSheet();
   var row   = sheet.getActiveCell().getRow();
@@ -8140,8 +8470,10 @@ function openFileUploadDialog() {
 
 // ================================================================
 //  9-2c: シートボタン用ファイルアップロード処理（uploadFileToRow）  【大A / 中9 / 小9-2c】
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function uploadFileToRow(rowNum, fileName, base64Data, mimeType) {
+  requireSheetUi_();
   var folder  = getOrCreateFolder_('運行データ');
   var decoded = Utilities.base64Decode(base64Data);
   var blob    = Utilities.newBlob(decoded, mimeType, fileName);
@@ -8164,8 +8496,10 @@ function uploadFileToRow(rowNum, fileName, base64Data, mimeType) {
 // ================================================================
 //  9-2d: アップロードキュー登録（queueFileUpload）  【大A / 中9 / 小9-2d】
 //  base64をDriveの一時ファイルに保存し、時間トリガーで後処理させる
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function queueFileUpload(rowNum, fileName, base64Data, mimeType) {
+  requireSheetUi_();
   var folder = getOrCreateFolder_('_upload_queue_');
   var queueId = 'uq_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
   var ssId = '';
@@ -8250,7 +8584,7 @@ function markUploadFailureNotice_(ss) {
 
 // ================================================================
 //  9-3: 端末からの連絡保存（saveTerminalNotice）  【大A / 中9 / 小9-3】
-//  指定IDの運行シートW列（23列目）にテキストを書き込む
+//  指定IDの運行シートY列（25列目・連絡(端末)）にテキストを書き込む
 // ================================================================
 function saveTerminalNotice(id, text, companySsId, email) {
   validateDriverEmail_(email, companySsId);
@@ -8269,7 +8603,8 @@ function saveTerminalNotice(id, text, companySsId, email) {
 // ================================================================
 //  9-4: 端末からのファイルアップロード（uploadTerminalFile）  【大A / 中9 / 小9-4】
 //  ファイルをGoogleドライブの「端末データ」フォルダに保存し
-//  URLを運行シートのX列（24列目）に書き込む
+//  URLを運行シートのZ列（26列目・データ(端末)）に書き込む（8-6c の別名）
+//  ※ 画面からは呼ばれていない（認証情報を渡さないため、呼ぶと認証で失敗する）
 // ================================================================
 function uploadTerminalFile(id, fileName, base64Data, mimeType) {
   return appendTerminalFile(id, fileName, base64Data, mimeType);
@@ -8281,11 +8616,11 @@ function uploadTerminalFile(id, fileName, base64Data, mimeType) {
 //  端末アプリのホーム画面に表示する未読の連絡事項一覧を返す（最大20件）
 //
 //  対象行の条件：
-//    ・V列(22)=管理側連絡事項 または X列(24)=データURLがある行
+//    ・W列(23)=備考（管理側連絡） または X列(24)=管理データがある行
 //    ・readNoticesリスト（既読済みID）に含まれていない行
 //    ・乗務員名が紐づけメールに一致する行
 //
-//  W列URLの取得優先順：
+//  X列URLの取得優先順：
 //    ① getNotes（セルのノート）→ ② getRichTextValues（リッチテキストのリンク）→ ③ getValues（プレーン値）
 //
 //  返却値：{ id, date, notice, dataUrls[], dataUrl } の配列（最新順・最大20件）
@@ -8303,7 +8638,7 @@ function getMyNotices(companySsId, email) {
     if (String(mAll[j][10]).trim() === savedEmail) { myName = String(mAll[j][8]).trim(); break; }
   }
   if (!myName) return [];
-  var readKey  = 'readNotices_' + savedEmail;
+  var readKey  = 'readNotices_' + ss.getId() + '_' + savedEmail;
   var readList = JSON.parse(PropertiesService.getScriptProperties().getProperty(readKey) || '[]');
   var sheet    = ss.getSheetByName('運行');
   if (!sheet) return [];
@@ -8389,8 +8724,9 @@ function getRoutesById(id, companySsId, email) {
 
 
 // ================================================================
-//  10-2b: 行番号指定で連絡事項取得（getNoticeByRow）  【大A / 中10 / 小10-2b】
+//  10-2b: ID指定で連絡事項取得（getNoticeByRow）  【大A / 中10 / 小10-2b】
 //  誘導画面に管理側の連絡事項・データURLを表示するために使う
+//  連絡＝W列「備考」、資料＝X列「管理データ」を見出し名で探す（見つからなければW・X列）
 // ================================================================
 function getNoticeByRow(id, companySsId, email) {
   validateDriverEmail_(email, companySsId);
@@ -8404,11 +8740,11 @@ function getNoticeByRow(id, companySsId, email) {
   var noticeCol = -1, dataCol = -1;
   for (var j = 0; j < headers.length; j++) {
     var h = String(headers[j]).trim();
-    if (h === '連絡事項') noticeCol = j;
-    if (h === 'データ' || h === 'データURL') dataCol = j;
+    if (h === '備考') noticeCol = j;
+    if (h === '管理データ') dataCol = j;
   }
-  if (noticeCol < 0) noticeCol = 21;
-  if (dataCol   < 0) dataCol   = 22;
+  if (noticeCol < 0) noticeCol = 22; // W列(index22)=備考（管理側連絡）
+  if (dataCol   < 0) dataCol   = 23; // X列(index23)=管理データ
   for (var i = 1; i < all.length; i++) {
     if (String(all[i][0]||'').trim() !== String(id).trim()) continue;
     var notice = String(all[i][noticeCol]||'');
@@ -8428,10 +8764,11 @@ function getNoticeByRow(id, companySsId, email) {
 
 // ================================================================
 //  10-3: 既読管理・既読にする（markAsRead）  【大A / 中10 / 小10-3】
-//  既読にしたIDをPropertiesServiceに保存する（最大200件）
+//  既読にしたIDをPropertiesServiceに保存する（最大200件・SSごと・乗務員ごと）
 // ================================================================
-function markAsRead(id, email) {
-  var readKey = email ? ('readNotices_' + email) : 'readNotices';
+function markAsRead(id, email, companySsId) {
+  validateDriverEmail_(email, companySsId);
+  var readKey = 'readNotices_' + getTargetSS_(companySsId).getId() + '_' + email;
   var p    = PropertiesService.getScriptProperties();
   var read = JSON.parse(p.getProperty(readKey) || '[]');
   if (read.indexOf(id) === -1) {
@@ -8444,10 +8781,11 @@ function markAsRead(id, email) {
 
 // ================================================================
 //  10-4: 既読管理・既読一覧取得（getReadNotices）  【大A / 中10 / 小10-4】
-//  PropertiesServiceから既読IDリストを取得して返す
+//  PropertiesServiceから既読IDリスト（SSごと・乗務員ごと）を取得して返す
 // ================================================================
-function getReadNotices(email) {
-  var readKey = email ? ('readNotices_' + email) : 'readNotices';
+function getReadNotices(email, companySsId) {
+  validateDriverEmail_(email, companySsId);
+  var readKey = 'readNotices_' + getTargetSS_(companySsId).getId() + '_' + email;
   return JSON.parse(PropertiesService.getScriptProperties().getProperty(readKey) || '[]');
 }
 
@@ -8458,7 +8796,7 @@ function getReadNotices(email) {
 //  ・F列(スプレッドシートURL)+G列(WebアプリURL) が両方揃いH列が空 → 配布メール自動送信
 //  C列: セットアップ状態（済/エラー）  D列: 実行日時  E列: フォルダURL
 //  F列: スプレッドシートURL  G列: WebアプリURL  H列: 配布メール送信状態
-//  onEdit(e) から呼び出す（シート名='会社登録' の場合）
+//  ※ 現在どこからも呼ばれない（会社登録の編集は 14-2b が同じ処理を担当）
 // ================================================================
 function onEditCompanyRegister_(sheet, range) {
   var row = range.getRow();
@@ -8530,8 +8868,10 @@ function setupOneCompany_(companyName, adminEmail, suppressEmail, skipEditor) {
 //  会社登録シートを読み込んで未処理の全社を一括セットアップする
 //  会社登録シートがなければ新規作成して案内を表示する
 //  スクリプトエディタまたは管理者メニューから手動実行
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function setupCompanies() {
+  requireSheetUi_();
   var ui    = SpreadsheetApp.getUi();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('会社登録');
@@ -8618,10 +8958,12 @@ function setupCompanies() {
 //  スプレッドシートを開いたまま確認できる操作手順書シートを作成する
 //  管理者向け（スプレッドシート操作）とドライバー向け（アプリ操作）の2部構成
 //  スクリプトエディタまたは管理者メニューから手動実行
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function createUsageSheet() {
+  requireSheetUi_();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
-  var ui    = SpreadsheetApp.getUi();
+  var ui    = getUiOrWeb_();
   var sheet = ss.getSheetByName('使い方');
   if (sheet) { ss.deleteSheet(sheet); }
   sheet = ss.insertSheet('使い方');
@@ -8885,8 +9227,10 @@ function createUsageSheet() {
 
 // ================================================================
 //  11-7: 詳細説明書シート作成（createManualSheet）  【大C / 中11 / 小11-7】
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function createManualSheet() {
+  requireSheetUi_();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var ui    = SpreadsheetApp.getUi();
   var sheet = ss.getSheetByName('説明書');
@@ -9036,8 +9380,10 @@ function createManualSheet() {
 
 // ================================================================
 //  11-8a: 機能解説書シート作成（createManualMASheet）  【大C / 中11 / 小11-8a】
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function createManualMASheet() {
+  requireSheetUi_();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var ui    = SpreadsheetApp.getUi();
   var sheet = ss.getSheetByName('解説書');
@@ -9187,8 +9533,10 @@ function createManualMASheet() {
 
 // ================================================================
 //  11-8: サポート返信テンプレートシート作成（createSupportSheet）  【大C / 中11 / 小11-8】
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function createSupportSheet() {
+  requireSheetUi_();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var ui    = SpreadsheetApp.getUi();
   var sheet = ss.getSheetByName('サポート');
@@ -9488,7 +9836,7 @@ function createSupportSheet() {
 // ================================================================
 //  11-5: 配布メール自動送信（sendDistributionMail_）  【大B / 中11 / 小11-5】
 //  管理者向け（スプレッドシートURL＋アプリURL）と乗務員向け（アプリURL＋紐づけ手順）の
-//  2種類のメールを送信する。乗務員メールは自車専属マスタのJ列から全員分個別送信。
+//  2種類のメールを送信する。乗務員メールは自車専属マスタのK列（アドレス）から全員分個別送信。
 //  onEditCompanyRegister_（F/G列入力時）または triggerDistributionMail から呼び出す。
 // ================================================================
 function sendDistributionMail_(companyName, adminEmail, ssUrl, appUrl, row, sheet) {
@@ -9498,9 +9846,10 @@ function sendDistributionMail_(companyName, adminEmail, ssUrl, appUrl, row, shee
   if (clientSsMatch) {
     try { clientSs = SpreadsheetApp.openById(clientSsMatch[1]); } catch(e) {}
   }
-  // 管理画面（親アプリ）URL：子アプリURLに ?page=parent&ssId=【SSID】 を付与
+  // 管理画面（親アプリ）URL：子アプリURLの「?」より前に ?page=parent&ssId=【SSID】 を付ける（G列のURLには既に ?ssId= が付いているため）
   var ssIdForParent  = clientSsMatch ? clientSsMatch[1] : '';
-  var parentAppUrl   = ssIdForParent ? appUrl + '?page=parent&ssId=' + ssIdForParent : appUrl + '?page=parent';
+  var appBaseUrl     = String(appUrl || '').split('?')[0];
+  var parentAppUrl   = ssIdForParent ? appBaseUrl + '?page=parent&ssId=' + encodeURIComponent(ssIdForParent) : appBaseUrl + '?page=parent';
   var adminSent = 0, driverSent = 0;
 
   // ── 管理者向けメール ──────────────────────────────────
@@ -9512,16 +9861,15 @@ function sendDistributionMail_(companyName, adminEmail, ssUrl, appUrl, row, shee
     '■ 運行管理スプレッドシート（PC・タブレット推奨）\n' +
     ssUrl + '\n' +
     '　→ 配車・運行データの直接入力・確認はこちら\n\n' +
-    '■ 管理画面アプリ（配車係・管理者用）\n' +
-    parentAppUrl + '\n' +
-    '　→ アプリ上でシート閲覧・編集・帳票生成・月次処理が行えます\n\n' +
+    '　→ スプレッドシートを開くと、メールアドレスとパスワードの入力画面が出ます\n' +
+    '　　 （ログイン用のメールアドレス・パスワードは別途ご案内します）\n\n' +
     '■ 乗務員アプリ（乗務員用 スマートフォン推奨）\n' +
     appUrl + '\n' +
     '　→ 乗務員がスマートフォンから運行状況を入力するアプリです\n' +
     '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
     '【スプレッドシートの使い方】\n' +
     '・このスプレッドシートに乗務員のメールアドレスを入力してください\n' +
-    '・「自車専属マスタ」タブのJ列（メールアドレス）に1名ずつ入力します\n\n' +
+    '・「自車専属マスタ」タブのK列（アドレス）に1名ずつ入力します\n\n' +
     '【乗務員への配布方法】\n' +
     '・各乗務員に上記「乗務員アプリ」URLを共有してください\n' +
     '・初回は「紐づけ設定」でメールアドレスを登録するだけで使えます\n\n' +
@@ -9532,13 +9880,13 @@ function sendDistributionMail_(companyName, adminEmail, ssUrl, appUrl, row, shee
     adminSent++;
   } catch(e) {}
 
-  // ── 乗務員向けメール（③各客SSの自車専属マスタ J列の全アドレスに個別送信）──
+  // ── 乗務員向けメール（③各客SSの自車専属マスタ K列（アドレス）の全員に個別送信）──
   var master = clientSs ? clientSs.getSheetByName('自車専属マスタ') : null;
   if (master && master.getLastRow() >= 2) {
-    var masterData = master.getRange(2, 1, master.getLastRow() - 1, 10).getValues();
+    var masterData = master.getRange(2, 1, master.getLastRow() - 1, 11).getValues();
     for (var i = 0; i < masterData.length; i++) {
-      var driverEmail = String(masterData[i][9] || '').trim(); // J列(index9)=メールアドレス
-      var driverName  = String(masterData[i][7] || '').trim(); // H列(index7)=乗務員名
+      var driverEmail = String(masterData[i][10] || '').trim(); // K列(index10)=アドレス
+      var driverName  = String(masterData[i][8] || '').trim(); // I列(index8)=乗務員名
       if (!driverEmail || driverEmail.indexOf('@') === -1) continue;
 
       var driverSubject = '[運行管理] 運行管理アプリのご案内';
@@ -9578,8 +9926,10 @@ function sendDistributionMail_(companyName, adminEmail, ssUrl, appUrl, row, shee
 //  11-6: メニューから配布メール一括送信（triggerDistributionMail）  【大C / 中11 / 小11-6】
 //  会社登録シートの F列(SS URL)＋G列(AppURL) が揃いH列が未送信の全行にメール送信する
 //  メニュー「📧 配布メール送信」から手動実行
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function triggerDistributionMail() {
+  requireSheetUi_();
   var ui    = SpreadsheetApp.getUi();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('会社登録');
@@ -9629,9 +9979,8 @@ function triggerDistributionMail() {
 
 // ================================================================
 //  12-1: WebアプリのベースURL取得（getWebAppBaseUrl_）  【大B / 中12 / 小12-1】
-//  ① Script Propertiesに保存済みのURLを返す（doGetアクセス時に自動保存される）。
-//  ② 未保存の場合は ScriptApp.getService().getUrl() で自動取得して保存する。
-//  ③ それでも取得できない場合のみ空文字を返す（メニューからの手動設定は不要）。
+//  ① Script Properties（webAppUrl）の値が本番デプロイIDを含めばそれを返す
+//  ② それ以外は本番デプロイのURL（固定値）を保存して返す（テンプレートSS等で上書きされた値は使わない）
 // ================================================================
 function getWebAppBaseUrl_() {
   var PROD_DEPLOY_ID = 'AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU';
@@ -9648,9 +9997,11 @@ function getWebAppBaseUrl_() {
 
 // ================================================================
 //  12-2: WebアプリURLをScript Propertiesに保存（setWebAppUrl）  【大C / 中12 / 小12-2】
-//  メニュー「⚙ WebアプリURLを設定」から手動実行。デプロイURLを1回入力するだけでOK。
+//  メニュー未登録（スクリプトエディタから直接実行）。保存値は本番デプロイIDを含む時だけ 12-1 で使われる
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function setWebAppUrl() {
+  requireSheetUi_();
   var ui  = SpreadsheetApp.getUi();
   var cur = getWebAppBaseUrl_();
   var res = ui.prompt(
@@ -9856,7 +10207,8 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
 //  親アプリのホーム画面でSSの全シートをカテゴリ別に分類して返す。
 //  分類に当てはまらないシートは「その他」カテゴリに追加する。
 // ================================================================
-function getParentSheets(companySsId) {
+function getParentSheets(companySsId, token) {
+  verifyAdmin_(token, companySsId);
   var ss = getTargetSS_(companySsId);
   var sheets = ss.getSheets();
   var CATS = [
@@ -9884,45 +10236,461 @@ function getParentSheets(companySsId) {
 
 
 // ================================================================
-//  P-4: 管理者紐づけ登録（linkAdminEmail）  【大A / 中P / 小P-4】
-//  入力メールアドレスを管理者シートのB列と照合し、一致すればA列（名前）を取得して
-//  UserPropertiesに保存する。照合失敗時はエラーを返す。
+//  P-4: 管理者ログイン（linkAdminEmail）  【大A / 中P / 小P-4】
+//  入力アドレス・パスワードを、①会社登録シートのN列（ログインアドレス）・O列（ログインパスワード）と P-4a で照合する
+//  一致したらログイン状態（P-4f）を発行して token を返す。keep=true なら30日、false なら12時間有効
+//  ②客用SS（テンプレート）はログイン不要（P-4e）
 // ================================================================
-function linkAdminEmail(email, companySsId) {
-  if (!email || email.indexOf('@') === -1) return { ok: false, msg: 'メールアドレスが正しくありません' };
+function linkAdminEmail(email, companySsId, password, keep) {
   var ss = getTargetSS_(companySsId);
-  var adminSheet = ss.getSheetByName('管理者');
-  if (!adminSheet) return { ok: false, msg: '管理者シートが見つかりません。シート再生成を実行してください' };
-  var lastRow = adminSheet.getLastRow();
-  if (lastRow < 2) return { ok: false, msg: '管理者シートに登録がありません' };
-  var data = adminSheet.getRange(2, 1, lastRow - 1, 2).getValues();
-  var foundName = null;
-  for (var i = 0; i < data.length; i++) {
-    if (String(data[i][1]).trim().toLowerCase() === email.trim().toLowerCase()) {
-      foundName = String(data[i][0]).trim();
-      break;
-    }
+  if (isTemplateSs_(ss.getId())) return { ok: true, email: '', name: '客用（ログイン不要）', token: '' };
+  var chk = checkCompanyLogin_(ss.getId(), email, password);
+  if (!chk.ok) return chk;
+  var token = createAdminSession_(ss.getId(), chk.email, chk.fp, keep);
+  return { ok: true, email: chk.email, name: chk.name, token: token };
+}
+
+
+// ================================================================
+//  P-4a: ログインのアドレス・パスワード照合（checkCompanyLogin_）  【大B / 中P / 小P-4a】
+//  そのSSのログイン情報（P-4b）とアドレス（大文字小文字は区別しない）・パスワード（完全一致）を照合する
+//  10回続けて間違えたら、そのSS・そのアドレスは15分間ログインできない
+//  返り値：{ ok:true, email, name, fp } ／ { ok:false, msg }
+// ================================================================
+function checkCompanyLogin_(ssId, email, password) {
+  email = String(email || '').trim();
+  if (!email || email.indexOf('@') === -1) return { ok: false, msg: 'メールアドレスが正しくありません' };
+  if (!password) return { ok: false, msg: 'パスワードを入力してください' };
+  var failKey = 'admfail_' + ssId + '_' + email.toLowerCase();
+  var cache = CacheService.getScriptCache();
+  var fails = Number(cache.get(failKey) || 0);
+  if (fails >= 10) return { ok: false, msg: '入力の間違いが続いたため、15分間ログインできません' };
+  var login = getCompanyLogin_(ssId);
+  if (!login) return { ok: false, msg: 'この会社のログイン情報が登録されていません。管理元にお問い合わせください' };
+  if (login.email.toLowerCase() !== email.toLowerCase() || login.pw !== String(password)) {
+    cache.put(failKey, String(fails + 1), 900);
+    return { ok: false, msg: 'メールアドレスまたはパスワードが違います' };
   }
-  if (foundName === null) return { ok: false, msg: '管理者シートにこのメールアドレスが登録されていません' };
-  var prefix = 'admin_' + (companySsId || 'default') + '_';
-  var props = PropertiesService.getUserProperties();
-  props.setProperty(prefix + 'email', email.trim());
-  props.setProperty(prefix + 'name',  foundName);
-  return { ok: true, email: email.trim(), name: foundName };
+  cache.remove(failKey);
+  return { ok: true, email: login.email, name: login.name, fp: loginFingerprint_(login) };
+}
+
+
+// ================================================================
+//  P-4b: そのSSのログイン情報取得（getCompanyLogin_）  【大B / 中P / 小P-4b】
+//  P-4c が ScriptProperties に写した「complogin_SSのID」＝{ email, pw, name } を返す
+//  写しが無い時は、①会社登録から写し直せる実行環境（①・WebアプリURL）なら写し直して読む。無ければ null
+// ================================================================
+function getCompanyLogin_(ssId) {
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty('complogin_' + ssId);
+  if (!raw) {
+    try { syncCompanyLogins_(); } catch(e) {}
+    raw = props.getProperty('complogin_' + ssId);
+  }
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch(e) { return null; }
+}
+
+
+// ================================================================
+//  P-4c: 会社登録のログイン情報を写す（syncCompanyLogins_）  【大B / 中P / 小P-4c】
+//  ①会社登録シートのF列（スプレッドシートURL）・N列（ログインアドレス）・O列（ログインパスワード）を読み、
+//  客SSごとに ScriptProperties「complogin_SSのID」へ写す（会社登録から消えた客の写しは削除）
+//  あわせて「スクリプトID」列があれば「scriptId_SSのID」へ写す（4-9p の照合用）
+//  N1・O1 が空なら見出しを付ける。N1・O1 に別の見出しがある時は写さずにその旨を返す
+//  ①のonOpen（2-1）・①の会社登録のF・N・O列の編集時（3-1）・P-4b から呼ばれる
+//  返り値：'' ＝正常 ／ 文字列＝止めた理由
+// ================================================================
+function syncCompanyLogins_(regSheet) {
+  if (!regSheet) {
+    var mid = PropertiesService.getScriptProperties().getProperty('masterSsId');
+    if (!mid) return '①修正用SSのIDが未登録です';
+    regSheet = SpreadsheetApp.openById(mid).getSheetByName('会社登録');
+  }
+  if (!regSheet) return '会社登録シートがありません';
+  var hRange = regSheet.getRange(1, 14, 1, 2);
+  var h = hRange.getValues()[0].map(function(v) { return String(v || '').trim(); });
+  if (h[0] === '' && h[1] === '') {
+    regSheet.getRange(1, 1).copyTo(hRange, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+    hRange.setValues([['ログインアドレス', 'ログインパスワード']]);
+  } else if (h[0] !== 'ログインアドレス' || h[1] !== 'ログインパスワード') {
+    return '会社登録シートのN1・O1に別の見出し（' + h.join('・') + '）があるため、ログイン情報を読めません';
+  }
+  var map = {}, sids = {};
+  var last = regSheet.getLastRow();
+  var lastCol = Math.max(regSheet.getLastColumn(), 15);
+  var sidCol = regSheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(v) { return String(v || '').trim(); }).indexOf('スクリプトID');
+  if (last >= 2) {
+    regSheet.getRange(2, 1, last - 1, lastCol).getValues().forEach(function(r) {
+      var m = String(r[5] || '').match(/\/d\/([a-zA-Z0-9_-]+)/);
+      var em = String(r[13] || '').trim(), pw = String(r[14] || '');
+      if (m && em && pw) map[m[1]] = { email: em, pw: pw, name: String(r[0] || '').trim() };
+      if (m && sidCol !== -1 && String(r[sidCol] || '').trim()) sids[m[1]] = String(r[sidCol]).trim();
+    });
+  }
+  var props = PropertiesService.getScriptProperties();
+  Object.keys(sids).forEach(function(id) { props.setProperty('scriptId_' + id, sids[id]); });
+  Object.keys(props.getProperties()).forEach(function(k) {
+    if (k.indexOf('complogin_') === 0 && !map[k.slice('complogin_'.length)]) props.deleteProperty(k);
+  });
+  Object.keys(map).forEach(function(id) { props.setProperty('complogin_' + id, JSON.stringify(map[id])); });
+  return '';
+}
+
+
+// ================================================================
+//  P-4d: ログイン情報の指紋（loginFingerprint_ / sha256Hex_）  【大B / 中P / 小P-4d】
+//  アドレス・パスワードから短い指紋を作り、ログイン状態に持たせる
+//  会社登録のアドレス・パスワードが変わると指紋が変わり、それまでのログインは無効になる
+// ================================================================
+function loginFingerprint_(login) {
+  return sha256Hex_(String(login.email).toLowerCase() + '\n' + String(login.pw)).slice(0, 16);
+}
+function sha256Hex_(text) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8)
+    .map(function(b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+}
+
+
+// ================================================================
+//  P-4e: ②客用SS（テンプレート）か判定（isTemplateSs_）  【大B / 中P / 小P-4e】
+//  ScriptProperties の clientTemplateSsId（未設定なら既定のID）と一致すれば true。②はログイン不要
+// ================================================================
+function isTemplateSs_(ssId) {
+  var tid = PropertiesService.getScriptProperties().getProperty('clientTemplateSsId') || '1NBtosd_MN8KcboV_4OXTrY8WqcE3TJwpxdA_nASmTOo';
+  return !!ssId && ssId === tid;
+}
+
+
+// ================================================================
+//  P-4f: 管理者ログイン状態の発行（createAdminSession_）  【大B / 中P / 小P-4f】
+//  ランダムな token を作り、ScriptProperties に「admsess_token」＝{ SSのID・アドレス・指紋・期限 } で保存する
+//  期限は keep=true なら30日、false なら12時間。あわせて期限切れのログイン状態を削除する（P-4j）
+// ================================================================
+function createAdminSession_(ssId, email, fp, keep) {
+  deleteExpiredLoginStates_('admsess_');
+  var token = 'adm_' + Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  PropertiesService.getScriptProperties().setProperty('admsess_' + token, JSON.stringify({
+    ssId: ssId, email: email, fp: fp, exp: Date.now() + (keep ? 30 * 24 : 12) * 60 * 60 * 1000
+  }));
+  return token;
+}
+
+
+// ================================================================
+//  P-4g: 管理者ログインの確認（verifyAdmin_）  【大B / 中P / 小P-4g】
+//  token が、そのURLのSSで発行された期限内のログイン状態かを確認する。②客用SSは確認しない（P-4e）
+//  会社登録のアドレス・パスワードが変わった・消えた時は無効にする。無効なら例外で止める
+//  返り値：{ email, name }
+// ================================================================
+function verifyAdmin_(token, companySsId) {
+  var ss = getTargetSS_(companySsId);
+  if (isTemplateSs_(ss.getId())) return { email: '', name: '客用（ログイン不要）' };
+  if (!token || String(token).indexOf('adm_') !== 0) throw new Error('管理者ログインが必要です');
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty('admsess_' + token);
+  if (!raw) throw new Error('管理者ログインが必要です');
+  var sess = JSON.parse(raw);
+  if (sess.ssId !== ss.getId()) throw new Error('管理者ログインが必要です');
+  if (Date.now() > sess.exp) { props.deleteProperty('admsess_' + token); throw new Error('ログインの期限が切れました。もう一度ログインしてください'); }
+  var login = getCompanyLogin_(ss.getId());
+  if (!login || loginFingerprint_(login) !== sess.fp) {
+    props.deleteProperty('admsess_' + token);
+    throw new Error('管理者ログインが必要です');
+  }
+  return { email: login.email, name: login.name };
+}
+
+
+// ================================================================
+//  P-4h: アプリ共通の本人確認（verifyAppAuth_）  【大B / 中P / 小P-4h】
+//  auth が管理者の token（adm_で始まる）なら P-4g、それ以外は乗務員アドレスとして 2-2d で確認する
+//  auth が無い時は、スプレッドシートの画面からそのSS自身に対して呼ばれた時だけ通す（P-4i）
+// ================================================================
+function verifyAppAuth_(auth, companySsId) {
+  if (auth && String(auth).indexOf('adm_') === 0) { verifyAdmin_(auth, companySsId); return; }
+  if (auth) { validateDriverEmail_(auth, companySsId); return; }
+  if (isSheetContext_(companySsId)) return;
+  throw new Error('認証エラー：メールアドレスがありません');
+}
+
+
+// ================================================================
+//  P-4i: スプレッドシート画面からの呼び出しか判定（isSheetContext_）  【大B / 中P / 小P-4i】
+//  スプレッドシートの画面部品が使え（Webアプリでは使えない）、対象SSが開いているSSと同じ時だけ true
+// ================================================================
+function isSheetContext_(companySsId) {
+  try { SpreadsheetApp.getUi(); } catch(e) { return false; }
+  var active = SpreadsheetApp.getActiveSpreadsheet();
+  if (!active) return false;
+  return !companySsId || companySsId === active.getId();
+}
+
+
+// ================================================================
+//  P-4j: 期限切れのログイン状態の削除（deleteExpiredLoginStates_）  【大B / 中P / 小P-4j】
+//  ScriptProperties のうち、指定の接頭辞（admsess_ / sslogin_）で期限（exp）を過ぎたものを削除する
+// ================================================================
+function deleteExpiredLoginStates_(prefix) {
+  var props = PropertiesService.getScriptProperties();
+  var all = props.getProperties(), now = Date.now();
+  Object.keys(all).forEach(function(k) {
+    if (k.indexOf(prefix) !== 0) return;
+    try { if (JSON.parse(all[k]).exp < now) props.deleteProperty(k); } catch(e) { props.deleteProperty(k); }
+  });
+}
+
+
+// ================================================================
+//  P-4k: 管理者シートの旧パスワード列の撤去（removeLegacyAdminPasswordColumn_）  【大B / 中P / 小P-4k】
+//  管理者シートの1行目に「パスワード」の見出しがあれば、その列を削除する（ログイン情報は①会社登録のN・O列を使う）
+//  ①のonOpen（2-1）と 16-2c から呼ばれる
+// ================================================================
+function removeLegacyAdminPasswordColumn_(ss) {
+  var sh = ss.getSheetByName('管理者');
+  if (!sh || sh.getLastColumn() < 1) return;
+  var hdr = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function(h) { return String(h || '').trim(); });
+  var idx = hdr.indexOf('パスワード');
+  if (idx !== -1) sh.deleteColumn(idx + 1);
 }
 
 
 // ================================================================
 //  P-5: 管理者情報取得（getLinkedAdminEmail）  【大A / 中P / 小P-5】
-//  親アプリ起動時にUserPropertiesから管理者の名前・メールを返す。
+//  親アプリ起動時に、保存済みの token がまだ有効なら { ok:true, email, name } を返す（無効なら ok:false）
+//  ②客用SSは token なしでも ok:true（P-4g）
 // ================================================================
-function getLinkedAdminEmail(companySsId) {
-  var prefix = 'admin_' + (companySsId || 'default') + '_';
-  var props = PropertiesService.getUserProperties();
-  return {
-    email: props.getProperty(prefix + 'email') || '',
-    name:  props.getProperty(prefix + 'name')  || '',
+function getLinkedAdminEmail(companySsId, token) {
+  try {
+    var a = verifyAdmin_(token, companySsId);
+    return { ok: true, email: a.email, name: a.name };
+  } catch(e) {
+    return { ok: false, email: '', name: '' };
+  }
+}
+
+
+// ================================================================
+//  P-5a: 管理者ログアウト（logoutAdmin）  【大A / 中P / 小P-5a】
+//  token のログイン状態を削除する
+// ================================================================
+function logoutAdmin(companySsId, token) {
+  if (token && String(token).indexOf('adm_') === 0) {
+    PropertiesService.getScriptProperties().deleteProperty('admsess_' + token);
+  }
+  return true;
+}
+
+
+// ================================================================
+//  P-5b: 管理画面のシステムメニュー実行（runParentSystemAction）  【大A / 中P / 小P-5b】
+//  管理者ログインを確認し、許可した処理だけを、そのURLのSSを「開いているSS」にしてから実行する
+//  （SS指定なしで実行すると①修正用SSで動いてしまうため、管理画面のシステムメニューは必ずここを通す）
+//  opts：{ sheetName, row, numRows（選択行の代わり）, answers（「はい/いいえ」等の回答の並び） }
+//  処理中の確認・メッセージは P-5c の代わりの画面部品が受け持つ
+//  返り値：{ ok:true, messages:[…] } ／ 回答が必要な時は { needAnswer:{ type, title, msg, buttons } }
+// ================================================================
+function runParentSystemAction(fnName, companySsId, token, opts) {
+  verifyAdmin_(token, companySsId);
+  var allowed = {
+    archiveOldMonth: archiveOldMonth, autoFillExpense: autoFillExpense, calcDistanceManual: calcDistanceManual,
+    cancelDispatch: cancelDispatch, checkMasterExpiries: checkExpiriesForApp_, createUsageSheet: createUsageSheet,
+    expandAndRefreshSheets: expandAndRefreshSheets, fillMissingIdsAndCars: fillMissingIdsAndCars,
+    generateCurrentMonth: generateCurrentMonth, generateNextMonth: generateNextMonth, generateSummary: generateSummary,
+    initDistanceMasterMajorCities: initDistanceMasterMajorCities, initFixedCostMaster: initFixedCostMaster,
+    setupSheetProtection: setupSheetProtection, sortBothSheetsByDate: sortBothSheetsByDate
   };
+  if (!allowed.hasOwnProperty(fnName)) throw new Error('この操作は実行できません');
+  var ss = getTargetSS_(companySsId);
+  SpreadsheetApp.setActiveSpreadsheet(ss);
+  if (SpreadsheetApp.getActiveSpreadsheet().getId() !== ss.getId()) throw new Error('対象のスプレッドシートを特定できません');
+  opts = opts || {};
+  WEB_TOOL_ = {
+    sheetName: opts.sheetName || '', row: Number(opts.row) || 0, numRows: Number(opts.numRows) || 1,
+    answers: (opts.answers || []).slice(), messages: []
+  };
+  try {
+    allowed[fnName]();
+  } catch(e) {
+    if (e && e.needAnswer) return { needAnswer: e.needAnswer };
+    throw e;
+  }
+  return { ok: true, messages: WEB_TOOL_.messages };
+}
+
+
+// ================================================================
+//  P-5c: 画面部品の取得（getUiOrWeb_）  【大B / 中P / 小P-5c】
+//  スプレッドシートから動いている時は本物の画面部品を返す。管理画面から動いている時（WEB_TOOL_ あり）は代わりを返す
+//  代わりの動き：お知らせ（OKだけ）はメッセージとしてためて管理画面に返す／
+//  「はい/いいえ」・入力は answers の先頭から答える。答えが無ければ質問を管理画面に返して止める（P-5b）／
+//  ダイアログ・サイドバーは出せないので止める
+// ================================================================
+var WEB_TOOL_ = null;
+function getUiOrWeb_() {
+  if (!WEB_TOOL_) return SpreadsheetApp.getUi();
+  var BS = { OK: 'OK', OK_CANCEL: 'OK_CANCEL', YES_NO: 'YES_NO', YES_NO_CANCEL: 'YES_NO_CANCEL' };
+  var BT = { OK: 'OK', CANCEL: 'CANCEL', YES: 'YES', NO: 'NO', CLOSE: 'CLOSE' };
+  return {
+    ButtonSet: BS, Button: BT,
+    alert: function(a, b, c) {
+      var title = '', msg = a, buttons = 'OK';
+      if (c !== undefined) { title = a; msg = b; buttons = c; }
+      else if (b !== undefined && BS[b]) { buttons = b; }
+      else if (b !== undefined) { title = a; msg = b; }
+      if (buttons === 'OK') { WEB_TOOL_.messages.push((title ? title + '\n' : '') + msg); return BT.OK; }
+      if (WEB_TOOL_.answers.length) return WEB_TOOL_.answers.shift();
+      throw { needAnswer: { type: 'alert', title: title, msg: String(msg), buttons: buttons } };
+    },
+    prompt: function(a, b, c) {
+      var title = c !== undefined ? a : '', msg = c !== undefined ? b : a;
+      if (WEB_TOOL_.answers.length) {
+        var ans = WEB_TOOL_.answers.shift() || {};
+        return { getSelectedButton: function() { return ans.button || BT.CANCEL; }, getResponseText: function() { return String(ans.text || ''); } };
+      }
+      throw { needAnswer: { type: 'prompt', title: title, msg: String(msg), buttons: c !== undefined ? c : (b || 'OK_CANCEL') } };
+    },
+    showModalDialog: function() { throw new Error('この操作はスプレッドシートのメニューから実行してください'); },
+    showModelessDialog: function() { throw new Error('この操作はスプレッドシートのメニューから実行してください'); },
+    showSidebar: function() { throw new Error('この操作はスプレッドシートのメニューから実行してください'); }
+  };
+}
+
+
+// ================================================================
+//  P-5d: 選択中のシート・行の取得（toolSelection_）  【大B / 中P / 小P-5d】
+//  スプレッドシートからは開いているシートと選択範囲、管理画面からは P-5b の opts（シート名・行番号・行数）の
+//  A列から始まる範囲を返す。返り値：{ sheet, range }
+// ================================================================
+function toolSelection_(ss) {
+  if (!WEB_TOOL_) {
+    var s = ss.getActiveSheet();
+    return { sheet: s, range: s.getActiveRange() };
+  }
+  var sh = WEB_TOOL_.sheetName ? ss.getSheetByName(WEB_TOOL_.sheetName) : null;
+  if (!sh || WEB_TOOL_.row < 2) throw new Error('対象のシートと行番号（2行目以降）を指定してください');
+  return { sheet: sh, range: sh.getRange(WEB_TOOL_.row, 1, Math.max(1, WEB_TOOL_.numRows), 1) };
+}
+
+
+// ================================================================
+//  P-5e: 画面から呼ばれる処理の対象SS決定・本人確認（useToolSs_）  【大B / 中P / 小P-5e】
+//  スプレッドシートのダイアログから（token なし・そのSS自身）ならそのSSを返す
+//  管理画面から（token あり）なら管理者ログイン（P-4g）を確認し、そのSSを「開いているSS」にして返す
+//  どちらでもなければ例外で止める
+// ================================================================
+function useToolSs_(ssId, token) {
+  if (!token && isSheetContext_(ssId)) return ssId ? getTargetSS_(ssId) : SpreadsheetApp.getActiveSpreadsheet();
+  verifyAdmin_(token, ssId);
+  if (!ssId) throw new Error('スプレッドシートを特定できません');
+  var ss = getTargetSS_(ssId);
+  SpreadsheetApp.setActiveSpreadsheet(ss);
+  if (!WEB_TOOL_) WEB_TOOL_ = { sheetName: '', row: 0, numRows: 1, answers: [], messages: [] };
+  return ss;
+}
+
+
+// ================================================================
+//  P-5f: スプレッドシート専用の処理か確認（requireSheetUi_）  【大B / 中P / 小P-5f】
+//  スプレッドシートのメニュー・ダイアログから動いている時と、管理画面から P-5b・P-5g を通った時だけ通す
+//  WebアプリのURLから直接呼ばれた時は例外で止める
+// ================================================================
+function requireSheetUi_() {
+  if (WEB_TOOL_) return;
+  try { SpreadsheetApp.getUi(); } catch(e) { throw new Error('この操作はスプレッドシートから実行してください'); }
+}
+
+
+// ================================================================
+//  P-5g: 管理画面から開く画面の作成（renderTool）  【大A / 中P / 小P-5g】
+//  管理画面の別タブ（?page=tool・toolPage.html）から呼ばれる。引換券（P-5h）をログイン状態に戻して管理者ログインを確認し、
+//  そのSSを対象に、スプレッドシートのメニューと同じ画面（取込・ダッシュボード・ETC・出力・発注書・車番連絡・PL）のHTMLを返す
+//  opts：{ sheetName, row }（発注書・車番連絡の対象行）
+//  返り値：{ title, html }
+// ================================================================
+function renderTool(tool, companySsId, ticket, opts) {
+  var cache = CacheService.getScriptCache();
+  var raw = ticket ? cache.get('toolticket_' + ticket) : null;
+  if (!raw) throw new Error('画面を開く期限が切れました。管理画面からもう一度開いてください');
+  cache.remove('toolticket_' + ticket);
+  var tk = JSON.parse(raw);
+  if (tk.ssId !== companySsId) throw new Error('管理者ログインが必要です');
+  var token = tk.token || '';
+  var ss = useToolSs_(companySsId, token);
+  opts = opts || {};
+  WEB_TOOL_.sheetName = opts.sheetName || '';
+  WEB_TOOL_.row = Number(opts.row) || 0;
+  WEB_TOOL_.numRows = 1;
+  var t = buildToolHtml_(tool, ss, token);
+  if (!t) throw new Error(WEB_TOOL_.messages.join('\n') || 'この画面は開けません');
+  return { title: t.title, html: t.output.getContent() };
+}
+
+
+// ================================================================
+//  P-5h: 画面を開く引換券の発行（createToolTicket）  【大A / 中P / 小P-5h】
+//  管理画面から呼ばれる。管理者ログインを確認し、2分間・1回だけ使える引換券を返す
+//  （ログイン状態そのものをURLに載せないため。別タブは引換券を P-5g に渡す）
+// ================================================================
+function createToolTicket(companySsId, token) {
+  verifyAdmin_(token, companySsId);
+  var ticket = Utilities.getUuid().replace(/-/g, '');
+  CacheService.getScriptCache().put('toolticket_' + ticket, JSON.stringify({ ssId: companySsId, token: token || '' }), 120);
+  return ticket;
+}
+
+
+// ================================================================
+//  P-5i: 画面のHTML作成（buildToolHtml_）  【大B / 中P / 小P-5i】
+//  スプレッドシートのメニュー（13-2・2-5・13-10b・17-6b・14-2c・14-2d・17-1）と管理画面（P-5g）で共用する
+//  各画面には対象SSのID（toolSsId）と管理画面のログイン状態（toolToken。スプレッドシートからは空）を渡す
+//  返り値：{ title, output（HtmlOutput）, width, height, sidebar } ／ 対象行のデータが取れない時は null
+// ================================================================
+function buildToolHtml_(tool, ss, token) {
+  var tmpl, title, w, h, side = false;
+  var csvTitles = { csvUnkou: 'unkou', csvMaster: 'master', csvCust: 'cust' };
+  if (csvTitles[tool]) {
+    var st = csvTitles[tool];
+    var names = { unkou: '運行シート', master: '自車専属マスタ', cust: 'マスタ（取引先）' };
+    tmpl = HtmlService.createTemplateFromFile('csvImport');
+    tmpl.sheetType = st; tmpl.currentSsId = ss.getId();
+    title = '📥 データ読み込み ─ ' + names[st]; w = 880; h = 640;
+  } else if (tool === 'dispatch') {
+    tmpl = HtmlService.createTemplateFromFile('dispatchDashboard');
+    title = '配車ダッシュボード'; w = 520; h = 640; side = true;
+  } else if (tool === 'etc') {
+    tmpl = HtmlService.createTemplateFromFile('etcImport');
+    tmpl.currentSsId = ss.getId();
+    title = '⛽ ETC利用明細 読み込み'; w = 860; h = 540;
+  } else if (tool === 'export') {
+    return { title: '📤 データ出力', output: HtmlService.createHtmlOutput(buildExportDialogHtml_(ss, token)), width: 560, height: 560, sidebar: false };
+  } else if (tool === 'hatchu' || tool === 'shaban') {
+    var data = getDocumentData_(tool === 'hatchu' ? 'sum' : 'unkou');
+    if (!data) return null;
+    tmpl = HtmlService.createTemplateFromFile('documentPreview');
+    tmpl.docType = tool; tmpl.docData = JSON.stringify(data);
+    title = tool === 'hatchu' ? '発注書・指示書' : '車番連絡'; w = 780; h = tool === 'hatchu' ? 660 : 580;
+  } else if (tool === 'pl') {
+    tmpl = HtmlService.createTemplateFromFile('plDialog');
+    title = '📊 PL（損益計算書）作成'; w = 680; h = 680;
+  } else {
+    throw new Error('この画面は開けません');
+  }
+  tmpl.toolSsId = ss.getId();
+  tmpl.toolToken = token || '';
+  var out = tmpl.evaluate().setTitle(title);
+  return { title: title, output: out, width: w, height: h, sidebar: side };
+}
+
+
+// ================================================================
+//  P-5j: 管理画面用の期限チェック（checkExpiriesForApp_）  【大B / 中P / 小P-5j】
+//  P-5b から呼ばれる。1-7d-1 で期限切れ・期限間近の一覧を作り、メッセージとして管理画面に返す
+// ================================================================
+function checkExpiriesForApp_() {
+  var w = collectExpiryWarnings_(SpreadsheetApp.getActiveSpreadsheet());
+  WEB_TOOL_.messages.push(w.length ? '⚠ 期限アラート\n\n' + w.join('\n') + '\n\n自車専属マスタで確認・更新してください。' : '期限切れ・期限間近の項目はありません');
 }
 
 
@@ -9931,7 +10699,8 @@ function getLinkedAdminEmail(companySsId) {
 //  指定シートの1行目をヘッダー、2行目以降をデータとして返す。
 //  最大200行まで取得（大容量シートへの負荷対策）。
 // ================================================================
-function getSheetTableData(sheetName, companySsId) {
+function getSheetTableData(sheetName, companySsId, token) {
+  verifyAdmin_(token, companySsId);
   var ss = getTargetSS_(companySsId);
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { headers: [], rows: [], backgrounds: [], fontColors: [], sheetName: sheetName };
@@ -9962,7 +10731,8 @@ function getSheetTableData(sheetName, companySsId) {
 //  P-3: 管理画面用シート行保存（saveSheetRowData）  【大A / 中P / 小P-3】
 //  親アプリ編集モーダルから保存。rowIndex は2以上（ヘッダー行=1を除く）。
 // ================================================================
-function saveSheetRowData(sheetName, rowIndex, rowData, companySsId) {
+function saveSheetRowData(sheetName, rowIndex, rowData, companySsId, token) {
+  verifyAdmin_(token, companySsId);
   if (rowIndex < 2) return { ok: false, msg: 'ヘッダー行は編集不可' };
   var ss = getTargetSS_(companySsId);
   var sheet = ss.getSheetByName(sheetName);
@@ -9976,7 +10746,8 @@ function saveSheetRowData(sheetName, rowIndex, rowData, companySsId) {
 //  P-6: 行追加（appendSheetRow）  【大A / 中P / 小P-6】
 //  指定シートの末尾に1行追加する。
 // ================================================================
-function appendSheetRow(sheetName, rowData, companySsId) {
+function appendSheetRow(sheetName, rowData, companySsId, token) {
+  verifyAdmin_(token, companySsId);
   var ss = getTargetSS_(companySsId);
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { ok: false, msg: 'シートが見つかりません: ' + sheetName };
@@ -9989,7 +10760,8 @@ function appendSheetRow(sheetName, rowData, companySsId) {
 //  P-7: 行削除（deleteSheetRow）  【大A / 中P / 小P-7】
 //  指定シートの指定行を削除する（ヘッダー行=1は不可）。
 // ================================================================
-function deleteSheetRow(sheetName, rowIndex, companySsId) {
+function deleteSheetRow(sheetName, rowIndex, companySsId, token) {
+  verifyAdmin_(token, companySsId);
   if (rowIndex < 2) return { ok: false, msg: 'ヘッダー行は削除できません' };
   var ss = getTargetSS_(companySsId);
   var sheet = ss.getSheetByName(sheetName);
@@ -10005,14 +10777,14 @@ function deleteSheetRow(sheetName, rowIndex, companySsId) {
 // ================================================================
 function getClientStubSource_() {
   // === AUTO_GENERATED_STUB_START（手動編集禁止：build_stub.js が生成） ===
-  return "// 客SS・テンプレートSS用スタブ（実装はライブラリ UnkouLib にある）\n// ②客用SS・③各客SS 共通。メニュー定義はライブラリ（buildClientMenu）に集約済み。\n// スタブは公開関数の転送のみ担当。反映ボタンは①修正用SSのみ。\nfunction onOpen(e) {\n  // サイレント自動トリガー再構築（FULL権限時のみ有効・LIMITED時はtry-catchで自動スキップ）\n  try {\n    var _ss0 = SpreadsheetApp.getActiveSpreadsheet();\n    var _sf = ['installedOnEdit_','onStructureChange_','checkMasterExpiries','onOpen','checkExpiryDates','calcDistanceTrigger_'];\n    ScriptApp.getUserTriggers(_ss0).forEach(function(t) {\n      if (_sf.indexOf(t.getHandlerFunction()) !== -1) { try { ScriptApp.deleteTrigger(t); } catch(ex) {} }\n    });\n    ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss0).onEdit().create();\n    ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss0).onChange().create();\n    ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n  } catch(_ex0) {}\n  // 通常パス（LIMITED では上記は無害スキップ済み）\n  UnkouLib.buildClientMenu();\n  try { UnkouLib.convertLegacyAdminDataUrls(); } catch(e) {}\n  try { UnkouLib.applyHolidayRowColors(); } catch(e) {}\n  try {\n    var _hideSs = SpreadsheetApp.getActiveSpreadsheet();\n    ['指示先履歴', '指示先ID別', '__COMPANY_SS__'].forEach(function(n) {\n      var sh = _hideSs.getSheetByName(n);\n      if (sh && !sh.isSheetHidden()) sh.hideSheet();\n    });\n  } catch(e) {}\n  try {\n    var _epDp = PropertiesService.getDocumentProperties();\n    var _epTs = Number(_epDp.getProperty('EXPIRY_POPUP_TS') || 0);\n    if (Date.now() - _epTs >= 30000) {\n      _epDp.setProperty('EXPIRY_POPUP_TS', String(Date.now()));\n      UnkouLib.showExpiryAlert();\n    }\n  } catch(_epEx) {}\n  try { UnkouLib.applyExpiryWarningColors(); } catch(e) {}\n  try {\n    var _enSs = SpreadsheetApp.getActiveSpreadsheet();\n    var _enSh = _enSs.getSheetByName('__COMPANY_SS__');\n    var _enId = _enSh ? String(_enSh.getRange(1, 2).getValue() || '') : '';\n    if (_enId) UnkouLib.ensureRequiredSheets(_enId);\n  } catch(e) {}\n  try { UnkouLib.ensureSheetsOnOpen(); } catch(e) {}\n  try {\n    var _bkProps = PropertiesService.getDocumentProperties();\n    var _bkLast  = Number(_bkProps.getProperty('LAST_BACKUP_TS') || 0);\n    if (Date.now() - _bkLast > 24 * 60 * 60 * 1000) {\n      UnkouLib.backupAllSheets();\n      _bkProps.setProperty('LAST_BACKUP_TS', String(Date.now()));\n    }\n  } catch(e) {}\n  try {\n    var _ss2 = SpreadsheetApp.getActiveSpreadsheet();\n    var _errSh = _ss2.getSheetByName('_ErrorLog_');\n    if (_errSh) {\n      var _a1 = String(_errSh.getRange(1, 1).getValue());\n      if (_a1.indexOf('⚠️ 要確認') === 0) {\n        SpreadsheetApp.getUi().alert(_a1);\n        _errSh.getRange(1, 1).setValue('日時');\n      }\n    }\n  } catch(e) {}\n}\n\nfunction doGet(e)            { return UnkouLib.doGet(e); }\nfunction onEdit(e)           { return UnkouLib.onEdit(e); }\nfunction installedOnEdit_(e) {\n  var _FLAG = 'ZOMBIE_CLEANED_V792';\n  var _dp = PropertiesService.getDocumentProperties();\n  if (!_dp.getProperty(_FLAG)) {\n    var _lck = LockService.getDocumentLock();\n    if (!_lck.tryLock(3000)) return;\n    try {\n      if (!_dp.getProperty(_FLAG)) {\n        var _ss1 = e.source;\n        ScriptApp.getUserTriggers(_ss1).forEach(function(t) { try { ScriptApp.deleteTrigger(t); } catch(ex) {} });\n        ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss1).onEdit().create();\n        ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss1).onChange().create();\n        ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n        _dp.setProperty(_FLAG, '1');\n      }\n    } finally { _lck.releaseLock(); }\n  }\n  var r = UnkouLib.dispatchInstalledEdit(e);\n  if (r && r.html) {\n    SpreadsheetApp.getUi().showModalDialog(\n      HtmlService.createHtmlOutput(r.html).setWidth(r.width || 300).setHeight(r.height || 290),\n      r.title || ''\n    );\n  }\n}\n\n// ── 画面表示 ──────────────────────────────────────────────────────────\nfunction showSidebar()            { return UnkouLib.showSidebar(); }\nfunction showUploadSidebar()      { return UnkouLib.showUploadSidebar(); }\n// ライブラリ経由だとライブラリのonOpen()（①メニュー）が実行されるためローカル実装\nfunction reloadMenu() { UnkouLib.buildClientMenu(); SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3); }\n\n// ── 月次処理 ──────────────────────────────────────────────────────────\nfunction generateCurrentMonth()   { return UnkouLib.generateCurrentMonth(); }\nfunction generateNextMonth()      { return UnkouLib.generateNextMonth(); }\nfunction archiveOldMonth()        { return UnkouLib.archiveOldMonth(); }\n\n// ── シート管理 ────────────────────────────────────────────────────────\nfunction generateSummary()        { return UnkouLib.generateSummary(); }\nfunction calcDistanceManual()              { return UnkouLib.calcDistanceManual(); }\nfunction resolveAmbiguousAddresses()      { return UnkouLib.resolveAmbiguousAddresses(); }\nfunction receiveAddressChoice(s)          { return UnkouLib.receiveAddressChoice(s); }\nfunction initDistanceMasterMajorCities()  { return UnkouLib.initDistanceMasterMajorCities(); }\nfunction expandAndRefreshSheets() { return UnkouLib.expandAndRefreshSheets(); }\nfunction restoreHeaders()         { return UnkouLib.restoreHeaders(); }\nfunction autoFillExpense()        { return UnkouLib.autoFillExpense(); }\nfunction sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }\nfunction fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }\nfunction createUsageSheet()       { return UnkouLib.createUsageSheet(); }\nfunction createManualSheet()      { return UnkouLib.createManualSheet(); }\nfunction createManualMASheet()    { return UnkouLib.createManualMASheet(); }\nfunction createSupportSheet()     { return UnkouLib.createSupportSheet(); }\nfunction setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }\nfunction showExportDialog()             { return UnkouLib.showExportDialog(); }\nfunction exportSheetAsCsvBase64(a,b)      { return UnkouLib.exportSheetAsCsvBase64(a,b); }\nfunction exportSelectedSheetsAsExcel(a,b) { return UnkouLib.exportSelectedSheetsAsExcel(a,b); }\nfunction exportPlBundle(a)              { return UnkouLib.exportPlBundle(a); }\n// installTriggersはライブラリ経由にするとScriptAppが①を向くためローカル実装\nfunction installTriggers() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  // 全バインドスクリプト横断で全インストール済みトリガーを強制削除してから3本だけ再登録\n  ScriptApp.getUserTriggers(ss).forEach(function(t) {\n    try { ScriptApp.deleteTrigger(t); } catch(e) {}\n  });\n  ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();\n  ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();\n  ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n  ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);\n}\n\nfunction calcDistanceTrigger_() {\n  try {\n    var parents = DriveApp.getFileById(ScriptApp.getScriptId()).getParents();\n    if (!parents.hasNext()) return;\n    UnkouLib.calcDistanceForSS(parents.next().getId());\n  } catch(e) {}\n}\nfunction onStructureChange_(e)  { UnkouLib.dispatchStructureChange(e); }\nfunction setRecalcChoice(a)       { return UnkouLib.setRecalcChoice(a); }\nfunction executeStatusSync(a,b,c){ return UnkouLib.executeStatusSync(a,b,c); }\nfunction syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }\n\n// ── CSVインポート ─────────────────────────────────────────────────────\nfunction showCsvImportDialogUnkou()      { return UnkouLib.showCsvImportDialogUnkou(); }\nfunction showCsvImportDialogMaster()     { return UnkouLib.showCsvImportDialogMaster(); }\nfunction showCsvImportDialogCust()       { return UnkouLib.showCsvImportDialogCust(); }\nfunction createPasteImportSheetUnkou()  { return UnkouLib.createPasteImportSheetUnkou(); }\nfunction createPasteImportSheetMaster() { return UnkouLib.createPasteImportSheetMaster(); }\nfunction createPasteImportSheetCust()   { return UnkouLib.createPasteImportSheetCust(); }\nfunction executePasteImportUnkou()      { return UnkouLib.executePasteImportUnkou(); }\nfunction executePasteImportMaster()     { return UnkouLib.executePasteImportMaster(); }\nfunction executePasteImportCust()       { return UnkouLib.executePasteImportCust(); }\nfunction executePasteImport()            { return UnkouLib.executePasteImport(); }\nfunction confirmPasteImport()            { return UnkouLib.confirmPasteImport(); }\nfunction getPasteImportHeader(a)         { return UnkouLib.getPasteImportHeader(a); }\nfunction savePasteImportMapping(a,b,c)   { return UnkouLib.savePasteImportMapping(a,b,c); }\nfunction showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }\nfunction prepareEtcImport(a,b,c)         { return UnkouLib.prepareEtcImport(a,b,c); }\nfunction executeEtcImport(a,b,c,d)       { return UnkouLib.executeEtcImport(a,b,c,d); }\nfunction getImportDictionary(a,b)        { return UnkouLib.getImportDictionary(a,b); }\nfunction importBulkRows(a,b,c)           { return UnkouLib.importBulkRows(a,b,c); }\nfunction saveImportAliases(a,b,c)        { return UnkouLib.saveImportAliases(a,b,c); }\n\n// ── 帳票・送信 ────────────────────────────────────────────────────────\nfunction showHatchuDocDialog()           { return UnkouLib.showHatchuDocDialog(); }\nfunction showShabanDocDialog()           { return UnkouLib.showShabanDocDialog(); }\nfunction showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(); }\nfunction generateUketorishoSheet(a)      { return UnkouLib.generateUketorishoSheet(a); }\nfunction sendDocumentEmail(a,b,c)        { return UnkouLib.sendDocumentEmail(a,b,c); }\nfunction markDocumentIssued(a,b,c)       { return UnkouLib.markDocumentIssued(a,b,c); }\nfunction getShijisakiHistory(a,b)        { return UnkouLib.getShijisakiHistory(a,b); }\nfunction saveShijisakiHistory(a,b,c)     { return UnkouLib.saveShijisakiHistory(a,b,c); }\nfunction getShijisakiByRowId(a,b)           { return UnkouLib.getShijisakiByRowId(a,b); }\nfunction saveShijisakiByRowId(a,b,c,d)     { return UnkouLib.saveShijisakiByRowId(a,b,c,d); }\nfunction deleteShijisakiHistory(a,b,c,d,e,f){ return UnkouLib.deleteShijisakiHistory(a,b,c,d,e,f); }\nfunction getKyoryokuHistory(a,b)            { return UnkouLib.getKyoryokuHistory(a,b); }\nfunction saveKyoryokuHistory(a,b,c)         { return UnkouLib.saveKyoryokuHistory(a,b,c); }\nfunction showPlDialog()                  { return UnkouLib.showPlDialog(); }\nfunction getPlFilterOptions()            { return UnkouLib.getPlFilterOptions(); }\nfunction generatePl(a)                   { return UnkouLib.generatePl(a); }\nfunction exportPlJournalCsv()            { return UnkouLib.exportPlJournalCsv(); }\nfunction initFixedCostMaster()           { return UnkouLib.initFixedCostMaster(); }\n\n// ── 請求書・支払確認書 ────────────────────────────────────────────────\nfunction showInvoiceDialog()             { return UnkouLib.showInvoiceDialog(); }\nfunction generateInvoiceSheet(a,b,c,d)   { return UnkouLib.generateInvoiceSheet(a,b,c,d); }\nfunction generateInvoiceBatch(a,b,c,d)       { return UnkouLib.generateInvoiceBatch(a,b,c,d); }\nfunction clearUketorishoTimestamps()         { return UnkouLib.clearUketorishoTimestamps(); }\nfunction prepareUketorishoForPrint()         { return UnkouLib.prepareUketorishoForPrint(); }\nfunction ensureSheetsOnOpen()                { return UnkouLib.ensureSheetsOnOpen(); }\nfunction showPaymentDialog()             { return UnkouLib.showPaymentDialog(); }\nfunction generatePaymentSheet(a,b,c,d,e) { return UnkouLib.generatePaymentSheet(a,b,c,d,e); }\n\n// ── 情報シート・配車確定 ──────────────────────────────────────────────\nfunction matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispatch(); }\nfunction cancelDispatch()               { return UnkouLib.cancelDispatch(); }\nfunction repairJohoSheet()              { return UnkouLib.repairJohoSheet(); }\nfunction generateAuditSheet()           { return UnkouLib.generateAuditSheet(); }\n// 古いインストール済みトリガー経由の発火（引数あり）は即return（多重ポップアップ封じ）\nfunction checkMasterExpiries(e)         { return; }  // デコイ：ゾンビトリガー空振り\nfunction showDispatchDashboard()        { return UnkouLib.showDispatchDashboard(); }\nfunction getDispatchDashboardData()     { return UnkouLib.getDispatchDashboardData(); }\n\n// ── アプリ連携（端末↔SS） ────────────────────────────────────────────\nfunction storeCompanySsId(a)              { return UnkouLib.storeCompanySsId(a); }\nfunction getInitialData(a,b)              { return UnkouLib.getInitialData(a,b); }\nfunction linkAddress(a,b)                 { return UnkouLib.linkAddress(a,b); }\nfunction unlinkAddress(a)                 { return UnkouLib.unlinkAddress(a); }\nfunction saveRunState(a,b,c)              { return UnkouLib.saveRunState(a,b,c); }\nfunction loadRunState()                   { return UnkouLib.loadRunState(); }\nfunction clearRunState(a,b)               { return UnkouLib.clearRunState(a,b); }\nfunction getTodayRoutes(a,b)              { return UnkouLib.getTodayRoutes(a,b); }\nfunction createParentRows(a,b,c,d,e,f)   { return UnkouLib.createParentRows(a,b,c,d,e,f); }\nfunction setPickComplete(a,b,c)           { return UnkouLib.setPickComplete(a,b,c); }\nfunction setRest(a,b,c,d)                { return UnkouLib.setRest(a,b,c,d); }\nfunction setDropComplete(a,b,c)           { return UnkouLib.setDropComplete(a,b,c); }\nfunction updateRouteData(a,b,c,d)         { return UnkouLib.updateRouteData(a,b,c,d); }\nfunction deleteRunRows(a,b,c)             { return UnkouLib.deleteRunRows(a,b,c); }\nfunction clearTimeCell(a,b,c,d,e)         { return UnkouLib.clearTimeCell(a,b,c,d,e); }\nfunction getListData(a,b,c,d)             { return UnkouLib.getListData(a,b,c,d); }\nfunction getEditData(a,b,c)               { return UnkouLib.getEditData(a,b,c); }\nfunction saveEditData(a,b,c)              { return UnkouLib.saveEditData(a,b,c); }\nfunction appendTerminalFile(a,b,c,d,e,f) { return UnkouLib.appendTerminalFile(a,b,c,d,e,f); }\nfunction deleteRunById(a,b,c)             { return UnkouLib.deleteRunById(a,b,c); }\nfunction saveNotice(a,b,c,d)             { return UnkouLib.saveNotice(a,b,c,d); }\nfunction uploadFileToRow(a,b,c,d)         { return UnkouLib.uploadFileToRow(a,b,c,d); }\nfunction saveTerminalNotice(a,b,c,d)      { return UnkouLib.saveTerminalNotice(a,b,c,d); }\nfunction uploadTerminalFile(a,b,c,d)      { return UnkouLib.uploadTerminalFile(a,b,c,d); }\nfunction getMyNotices(a,b)               { return UnkouLib.getMyNotices(a,b); }\nfunction getRoutesById(a,b,c)             { return UnkouLib.getRoutesById(a,b,c); }\nfunction getNoticeByRow(a,b,c)            { return UnkouLib.getNoticeByRow(a,b,c); }\nfunction markAsRead(a,b)                  { return UnkouLib.markAsRead(a,b); }\nfunction getReadNotices(a)               { return UnkouLib.getReadNotices(a); }\nfunction agreeContract(a,b,c,d,e)        { return UnkouLib.agreeContract(a,b,c,d,e); }\nfunction queueFileUpload(a,b,c,d)        { return UnkouLib.queueFileUpload(a,b,c,d); }\nfunction recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }\nfunction clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }\nfunction getCarInfoByNumber(a,b)         { return UnkouLib.getCarInfoByNumber(a,b); }\nfunction deleteTerminalFile(a,b,c)       { return UnkouLib.deleteTerminalFile(a,b,c); }\nfunction replaceTerminalFile(a,b,c,d,e,f){ return UnkouLib.replaceTerminalFile(a,b,c,d,e,f); }\nfunction appendTerminalFileAdmin(a,b,c,d,e){ return UnkouLib.appendTerminalFileAdmin(a,b,c,d,e); }\nfunction saveTermNoticeByDriver(a,b,c)   { return UnkouLib.saveTermNoticeByDriver(a,b,c); }\nfunction appendAdminFileById(a,b,c,d,e)  { return UnkouLib.appendAdminFileById(a,b,c,d,e); }\nfunction deleteAdminFileById(a,b,c)      { return UnkouLib.deleteAdminFileById(a,b,c); }\nfunction replaceAdminFileById(a,b,c,d,e,f){ return UnkouLib.replaceAdminFileById(a,b,c,d,e,f); }\n\n// ── 管理画面（親アプリ）────────────────────────────────────────────────\nfunction getParentSheets(a)            { return UnkouLib.getParentSheets(a); }\nfunction getSheetTableData(a,b)        { return UnkouLib.getSheetTableData(a,b); }\nfunction saveSheetRowData(a,b,c,d)     { return UnkouLib.saveSheetRowData(a,b,c,d); }\nfunction appendSheetRow(a,b,c)         { return UnkouLib.appendSheetRow(a,b,c); }\nfunction deleteSheetRow(a,b,c)         { return UnkouLib.deleteSheetRow(a,b,c); }\nfunction afterSaveJoho(a,b,c)          { return UnkouLib.afterSaveJoho(a,b,c); }\nfunction afterSaveJohoFull(a,b)        { return UnkouLib.afterSaveJohoFull(a,b); }\nfunction appendJohoRow(a,b)            { return UnkouLib.appendJohoRow(a,b); }\nfunction linkAdminEmail(a,b)           { return UnkouLib.linkAdminEmail(a,b); }\nfunction getLinkedAdminEmail(a)        { return UnkouLib.getLinkedAdminEmail(a); }\nfunction removeAllProtections()        { return UnkouLib.removeAllProtections(); }\n\n// ── バックアップ・復旧 ────────────────────────────────────────────────\nfunction openRestoreDialog()           { return UnkouLib.openRestoreDialog(); }\nfunction executeRestore(a,b)           { return UnkouLib.executeRestore(a,b); }\n\n// ── 保守ユーティリティ（ローカル実装：ScriptApp・SpreadsheetApp は呼び出し元SS文脈で動かす必要あり）────\nfunction cleanupStaleTriggers() {\n  var ss       = SpreadsheetApp.getActiveSpreadsheet();\n  var staleFns = ['checkMasterExpiries', 'onOpen', 'checkExpiryDates'];\n  var removed  = 0;\n  ScriptApp.getUserTriggers(ss).forEach(function(t) {\n    if (staleFns.indexOf(t.getHandlerFunction()) !== -1) {\n      try { ScriptApp.deleteTrigger(t); removed++; } catch(e) {}\n    }\n  });\n  ['指示先履歴', '指示先ID別'].forEach(function(name) {\n    var sh = ss.getSheetByName(name);\n    if (sh && !sh.isSheetHidden()) { try { sh.hideSheet(); } catch(e) {} }\n  });\n  SpreadsheetApp.getUi().alert(\n    '✅ クリーンアップ完了\\n\\n' +\n    '・削除したトリガー：' + removed + '件\\n' +\n    '・システムシート（指示先履歴・指示先ID別）を非表示にしました'\n  );\n}\n";
+  return "// 客SS・テンプレートSS用スタブ（実装はライブラリ UnkouLib にある）\n// ②客用SS・③各客SS 共通。メニュー定義はライブラリ（buildClientMenu）に集約済み。\n// スタブは公開関数の転送のみ担当。反映ボタンは①修正用SSのみ。\nfunction onOpen(e) {\n  // サイレント自動トリガー再構築（FULL権限時のみ有効・LIMITED時はtry-catchで自動スキップ）\n  try {\n    var _ss0 = SpreadsheetApp.getActiveSpreadsheet();\n    var _sf = ['installedOnEdit_','onStructureChange_','checkMasterExpiries','onOpen','checkExpiryDates','calcDistanceTrigger_'];\n    ScriptApp.getUserTriggers(_ss0).forEach(function(t) {\n      if (_sf.indexOf(t.getHandlerFunction()) !== -1) { try { ScriptApp.deleteTrigger(t); } catch(ex) {} }\n    });\n    ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss0).onEdit().create();\n    ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss0).onChange().create();\n    ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n  } catch(_ex0) {}\n  // 通常パス（LIMITED では上記は無害スキップ済み）\n  UnkouLib.buildClientMenu();\n  // ログイン確認（未ログインなら期限アラートは出さず、最後にログイン画面を出す。アラートはログイン後に出る）\n  var _ssLoggedIn = false;\n  try { _ssLoggedIn = UnkouLib.isSsLoggedIn(); } catch(_liEx) {}\n  try { UnkouLib.convertLegacyAdminDataUrls(); } catch(e) {}\n  try { UnkouLib.applyHolidayRowColors(); } catch(e) {}\n  try {\n    var _hideSs = SpreadsheetApp.getActiveSpreadsheet();\n    ['指示先履歴', '指示先ID別', '__COMPANY_SS__'].forEach(function(n) {\n      var sh = _hideSs.getSheetByName(n);\n      if (sh && !sh.isSheetHidden()) sh.hideSheet();\n    });\n  } catch(e) {}\n  try {\n    var _epDp = PropertiesService.getDocumentProperties();\n    var _epTs = Number(_epDp.getProperty('EXPIRY_POPUP_TS') || 0);\n    if (_ssLoggedIn && Date.now() - _epTs >= 30000) {\n      _epDp.setProperty('EXPIRY_POPUP_TS', String(Date.now()));\n      UnkouLib.showExpiryAlert();\n    }\n  } catch(_epEx) {}\n  try { UnkouLib.applyExpiryWarningColors(); } catch(e) {}\n  try {\n    var _enSs = SpreadsheetApp.getActiveSpreadsheet();\n    var _enSh = _enSs.getSheetByName('__COMPANY_SS__');\n    var _enId = _enSh ? String(_enSh.getRange(1, 2).getValue() || '') : '';\n    if (_enId) UnkouLib.ensureRequiredSheets(_enId);\n  } catch(e) {}\n  try { UnkouLib.ensureSheetsOnOpen(); } catch(e) {}\n  try {\n    var _bkProps = PropertiesService.getDocumentProperties();\n    var _bkLast  = Number(_bkProps.getProperty('LAST_BACKUP_TS') || 0);\n    if (Date.now() - _bkLast > 24 * 60 * 60 * 1000) {\n      UnkouLib.backupAllSheets();\n      _bkProps.setProperty('LAST_BACKUP_TS', String(Date.now()));\n    }\n  } catch(e) {}\n  try {\n    var _ss2 = SpreadsheetApp.getActiveSpreadsheet();\n    var _errSh = _ss2.getSheetByName('_ErrorLog_');\n    if (_errSh) {\n      var _a1 = String(_errSh.getRange(1, 1).getValue());\n      if (_a1.indexOf('⚠️ 要確認') === 0) {\n        SpreadsheetApp.getUi().alert(_a1);\n        _errSh.getRange(1, 1).setValue('日時');\n      }\n    }\n  } catch(e) {}\n  if (!_ssLoggedIn) { try { UnkouLib.showSsLoginDialog(); } catch(_lgEx) {} }\n}\n\n// セルを選んだ時、ログイン画面を閉じたままならもう一度出す\nfunction onSelectionChange(e)  { try { UnkouLib.checkSsLoginOnSelect(e); } catch(ex) {} }\nfunction loginSs(a,b,c)        { return UnkouLib.loginSs(a,b,c); }\n\nfunction doGet(e)            { return UnkouLib.doGet(e); }\nfunction onEdit(e)           { return UnkouLib.onEdit(e); }\nfunction installedOnEdit_(e) {\n  var _FLAG = 'ZOMBIE_CLEANED_V792';\n  var _dp = PropertiesService.getDocumentProperties();\n  if (!_dp.getProperty(_FLAG)) {\n    var _lck = LockService.getDocumentLock();\n    if (!_lck.tryLock(3000)) return;\n    try {\n      if (!_dp.getProperty(_FLAG)) {\n        var _ss1 = e.source;\n        ScriptApp.getUserTriggers(_ss1).forEach(function(t) { try { ScriptApp.deleteTrigger(t); } catch(ex) {} });\n        ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss1).onEdit().create();\n        ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss1).onChange().create();\n        ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n        _dp.setProperty(_FLAG, '1');\n      }\n    } finally { _lck.releaseLock(); }\n  }\n  var r = UnkouLib.dispatchInstalledEdit(e);\n  if (r && r.html) {\n    SpreadsheetApp.getUi().showModalDialog(\n      HtmlService.createHtmlOutput(r.html).setWidth(r.width || 300).setHeight(r.height || 290),\n      r.title || ''\n    );\n  }\n}\n\n// ── 画面表示 ──────────────────────────────────────────────────────────\nfunction showSidebar()            { return UnkouLib.showSidebar(); }\nfunction showUploadSidebar()      { return UnkouLib.showUploadSidebar(); }\n// ライブラリ経由だとライブラリのonOpen()（①メニュー）が実行されるためローカル実装\nfunction reloadMenu() { UnkouLib.buildClientMenu(); SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3); }\n\n// ── 月次処理 ──────────────────────────────────────────────────────────\nfunction generateCurrentMonth()   { return UnkouLib.generateCurrentMonth(); }\nfunction generateNextMonth()      { return UnkouLib.generateNextMonth(); }\nfunction archiveOldMonth()        { return UnkouLib.archiveOldMonth(); }\n\n// ── シート管理 ────────────────────────────────────────────────────────\nfunction generateSummary()        { return UnkouLib.generateSummary(); }\nfunction calcDistanceManual()              { return UnkouLib.calcDistanceManual(); }\nfunction resolveAmbiguousAddresses()      { return UnkouLib.resolveAmbiguousAddresses(); }\nfunction receiveAddressChoice(s)          { return UnkouLib.receiveAddressChoice(s); }\nfunction initDistanceMasterMajorCities()  { return UnkouLib.initDistanceMasterMajorCities(); }\nfunction expandAndRefreshSheets() { return UnkouLib.expandAndRefreshSheets(); }\nfunction restoreHeaders()         { return UnkouLib.restoreHeaders(); }\nfunction autoFillExpense()        { return UnkouLib.autoFillExpense(); }\nfunction sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }\nfunction fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }\nfunction createUsageSheet()       { return UnkouLib.createUsageSheet(); }\nfunction createManualSheet()      { return UnkouLib.createManualSheet(); }\nfunction createManualMASheet()    { return UnkouLib.createManualMASheet(); }\nfunction createSupportSheet()     { return UnkouLib.createSupportSheet(); }\nfunction setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }\nfunction showExportDialog()             { return UnkouLib.showExportDialog(); }\nfunction exportSheetAsCsvBase64(a,b,c)    { return UnkouLib.exportSheetAsCsvBase64(a,b,c); }\nfunction exportSelectedSheetsAsExcel(a,b,c) { return UnkouLib.exportSelectedSheetsAsExcel(a,b,c); }\nfunction exportPlBundle(a,b,c)              { return UnkouLib.exportPlBundle(a,b,c); }\n// installTriggersはライブラリ経由にするとScriptAppが①を向くためローカル実装\nfunction installTriggers() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  // 全バインドスクリプト横断で全インストール済みトリガーを強制削除してから3本だけ再登録\n  ScriptApp.getUserTriggers(ss).forEach(function(t) {\n    try { ScriptApp.deleteTrigger(t); } catch(e) {}\n  });\n  ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();\n  ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();\n  ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n  ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);\n}\n\n// 夜間の距離計算：このSSのIDと、このスタブのスクリプトID（ライブラリ側で登録済みのものと照合）を渡す\nfunction calcDistanceTrigger_() {\n  try {\n    UnkouLib.calcDistanceForSS(SpreadsheetApp.getActiveSpreadsheet().getId(), ScriptApp.getScriptId());\n  } catch(e) {}\n}\nfunction onStructureChange_(e)  { UnkouLib.dispatchStructureChange(e); }\nfunction setRecalcChoice(a,b)     { return UnkouLib.setRecalcChoice(a,b); }\nfunction executeStatusSync(a,b,c){ return UnkouLib.executeStatusSync(a,b,c); }\nfunction syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }\n\n// ── CSVインポート ─────────────────────────────────────────────────────\nfunction showCsvImportDialogUnkou()      { return UnkouLib.showCsvImportDialogUnkou(); }\nfunction showCsvImportDialogMaster()     { return UnkouLib.showCsvImportDialogMaster(); }\nfunction showCsvImportDialogCust()       { return UnkouLib.showCsvImportDialogCust(); }\nfunction createPasteImportSheetUnkou()  { return UnkouLib.createPasteImportSheetUnkou(); }\nfunction createPasteImportSheetMaster() { return UnkouLib.createPasteImportSheetMaster(); }\nfunction createPasteImportSheetCust()   { return UnkouLib.createPasteImportSheetCust(); }\nfunction executePasteImportUnkou()      { return UnkouLib.executePasteImportUnkou(); }\nfunction executePasteImportMaster()     { return UnkouLib.executePasteImportMaster(); }\nfunction executePasteImportCust()       { return UnkouLib.executePasteImportCust(); }\nfunction executePasteImport()            { return UnkouLib.executePasteImport(); }\nfunction confirmPasteImport()            { return UnkouLib.confirmPasteImport(); }\nfunction showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }\nfunction prepareEtcImport(a,b,c,d)         { return UnkouLib.prepareEtcImport(a,b,c,d); }\nfunction executeEtcImport(a,b,c,d,e)       { return UnkouLib.executeEtcImport(a,b,c,d,e); }\nfunction getImportDictionary(a,b,c)        { return UnkouLib.getImportDictionary(a,b,c); }\nfunction importBulkRows(a,b,c,d,e,f)       { return UnkouLib.importBulkRows(a,b,c,d,e,f); }\nfunction saveImportAliases(a,b,c,d)        { return UnkouLib.saveImportAliases(a,b,c,d); }\n\n// ── 帳票・送信 ────────────────────────────────────────────────────────\nfunction showHatchuDocDialog()           { return UnkouLib.showHatchuDocDialog(); }\nfunction showShabanDocDialog()           { return UnkouLib.showShabanDocDialog(); }\nfunction showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(); }\nfunction generateUketorishoSheet(a)      { return UnkouLib.generateUketorishoSheet(a); }\nfunction sendDocumentEmail(a,b,c,d)        { return UnkouLib.sendDocumentEmail(a,b,c,d); }\nfunction markDocumentIssued(a,b,c,d)       { return UnkouLib.markDocumentIssued(a,b,c,d); }\nfunction getShijisakiHistory(a,b,c)        { return UnkouLib.getShijisakiHistory(a,b,c); }\nfunction saveShijisakiHistory(a,b,c,d)     { return UnkouLib.saveShijisakiHistory(a,b,c,d); }\nfunction getShijisakiByRowId(a,b,c)           { return UnkouLib.getShijisakiByRowId(a,b,c); }\nfunction saveShijisakiByRowId(a,b,c,d,e)     { return UnkouLib.saveShijisakiByRowId(a,b,c,d,e); }\nfunction deleteShijisakiHistory(a,b,c,d,e,f,g){ return UnkouLib.deleteShijisakiHistory(a,b,c,d,e,f,g); }\nfunction getKyoryokuHistory(a,b,c)            { return UnkouLib.getKyoryokuHistory(a,b,c); }\nfunction saveKyoryokuHistory(a,b,c,d)         { return UnkouLib.saveKyoryokuHistory(a,b,c,d); }\nfunction showPlDialog()                  { return UnkouLib.showPlDialog(); }\nfunction getPlFilterOptions(a,b)            { return UnkouLib.getPlFilterOptions(a,b); }\nfunction generatePl(a,b,c)                   { return UnkouLib.generatePl(a,b,c); }\nfunction exportPlJournalCsv()            { return UnkouLib.exportPlJournalCsv(); }\nfunction initFixedCostMaster()           { return UnkouLib.initFixedCostMaster(); }\n\n// ── 請求書・支払確認書 ────────────────────────────────────────────────\nfunction showInvoiceDialog()             { return UnkouLib.showInvoiceDialog(); }\nfunction generateInvoiceSheet(a,b,c,d)   { return UnkouLib.generateInvoiceSheet(a,b,c,d); }\nfunction generateInvoiceBatch(a,b,c,d)       { return UnkouLib.generateInvoiceBatch(a,b,c,d); }\nfunction clearUketorishoTimestamps()         { return UnkouLib.clearUketorishoTimestamps(); }\nfunction prepareUketorishoForPrint()         { return UnkouLib.prepareUketorishoForPrint(); }\nfunction ensureSheetsOnOpen()                { return UnkouLib.ensureSheetsOnOpen(); }\nfunction showPaymentDialog()             { return UnkouLib.showPaymentDialog(); }\nfunction generatePaymentSheet(a,b,c,d,e) { return UnkouLib.generatePaymentSheet(a,b,c,d,e); }\n\n// ── 情報シート・配車確定 ──────────────────────────────────────────────\nfunction matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispatch(); }\nfunction cancelDispatch()               { return UnkouLib.cancelDispatch(); }\nfunction repairJohoSheet()              { return UnkouLib.repairJohoSheet(); }\nfunction generateAuditSheet()           { return UnkouLib.generateAuditSheet(); }\n// 古いインストール済みトリガー経由の発火（引数あり）は即return（多重ポップアップ封じ）\nfunction checkMasterExpiries(e)         { return; }  // デコイ：ゾンビトリガー空振り\nfunction showDispatchDashboard()        { return UnkouLib.showDispatchDashboard(); }\nfunction getDispatchDashboardData(a,b)     { return UnkouLib.getDispatchDashboardData(a,b); }\n\n// ── アプリ連携（端末↔SS） ────────────────────────────────────────────\nfunction storeCompanySsId(a)              { return UnkouLib.storeCompanySsId(a); }\nfunction getInitialData(a,b)              { return UnkouLib.getInitialData(a,b); }\nfunction linkAddress(a,b)                 { return UnkouLib.linkAddress(a,b); }\nfunction unlinkAddress(a)                 { return UnkouLib.unlinkAddress(a); }\nfunction saveRunState(a,b,c)              { return UnkouLib.saveRunState(a,b,c); }\nfunction loadRunState(a,b)                { return UnkouLib.loadRunState(a,b); }\nfunction clearRunState(a,b)               { return UnkouLib.clearRunState(a,b); }\nfunction getTodayRoutes(a,b)              { return UnkouLib.getTodayRoutes(a,b); }\nfunction createParentRows(a,b,c,d,e,f)   { return UnkouLib.createParentRows(a,b,c,d,e,f); }\nfunction setPickComplete(a,b,c,d)           { return UnkouLib.setPickComplete(a,b,c,d); }\nfunction setRest(a,b,c,d,e)                { return UnkouLib.setRest(a,b,c,d,e); }\nfunction setDropComplete(a,b,c,d)           { return UnkouLib.setDropComplete(a,b,c,d); }\nfunction updateRouteData(a,b,c,d,e)       { return UnkouLib.updateRouteData(a,b,c,d,e); }\nfunction deleteRunRows(a,b,c)             { return UnkouLib.deleteRunRows(a,b,c); }\nfunction clearTimeCell(a,b,c,d,e)         { return UnkouLib.clearTimeCell(a,b,c,d,e); }\nfunction getListData(a,b,c,d)             { return UnkouLib.getListData(a,b,c,d); }\nfunction getEditData(a,b,c)               { return UnkouLib.getEditData(a,b,c); }\nfunction saveEditData(a,b,c)              { return UnkouLib.saveEditData(a,b,c); }\nfunction appendTerminalFile(a,b,c,d,e,f) { return UnkouLib.appendTerminalFile(a,b,c,d,e,f); }\nfunction deleteRunById(a,b,c)             { return UnkouLib.deleteRunById(a,b,c); }\nfunction saveNotice(a,b,c,d)             { return UnkouLib.saveNotice(a,b,c,d); }\nfunction uploadFileToRow(a,b,c,d)         { return UnkouLib.uploadFileToRow(a,b,c,d); }\nfunction saveTerminalNotice(a,b,c,d)      { return UnkouLib.saveTerminalNotice(a,b,c,d); }\nfunction uploadTerminalFile(a,b,c,d)      { return UnkouLib.uploadTerminalFile(a,b,c,d); }\nfunction getMyNotices(a,b)               { return UnkouLib.getMyNotices(a,b); }\nfunction getRoutesById(a,b,c)             { return UnkouLib.getRoutesById(a,b,c); }\nfunction getNoticeByRow(a,b,c)            { return UnkouLib.getNoticeByRow(a,b,c); }\nfunction markAsRead(a,b,c)                { return UnkouLib.markAsRead(a,b,c); }\nfunction getReadNotices(a,b)             { return UnkouLib.getReadNotices(a,b); }\nfunction agreeContract(a,b,c,d,e)        { return UnkouLib.agreeContract(a,b,c,d,e); }\nfunction queueFileUpload(a,b,c,d)        { return UnkouLib.queueFileUpload(a,b,c,d); }\nfunction recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }\nfunction clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }\nfunction getCarInfoByNumber(a,b,c)       { return UnkouLib.getCarInfoByNumber(a,b,c); }\nfunction deleteTerminalFile(a,b,c,d)     { return UnkouLib.deleteTerminalFile(a,b,c,d); }\nfunction replaceTerminalFile(a,b,c,d,e,f,g){ return UnkouLib.replaceTerminalFile(a,b,c,d,e,f,g); }\nfunction appendTerminalFileAdmin(a,b,c,d,e,f){ return UnkouLib.appendTerminalFileAdmin(a,b,c,d,e,f); }\nfunction saveTermNoticeByDriver(a,b,c,d) { return UnkouLib.saveTermNoticeByDriver(a,b,c,d); }\nfunction appendAdminFileById(a,b,c,d,e,f){ return UnkouLib.appendAdminFileById(a,b,c,d,e,f); }\nfunction deleteAdminFileById(a,b,c,d)    { return UnkouLib.deleteAdminFileById(a,b,c,d); }\nfunction replaceAdminFileById(a,b,c,d,e,f,g){ return UnkouLib.replaceAdminFileById(a,b,c,d,e,f,g); }\n\n// ── 管理画面（親アプリ）────────────────────────────────────────────────\nfunction getParentSheets(a,b)          { return UnkouLib.getParentSheets(a,b); }\nfunction getSheetTableData(a,b,c)      { return UnkouLib.getSheetTableData(a,b,c); }\nfunction saveSheetRowData(a,b,c,d,e)   { return UnkouLib.saveSheetRowData(a,b,c,d,e); }\nfunction appendSheetRow(a,b,c,d)       { return UnkouLib.appendSheetRow(a,b,c,d); }\nfunction deleteSheetRow(a,b,c,d)       { return UnkouLib.deleteSheetRow(a,b,c,d); }\nfunction afterSaveJoho(a,b,c,d)        { return UnkouLib.afterSaveJoho(a,b,c,d); }\nfunction afterSaveJohoFull(a,b,c)      { return UnkouLib.afterSaveJohoFull(a,b,c); }\nfunction appendJohoRow(a,b,c)          { return UnkouLib.appendJohoRow(a,b,c); }\nfunction lookupCompanyContact(a,b,c,d) { return UnkouLib.lookupCompanyContact(a,b,c,d); }\nfunction matchAndConfirmDispatchFromApp(a,b,c) { return UnkouLib.matchAndConfirmDispatchFromApp(a,b,c); }\nfunction linkAdminEmail(a,b,c,d)       { return UnkouLib.linkAdminEmail(a,b,c,d); }\nfunction getLinkedAdminEmail(a,b)      { return UnkouLib.getLinkedAdminEmail(a,b); }\nfunction logoutAdmin(a,b)              { return UnkouLib.logoutAdmin(a,b); }\nfunction runParentSystemAction(a,b,c,d)  { return UnkouLib.runParentSystemAction(a,b,c,d); }\nfunction createToolTicket(a,b)         { return UnkouLib.createToolTicket(a,b); }\nfunction renderTool(a,b,c,d)           { return UnkouLib.renderTool(a,b,c,d); }\nfunction removeAllProtections()        { return UnkouLib.removeAllProtections(); }\n\n// ── バックアップ・復旧 ────────────────────────────────────────────────\nfunction openRestoreDialog()           { return UnkouLib.openRestoreDialog(); }\nfunction executeRestore(a,b)           { return UnkouLib.executeRestore(a,b); }\n\n// ── 保守ユーティリティ（ローカル実装：ScriptApp・SpreadsheetApp は呼び出し元SS文脈で動かす必要あり）────\nfunction cleanupStaleTriggers() {\n  var ss       = SpreadsheetApp.getActiveSpreadsheet();\n  var staleFns = ['checkMasterExpiries', 'onOpen', 'checkExpiryDates'];\n  var removed  = 0;\n  ScriptApp.getUserTriggers(ss).forEach(function(t) {\n    if (staleFns.indexOf(t.getHandlerFunction()) !== -1) {\n      try { ScriptApp.deleteTrigger(t); removed++; } catch(e) {}\n    }\n  });\n  ['指示先履歴', '指示先ID別'].forEach(function(name) {\n    var sh = ss.getSheetByName(name);\n    if (sh && !sh.isSheetHidden()) { try { sh.hideSheet(); } catch(e) {} }\n  });\n  SpreadsheetApp.getUi().alert(\n    '✅ クリーンアップ完了\\n\\n' +\n    '・削除したトリガー：' + removed + '件\\n' +\n    '・システムシート（指示先履歴・指示先ID別）を非表示にしました'\n  );\n}\n";
   // === AUTO_GENERATED_STUB_END ===
 }
 
 
 // ================================================================
 //  12-3b: クライアントSSシート初期化共通処理（initClientSSSheets_）  【大B / 中12 / 小12-3b】
-//  createCompanySpreadsheet_・initTemplateSS_ の両方から呼ばれる。
+//  createCompanySpreadsheet_（12-3）から呼ばれる。
 //  全シートを正しいヘッダー＋テストデータで再構築し、不要シートを削除する。
 // ================================================================
 function initClientSSSheets_(ss, companyName) {
@@ -10324,8 +11096,10 @@ function verifyStubContent_(scriptId, funcName) {
 // ================================================================
 //  16-2b: 受領書耳の日時セルをクリア（clearUketorishoTimestamps）  【大B / 中16 / 小16-2b】
 //  印刷用PDFを開いた後にクライアントから呼び出し、画面上の日時表示を白文字に戻す
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function clearUketorishoTimestamps() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName('受領書_耳');
   if (!sh || sh.getLastRow() < 8) return;
@@ -10339,21 +11113,27 @@ function clearUketorishoTimestamps() {
 
 
 // ================================================================
-//  16-2c: F5時の自社設定・テストマスタシート初期化ラッパー（ensureSheetsOnOpen）  【大B / 中16 / 小16-2c相当】
-//  スタブのonOpenから呼ばれる。プライベート関数の公開ラッパー。
+//  16-2c: F5時の自社設定・シート並び順・合計(高速代)移行（ensureSheetsOnOpen）  【大B / 中16 / 小16-2c】
+//  スタブのonOpenから呼ばれる。15-4（自社設定）・4-2j（並び順）・4-1c（合計(高速代)移行）・P-4k（管理者シートの旧パスワード列の撤去）を実行する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function ensureSheetsOnOpen() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   try { ensureCompanySettingSheet_(ss); } catch(e) {}
   try { arrangeSheetsOrder_(ss); } catch(e) {}
+  try { migrateSummaryTollSign_(ss); } catch(e) {}
+  try { removeLegacyAdminPasswordColumn_(ss); } catch(e) {}
 }
 
 
 // ================================================================
-//  16-2d: 受領書耳の日時セルを印刷用に表示（prepareUketorishoForPrint）  【大B / 中16 / 小16-2c】
+//  16-2d: 受領書耳の日時セルを印刷用に表示（prepareUketorishoForPrint）  【大B / 中16 / 小16-2d】
 //  PDFボタン押下時にクライアントから呼び出し、日時を黒文字で書いてflushする
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function prepareUketorishoForPrint() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName('受領書_耳');
   if (!sh || sh.getLastRow() < 8) return;
@@ -10396,8 +11176,10 @@ function prepareUketorishoForPrint() {
 
 // ================================================================
 //  16-3: 請求書生成ダイアログ（showInvoiceDialog）  【大C / 中16 / 小16-3】
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showInvoiceDialog() {
+  requireSheetUi_();
   var ss  = SpreadsheetApp.getActiveSpreadsheet();
   var mSh = ss.getSheetByName('マスタ');
   var mRows = []; // {id, kana, name, tel}
@@ -10454,8 +11236,10 @@ function showInvoiceDialog() {
 
 // ================================================================
 //  16-3b: 請求書一括生成（generateInvoiceBatch）  【大A / 中16 / 小16-3b】
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function generateInvoiceBatch(companies, dateFrom, dateTo, taxRate) {
+  requireSheetUi_();
   var results = [];
   companies.forEach(function(co) {
     if (!co) return;
@@ -10486,8 +11270,10 @@ function sendInvoiceFax_(company) {
 
 // ================================================================
 //  16-4: 支払確認書生成ダイアログ（showPaymentDialog）  【大C / 中16 / 小16-4】
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showPaymentDialog() {
+  requireSheetUi_();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sumSh = ss.getSheetByName('集計表');
   var companies = [], cars = [], names = [];
@@ -10525,12 +11311,16 @@ function showPaymentDialog() {
 
 // ================================================================
 //  16-5: 書類用連番採番（getNextDocNum_）  【大B / 中16 / 小16-5】
+//  SSごと・書類ごと・月ごとの連番（docnum_SSID_種類_年月）。その月の分が未作成なら、
+//  旧版の全客共通の連番（docnum_種類_年月）の続きから始める（同じ番号を二度出さないため）
 // ================================================================
-function getNextDocNum_(type) {
+function getNextDocNum_(type, ss) {
   var props = PropertiesService.getScriptProperties();
   var ym    = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMM');
-  var key   = 'docnum_' + type + '_' + ym;
-  var n     = Number(props.getProperty(key) || 0) + 1;
+  var key   = 'docnum_' + ss.getId() + '_' + type + '_' + ym;
+  var cur   = props.getProperty(key);
+  if (cur === null) cur = props.getProperty('docnum_' + type + '_' + ym) || 0;
+  var n     = Number(cur) + 1;
   props.setProperty(key, String(n));
   return ym + '-' + String(n).padStart(4, '0');
 }
@@ -10538,8 +11328,10 @@ function getNextDocNum_(type) {
 
 // ================================================================
 //  16-6: 請求書シート生成（generateInvoiceSheet）  【大A / 中16 / 小16-6】
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function generateInvoiceSheet(company, dateFrom, dateTo, taxRate) {
+  requireSheetUi_();
   var ss       = SpreadsheetApp.getActiveSpreadsheet();
   var sumSh    = ss.getSheetByName('集計表');
   if (!sumSh || sumSh.getLastRow() < 2) { ss.toast('集計表にデータがありません', '⚠️', 4); return; }
@@ -10596,7 +11388,7 @@ function generateInvoiceSheet(company, dateFrom, dateTo, taxRate) {
   [40,70,130,130,70,90,90].forEach(function(w,i){ sh.setColumnWidth(i+1,w); });
 
   var today   = new Date();
-  var docNum  = 'R-' + getNextDocNum_('inv');
+  var docNum  = 'R-' + getNextDocNum_('inv', ss);
   var issued  = Utilities.formatDate(today,'Asia/Tokyo','yyyy年MM月dd日');
   var pFrom   = Utilities.formatDate(from,'Asia/Tokyo','yyyy年M月d日');
   var pTo     = Utilities.formatDate(to,  'Asia/Tokyo','yyyy年M月d日');
@@ -10720,8 +11512,10 @@ function generateInvoiceSheet(company, dateFrom, dateTo, taxRate) {
 
 // ================================================================
 //  16-7: 支払確認書シート生成（generatePaymentSheet）  【大A / 中16 / 小16-7】
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function generatePaymentSheet(company, carNo, driverName, dateFrom, dateTo) {
+  requireSheetUi_();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sumSh = ss.getSheetByName('集計表');
   if (!sumSh || sumSh.getLastRow() < 2) { ss.toast('集計表にデータがありません', '⚠️', 4); return; }
@@ -10747,7 +11541,7 @@ function generatePaymentSheet(company, carNo, driverName, dateFrom, dateTo) {
   [40,70,120,120,100,70,80,80].forEach(function(w,i){ sh.setColumnWidth(i+1,w); });
 
   var today  = new Date();
-  var docNum = 'S-' + getNextDocNum_('pay');
+  var docNum = 'S-' + getNextDocNum_('pay', ss);
   var issued = Utilities.formatDate(today,'Asia/Tokyo','yyyy年MM月dd日');
   var pFrom  = Utilities.formatDate(from,'Asia/Tokyo','yyyy年M月d日');
   var pTo    = Utilities.formatDate(to,  'Asia/Tokyo','yyyy年M月d日');
@@ -10819,8 +11613,11 @@ function generatePaymentSheet(company, carNo, driverName, dateFrom, dateTo) {
 //    TEMPLATE_SCRIPT_ID → 新②客用SS の Apps Script ID（スクリプトエディタURLの /projects/XXXX 部分）
 //    templateSsId       → 新②客用SS の スプレッドシートID（SS URLの /d/XXXX 部分）
 //    Script Properties の 'clientTemplateSsId' も更新（または削除してデフォルト値を変更）
+//  実行時に②のスクリプトIDを Script Properties の scriptId_②のSSのID に登録する（4-9p の夜間距離計算の照合用）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function syncToTemplateSS() {
+  requireSheetUi_();
   var props = PropertiesService.getScriptProperties();
   var TEMPLATE_SCRIPT_ID = '19CfyUPhldzSccj05xo-sn4Xh78fCHAHDVJtGyKdDGQkO1D4wZWFEnZCT';
   var templateSsId = props.getProperty('clientTemplateSsId') || '1NBtosd_MN8KcboV_4OXTrY8WqcE3TJwpxdA_nASmTOo';
@@ -10831,6 +11628,8 @@ function syncToTemplateSS() {
   // ①修正用SS自身のスクリプトIDを保存（createLibraryVersion_がlibrary経由で呼ばれても正しいIDを参照できるよう）
   // この関数は必ず①から直接実行されるため、ScriptApp.getScriptId()は①のIDを正しく返す
   props.setProperty('ownScriptId', ScriptApp.getScriptId());
+  // ②の距離計算（4-9p）の照合用に、②のスクリプトIDを登録
+  props.setProperty('scriptId_' + templateSsId, TEMPLATE_SCRIPT_ID);
 
   // ② 毎回新バージョン作成（デプロイ後の最新コードを確実に反映するため）
   var newVersion = createLibraryVersion_(
@@ -10938,12 +11737,12 @@ function syncToTemplateSS() {
 // ================================================================
 //  12-4: 新規会社フルセットアップ（processNewCompany_）  【大B / 中12 / 小12-4】
 //  ① 共有フォルダ（運行管理_アーカイブ/会社名/）を作成して管理Gmailに共有
-//  ② コードなしSSをそのフォルダ内に作成
+//  ② 12-3 で②客用SS（スタブ入り）をコピーしてそのフォルダ内に作成
 //  ③ アプリURL（WebアプリURL?ssId=会社SS_ID）を生成
 //  ④ 契約書URL（?page=contract&ssId=...&company=...&row=...）を生成
-//  ⑤ 会社登録シートにSSURL・AppURL・フォルダURL・契約書URLを記録（I列）
+//  ⑤ 会社登録シートにSSURL・AppURL・フォルダURLを記録し、契約書URLをI列に記録
 //  ⑥ 管理Gmail宛に「契約書確認のお願い」メールを送信
-//  メニュー「📤 会社SS作成＆メール送信」から手動実行。
+//  12-5・12-7・14-2b（会社登録入力時）から呼ばれる。
 // ================================================================
 function processNewCompany_(companyName, adminEmail) {
   var ss;
@@ -11072,9 +11871,13 @@ function processNewCompany_(companyName, adminEmail) {
 //  ① 会社登録シートのJ列(10)に同意時刻を記録・C列を「同意済」に更新
 //  ② 管理Gmail宛にSS URLとアプリURLをメール送信
 //  ③ H列(8)に送信済ステータスを記録
+//  外から渡された adminEmail・masterSsIdParam は使わない（送り先は会社登録B列、①は __AGREE_META__ か Script Properties）
+//  ssId と会社登録の行（F列のスプレッドシートURL）が一致しない時は止める
 // ================================================================
 function agreeContract(ssId, companyName, adminEmail, contractRow, masterSsIdParam) {
-  var masterSsId = masterSsIdParam || '';
+  adminEmail = '';
+  if (!ssId) throw new Error('スプレッドシートが指定されていません');
+  var masterSsId = '';
 
   // 客SSの__AGREE_META__シートからmasterSsIdとcontractRowを取得（①doGet経由時はScript Propertiesが違うSSを指すため）
   if (!masterSsId && ssId) {
@@ -11102,6 +11905,8 @@ function agreeContract(ssId, companyName, adminEmail, contractRow, masterSsIdPar
 
   var ssUrl  = '';
   var appUrl = '';
+  if (!(row >= 2)) throw new Error('契約情報が見つかりません');
+  if (String(regSheet.getRange(row, 6).getValue() || '').indexOf(ssId) === -1) throw new Error('契約情報が一致しません');
   if (row >= 2) {
     ssUrl  = String(regSheet.getRange(row, 6).getValue() || '');
     appUrl = String(regSheet.getRange(row, 7).getValue() || '');
@@ -11182,9 +11987,11 @@ function agreeContract(ssId, companyName, adminEmail, contractRow, masterSsIdPar
 // ================================================================
 //  12-5: 全未処理会社のSS作成＆メール送信（sendCompanySetupEmails）  【大C / 中12 / 小12-5】
 //  会社登録シートのF列(SS URL)が空の行を対象に processNewCompany_ を実行する。
-//  メニュー「📤 会社SS作成＆メール送信」から手動実行。
+//  メニュー「📬 会社SS作成＆メール送信」から手動実行。
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function sendCompanySetupEmails() {
+  requireSheetUi_();
   var ui    = SpreadsheetApp.getUi();
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('会社登録');
@@ -11242,8 +12049,10 @@ function sendCompanySetupEmails() {
 //  Google フォームを作成して申し込み受付を自動化する。
 //  フォーム送信時に onFormSubmit_ が自動実行されるようトリガーも設定する。
 //  メニュー「📝 申し込みフォーム作成」から1回だけ実行する。
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function createSignupForm() {
+  requireSheetUi_();
   var ui = SpreadsheetApp.getUi();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -11327,7 +12136,7 @@ function onFormSubmit_(e) {
 
 // ================================================================
 //  12-8: キュー処理（processPendingCompanies_）  【大B / 中12 / 小12-8】
-//  onEditCompanyRegister_ がキューに積んだ会社セットアップをまとめて処理する。
+//  キュー（companySetupQueue）の会社セットアップをまとめて処理する。※ 現在キューに積む処理がなく実質使われない
 //  時間トリガー（60秒後）から自動実行される。getActiveSpreadsheet が使えないため
 //  masterSsId を Script Properties から取得して openById で開く。
 // ================================================================
@@ -11718,8 +12527,10 @@ function updateDistanceMasterRow_(ss, key, km, method) {
 // ================================================================
 //  4-9: 住所確認（resolveAmbiguousAddresses）  【大C / 中4 / 小4-9】
 //  メニュー「住所確認（確認待ち分）」: 距離マスタの「住所確認待ち」ルートを1件ずつダイアログで候補選択・確定登録
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function resolveAmbiguousAddresses() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName('距離マスタ');
   if (!sh || sh.getLastRow() < 2) {
@@ -11756,7 +12567,7 @@ function resolveAmbiguousAddresses() {
     locInfos.push({ loc: loc, candidates: candidates });
   }
   PropertiesService.getScriptProperties().setProperty(
-    '_addrDialogState_', JSON.stringify({ routeKey: routeKey, locs: locs })
+    '_addrDialogState_' + ss.getId(), JSON.stringify({ routeKey: routeKey, locs: locs })
   );
   // 全地名が1件に絞れた → ダイアログなしで直接計算して終了
   var hasAmbiguous = false;
@@ -11805,12 +12616,15 @@ function resolveAmbiguousAddresses() {
 // ================================================================
 //  4-9n: 住所選択結果の受け取り（receiveAddressChoice）  【大A / 中4 / 小4-9n】
 //  住所選択ダイアログの結果を受け取り、距離計算・距離マスタ更新を行う（google.script.runから呼ばれる）
+//  途中状態は開いているSSのIDを付けたキー（_addrDialogState_SSID）で受け渡す
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function receiveAddressChoice(selectionsJson) {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var stateStr = PropertiesService.getScriptProperties().getProperty('_addrDialogState_');
+  var stateStr = PropertiesService.getScriptProperties().getProperty('_addrDialogState_' + ss.getId());
   if (!stateStr) return;
-  PropertiesService.getScriptProperties().deleteProperty('_addrDialogState_');
+  PropertiesService.getScriptProperties().deleteProperty('_addrDialogState_' + ss.getId());
   var state = JSON.parse(stateStr);
   var locs  = state.locs;
   var sel   = JSON.parse(selectionsJson || '{}');
@@ -11838,10 +12652,14 @@ function calcDistanceTrigger_() {
 
 // ================================================================
 //  4-9p: SS指定の距離一括計算（calcDistanceForSS）  【大A / 中4 / 小4-9p】
-//  スタブの定時トリガーから呼ばれ、指定SSで 4-9j を実行する
+//  スタブの定時トリガーから、そのSSのIDとスタブ自身のスクリプトIDを受け取り、そのSSで 4-9j を実行する
+//  スクリプトIDが、そのSSに登録されたもの（ScriptProperties の scriptId_SSのID）と一致しない時は止める
+//  （URLからSSのIDだけを渡して他の客のSSを書き換えられないようにするため）
 // ================================================================
-function calcDistanceForSS(ssId) {
-  if (!ssId) return 0;
+function calcDistanceForSS(ssId, scriptId) {
+  if (!ssId || !scriptId) return 0;
+  var reg = PropertiesService.getScriptProperties().getProperty('scriptId_' + ssId);
+  if (!reg || reg !== scriptId) throw new Error('登録されていない呼び出しです');
   var ss = SpreadsheetApp.openById(ssId);
   return calcDistanceForAllPending_(ss);
 }
@@ -11849,19 +12667,23 @@ function calcDistanceForSS(ssId) {
 // ================================================================
 //  4-10: 距離計算手動実行（calcDistanceManual）  【大C / 中4 / 小4-10】
 //  メニュー「距離計算（未計算分）」: 積地・降地あり・距離未設定の行をMaps APIで一括計算して集計表に反映
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function calcDistanceManual() {
+  requireSheetUi_();
   var ss  = SpreadsheetApp.getActiveSpreadsheet();
   var cnt = calcDistanceForAllPending_(ss);
-  SpreadsheetApp.getUi().alert(cnt + '件の距離を計算・反映しました。\n\n※ 降完時刻が空の行はスキップします。');
+  getUiOrWeb_().alert(cnt + '件の距離を計算・反映しました。\n\n※ 降完時刻が空の行はスキップします。');
 }
 
 // ================================================================
 //  4-10b: 主要都市ペアの距離初期登録（initDistanceMasterMajorCities）  【大C / 中4 / 小4-10b】
 //  全国主要都市ペアの距離をMaps APIで一括取得して距離マスタに登録する（初期データ投入）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function initDistanceMasterMajorCities() {
-  var ui = SpreadsheetApp.getUi();
+  requireSheetUi_();
+  var ui = getUiOrWeb_();
   var resp = ui.alert(
     '全国主要ルートをMaps APIで計算して距離マスタに登録します。\n（約40〜50件・2〜3分かかります）\n\nよろしいですか？',
     ui.ButtonSet.OK_CANCEL
@@ -11926,11 +12748,13 @@ function initDistanceMasterMajorCities() {
 // ================================================================
 //  14-1: インストール型トリガーのセットアップ（installTriggers）  【大C / 中14 / 小14-1】
 //  最初に1回だけ実行する。これ以降は会社登録シートのA+B列入力で完全自動化される。
-//  メニュー「🔧 初期設定（最初に1回だけ押す）」から実行。
+//  メニュー「⚙️ システム設定・保守」→「🔧 初期設定」から実行。
 //  ※ シンプルトリガー(onEdit)は認証付きサービス（Drive/Gmail等）が使えないため
 //    インストール型トリガー(installedOnEdit_)を別途登録する必要がある。
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function installTriggers() {
+  requireSheetUi_();
   var ui = SpreadsheetApp.getUi();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -12281,10 +13105,14 @@ function installedOnEdit_(e) {
 
 // ================================================================
 //  17-7b: マスタ変更時の再計算範囲保存（setRecalcChoice）  【大A / 中17 / 小17-7b】
-//  showModalDialogのボタンから呼ばれる。choiceを受け取りScriptPropertiesに保存。
+//  choice と対象SSのIDを受け取り、ScriptProperties にSSごとのキー（recalcFromDate_SSID）で保存。
+//  ssId 省略時は開いているSSが対象
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
-function setRecalcChoice(choice) {
+function setRecalcChoice(choice, ssId) {
+  requireSheetUi_();
   if (choice === 'cancel') return;
+  var targetId = getTargetSS_(ssId).getId();
   var mToday = new Date();
   var fromDate = '';
   if (choice === 'today') {
@@ -12295,17 +13123,19 @@ function setRecalcChoice(choice) {
   }
   // 'all' → fromDate = ''（全期間・制限なし）
   var props = PropertiesService.getScriptProperties();
-  props.setProperty('recalcFromDate', fromDate);
-  props.setProperty('recalcFromDateSet', '1');
+  props.setProperty('recalcFromDate_' + targetId, fromDate);
+  props.setProperty('recalcFromDateSet_' + targetId, '1');
 }
 
 
 // ================================================================
 //  12-9: 修正用SSを作成（createDevSs）  【大C / 中12 / 小12-9】
 //  今のSS（元SS）をコピーして「修正用_運行管理」を作成する。
-//  作成後、修正用SSでメニュー「🆔 スクリプトID確認」を実行してIDをVSCODE担当者に伝える。
+//  メニュー未登録（スクリプトエディタから直接実行）。作成後、修正用SSで 12-10 を実行してIDを担当者に伝える。
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function createDevSs() {
+  requireSheetUi_();
   var ui   = SpreadsheetApp.getUi();
   var ss   = SpreadsheetApp.getActiveSpreadsheet();
   var file = DriveApp.getFileById(ss.getId());
@@ -12339,10 +13169,12 @@ function createDevSs() {
 
 // ================================================================
 //  12-10: このSSのスクリプトIDを確認（showMyScriptId）  【大C / 中12 / 小12-10】
-//  修正用SSを開いてこれを実行するとIDが表示される。
+//  メニュー未登録。修正用SSのスクリプトエディタから実行するとIDが表示される。
 //  表示されたIDをVSCODE担当者（.clasp.json）に設定してもらう。
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showMyScriptId() {
+  requireSheetUi_();
   var id = ScriptApp.getScriptId();
   SpreadsheetApp.getUi().alert(
     'このSSのスクリプトID:\n\n' +
@@ -12357,8 +13189,10 @@ function showMyScriptId() {
 //  14-2a: 必須シートの補完（ensureRequiredSheets）  【大B / 中14 / 小14-2a】
 //  F5時に必須シートが無ければ①からコピーして補完する
 //  onOpen（stub）から呼ばれる。getUi() 不使用のため LIMITED モードでも動作する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function ensureRequiredSheets(masterSsId) {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var needed = ['使い方', '説明書', 'サポート', 'メモ'];
   var allPresent = needed.every(function(n) { return !!ss.getSheetByName(n); });
@@ -12392,8 +13226,10 @@ function ensureRequiredSheets(masterSsId) {
 //  [1] appsscript.json → UnkouLibのバージョン番号を最新に書き換え
 //  [2] コード.js（SERVER_JS）→ getClientStubSource_() の最新内容に書き換え
 //  これにより③のF5だけでメニュー・スタブ関数が全て最新になる。
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function syncToAllClientSS() {
+  requireSheetUi_();
   var activeSs = SpreadsheetApp.getActiveSpreadsheet();
 
   // ①修正用SSから直接呼ばれた場合と②客用SSから呼ばれた場合の両方に対応する。
@@ -12621,9 +13457,11 @@ function syncToAllClientSS() {
 
 // ================================================================
 //  14-3x: 特定1社のスタブを強制修復（repairOneClientSS）
-//  メニュー「🔧 1社スタブ強制修復」から実行。SS URLを入力して対象1社だけ再反映する。
+//  メニュー未登録（スクリプトエディタから直接実行）。SS URLを入力して対象1社だけ再反映する。
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function repairOneClientSS() {
+  requireSheetUi_();
   var ui = SpreadsheetApp.getUi();
   var resp = ui.prompt('🔧 1社スタブ強制修復', '対象会社のスプレッドシートURL（またはID）を入力してください：', ui.ButtonSet.OK_CANCEL);
   if (resp.getSelectedButton() !== ui.Button.OK) return;
@@ -12836,8 +13674,10 @@ function deleteScriptProject_(scriptId) {
 // ================================================================
 //  14-3e: スコープ承認確認の診断（checkScopeAuth）  【大C / 中14 / 小14-3e】
 //  スクリプトエディタから実行し、OAuthスコープが承認済みかをログに出す
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function checkScopeAuth() {
+  requireSheetUi_();
   var token = ScriptApp.getOAuthToken();
   Logger.log('スコープ承認OK: ' + token.substring(0, 20) + '...');
 }
@@ -12848,8 +13688,10 @@ function checkScopeAuth() {
 //  14-3f: 客SSスクリプトID取得の診断（diagClientApi）  【大C / 中14 / 小14-3f】
 //  各客SSのスクリプトID取得失敗の原因を調べる（Drive API・Script API の疎通確認）
 //  スクリプトエディタから直接実行 → アラートで結果表示
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function diagClientApi() {
+  requireSheetUi_();
   var masterSs = SpreadsheetApp.getActiveSpreadsheet();
   var regSheet = masterSs.getSheetByName('会社登録');
   if (!regSheet || regSheet.getLastRow() < 2) {
@@ -13050,41 +13892,42 @@ function showCsvImportDialogCust() { showCsvImportDialog_('cust'); }
 
 // ================================================================
 //  13-2: インポートダイアログ共通表示（showCsvImportDialog_）  【大C / 中13 / 小13-2】
-//  sheetTypeを受け取りcsvImport.htmlをモーダルダイアログとして表示する
-//  現在のSSのIDをテンプレートに渡してサーバー側が正しいSSを開けるようにする
+//  sheetTypeを受け取り、P-5i で作った csvImport.html（開いているSSのIDつき）をモーダルダイアログとして表示する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showCsvImportDialog_(sheetType) {
-  var titles = { unkou: '運行シート', master: '自車専属マスタ', cust: 'マスタ（取引先）' };
-  var title  = '📥 データ読み込み ─ ' + (titles[sheetType] || sheetType);
-  var tmpl   = HtmlService.createTemplateFromFile('csvImport');
-  tmpl.sheetType    = sheetType;
-  tmpl.currentSsId  = SpreadsheetApp.getActiveSpreadsheet().getId();
-  var html = tmpl.evaluate().setWidth(880).setHeight(640);
-  SpreadsheetApp.getUi().showModalDialog(html, title);
+  requireSheetUi_();
+  var t = buildToolHtml_({ unkou: 'csvUnkou', master: 'csvMaster', cust: 'csvCust' }[sheetType], SpreadsheetApp.getActiveSpreadsheet(), '');
+  getUiOrWeb_().showModalDialog(t.output.setWidth(t.width).setHeight(t.height), t.title);
 }
 
 
 // ================================================================
 //  13-3: 運行用の貼付取込シート作成（createPasteImportSheetUnkou）  【大C / 中13 / 小13-3】
 //  メニューから呼ばれ、13-3g で運行用の貼付取込シートを作成する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
-function createPasteImportSheetUnkou()  { createPasteImportSheet_('unkou'); }
+function createPasteImportSheetUnkou()  { requireSheetUi_(); createPasteImportSheet_('unkou'); }
 // ================================================================
 //  13-3b: 自車専属マスタ用の貼付取込シート作成（createPasteImportSheetMaster）  【大C / 中13 / 小13-3b】
 //  メニューから呼ばれ、13-3g で自車専属マスタ用の貼付取込シートを作成する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
-function createPasteImportSheetMaster() { createPasteImportSheet_('master'); }
+function createPasteImportSheetMaster() { requireSheetUi_(); createPasteImportSheet_('master'); }
 // ================================================================
 //  13-3c: 取引先マスタ用の貼付取込シート作成（createPasteImportSheetCust）  【大C / 中13 / 小13-3c】
 //  メニューから呼ばれ、13-3g で取引先マスタ用の貼付取込シートを作成する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
-function createPasteImportSheetCust()   { createPasteImportSheet_('cust'); }
+function createPasteImportSheetCust()   { requireSheetUi_(); createPasteImportSheet_('cust'); }
 // ================================================================
 //  13-3d: 運行取込テストシート自動生成（createImportTestSheetUnkou）  【大A / 中13 / 小13-3d】
 //  シート再生成（4-3）から呼ばれ、「運行客テスト」シートを初回のみ生成する
 //  ヘッダーはエイリアス表記（運行日・ドライバー・車番号等）で辞書マッチのテスト用
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function createImportTestSheetUnkou() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var name = '運行客テスト';
   if (ss.getSheetByName(name)) return;
@@ -13271,17 +14114,20 @@ function createPasteImportSheet_(sheetType) {
 // ================================================================
 //  13-4: 種別ごとの貼付取込実行（executePasteImportUnkou / executePasteImportMaster / executePasteImportCust）  【大A / 中13 / 小13-4】
 //  メニューから呼ばれ、取込種別を記録して 13-4-1 を実行する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
-function executePasteImportUnkou()  { PropertiesService.getDocumentProperties().setProperty('PASTE_IMPORT_TYPE', 'unkou');  executePasteImport(); }
+function executePasteImportUnkou()  { requireSheetUi_(); PropertiesService.getDocumentProperties().setProperty('PASTE_IMPORT_TYPE', 'unkou');  executePasteImport(); }
 // 13-4: 自車専属マスタ用の呼び出し口
-function executePasteImportMaster() { PropertiesService.getDocumentProperties().setProperty('PASTE_IMPORT_TYPE', 'master'); executePasteImport(); }
+function executePasteImportMaster() { requireSheetUi_(); PropertiesService.getDocumentProperties().setProperty('PASTE_IMPORT_TYPE', 'master'); executePasteImport(); }
 // 13-4: 取引先マスタ用の呼び出し口
-function executePasteImportCust()   { PropertiesService.getDocumentProperties().setProperty('PASTE_IMPORT_TYPE', 'cust');   executePasteImport(); }
+function executePasteImportCust()   { requireSheetUi_(); PropertiesService.getDocumentProperties().setProperty('PASTE_IMPORT_TYPE', 'cust');   executePasteImport(); }
 // ================================================================
 //  13-4-1: 貼付取込実行の共通処理（executePasteImport）  【大A / 中13 / 小13-4-1】
 //  取込用シートのデータを読み込んで各シートに反映し、取込用シートを削除する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function executePasteImport() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var _shName = getPasteSheetName_();
   var sh = ss.getSheetByName(_shName);
@@ -13417,7 +14263,7 @@ function executePasteImport() {
 
 // ================================================================
 //  13-4a: 自動マッピング書込（applyPasteImportMapping_）  【大C / 中13 / 小13-4a】
-//  「__取込用__」シートの1行目と辞書を照合し、2行目に標準項目名を書き込む
+//  貼付取込シート（13-3f の名前）の1行目と辞書を照合し、2行目に標準項目名を書き込む
 //  【分割ルール】t/T/トン以外の文字（W・平・箱・幌・冷蔵・ユニック等）は車種として扱う
 //  例: 「4W」→ トン数=4・車種=W / 「13ユニック」→ トン数=13・車種=ユニック
 //  「4t」「4T」「4トン」は車種なし（分割しない） / 数字のみも分割しない
@@ -13522,9 +14368,11 @@ function applyPasteImportMapping_(ss, sh) {
 
 // ================================================================
 //  13-4b: 取込用シート行データ取得（getPasteImportRows）  【大A / 中13 / 小13-4b】
-//  「__取込用__」シートのヘッダー＋最大5行を2次元配列で返す（HTML→GAS API）
+//  貼付取込シート（13-3f の名前）の先頭6行（見出し＋最大5行）を2次元配列で返す（HTML→GAS API）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function getPasteImportRows(companySsId) {
+  requireSheetUi_();
   var ss = getTargetSS_(companySsId);
   var sh = ss.getSheetByName(getPasteSheetName_());
   if (!sh || sh.getLastRow() < 1) return [];
@@ -13572,7 +14420,7 @@ function decomposeTonCarType_(fmap) {
 
 // ================================================================
 //  13-4d: シートから一括反映（doImportFromSheet_）  【大A / 中13 / 小13-4d】
-//  「__取込用__」シートのマッピング行（1行目）に従い各シートに一括反映しシートを削除する
+//  貼付取込シート（13-3f の名前）のマッピング行に従い各シートに一括反映しシートを削除する
 //  ・dispToFidは取引先フィールド（kana/paymentCycle/paymentSite/receiptZip/receiptAddress）を含む
 //  ・同一fid列が複数ある場合はスペース連結（住所1+住所2等）。数値・日付系は上書き（_noConcat）
 //  ・運行取込時のマスタ追加（13-4e）は1-1b（SS単位ロック）で排他制御（採番重複防止）
@@ -13809,8 +14657,10 @@ function upsertMasterSheets_(ss, mappedRows) {
 // ================================================================
 //  13-4f: 貼付取込確定・反映（confirmPasteImport）  【大A / 中13 / 小13-4f】
 //  「✅ この内容で確定・反映」から呼ばれ、マッピング行を使い実際の反映を実行する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function confirmPasteImport() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var _shName = getPasteSheetName_();
   var sh = ss.getSheetByName(_shName);
@@ -13830,8 +14680,10 @@ function confirmPasteImport() {
 //  13-5: 辞書データ取得（getImportDictionary）  【大A / 中13 / 小13-5】
 //  設定シートH〜K列に保存された辞書を返す（HTML側 google.script.run から呼ぶ）
 //  辞書が未作成なら initImportDictionary_ でデフォルトエントリを自動生成する
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function getImportDictionary(sheetType, companySsId) {
+function getImportDictionary(sheetType, companySsId, token) {
+  useToolSs_(companySsId, token);   // 対象SSの決定と本人確認（P-5e）
   var ss = getTargetSS_(companySsId);
   initImportDictionary_(ss);
   var setting = ss.getSheetByName('設定');
@@ -13861,14 +14713,16 @@ function getImportDictionary(sheetType, companySsId) {
 // ================================================================
 //  13-6: データ一括登録（importBulkRows）  【大A / 中13 / 小13-6】
 //  HTMLから受け取ったマッピング済み行データを対象シートに一括登録する
-//  IDはすべてシステム採番（V-/S-/M-）、LockServiceで排他制御して重複防止
-//  【unkou】重複判定なし：運送業の2回戦（同人同所）を正しく扱うためすべて新規追加
+//  IDはすべてシステム採番（V-/S-/M-）、1-1b（SS単位ロック）で排他制御して重複防止
+//  【unkou】日付・車番・乗務員名・積地・降地・売上がすべて同じ行（既存行・同じ取込内）は完全重複としてスキップし、それ以外は新規追加
 //  【master】upsertロジック：車番＋乗務員名が両方一致する既存行を検索し、
 //    会社名〜携帯番号（D〜J列）が全て一致→スキップ（完全重複）、
 //    1項目でも異なる→上書き更新、一致行なし→新規追加。
 //    同一バッチ内で同じ車番＋乗務員名が複数行ある場合は2件目以降をスキップ。
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaymentRows) {
+function importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaymentRows, token) {
+  useToolSs_(companySsId, token);   // 対象SSの決定と本人確認（P-5e）
   if (!mappedRows || mappedRows.length === 0) return { ok: 0 };
   var ss         = getTargetSS_(companySsId);
   var sheetNames = { unkou: '運行', master: '自車専属マスタ', cust: 'マスタ' };
@@ -14236,7 +15090,7 @@ function buildSheetRow_(sheetType, id, fieldMap, ss) {
 //  全3シートの全列を取込対象とする
 //   unkou: 時刻5列（誘導/積完/休憩開始・終了/降完）を含む
 //   master: 仮日数・給料・全経費・日付・管理者など25列を含む
-//   cust: 銀行4列・メール・インボイス2列追加
+//   cust: 銀行4列・メール・インボイス2列を含む
 // ================================================================
 function initImportDictionary_(ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -14460,8 +15314,10 @@ function toImportNum_(v) {
 //  手動マッピングで使われたExcel列名を設定シートの辞書に自動追記する
 //  次回インポート時に同じExcelを使うと自動マッピングされるようになる
 //  既に同じ内容（大文字小文字・空白無視）が登録済みの場合はスキップする
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function saveImportAliases(sheetType, newMappings, companySsId) {
+function saveImportAliases(sheetType, newMappings, companySsId, token) {
+  useToolSs_(companySsId, token);   // 対象SSの決定と本人確認（P-5e）
   if (!newMappings || newMappings.length === 0) return;
   var ss      = getTargetSS_(companySsId);
   var setting = ss.getSheetByName('設定');
@@ -14493,8 +15349,10 @@ function saveImportAliases(sheetType, newMappings, companySsId) {
 
 // ================================================================
 //  14-4: 帳票発行済マーク（markDocumentIssued）  【大A / 中14 / 小14-4】
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function markDocumentIssued(rowId, docType, ssId) {
+function markDocumentIssued(rowId, docType, ssId, token) {
+  useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   if (!rowId) return;
   var ss    = ssId ? SpreadsheetApp.openById(ssId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
@@ -14519,8 +15377,10 @@ function markDocumentIssued(rowId, docType, ssId) {
 
 // ================================================================
 //  14-5: 帳票メール／FAX送信（sendDocumentEmail）  【大A / 中14 / 小14-5】
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function sendDocumentEmail(docData, docType, method) {
+function sendDocumentEmail(docData, docType, method, token) {
+  useToolSs_(docData && docData.ssId, token);   // 対象SSの決定と本人確認（P-5e）
   var ss  = docData.ssId ? SpreadsheetApp.openById(docData.ssId) : SpreadsheetApp.getActiveSpreadsheet();
   var custSheet = ss.getSheetByName('マスタ');
   if (!custSheet || custSheet.getLastRow() < 2) return { ok: false, msg: 'マスタシートが見つかりません。' };
@@ -14554,7 +15414,7 @@ function sendDocumentEmail(docData, docType, method) {
       + '乗務員：' + (docData.driver||'') + '\n\n'
       + (docData.selfName||'');
     GmailApp.sendEmail(email, subject, body);
-    markDocumentIssued(docData.id, docType, docData.ssId);
+    markDocumentIssued(docData.id, docType, docData.ssId, token);
     if (docData.shijisaki) { try { saveShijisakiHistory_(String(docData.client||''), docData.shijisaki, ss); } catch(e) {} }
     return { ok: true, msg: email + ' に送信しました。' };
 
@@ -14562,7 +15422,7 @@ function sendDocumentEmail(docData, docType, method) {
     var fax = (faxIdx >= 0) ? String(custRow[faxIdx]||'').trim() : '';
     if (!fax) return { ok: false, msg: 'FAX番号が未登録です。\nマスタシートのD列に登録してください。' };
     Logger.log('[FAX送信予約] 宛先:' + fax + ' 書類:' + docType + ' ID:' + docData.id);
-    markDocumentIssued(docData.id, docType, docData.ssId);
+    markDocumentIssued(docData.id, docType, docData.ssId, token);
     if (docData.shijisaki) { try { saveShijisakiHistory_(String(docData.client||''), docData.shijisaki, ss); } catch(e) {} }
     return { ok: true, msg: 'FAX送信を予約しました。（宛先：' + fax + '）' };
   }
@@ -14575,8 +15435,10 @@ function sendDocumentEmail(docData, docType, method) {
 //  14-6: 指示先履歴取得（getShijisakiHistory）  【大A / 中14 / 小14-6】
 //  発注書ダイアログの「📋 履歴」ボタンから google.script.run 経由で呼ばれる
 //  荷主名に紐づく全件を返す（最終使用日の降順）
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function getShijisakiHistory(clientName, ssId) {
+function getShijisakiHistory(clientName, ssId, token) {
+  useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   if (!ssId) return [];
   var ss;
   try { ss = SpreadsheetApp.openById(ssId); } catch(e) { return []; }
@@ -14600,8 +15462,10 @@ function getShijisakiHistory(clientName, ssId) {
 // ================================================================
 //  14-7: 指示先履歴保存・公開ラッパー（saveShijisakiHistory）  【大A / 中14 / 小14-7】
 //  印刷時など sendDocumentEmail を経由しない場合に HTML から直接呼ばれる
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function saveShijisakiHistory(clientName, shijisaki, ssId) {
+function saveShijisakiHistory(clientName, shijisaki, ssId, token) {
+  useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   if (!ssId) return;
   var ss;
   try { ss = SpreadsheetApp.openById(ssId); } catch(e) { return; }
@@ -14648,8 +15512,10 @@ function saveShijisakiHistory_(clientName, shijiData, ss) {
 // ================================================================
 //  14-8: 行ID別指示先取得（getShijisakiByRowId）  【大A / 中14 / 小14-8】
 //  発注書ダイアログを開いた時にそのIDの保存済み指示先情報を返す
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function getShijisakiByRowId(rowId, ssId) {
+function getShijisakiByRowId(rowId, ssId, token) {
+  useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   var ss = ssId ? SpreadsheetApp.openById(ssId) : SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName('指示先ID別');
   if (!sh || sh.getLastRow() < 2) return null;
@@ -14666,8 +15532,10 @@ function getShijisakiByRowId(rowId, ssId) {
 // ================================================================
 //  14-9: 行ID別指示先保存（saveShijisakiByRowId）  【大A / 中14 / 小14-9】
 //  入力中にリアルタイム保存（0.8秒デバウンス）＋指示先履歴にも反映
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function saveShijisakiByRowId(rowId, shijiData, clientName, ssId) {
+function saveShijisakiByRowId(rowId, shijiData, clientName, ssId, token) {
+  useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   var ss = ssId ? SpreadsheetApp.openById(ssId) : SpreadsheetApp.getActiveSpreadsheet();
   var company = String(shijiData.company||'').trim();
   var tel     = String(shijiData.tel    ||'').trim();
@@ -14703,8 +15571,10 @@ function saveShijisakiByRowId(rowId, shijiData, clientName, ssId) {
 // ================================================================
 //  14-10: 指示先履歴削除（deleteShijisakiHistory）  【大A / 中14 / 小14-10】
 //  履歴モーダルの「削除」ボタンから google.script.run 経由で呼ばれる
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function deleteShijisakiHistory(clientName, company, tel, person, addr, ssId) {
+function deleteShijisakiHistory(clientName, company, tel, person, addr, ssId, token) {
+  useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   var ss = ssId ? SpreadsheetApp.openById(ssId) : SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName('指示先履歴');
   if (!sh || sh.getLastRow() < 2) return;
@@ -14730,8 +15600,10 @@ function deleteShijisakiHistory(clientName, company, tel, person, addr, ssId) {
 // ================================================================
 //  14-11: 協力会社履歴取得（getKyoryokuHistory）  【大A / 中14 / 小14-11】
 //  車番連絡ダイアログの「履歴」ボタンから google.script.run 経由で呼ばれる
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function getKyoryokuHistory(clientName, ssId) {
+function getKyoryokuHistory(clientName, ssId, token) {
+  useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   if (!ssId) return [];
   var ss;
   try { ss = SpreadsheetApp.openById(ssId); } catch(e) { return []; }
@@ -14755,8 +15627,10 @@ function getKyoryokuHistory(clientName, ssId) {
 // ================================================================
 //  14-12: 協力会社履歴保存・公開ラッパー（saveKyoryokuHistory）  【大A / 中14 / 小14-12】
 //  印刷・メール・FAX送信時に HTML から直接呼ばれる
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function saveKyoryokuHistory(clientName, yousha, ssId) {
+function saveKyoryokuHistory(clientName, yousha, ssId, token) {
+  useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   if (!ssId) return;
   var ss;
   try { ss = SpreadsheetApp.openById(ssId); } catch(e) { return; }
@@ -14802,13 +15676,14 @@ function saveKyoryokuHistory_(clientName, youshaData, ss) {
 // ================================================================
 //  15-1: 配車確定・合体処理（matchAndConfirmDispatch）  【大C / 中15 / 小15-1】
 //
-//  「情報」シートでA列（チェックボックス）にチェックを入れた行を
+//  配車板でA列（貨物）・O列（車両）のチェックボックスにチェックを入れた行を
 //  メニューから「🔗 チェックした行を配車確定」で実行する。
 //
 //  【処理パターン】
 //  ・1行チェック: 貨物単独または車両単独として運行シートに登録
 //  ・2行チェック: 貨物行と車両行をマッチング→1つの運行IDで運行シートに登録
-//  ・3行以上: エラーを出して中断（同時処理は2行まで）
+//  ・貨物2行＋車両1行: 同じIDの2行程として登録
+//  ・貨物3行以上・車両2行以上: エラーを出して中断
 //
 //  【車種不一致チェック】
 //  屋根ありグループ（W・箱・幌等）と屋根なしグループ（平・ユニック等）が
@@ -14821,10 +15696,12 @@ function saveKyoryokuHistory_(clientName, youshaData, ss) {
 //  ・集計表を同期（delaySyncSummary_。ロック解除後に登録IDごとに実行）
 //  ・採番〜運行シート書き込みは1-1b（SS単位ロック）で排他制御（同時入力時のID重複防止）
 //
-//  M&A向け補足: この関数が「情報シート→運行シート」への自動転記の核心。
+//  M&A向け補足: この関数が「配車板→運行シート」への自動転記の核心。
 //              担当者による運行シートへの手入力を不要にし、入力ミスを防ぐ。
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function matchAndConfirmDispatch() {
+  requireSheetUi_();
   var ui   = SpreadsheetApp.getUi();
   var ss   = SpreadsheetApp.getActiveSpreadsheet();
   var joho = ss.getSheetByName('配車板');
@@ -15003,17 +15880,20 @@ function matchAndConfirmDispatch() {
 
 // ================================================================
 //  15-1b: マッチング解除（cancelDispatch）  【大C / 中15 / 小15-1b】
-//  情報シートで選択中の行のAA列（登録ID）を読み取り、
-//  運行シート・集計表から該当行を削除して情報シートを初期化する
+//  配車板で選択中の行のN列（貨物登録ID）・AC列（車両登録ID）、または運行シートで選択中の行のA列（ID）を読み取り（管理画面ではタップした行・P-5d）、
+//  運行シート・集計表から該当行を削除して配車板を初期化する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function cancelDispatch() {
-  var ui       = SpreadsheetApp.getUi();
+  requireSheetUi_();
+  var ui       = getUiOrWeb_();
   var ss       = SpreadsheetApp.getActiveSpreadsheet();
   var joho     = ss.getSheetByName('配車板');
   if (!joho) { ui.alert('配車板シートが見つかりません。'); return; }
 
-  var curSheet = ss.getActiveSheet();
-  var sel      = ss.getActiveRange();
+  var _sel     = toolSelection_(ss);   // スプレッドシートは選択範囲、管理画面は指定した行（P-5d）
+  var curSheet = _sel.sheet;
+  var sel      = _sel.range;
   var sRow     = sel.getRow();
   var eRow     = sRow + sel.getNumRows() - 1;
   if (sRow < 2) { ui.alert('データ行を選択してから実行してください。'); return; }
@@ -15089,10 +15969,10 @@ function cancelDispatch() {
 }
 
 // ================================================================
-//  15-2: 情報シート→運行行データ組み立て（buildJohoNewRow_）  【大B / 中15 / 小15-2】
+//  15-2: 配車板→運行行データ組み立て（buildJohoNewRow_）  【大B / 中15 / 小15-2】
 //
 //  matchAndConfirmDispatch の内部補助関数。
-//  情報シートの貨物行・車両行の各列データを読み取り、
+//  配車板の貨物行・車両行の各列データを読み取り、
 //  運行シートのヘッダー列名に合わせて newRow 配列に値をセットする。
 //
 //  【マージルール】
@@ -15231,8 +16111,10 @@ function ensureCompanySettingSheet_(ss) {
 // ================================================================
 //  15-5: テスト用の自社設定ダミー一括入力（fillTestCompanySettings）  【大C / 中15 / 小15-5】
 //  スクリプトエディタから手動実行のみ。本番では使用しない
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function fillTestCompanySettings() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   ensureCompanySettingSheet_(ss);
   var sh = ss.getSheetByName('自社設定');
@@ -15262,42 +16144,38 @@ function fillTestCompanySettings() {
 // ================================================================
 //  14-2c: 発注書・指示書ダイアログ表示（showHatchuDocDialog）  【大C / 中14 / 小14-2c】
 //  メニュー「発注書・指示書」: 選択行のデータで発注書・指示書プレビューダイアログを開く
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showHatchuDocDialog() {
-  var data = getDocumentData_('sum'); // 発注書・指示書: 集計表から（金額=支払い）
-  if (!data) return;
-  var tmpl = HtmlService.createTemplateFromFile('documentPreview');
-  tmpl.docType = 'hatchu';
-  tmpl.docData = JSON.stringify(data);
-  SpreadsheetApp.getUi().showModalDialog(
-    tmpl.evaluate().setWidth(780).setHeight(660), '発注書・指示書'
-  );
+  requireSheetUi_();
+  var t = buildToolHtml_('hatchu', SpreadsheetApp.getActiveSpreadsheet(), ''); // 発注書・指示書: 集計表から（金額=支払い）
+  if (!t) return;
+  getUiOrWeb_().showModalDialog(t.output.setWidth(t.width).setHeight(t.height), t.title);
 }
 
 // ================================================================
 //  14-2d: 車番連絡ダイアログ表示（showShabanDocDialog）  【大C / 中14 / 小14-2d】
 //  メニュー「車番連絡」: 選択行のデータで車番連絡プレビューダイアログを開く
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showShabanDocDialog() {
-  var data = getDocumentData_('unkou'); // 車番連絡: 運行シートから（金額=売上）
-  if (!data) return;
-  var tmpl = HtmlService.createTemplateFromFile('documentPreview');
-  tmpl.docType = 'shaban';
-  tmpl.docData = JSON.stringify(data);
-  SpreadsheetApp.getUi().showModalDialog(
-    tmpl.evaluate().setWidth(780).setHeight(580), '車番連絡'
-  );
+  requireSheetUi_();
+  var t = buildToolHtml_('shaban', SpreadsheetApp.getActiveSpreadsheet(), ''); // 車番連絡: 運行シートから（金額=売上）
+  if (!t) return;
+  getUiOrWeb_().showModalDialog(t.output.setWidth(t.width).setHeight(t.height), t.title);
 }
 
 
 // ================================================================
 //  14-2e: アクティブ行のデータ取得（getDocumentData_）  【大B / 中14 / 小14-2e】
+//  スプレッドシートでは選択中のセル・行、管理画面では指定したシート・行（P-5d）からIDを読み、運行シートの行データを返す
 // ================================================================
 function getDocumentData_(source) {
   var ss  = SpreadsheetApp.getActiveSpreadsheet();
-  var ui  = SpreadsheetApp.getUi();
-  var activeSheet = ss.getActiveSheet();
-  var activeCell  = activeSheet.getActiveRange();
+  var ui  = getUiOrWeb_();
+  var sel = toolSelection_(ss);
+  var activeSheet = sel.sheet;
+  var activeCell  = sel.range;
   var cellValue   = String(activeCell.getValue() || '').trim();
 
   // 運行シートからデータ取得
@@ -15474,8 +16352,10 @@ function getDocumentData_(source) {
 // ================================================================
 //  16-1: 受領書の耳生成ダイアログ（showUketorishoDialog）  【大C / 中16 / 小16-1】
 //  ドロップダウン形式で絞り込み条件を選んでシート生成する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showUketorishoDialog() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('運行');
   if (!sheet || sheet.getLastRow() < 2) {
@@ -15555,10 +16435,12 @@ function showUketorishoDialog() {
 
 // ================================================================
 //  16-2: 受領書耳シート生成（generateUketorishoSheet）  【大A / 中16 / 小16-2】
-//  絞り込み条件に合う行を運行シートから抽出し、A4横2列×5行=10件/ページで
+//  絞り込み条件に合う行を運行シートから抽出し、A4縦3列×7行=21件/ページで
 //  「受領書_耳」シートに印刷用レイアウトを生成する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function generateUketorishoSheet(filters) {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var unkou = ss.getSheetByName('運行');
   if (!unkou || unkou.getLastRow() < 2) return '運行シートにデータがありません。';
@@ -15775,26 +16657,28 @@ function generateUketorishoSheet(filters) {
 //   17-6b-2: exportSelectedSheetsAsExcel() - 選択シートExcel取得
 //   17-7  : initFixedCostMaster()    - PL設定シート初期化
 //   17-7a : updatePlApportionment_() - PL設定按分を全マスタ行に即時反映
-//   17-7b : setRecalcChoice()        - マスタ変更時の再計算範囲保存
+//   17-7b : setRecalcChoice(choice, ssId) - マスタ変更時の再計算範囲保存（SSごと）
 // ================================================================
 
 
 // ================================================================
 //  17-1: PLフィルタモーダル表示（showPlDialog）  【大C / 中17 / 小17-1】
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showPlDialog() {
-  var tmpl = HtmlService.createTemplateFromFile('plDialog');
-  var html = tmpl.evaluate().setWidth(680).setHeight(680);
-  SpreadsheetApp.getUi().showModalDialog(html, '📊 PL（損益計算書）作成');
+  requireSheetUi_();
+  var t = buildToolHtml_('pl', SpreadsheetApp.getActiveSpreadsheet(), '');
+  getUiOrWeb_().showModalDialog(t.output.setWidth(t.width).setHeight(t.height), t.title);
 }
 
 
 // ================================================================
 //  17-2: PLフィルタ選択肢取得（getPlFilterOptions）  【大A / 中17 / 小17-2】
 //  集計表・自車専属マスタから荷主・会社・車番・乗務員の選択肢を返す
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function getPlFilterOptions() {
-  var ss         = SpreadsheetApp.getActiveSpreadsheet();
+function getPlFilterOptions(ssId, token) {
+  var ss         = useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   var sumSheet   = ss.getSheetByName('集計表');
   var masterSheet= ss.getSheetByName('自車専属マスタ');
 
@@ -15839,9 +16723,10 @@ function getPlFilterOptions() {
 //  17-3: PL生成メイン（generatePl）  【大A / 中17 / 小17-3】
 //  フィルタ条件で集計表を絞り込み、固定費按分を加えてPLシートを出力する
 //  戻り値: { ok, msg, sheetName }
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function generatePl(filters) {
-  var ss        = SpreadsheetApp.getActiveSpreadsheet();
+function generatePl(filters, ssId, token) {
+  var ss        = useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   var sumSheet  = ss.getSheetByName('集計表');
   if (!sumSheet || sumSheet.getLastRow() < 2) {
     return { ok: false, msg: '集計表にデータがありません。' };
@@ -16227,10 +17112,12 @@ function apportionFixedCosts_(fixedCosts, activeDays, activeVehicles, totalDays)
 
 // ================================================================
 //  17-6: 仕訳CSV出力（exportPlJournalCsv）  【大A / 中17 / 小17-6】
-//  直近生成のPLシートを弥生会計互換CSVとしてDriveに保存して返す
-//  戻り値: { ok, msg, url }
+//  直近生成のPLシートから弥生会計互換の仕訳を作り、仕訳表シートに書き出してCSVをBase64で返す
+//  戻り値: { ok, msg, base64csv, fileName }
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function exportPlJournalCsv() {
+  requireSheetUi_();
   var ss       = SpreadsheetApp.getActiveSpreadsheet();
   var plSheets = ss.getSheets().filter(function(s) {
     return s.getName() === 'PL' || s.getName().indexOf('PL_') === 0;
@@ -16302,9 +17189,10 @@ function exportPlJournalCsv() {
 //  17-6a-2: PL表+仕訳CSV ZIP出力（exportPlBundle）  【大C / 中17 / 小17-6a-2】
 //  opts = { includeJournal: bool, includePl: bool }
 //  選択した内容をBOM付きCSVにしてZIPで返す（plDialog.html の📦ZIPボタン用）
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function exportPlBundle(opts) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+function exportPlBundle(opts, ssId, token) {
+  var ss = useToolSs_(ssId, token);   // 対象SSの決定と本人確認（P-5e）
   var plSheets = ss.getSheets().filter(function(s) {
     return s.getName() === 'PL' || s.getName().indexOf('PL_') === 0;
   }).sort(function(a, b) { return b.getName().localeCompare(a.getName()); });
@@ -16495,8 +17383,9 @@ function buildJournalEntryMF_(label, amount, date) {
 //  17-6b-1: シートCSV取得（exportSheetAsCsvBase64）  【大C / 中17 / 小17-6b-1】
 //  指定シートのデータをBOM付きUTF-8 CSVにしてBase64で返す（ブラウザDL用）
 // ================================================================
-function exportSheetAsCsvBase64(ssId, sheetName) {
-  var ss    = SpreadsheetApp.openById(ssId);
+function exportSheetAsCsvBase64(ssId, sheetName, token) {
+  verifyExportAccess_(ssId, token);
+  var ss    = getTargetSS_(ssId);
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() < 1) return { ok: false };
   var data = sheet.getRange(1, 1, sheet.getLastRow(), Math.max(sheet.getLastColumn(), 1)).getValues();
@@ -16525,9 +17414,10 @@ function exportSheetAsCsvBase64(ssId, sheetName) {
 //  17-6b-2: 選択シートExcel取得（exportSelectedSheetsAsExcel）  【大C / 中17 / 小17-6b-2】
 //  指定シートのみ一時SSにコピーしてXLSX化・Base64で返す（ブラウザDL用）
 // ================================================================
-function exportSelectedSheetsAsExcel(ssId, sheetNames) {
+function exportSelectedSheetsAsExcel(ssId, sheetNames, token) {
+  verifyExportAccess_(ssId, token);
   if (!sheetNames || sheetNames.length === 0) return { ok: false, msg: 'シートが選択されていません' };
-  var ss     = SpreadsheetApp.openById(ssId);
+  var ss     = getTargetSS_(ssId);
   var tempSs = SpreadsheetApp.create('__temp_export__');
   var tempId = tempSs.getId();
   try {
@@ -16554,11 +17444,37 @@ function exportSelectedSheetsAsExcel(ssId, sheetNames) {
 
 
 // ================================================================
+//  17-6b-3: 書き出しの本人確認（verifyExportAccess_）  【大B / 中17 / 小17-6b-3】
+//  管理画面からは管理者ログイン（P-4g）、スプレッドシートの出力ダイアログからはそのSS自身の時だけ通す（P-4i）
+// ================================================================
+function verifyExportAccess_(ssId, token) {
+  if (token) { verifyAdmin_(token, ssId); return; }
+  if (!isSheetContext_(ssId)) throw new Error('管理者ログインが必要です');
+}
+
+
+// ================================================================
 //  17-6b: CSV・Excel出力ダイアログ（showExportDialog）  【大C / 中17 / 小17-6b】
-//  シートごとにチェックボックスでExcel対象を選択、CSV個別DLも可能
+//  シートごとにチェックボックスでExcel対象を選択、CSV個別DLも可能（画面の中身は 17-6b-4 で作る）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showExportDialog() {
-  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  requireSheetUi_();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var n  = ss.getSheets().filter(function(s) { return !s.isSheetHidden(); }).length;
+  getUiOrWeb_().showModalDialog(
+    HtmlService.createHtmlOutput(buildExportDialogHtml_(ss, '')).setWidth(400).setHeight(Math.min(160 + n * 34, 580)),
+    '📤 データ出力'
+  );
+}
+
+
+// ================================================================
+//  17-6b-4: 出力画面のHTML作成（buildExportDialogHtml_）  【大B / 中17 / 小17-6b-4】
+//  表示中のシートの一覧（Excel対象のチェック・シート別CSVボタン）を作る
+//  17-6b（スプレッドシート）と P-5i（管理画面。token 付きで 17-6b-1・17-6b-2 を呼ぶ）で共用する
+// ================================================================
+function buildExportDialogHtml_(ss, token) {
   var ssId = ss.getId();
   var sheets = ss.getSheets().filter(function(s) { return !s.isSheetHidden(); });
   var rows = sheets.map(function(s) {
@@ -16575,6 +17491,7 @@ function showExportDialog() {
   var html = '<html><body style="font-family:sans-serif;padding:16px;margin:0">'
     + '<script>'
     + 'var SS_ID="' + ssId + '";'
+    + 'var TK=' + JSON.stringify(token || '') + ';'
     + 'function dlCsv(name){'
     +   'var btn=event.target; btn.disabled=true; btn.textContent="取得中…";'
     +   'google.script.run'
@@ -16587,7 +17504,7 @@ function showExportDialog() {
     +       'document.body.appendChild(a);a.click();document.body.removeChild(a);'
     +     '})'
     +     '.withFailureHandler(function(e){btn.disabled=false;btn.textContent="CSV";alert(e.message||String(e));})'
-    +     '.exportSheetAsCsvBase64(SS_ID,name);'
+    +     '.exportSheetAsCsvBase64(SS_ID,name,TK);'
     + '}'
     + 'function selectAll(v){document.querySelectorAll(".sheetCk").forEach(function(c){c.checked=v;});}'
     + 'function dlExcel(){'
@@ -16605,7 +17522,7 @@ function showExportDialog() {
     +       'document.body.appendChild(a);a.click();document.body.removeChild(a);'
     +     '})'
     +     '.withFailureHandler(function(e){btn.disabled=false;btn.textContent="📊 選択シートをExcel DL";alert(e.message||String(e));})'
-    +     '.exportSelectedSheetsAsExcel(SS_ID,names);'
+    +     '.exportSelectedSheetsAsExcel(SS_ID,names,TK);'
     + '}'
     + '<\/script>'
     + '<h3 style="margin:0 0 10px;color:#1565c0">📤 データ出力</h3>'
@@ -16620,10 +17537,7 @@ function showExportDialog() {
     + '<p style="font-size:11px;color:#555;margin:0 0 4px">シート別CSV（BOM付きUTF-8）:</p>'
     + '<table style="border-collapse:collapse;width:100%">' + rows + '</table>'
     + '</body></html>';
-  SpreadsheetApp.getUi().showModalDialog(
-    HtmlService.createHtmlOutput(html).setWidth(400).setHeight(Math.min(160 + sheets.length * 34, 580)),
-    '📤 データ出力'
-  );
+  return html;
 }
 
 
@@ -16631,10 +17545,12 @@ function showExportDialog() {
 //  17-7: 固定費マスタ初期化（initFixedCostMaster）  【大C / 中17 / 小17-7】
 //  「PL設定」シートを初期構造・サンプルデータで作成する
 //  PL含入フラグ=FALSE の行（社長給与等）はPL集計から自動除外される
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function initFixedCostMaster() {
+  requireSheetUi_();
   var ss  = SpreadsheetApp.getActiveSpreadsheet();
-  var ui  = SpreadsheetApp.getUi();
+  var ui  = getUiOrWeb_();
   var sheet = ss.getSheetByName('PL設定');
 
   var fullReset = true;
@@ -16759,8 +17675,10 @@ function initFixedCostMaster() {
 //  3-3d: 車両ステータス変更の同期実行（executeStatusSync）  【大A / 中3 / 小3-3d】
 //  ステータス変更ポップアップから呼ばれ、指定された日付を起点に運行シートを同期する
 //  対象車両ごとに 3-3b を実行し、並び替えは最後の1台だけで行う
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function executeStatusSync(rowsParam, choice, ssId) {
+  requireSheetUi_();
   if (choice === 'cancel') return;
   // rowsParam はJSON配列文字列または数値（後方互換）
   var rows = typeof rowsParam === 'string' ? JSON.parse(rowsParam) : [rowsParam];
@@ -16793,18 +17711,13 @@ function executeStatusSync(rowsParam, choice, ssId) {
 
 // ================================================================
 //  13-10b: ETC利用明細インポートダイアログ表示（showEtcImportDialog）  【大C / 中13 / 小13-10b】
+//  P-5i で作った画面（開いているSSのIDだけを渡す。他のSSには切り替えない）を表示する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showEtcImportDialog() {
-  var ss   = SpreadsheetApp.getActiveSpreadsheet();
-  var ssId = ss.getId();
-  if (!ss.getSheetByName('集計表')) {
-    var linked = PropertiesService.getUserProperties().getProperty('linkedSsId');
-    if (linked) ssId = linked;
-  }
-  var tmpl = HtmlService.createTemplateFromFile('etcImport');
-  tmpl.currentSsId = ssId;
-  var html = tmpl.evaluate().setWidth(860).setHeight(540);
-  SpreadsheetApp.getUi().showModalDialog(html, '⛽ ETC利用明細 読み込み');
+  requireSheetUi_();
+  var t = buildToolHtml_('etc', SpreadsheetApp.getActiveSpreadsheet(), '');
+  getUiOrWeb_().showModalDialog(t.output.setWidth(t.width).setHeight(t.height), t.title);
 }
 
 
@@ -16813,8 +17726,10 @@ function showEtcImportDialog() {
 //  CSVテキストと列設定を受け取り、ETC行パース・重複車番チェック・手入力チェックを返す
 //  conflicts: 1つのETC車番に集計表の車両が複数ある場合のリスト
 //  carResolution: 重複なし（1対1）の場合の自動解決マップ
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function prepareEtcImport(csvText, colConfig, companySsId) {
+function prepareEtcImport(csvText, colConfig, companySsId, token) {
+  useToolSs_(companySsId, token);   // 対象SSの決定と本人確認（P-5e）
   var ss      = getTargetSS_(companySsId);
   var unkouSh = ss.getSheetByName('運行');
   if (!unkouSh) throw new Error('運行シートが見つかりません');
@@ -16904,8 +17819,10 @@ function prepareEtcImport(csvText, colConfig, companySsId) {
 //  13-12: ETC照合実行（executeEtcImport）  【大A / 中13 / 小13-12】
 //  etcRows・車番解決マップ・手入力上書きフラグを受け取り集計表U列に書き込む
 //  照合範囲：前行程の降完時刻 〜 この行程の降完時刻（降完なしはスキップ）
+//  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
-function executeEtcImport(etcRows, carResolution, overwriteManual, companySsId) {
+function executeEtcImport(etcRows, carResolution, overwriteManual, companySsId, token) {
+  useToolSs_(companySsId, token);   // 対象SSの決定と本人確認（P-5e）
   var ss      = getTargetSS_(companySsId);
   var unkouSh = ss.getSheetByName('運行');
   if (!unkouSh) throw new Error('運行シートが見つかりません');
@@ -17065,6 +17982,7 @@ function checkExpiryDates(e) { return; }
 
 // 1-7d: 期限アラート本体
 function showExpiryAlert() {
+  requireSheetUi_();
   // Layer1: キャッシュ高速チェック（ユーザー横断・ゾンビトリガーも物理ブロック）
   try { if (CacheService.getDocumentCache().get('EXPIRY_POPUP_SHOWN')) return; } catch(_ex0) {}
   // Layer2: DocumentLock + PropertiesService（競合回避・確実1回保証）
@@ -17078,9 +17996,21 @@ function showExpiryAlert() {
     try { CacheService.getDocumentCache().put('EXPIRY_POPUP_SHOWN', '1', 25); } catch(_ex2) {}
     _dLock.releaseLock();
   } catch(_ex) {}
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var warnings = collectExpiryWarnings_(SpreadsheetApp.getActiveSpreadsheet());
+  if (warnings.length > 0) {
+    SpreadsheetApp.getUi().alert('⚠ 期限アラート\n\n' + warnings.join('\n') + '\n\n自車専属マスタで確認・更新してください。');
+  }
+}
+
+
+// ================================================================
+//  1-7d-1: 期限切れ・期限間近の一覧作成（collectExpiryWarnings_）  【大B / 中1 / 小1-7d-1】
+//  自車専属マスタの免許証（60日前から）・安全教育・健康診断・適性診断（30日前から）を調べ、
+//  「【期限切れ／まもなく期限】乗務員名  項目 : 月/日」の一覧を返す（1-7d と P-5j で共用）
+// ================================================================
+function collectExpiryWarnings_(ss) {
   var masterSheet = ss.getSheetByName('自車専属マスタ');
-  if (!masterSheet || masterSheet.getLastRow() < 2) return;
+  if (!masterSheet || masterSheet.getLastRow() < 2) return [];
 
   var headers = masterSheet.getRange(1, 1, 1, masterSheet.getLastColumn()).getValues()[0];
   var nameCol    = headers.indexOf('乗務員名');
@@ -17088,7 +18018,7 @@ function showExpiryAlert() {
   var eduCol     = headers.indexOf('安全教育次回予定日');
   var healthCol  = headers.indexOf('健康診断次回予定日');
   var fitCol     = headers.indexOf('適性診断次回予定日');
-  if (licenseCol === -1 && eduCol === -1 && healthCol === -1 && fitCol === -1) return;
+  if (licenseCol === -1 && eduCol === -1 && healthCol === -1 && fitCol === -1) return [];
 
   var data = masterSheet.getRange(2, 1, masterSheet.getLastRow() - 1, masterSheet.getLastColumn()).getValues();
   var today = new Date(); today.setHours(0, 0, 0, 0);
@@ -17119,18 +18049,17 @@ function showExpiryAlert() {
       }
     }
   }
-
-  if (warnings.length > 0) {
-    SpreadsheetApp.getUi().alert('⚠ 期限アラート\n\n' + warnings.join('\n') + '\n\n自車専属マスタで確認・更新してください。');
-  }
+  return warnings;
 }
 
 
 // ================================================================
 //  4-11: 監査用表生成（generateAuditSheet）  【大C / 中4 / 小4-11】
 //  メニュー「監査用表生成」: 集計表から改善基準告示コンプライアンス確認表（監査用シート）を月次小計付きで生成
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function generateAuditSheet() {
+  requireSheetUi_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sumSheet = ss.getSheetByName('集計表');
   if (!sumSheet || sumSheet.getLastRow() < 2) {
@@ -17384,8 +18313,10 @@ function runDailyBackup_() {
 // ================================================================
 //  4-12d: バックアップトリガー登録（setupBackupTrigger）  【大C / 中4 / 小4-12d】
 //  ①修正用SSのメニューから実行し、4-12c の時間トリガー（毎日3時台）を登録する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function setupBackupTrigger() {
+  requireSheetUi_();
   ScriptApp.getProjectTriggers().forEach(function(t) {
     if (t.getHandlerFunction() === 'runDailyBackup_') ScriptApp.deleteTrigger(t);
   });
@@ -17484,8 +18415,10 @@ function generateNextMonthSilent_(ss) {
 // ================================================================
 //  4-6e: 来月分自動生成トリガー登録（setupMonthlyTrigger）  【大C / 中4 / 小4-6e】
 //  ①修正用SSのメニューから1回実行し、4-6d の時間トリガー（毎月20日 0時台）を登録する
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function setupMonthlyTrigger() {
+  requireSheetUi_();
   ScriptApp.getProjectTriggers().forEach(function(t) {
     if (t.getHandlerFunction() === 'scheduledGenerateNextMonth_') ScriptApp.deleteTrigger(t);
   });
@@ -17497,8 +18430,10 @@ function setupMonthlyTrigger() {
 //  4-13: バックアップからの復元（openRestoreDialog）  【大C / 中4 / 小4-13】
 //  メニューから直接呼ばれる（getActiveSpreadsheet使用可）
 //  ①修正用SS→会社選択ダイアログ（4-13b）、③客SS→バックアップ一覧ダイアログ（4-13c）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function openRestoreDialog() {
+  requireSheetUi_();
   var ss     = SpreadsheetApp.getActiveSpreadsheet();
   var ssId   = ss.getId();
   var ssName = ss.getName();
@@ -17613,8 +18548,10 @@ function _showRestoreDialog_(ssId, ssName) {
 // ================================================================
 //  4-13d: バックアップ一覧取得（getBackupListForRestore）  【大A / 中4 / 小4-13d】
 //  google.script.run 経由で呼ばれる（①の会社選択ダイアログから）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function getBackupListForRestore(ssId) {
+  requireSheetUi_();
   var ss     = getTargetSS_(ssId);
   var ssName = ss.getName();
   var root   = getOrCreateBackupRoot_();
@@ -17630,8 +18567,10 @@ function getBackupListForRestore(ssId) {
 //  4-13e: バックアップからの復元実行（executeRestore）  【大A / 中4 / 小4-13e】
 //  google.script.run 経由で呼ばれる（復旧ダイアログから）
 //  バックアップSSのデータ行を対象SSに上書きコピーする（ヘッダー行は変えない）
+//  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function executeRestore(backupFileId, targetSsId) {
+  requireSheetUi_();
   var targetSs = getTargetSS_(targetSsId);
   var backupSs = SpreadsheetApp.openById(backupFileId);
   var sheets   = backupSs.getSheets();

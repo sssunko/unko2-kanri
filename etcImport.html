@@ -103,6 +103,7 @@ h2 { color:#69f0ae; margin-bottom:12px; font-size:15px; }
 
 <script>
 var companySsId   = '<?= currentSsId ?>';
+var TOOL_TOKEN = '<?= toolToken ?>'; // 管理画面から開いた時だけ入る管理者ログイン状態（スプレッドシートからは空）
 var csvText       = '';
 var parsedEtcRows = [];
 var conflictsData = [];
@@ -162,7 +163,7 @@ function onCsvLoaded(file, txt) {
       setBar('エラー: ' + e.message, 'error');
       dz.querySelector('.dz-sub').textContent = '選択後、自動で列を読み取って処理します';
     })
-    .prepareEtcImport(csvText, null, companySsId);
+    .prepareEtcImport(csvText, null, companySsId, TOOL_TOKEN);
 }
 
 function onPrepareSuccess(result) {
@@ -228,7 +229,7 @@ function execute(overwriteManual) {
       goStep(4);
     })
     .withFailureHandler(function(e){ setBar('エラー: ' + e.message, 'error'); })
-    .executeEtcImport(parsedEtcRows, carResolution, overwriteManual, companySsId);
+    .executeEtcImport(parsedEtcRows, carResolution, overwriteManual, companySsId, TOOL_TOKEN);
 }
 </script>
 </body>
