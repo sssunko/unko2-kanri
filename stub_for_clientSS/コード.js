@@ -15,9 +15,6 @@ function onOpen(e) {
   } catch(_ex0) {}
   // 通常パス（LIMITED では上記は無害スキップ済み）
   UnkouLib.buildClientMenu();
-  // ログイン確認（未ログインなら期限アラートは出さず、最後にログイン画面を出す。アラートはログイン後に出る）
-  var _ssLoggedIn = false;
-  try { _ssLoggedIn = UnkouLib.isSsLoggedIn(); } catch(_liEx) {}
   try { UnkouLib.convertLegacyAdminDataUrls(); } catch(e) {}
   try { UnkouLib.applyHolidayRowColors(); } catch(e) {}
   try {
@@ -30,7 +27,7 @@ function onOpen(e) {
   try {
     var _epDp = PropertiesService.getDocumentProperties();
     var _epTs = Number(_epDp.getProperty('EXPIRY_POPUP_TS') || 0);
-    if (_ssLoggedIn && Date.now() - _epTs >= 30000) {
+    if (Date.now() - _epTs >= 30000) {
       _epDp.setProperty('EXPIRY_POPUP_TS', String(Date.now()));
       UnkouLib.showExpiryAlert();
     }
@@ -62,12 +59,7 @@ function onOpen(e) {
       }
     }
   } catch(e) {}
-  if (!_ssLoggedIn) { try { UnkouLib.showSsLoginDialog(); } catch(_lgEx) {} }
 }
-
-// セルを選んだ時、ログイン画面を閉じたままならもう一度出す
-function onSelectionChange(e)  { try { UnkouLib.checkSsLoginOnSelect(e); } catch(ex) {} }
-function loginSs(a,b,c)        { return UnkouLib.loginSs(a,b,c); }
 
 function doGet(e)            { return UnkouLib.doGet(e); }
 function onEdit(e)           { return UnkouLib.onEdit(e); }
@@ -242,6 +234,11 @@ function getNoticeByRow(a,b,c)            { return UnkouLib.getNoticeByRow(a,b,c
 function markAsRead(a,b,c)                { return UnkouLib.markAsRead(a,b,c); }
 function getReadNotices(a,b)             { return UnkouLib.getReadNotices(a,b); }
 function agreeContract(a,b,c,d,e)        { return UnkouLib.agreeContract(a,b,c,d,e); }
+function getLoginPageInfo(a)            { return UnkouLib.getLoginPageInfo(a); }
+function webSetupLogin(a,b,c,d,e)       { return UnkouLib.webSetupLogin(a,b,c,d,e); }
+function webLogin(a,b,c,d)              { return UnkouLib.webLogin(a,b,c,d); }
+function checkWebLogin(a,b)             { return UnkouLib.checkWebLogin(a,b); }
+function submitSignup(a)                { return UnkouLib.submitSignup(a); }
 function queueFileUpload(a,b,c,d)        { return UnkouLib.queueFileUpload(a,b,c,d); }
 function recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }
 function clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }

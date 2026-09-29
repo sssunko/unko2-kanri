@@ -9,3 +9,6 @@ stub_clientSS.js
 build_stub.js
 check_integrity.js
 deploy.js
+gas_obfuscate.js
+bootstrap.js
+blob.js

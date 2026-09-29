@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>お申し込み - 運行管理システム</title>
+  <!--
+    signup.html：申し込みページ（コード.js 2-2 の ?page=signup）
+    S-1: 会社名・担当者名・メールアドレス・乗務員数・ご質問 の入力（ご質問は①の問い合わせ管理シートへ）
+    S-2: 送信（12-7e）。その場で「受付完了」または「すでに登録済み」を表示
+  -->
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+      background: #f5f5f5; margin: 0; padding: 16px; color: #333; line-height: 1.6;
+    }
+    .container {
+      max-width: 640px; margin: 0 auto; background: #fff;
+      border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    }
+    h1 { font-size: 20px; margin: 0 0 6px; color: #1a73e8; }
+    .lead { font-size: 13px; color: #666; margin: 0 0 18px; }
+    label { display: block; font-size: 13px; font-weight: bold; margin: 12px 0 4px; }
+    .req { color: #c62828; font-size: 11px; margin-left: 4px; }
+    .opt { color: #888; font-size: 11px; margin-left: 4px; font-weight: normal; }
+    .hint { font-size: 11px; color: #777; margin-top: 2px; }
+    input, textarea { width: 100%; padding: 9px; font-size: 15px; border: 1px solid #bbb; border-radius: 4px; }
+    textarea { min-height: 70px; }
+    .send-btn {
+      background: #1a73e8; color: #fff; border: none; border-radius: 6px;
+      padding: 14px 0; font-size: 16px; font-weight: bold;
+      cursor: pointer; width: 100%; letter-spacing: 0.05em; margin-top: 18px;
+    }
+    .send-btn:disabled { background: #aaa; cursor: not-allowed; }
+    .loading-msg { display: none; color: #666; font-size: 13px; margin-top: 10px; text-align: center; }
+    .err-msg { color: #c62828; font-size: 13px; margin-top: 8px; min-height: 18px; }
+    .result { display: none; text-align: center; padding: 24px 0; }
+    .result .icon { font-size: 52px; margin-bottom: 8px; }
+    .result h2 { margin: 0 0 10px; }
+    .result p  { font-size: 14px; color: #555; margin: 0; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div id="formArea">
+    <h1>運行管理システム お申し込み（無料デモ）</h1>
+    <p class="lead">送信すると、ご入力のメールアドレスに利用規約（契約書）のご案内が届きます。営業所ごとにご利用の場合は、営業所ごとに別のメールアドレスでお申し込みください（1契約＝1営業所）。</p>
+
+    <label for="company">会社名<span class="req">必須</span></label>
+    <input type="text" id="company" autocomplete="organization">
+
+    <label for="manager">担当者名<span class="req">必須</span></label>
+    <input type="text" id="manager" autocomplete="name">
+
+    <label for="email">担当者メールアドレス（Gmail）<span class="req">必須</span></label>
+    <input type="email" id="email" autocomplete="email">
+
+    <label for="drivers">乗務員数<span class="req">必須</span></label>
+    <input type="number" id="drivers" min="1" inputmode="numeric">
+
+    <label for="memo">ご質問・メモ<span class="opt">（任意）</span></label>
+    <textarea id="memo"></textarea>
+
+    <button id="sendBtn" type="button" class="send-btn" onclick="doSend()">申し込む</button>
+    <div id="loadingMsg" class="loading-msg">送信中...スプレッドシートを準備しています（1分ほどかかることがあります）</div>
+    <div id="errMsg" class="err-msg"></div>
+  </div>
+
+  <div id="okArea" class="result">
+    <div class="icon">✅</div>
+    <h2 style="color:#188038;">お申し込みを受け付けました</h2>
+    <p>ご入力のメールアドレスに、利用規約（契約書）のご案内をお送りしました。<br>メールをご確認ください。</p>
+  </div>
+
+  <div id="dupArea" class="result">
+    <div class="icon">⚠️</div>
+    <h2 style="color:#e65100;">すでに登録済みです</h2>
+    <p id="dupMsg"></p>
+  </div>
+
+</div>
+<script>
+// S-2: 送信
+function doSend() {
+  var f = {
+    company: document.getElementById('company').value.trim(),
+    manager: document.getElementById('manager').value.trim(),
+    email:   document.getElementById('email').value.trim(),
+    drivers: document.getElementById('drivers').value.trim(),
+    memo:    document.getElementById('memo').value.trim()
+  };
+  var err = document.getElementById('errMsg');
+  if (!f.company || !f.manager || !f.email || !f.drivers) { err.textContent = '必須の項目（会社名・担当者名・メールアドレス・乗務員数）を入力してください'; return; }
+  err.textContent = '';
+  var btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  document.getElementById('loadingMsg').style.display = 'block';
+  google.script.run
+    .withSuccessHandler(function(r) {
+      document.getElementById('loadingMsg').style.display = 'none';
+      if (r && r.ok) { show('okArea'); return; }
+      if (r && r.dup) { document.getElementById('dupMsg').textContent = r.msg; show('dupArea'); return; }
+      btn.disabled = false;
+      err.textContent = (r && r.msg) ? r.msg : 'エラーが起きました。もう一度送信してください';
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('loadingMsg').style.display = 'none';
+      btn.disabled = false;
+      err.textContent = '通信エラー：' + (e && e.message ? e.message : '');
+    })
+    .submitSignup(f);
+}
+function show(id) {
+  document.getElementById('formArea').style.display = 'none';
+  document.getElementById(id).style.display = 'block';
+}
+</script>
+</body>
+</html>

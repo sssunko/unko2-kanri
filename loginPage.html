@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ログイン - 運行管理システム</title>
+  <!--
+    loginPage.html：スプレッドシートの入口（コード.js 2-2 の ?page=login&ssId=…。URLメールで届く）
+    G-1: 端末に保存した自動ログインがあれば 2-6d で確認し、そのままスプレッドシートを開く
+    G-2: 無ければ 2-6 で画面の種類を決める（初回はアドレス・パスワードの設定、次からログイン）
+    G-3: 送信（初回は 2-6b、ログインは 2-6c）。「ログインしたままにする」なら端末に保存して次から自動ログイン
+  -->
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+      background: #f5f5f5; margin: 0; padding: 16px; color: #333; line-height: 1.6;
+    }
+    .container {
+      max-width: 440px; margin: 0 auto; background: #fff;
+      border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    }
+    h1 { font-size: 20px; margin: 0 0 6px; color: #1a73e8; }
+    .lead { font-size: 13px; color: #666; margin: 0 0 14px; }
+    label { display: block; font-size: 13px; font-weight: bold; margin: 12px 0 4px; }
+    input[type="text"], input[type="password"] { width: 100%; padding: 9px; font-size: 15px; border: 1px solid #bbb; border-radius: 4px; }
+    .keep { display: flex; align-items: center; gap: 6px; margin: 14px 0 4px; font-size: 14px; cursor: pointer; }
+    .btn {
+      display: block; text-align: center; text-decoration: none;
+      background: #1a73e8; color: #fff; border: none; border-radius: 6px;
+      padding: 14px 0; font-size: 16px; font-weight: bold;
+      cursor: pointer; width: 100%; margin-top: 16px;
+    }
+    .btn:disabled { background: #aaa; cursor: not-allowed; }
+    .btn.sub { background: #188038; }
+    .msg { font-size: 13px; margin-top: 10px; min-height: 18px; }
+    .err { color: #c62828; }
+    .hidden { display: none; }
+    .logout { display: block; text-align: center; font-size: 12px; color: #888; margin-top: 14px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>運行管理システム</h1>
+  <p class="lead" id="lead">確認中...</p>
+
+  <div id="formArea" class="hidden">
+    <label for="em">メールアドレス</label>
+    <input type="text" id="em" autocomplete="username">
+    <label for="pw">パスワード</label>
+    <input type="password" id="pw" autocomplete="current-password">
+    <div id="pw2Wrap" class="hidden">
+      <label for="pw2">パスワード（確認のため、もう一度）</label>
+      <input type="password" id="pw2" autocomplete="new-password">
+    </div>
+    <label class="keep"><input type="checkbox" id="keep" checked> ログインしたままにする（次から自動でログイン）</label>
+    <button id="btn" type="button" class="btn" onclick="doSubmit()">ログイン</button>
+    <div id="msg" class="msg err"></div>
+  </div>
+
+  <div id="openArea" class="hidden">
+    <a id="ssLink" class="btn" href="#" target="_top">📊 スプレッドシートを開く</a>
+    <a id="appLink" class="btn sub" href="#" target="_blank" rel="noopener">📱 乗務員アプリ（乗務員に配るURL）</a>
+    <a class="logout" href="#" onclick="doLogout(); return false;">ログアウト（この端末の自動ログインをやめる）</a>
+  </div>
+</div>
+<script>
+var SSID = <?!= JSON.stringify(companySsId).replace(/</g, '\\u003c') ?>;
+var KEY  = 'sss_wl_' + SSID;
+var MODE = 'login';
+
+function getTok() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+function setTok(t) { try { if (t) localStorage.setItem(KEY, t); else localStorage.removeItem(KEY); } catch (e) {} }
+
+// G-1: 自動ログイン
+(function start() {
+  var tok = getTok();
+  if (!tok) { loadMode(); return; }
+  google.script.run
+    .withSuccessHandler(function (r) { if (r && r.ok) openSs(r); else { setTok(''); loadMode(); } })
+    .withFailureHandler(function () { loadMode(); })
+    .checkWebLogin(SSID, tok);
+})();
+
+// G-2: 画面の種類
+function loadMode() {
+  google.script.run
+    .withSuccessHandler(function (info) {
+      if (!info || info.mode === 'none') { document.getElementById('lead').textContent = 'ご契約情報が見つかりません。メールのリンクから開き直してください。'; return; }
+      MODE = info.mode;
+      var setup = MODE === 'setup';
+      document.getElementById('lead').textContent = setup
+        ? (info.company ? info.company + ' 様　' : '') + '最初に、スプレッドシートで使うメールアドレスとパスワードを決めてください（パスワードは6文字以上）。'
+        : (info.company ? info.company + ' 様　' : '') + 'メールアドレスとパスワードでログインしてください。';
+      document.getElementById('pw2Wrap').className = setup ? '' : 'hidden';
+      document.getElementById('pw').setAttribute('autocomplete', setup ? 'new-password' : 'current-password');
+      document.getElementById('btn').textContent = setup ? '設定してログイン' : 'ログイン';
+      document.getElementById('formArea').className = '';
+    })
+    .withFailureHandler(function (e) { document.getElementById('lead').textContent = '通信エラー：' + (e && e.message ? e.message : ''); })
+    .getLoginPageInfo(SSID);
+}
+
+// G-3: 送信
+function doSubmit() {
+  var em = document.getElementById('em').value.trim();
+  var pw = document.getElementById('pw').value;
+  var pw2 = document.getElementById('pw2').value;
+  var keep = document.getElementById('keep').checked;
+  var msg = document.getElementById('msg');
+  if (!em || !pw) { msg.textContent = 'メールアドレスとパスワードを入力してください'; return; }
+  if (MODE === 'setup' && pw !== pw2) { msg.textContent = 'パスワード（確認）が一致しません'; return; }
+  var btn = document.getElementById('btn');
+  btn.disabled = true; msg.textContent = '';
+  var run = google.script.run
+    .withSuccessHandler(function (r) {
+      if (r && r.ok) { setTok(r.token || ''); openSs(r); return; }
+      btn.disabled = false;
+      msg.textContent = (r && r.msg) ? r.msg : 'ログインできませんでした';
+    })
+    .withFailureHandler(function (e) { btn.disabled = false; msg.textContent = '通信エラー：' + (e && e.message ? e.message : ''); });
+  if (MODE === 'setup') run.webSetupLogin(SSID, em, pw, pw2, keep);
+  else run.webLogin(SSID, em, pw, keep);
+}
+document.getElementById('pw').addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && MODE === 'login') doSubmit(); });
+
+// ログイン後：スプレッドシートを開く（自動で開けない端末ではボタンを押す）
+function openSs(r) {
+  document.getElementById('formArea').className = 'hidden';
+  document.getElementById('lead').textContent = 'ログインしました。スプレッドシートを開きます。開かない時は下のボタンを押してください。';
+  document.getElementById('ssLink').href = r.ssUrl;
+  document.getElementById('appLink').href = r.appUrl || '#';
+  if (!r.appUrl) document.getElementById('appLink').style.display = 'none';
+  document.getElementById('openArea').className = '';
+  try { window.top.location.href = r.ssUrl; } catch (e) {}
+}
+
+function doLogout() {
+  setTok('');
+  document.getElementById('openArea').className = 'hidden';
+  loadMode();
+}
+</script>
+</body>
+</html>

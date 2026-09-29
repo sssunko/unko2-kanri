@@ -13,6 +13,7 @@
 const { execSync } = require('child_process');
 const fs   = require('fs');
 const path = require('path');
+const OBF  = require('./gas_obfuscate.js'); // push直前の難読化＋復元（読める本体はローカルに残す）
 
 const DEPLOY_ID = 'AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU';
 const ROOT      = __dirname;
@@ -41,6 +42,9 @@ if (vLines.length >= 190) {
 }
 console.log(`   現在${vLines.length}件`);
 
+// 前回が途中で落ちて控えが残っていれば、先に本体を元へ戻す（難読化のまま残らないための保険）
+OBF.recoverIfLeftover();
+
 // 整合性チェック
 console.log('\n[1/5] 整合性チェック...');
 run('node check_integrity.js');
@@ -58,9 +62,14 @@ console.log(`✓ STUB_VERSION_ → ${stubVersionTs}`);
 console.log('\n[2/5] スタブ自動生成 (build_stub.js)...');
 run('node build_stub.js');
 
-// push（STUB_VERSION_更新済みのコード.jsをライブラリとしてGASに送る）
-console.log('\n[3/5] clasp push --force...');
-run('clasp push --force');
+// push直前にコード.jsを難読化して送る。控えを取り、push後（成功でもエラーでも）必ず元へ復元する
+console.log('\n[3/5] clasp push --force...（難読化して送信）');
+OBF.backupAndObfuscate();
+try {
+  run('clasp push --force');
+} finally {
+  OBF.restore();
+}
 
 // deploy（clasp deployの出力から実際に作成されたGASバージョン番号を取得する）
 console.log(`\n[4/5] clasp deploy (${desc})...`);

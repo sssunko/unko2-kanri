@@ -7,3 +7,5 @@ push_to_original.bat
 !.dev.vars.example
 .env*
 !.env.example
+.deckey.b64
+.deckey.secret
