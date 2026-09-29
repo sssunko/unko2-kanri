@@ -77,6 +77,8 @@
 //            正規に発行・登録されたSSか確認
 //   2-2g : getLicenseStatus_ / assertLicense_ / syncLicenseStatus_
 //            起動時ライセンス認証ロック（停止・期限切れの客SSを止める）
+//   2-2h : applyLockdown_ / releaseLockdown_
+//            停止中は全シートを隠して「利用停止」画面だけ表示（データを見せない）
 //   2-3  : showSidebar()
 //            サイドバー表示
 //   2-4  : showUploadSidebar()
@@ -775,7 +777,7 @@
 //  ▼ 中分類 ── 機能グループ（グループ番号と1:1対応）
 //
 //   中1   補助関数群　　　　　　　　　 1-1〜1-10（19件）
-//   中2   起動・メニュー　　　　　　　 2-1〜2-6e（20件）
+//   中2   起動・メニュー　　　　　　　 2-1〜2-6e（21件）
 //   中3   スプレッドシート自動処理　　 3-1〜3-5e（16件）
 //   中4   集計表・シート操作　　　　　 4-1〜4-13e（73件）
 //   中5   アプリ初期化・紐づけ　　　　 5-1〜5-3（4件）
@@ -1692,13 +1694,15 @@ function buildClientMenu() {
     try { SpreadsheetApp.getUi().alert('このスプレッドシートは使えません。\n正規に発行されたもの以外（コピーなど）では、メニューもアプリも動きません。'); } catch(ae) {}
     return;
   }
-  var _lic = getLicenseStatus_(_msid);   // 停止・期限切れならメニューを出さず案内だけ出す（2-2g）
+  var _lic = getLicenseStatus_(_msid);   // 停止・期限切れならメニューを出さず、全シートを隠して案内だけ出す（2-2g/2-2h）
   if (_lic.locked) {
+    try { applyLockdown_(SpreadsheetApp.getActiveSpreadsheet(), _lic); } catch(al) {}
     try { SpreadsheetApp.getUi().alert(_lic.reason === 'stop'
       ? 'このシステムは現在ご利用いただけません。提供元にお問い合わせください。'
       : 'ご利用期限が過ぎています。提供元にお問い合わせください。'); } catch(ae2) {}
     return;
   }
+  try { releaseLockdown_(SpreadsheetApp.getActiveSpreadsheet()); } catch(rl) {}   // 解除されていたらシートを元に戻す（2-2h）
   requireSheetUi_();
   var ui = SpreadsheetApp.getUi();
   var menu = ui.createMenu('メニュー');
@@ -2259,6 +2263,50 @@ function syncLicenseStatus_(regSheet) {
   });
   Object.keys(want).forEach(function(id) { props.setProperty('license_' + id, want[id]); });
   return '';
+}
+
+
+// ================================================================
+//  2-2h: 停止中の全シート隠し（applyLockdown_ / releaseLockdown_）  【大B / 中2 / 小2-2h】
+//  停止・期限切れの客SSを開いた時、全シートを隠して「🔒利用停止」シートだけ表示し、データを見せない・触らせない。
+//  隠す前に「元から隠れていたシート名」をDocumentPropertiesに控え、解除時はこちらで隠したぶんだけ元に戻す。
+//  buildClientMenu（2-1a・onOpen経由）から、ロック時はapply・解除時はreleaseを呼ぶ。
+// ================================================================
+var LOCK_SHEET_NAME_ = '🔒利用停止';
+function applyLockdown_(ss, lic) {
+  if (!ss) return;
+  var sheets = ss.getSheets();
+  // ロック用シートを用意（先に作って表示。他を隠すため最低1枚は見える必要がある）
+  var lock = ss.getSheetByName(LOCK_SHEET_NAME_);
+  if (!lock) {
+    // 元から隠れていたシートを控える（解除時に誤って表に出さないため）
+    var preHidden = sheets.filter(function(s){ return s.isSheetHidden(); }).map(function(s){ return s.getName(); });
+    try { PropertiesService.getDocumentProperties().setProperty('LOCK_PREHIDDEN', JSON.stringify(preHidden)); } catch(e){}
+    lock = ss.insertSheet(LOCK_SHEET_NAME_, 0);
+    var msg = (lic && lic.reason === 'stop')
+      ? 'このシステムは現在ご利用いただけません。'
+      : 'ご利用期限が過ぎています。';
+    lock.getRange('B2').setValue('🔒 ' + msg).setFontSize(16).setFontWeight('bold');
+    lock.getRange('B4').setValue('引き続きご利用をご希望の場合は、提供元までご連絡ください。').setFontSize(12);
+    lock.setColumnWidth(1, 40); lock.setColumnWidth(2, 560);
+    try { lock.setTabColor('#c62828'); } catch(e){}
+  }
+  ss.setActiveSheet(lock);
+  ss.getSheets().forEach(function(s){ if (s.getName() !== LOCK_SHEET_NAME_) { try { s.hideSheet(); } catch(e){} } });
+}
+function releaseLockdown_(ss) {
+  if (!ss) return;
+  var lock = ss.getSheetByName(LOCK_SHEET_NAME_);
+  if (!lock) return; // ロック中でなければ何もしない
+  var preHidden = [];
+  try { preHidden = JSON.parse(PropertiesService.getDocumentProperties().getProperty('LOCK_PREHIDDEN') || '[]'); } catch(e){}
+  ss.getSheets().forEach(function(s){
+    var n = s.getName();
+    if (n === LOCK_SHEET_NAME_) return;
+    if (preHidden.indexOf(n) === -1) { try { s.showSheet(); } catch(e){} } // 元から隠れていたシートは戻さない
+  });
+  try { ss.deleteSheet(lock); } catch(e){}
+  try { PropertiesService.getDocumentProperties().deleteProperty('LOCK_PREHIDDEN'); } catch(e){}
 }
 
 
