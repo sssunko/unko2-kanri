@@ -45,29 +45,30 @@
 <body>
 <div class="container">
 
-  <div id="formArea">
+  <form id="signupForm" method="POST" action="<?= execUrl ?>">
+    <input type="hidden" name="action" value="signup">
     <h1>運行管理システム お申し込み（無料デモ）</h1>
     <p class="lead">送信すると、ご入力のメールアドレスに利用規約（契約書）のご案内が届きます。営業所ごとにご利用の場合は、営業所ごとに別のメールアドレスでお申し込みください（1契約＝1営業所）。</p>
 
     <label for="company">会社名<span class="req">必須</span></label>
-    <input type="text" id="company" autocomplete="organization">
+    <input type="text" id="company" name="company" autocomplete="organization">
 
     <label for="manager">担当者名<span class="req">必須</span></label>
-    <input type="text" id="manager" autocomplete="name">
+    <input type="text" id="manager" name="manager" autocomplete="name">
 
     <label for="email">担当者メールアドレス（Gmail）<span class="req">必須</span></label>
-    <input type="email" id="email" autocomplete="email">
+    <input type="email" id="email" name="email" autocomplete="email">
 
     <label for="drivers">乗務員数<span class="req">必須</span></label>
-    <input type="number" id="drivers" min="1" inputmode="numeric">
+    <input type="number" id="drivers" name="drivers" min="1" inputmode="numeric">
 
     <label for="memo">ご質問・メモ<span class="opt">（任意）</span></label>
-    <textarea id="memo"></textarea>
+    <textarea id="memo" name="memo"></textarea>
 
     <button id="sendBtn" type="button" class="send-btn" onclick="doSend()">申し込む</button>
     <div id="loadingMsg" class="loading-msg">送信中...スプレッドシートを準備しています（1分ほどかかることがあります）</div>
     <div id="errMsg" class="err-msg"></div>
-  </div>
+  </form>
 
   <div id="okArea" class="result">
     <div class="icon">✅</div>
@@ -83,39 +84,18 @@
 
 </div>
 <script>
-// S-2: 送信
+// S-2: 送信（通常のフォームPOSTで送る。LINEアプリ内ブラウザでも確実に送信でき、結果はサーバー（doPost）が返す）
 function doSend() {
-  var f = {
-    company: document.getElementById('company').value.trim(),
-    manager: document.getElementById('manager').value.trim(),
-    email:   document.getElementById('email').value.trim(),
-    drivers: document.getElementById('drivers').value.trim(),
-    memo:    document.getElementById('memo').value.trim()
-  };
+  var company = document.getElementById('company').value.trim();
+  var manager = document.getElementById('manager').value.trim();
+  var email   = document.getElementById('email').value.trim();
+  var drivers = document.getElementById('drivers').value.trim();
   var err = document.getElementById('errMsg');
-  if (!f.company || !f.manager || !f.email || !f.drivers) { err.textContent = '必須の項目（会社名・担当者名・メールアドレス・乗務員数）を入力してください'; return; }
+  if (!company || !manager || !email || !drivers) { err.textContent = '必須の項目（会社名・担当者名・メールアドレス・乗務員数）を入力してください'; return; }
   err.textContent = '';
-  var btn = document.getElementById('sendBtn');
-  btn.disabled = true;
+  document.getElementById('sendBtn').disabled = true;
   document.getElementById('loadingMsg').style.display = 'block';
-  google.script.run
-    .withSuccessHandler(function(r) {
-      document.getElementById('loadingMsg').style.display = 'none';
-      if (r && r.ok) { show('okArea'); return; }
-      if (r && r.dup) { document.getElementById('dupMsg').textContent = r.msg; show('dupArea'); return; }
-      btn.disabled = false;
-      err.textContent = (r && r.msg) ? r.msg : 'エラーが起きました。もう一度送信してください';
-    })
-    .withFailureHandler(function(e) {
-      document.getElementById('loadingMsg').style.display = 'none';
-      btn.disabled = false;
-      err.textContent = '通信エラー：' + (e && e.message ? e.message : '');
-    })
-    .submitSignup(f);
-}
-function show(id) {
-  document.getElementById('formArea').style.display = 'none';
-  document.getElementById(id).style.display = 'block';
+  document.getElementById('signupForm').submit();
 }
 </script>
 </body>

@@ -121,8 +121,9 @@ function exportSheetAsCsvBase64(a,b,c)    { return UnkouLib.exportSheetAsCsvBase
 function exportSelectedSheetsAsExcel(a,b,c) { return UnkouLib.exportSelectedSheetsAsExcel(a,b,c); }
 function exportPlBundle(a,b,c)              { return UnkouLib.exportPlBundle(a,b,c); }
 // installTriggersはライブラリ経由にするとScriptAppが①を向くためローカル実装
-function installTriggers() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+// ssId_を渡すとopenByIdで取得（scripts.run API経由の自動登録用）
+function installTriggers(ssId_) {
+  var ss = ssId_ ? SpreadsheetApp.openById(ssId_) : SpreadsheetApp.getActiveSpreadsheet();
   // 全バインドスクリプト横断で全インストール済みトリガーを強制削除してから3本だけ再登録
   ScriptApp.getUserTriggers(ss).forEach(function(t) {
     try { ScriptApp.deleteTrigger(t); } catch(e) {}
@@ -130,7 +131,7 @@ function installTriggers() {
   ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();
   ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();
   ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();
-  ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);
+  if (!ssId_) ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);
 }
 
 // 夜間の距離計算：このSSのIDと、このスタブのスクリプトID（ライブラリ側で登録済みのものと照合）を渡す
