@@ -120,8 +120,16 @@ function showExportDialog()             { return UnkouLib.showExportDialog(); }
 function exportSheetAsCsvBase64(a,b,c)    { return UnkouLib.exportSheetAsCsvBase64(a,b,c); }
 function exportSelectedSheetsAsExcel(a,b,c) { return UnkouLib.exportSelectedSheetsAsExcel(a,b,c); }
 function exportPlBundle(a,b,c)              { return UnkouLib.exportPlBundle(a,b,c); }
-// installTriggersはライブラリ経由にするとScriptAppが①を向くためローカル実装
-// ssId_を渡すとopenByIdで取得（scripts.run API経由の自動登録用）
+// ───────────────────────────────────────────────────────────────────
+// 【トリガーの仕組み・恒久メモ（必読）】installTriggers（＝メニュー「🔧 初期設定」）
+//  ・運行→集計表の同期・状態変更ポップアップ・夜間距離計算は installedOnEdit_/onStructureChange_/
+//    calcDistanceTrigger_ の3本の「インストール型トリガー」で動く。この3本が無いと③は①と同じ動きにならない。
+//  ・登録できるのは「full権限で実行された時」だけ。③で一度この初期設定を押す（＝認可＋3本登録）必要がある。
+//  ・【重要】①から各③へ反映やWebアプリ/scripts.run経由で自動登録するのはGASの認可の壁で不可（403）。代行できない。
+//  ・一度登録すれば保持される。反映（スタブ更新）ではトリガーは消えない＝再登録不要。
+//  ・新規③は作成時に自動登録できないため、ログイン設定後に「🔧 初期設定」を1回押す運用（これだけで①と同一になる）。
+//  ・installTriggersはライブラリ経由だとScriptAppが①を向くためローカル実装。ssId_指定時はopenByIdで取得。
+// ───────────────────────────────────────────────────────────────────
 function installTriggers(ssId_) {
   var ss = ssId_ ? SpreadsheetApp.openById(ssId_) : SpreadsheetApp.getActiveSpreadsheet();
   // 全バインドスクリプト横断で全インストール済みトリガーを強制削除してから3本だけ再登録
