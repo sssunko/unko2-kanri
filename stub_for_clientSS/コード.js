@@ -61,27 +61,7 @@ function onOpen(e) {
   } catch(e) {}
 }
 
-function doGet(e) {
-  // ①からのトリガー登録要求（action=sss_installTriggers）だけを先に処理。乗務員アプリの既存表示は一切変えない
-  if (e && e.parameter && e.parameter.action === 'sss_installTriggers' && e.parameter.key === 'sss-trg-7k2') {
-    return ContentService.createTextOutput(JSON.stringify(installTriggersReport_()))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-  return UnkouLib.doGet(e);
-}
-// ③自身で編集検知トリガーを「全削除→3本登録」し、登録結果を返す（①がURL経由で呼ぶ）
-function installTriggersReport_() {
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    ScriptApp.getUserTriggers(ss).forEach(function(t) { try { ScriptApp.deleteTrigger(t); } catch(ex) {} });
-    ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();
-    ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();
-    ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();
-    var fns = ScriptApp.getUserTriggers(ss).map(function(t) { return t.getHandlerFunction(); });
-    var ok = fns.indexOf('installedOnEdit_') >= 0 && fns.indexOf('onStructureChange_') >= 0 && fns.indexOf('calcDistanceTrigger_') >= 0;
-    return { ok: ok, triggers: fns };
-  } catch(e) { return { ok: false, error: String(e && e.message || e) }; }
-}
+function doGet(e)            { return UnkouLib.doGet(e); }
 function onEdit(e)           { return UnkouLib.onEdit(e); }
 function installedOnEdit_(e) {
   var _FLAG = 'ZOMBIE_CLEANED_V792';
