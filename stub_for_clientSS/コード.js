@@ -13,6 +13,15 @@ function onOpen(e) {
     ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss0).onChange().create();
     ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();
   } catch(_ex0) {}
+  // 初回のみ初期設定ポップアップ（③各客SSのみ。__COMPANY_SS__シートがあれば③と判定）
+  try {
+    var _sdp = PropertiesService.getDocumentProperties();
+    var _sdSs = SpreadsheetApp.getActiveSpreadsheet();
+    if (_sdSs.getSheetByName('__COMPANY_SS__') && !_sdp.getProperty('SETUP_DONE')) {
+      _sdp.setProperty('SETUP_DONE', '1');
+      UnkouLib.showFirstSetupPopup();
+    }
+  } catch(_se) {}
   // 通常パス（LIMITED では上記は無害スキップ済み）
   UnkouLib.buildClientMenu();
   try { UnkouLib.convertLegacyAdminDataUrls(); } catch(e) {}

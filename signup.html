@@ -47,6 +47,8 @@
 
   <form id="signupForm" method="POST" action="<?= execUrl ?>">
     <input type="hidden" name="action" value="signup">
+    <input type="hidden" name="from" value="<?= fromValue ?>">
+    <input type="hidden" name="lineId" value="<?= lineIdValue ?>">
     <h1>運行管理システム お申し込み（無料デモ）</h1>
     <p class="lead">送信すると、ご入力のメールアドレスに利用規約（契約書）のご案内が届きます。営業所ごとにご利用の場合は、営業所ごとに別のメールアドレスでお申し込みください（1契約＝1営業所）。</p>
 
