@@ -425,6 +425,7 @@ html { scroll-behavior: smooth; }
       <div class="sheet-ncard sheet-ncard-pend" data-g="blue"><div class="sheet-ncard-name">サポート</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="blue"><div class="sheet-ncard-name">メモ</div></div>
       <div class="sheet-grp-hd g-gray">その他 / 共通</div>
+      <div class="sheet-ncard sheet-ncard-ready" data-g="gray" onclick="go中('auth')"><div class="sheet-ncard-name">初回認証　全1項目</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="gray"><div class="sheet-ncard-name">共通機能　準備中</div></div>
     </div>
   </div>
@@ -493,6 +494,15 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-33"><span class="toc-n">33</span><span class="toc-name">今月分生成</span></a>
       <a class="toc-item done" href="#feat-34"><span class="toc-n">34</span><span class="toc-name">翌月分生成</span></a>
       <a class="toc-item done" href="#feat-35"><span class="toc-n">35</span><span class="toc-name">前月分アーカイブ</span></a>
+    </div>
+  </div>
+</div>
+
+<div class="toc-wrap" id="toc-wrap-auth" style="display:none">
+  <div class="toc-inner">
+    <div class="toc-heading">▼ 初回認証に関する手順「<span class="hi">全 1</span>」項目</div>
+    <div class="toc-grid">
+      <a class="toc-item done" href="#"><span class="toc-n">1</span><span class="toc-name">Google認証の手順</span></a>
     </div>
   </div>
 </div>
@@ -1919,6 +1929,62 @@ html { scroll-behavior: smooth; }
 
   </div><!-- /grid-unkou -->
 
+  <!-- ──────── 初回認証 機能カード ──────── -->
+  <div class="grid" id="grid-auth" style="display:none">
+
+    <!-- auth 1 -->
+    <div class="card" id="feat-a01">
+      <div class="card-hdr">
+        <span class="num">01</span>
+        <span class="cat cat-infra">初回のみ</span>
+        <span class="feat-name">Google認証の手順</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label warn">⚠️ これは何？</div>
+          <ul class="pts">
+            <li>スプレッドシートを<strong>初めて開いた時だけ</strong>、Googleから「このアプリはGoogleで確認されていません」という警告が表示されます</li>
+            <li>これは開発中のアプリに必ず出る画面です。危険なアプリではありません</li>
+            <li>以下の手順で進めてください。次回以降は表示されません</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① 「認証が必要です」→ OK を押す</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/auth-01-permission-dialog.png" class="ss-img" alt="認証が必要ですダイアログ"></div>
+        <div class="block">
+          <div class="blk-label">② 「このアプリはGoogleで確認されていません」が出たら「詳細」を押す</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/auth-02-unverified-app.png" class="ss-img" alt="Googleで確認されていません画面"></div>
+        <div class="block">
+          <div class="blk-label">③ 「〇〇に移動（安全ではないページ）」を押す</div>
+          <ul class="pts">
+            <li>「安全なページに戻る」は<strong>押さないでください</strong>（認証がキャンセルされます）</li>
+          </ul>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/auth-03-details-expanded.png" class="ss-img" alt="詳細を開いた後の移動ボタン"></div>
+        <div class="block">
+          <div class="blk-label">④ 「すべて選択」を押す</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/auth-04-select-all.png" class="ss-img" alt="アクセス権限 すべて選択"></div>
+        <div class="block">
+          <div class="blk-label">⑤ 下にスクロールして「次へ」を押す → 完了</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/auth-05-confirm.png" class="ss-img" alt="次へボタンで完了"></div>
+        <div class="block">
+          <div class="blk-label auto">🔵 なぜこの画面が出るのか</div>
+          <ul class="pts">
+            <li>GoogleはすべてのGASアプリを審査しています。審査が完了するまではこの警告が表示されます</li>
+            <li>アプリの開発者はdeveloper（smart.simple.system@gmail.com）で、あなたのデータを外部に送ることはありません</li>
+            <li>表示される権限（Googleドライブ・スプレッドシート・メール送信）はシステムの動作に必要なものだけです</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid-auth -->
+
   <!-- ──────── 集計表 機能カード ──────── -->
   <div class="grid" id="grid-shuukei" style="display:none">
 
@@ -2048,10 +2114,10 @@ html { scroll-behavior: smooth; }
 <script>
 (function(){
 var curSheet='unkou';
-var SHEETS_ITEMS={unkou:[],shuukei:[]};
+var SHEETS_ITEMS={unkou:[],shuukei:[],auth:[]};
 
 function initItems(){
-  var sheetGridMap={unkou:'grid-unkou',shuukei:'grid-shuukei'};
+  var sheetGridMap={unkou:'grid-unkou',shuukei:'grid-shuukei',auth:'grid-auth'};
   Object.keys(sheetGridMap).forEach(function(sheet){
     var grid=document.getElementById(sheetGridMap[sheet]);
     if(!grid) return;
@@ -2090,8 +2156,8 @@ function buildList(){
   }).join('');
 }
 
-var SHEET_GRIDS={unkou:'grid-unkou',shuukei:'grid-shuukei'};
-var SHEET_TOCS={unkou:'toc-wrap-unkou',shuukei:'toc-wrap-shuukei'};
+var SHEET_GRIDS={unkou:'grid-unkou',shuukei:'grid-shuukei',auth:'grid-auth'};
+var SHEET_TOCS={unkou:'toc-wrap-unkou',shuukei:'toc-wrap-shuukei',auth:'toc-wrap-auth'};
 
 function hideAllSheets(){
   Object.keys(SHEET_GRIDS).forEach(function(s){
@@ -2184,6 +2250,8 @@ wireTocItems();
 // 初期状態: unkou グリッドのみ表示（集計表は非表示）
 document.getElementById('grid-shuukei').style.display='none';
 document.getElementById('toc-wrap-shuukei').style.display='none';
+document.getElementById('grid-auth').style.display='none';
+document.getElementById('toc-wrap-auth').style.display='none';
 })();
 </script>
 </body>

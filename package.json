@@ -1,5 +1,12 @@
 {
   "dependencies": {
     "javascript-obfuscator": "^5.8.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.149.0"
+  },
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   }
 }
