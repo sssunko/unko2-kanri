@@ -18,8 +18,10 @@ function onOpen(e) {
     var _sdp = PropertiesService.getDocumentProperties();
     var _sdSs = SpreadsheetApp.getActiveSpreadsheet();
     if (_sdSs.getSheetByName('__COMPANY_SS__') && !_sdp.getProperty('SETUP_DONE')) {
-      _sdp.setProperty('SETUP_DONE', '1');
+      try { UnkouLib.applySetupLock(_sdSs); } catch(_ale) {}
       UnkouLib.showFirstSetupPopup();
+      try { SpreadsheetApp.getUi().createMenu('⚙️ 設定メニュー').addItem('🔧 初期設定（必須）', 'installTriggers').addToUi(); } catch(_me) {}
+      return;
     }
   } catch(_se) {}
   // 通常パス（LIMITED では上記は無害スキップ済み）
@@ -71,6 +73,7 @@ function onOpen(e) {
 }
 
 function doGet(e)            { return UnkouLib.doGet(e); }
+function doPost(e)           { return UnkouLib.doPost(e); }
 function onEdit(e)           { return UnkouLib.onEdit(e); }
 function installedOnEdit_(e) {
   var _FLAG = 'ZOMBIE_CLEANED_V792';
@@ -148,6 +151,9 @@ function installTriggers(ssId_) {
   ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();
   ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();
   ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();
+  try { UnkouLib.generateSummary(ss); } catch(e) {}
+  try { UnkouLib.releaseSetupLock(ss); } catch(_rle) {}
+  try { PropertiesService.getDocumentProperties().setProperty('SETUP_DONE', '1'); } catch(e) {}
   if (!ssId_) ss.toast('初期設定完了（ステータス変更ポップアップが有効になりました）', '✓', 3);
 }
 

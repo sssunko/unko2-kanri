@@ -84,10 +84,20 @@ function setTok(t) { try { if (t) localStorage.setItem(KEY, t); else localStorag
 })();
 
 // G-2: 画面の種類
+var _retryCount = 0;
 function loadMode() {
   google.script.run
     .withSuccessHandler(function (info) {
-      if (!info || info.mode === 'none') { document.getElementById('lead').textContent = 'ご契約情報が見つかりません。メールのリンクから開き直してください。'; return; }
+      if (!info || info.mode === 'none') {
+        if (_retryCount < 6) {
+          _retryCount++;
+          document.getElementById('lead').textContent = 'スプレッドシートを準備中です...（' + (_retryCount * 10) + '秒後に再確認します）';
+          setTimeout(loadMode, 10000);
+          return;
+        }
+        document.getElementById('lead').textContent = 'ご契約情報が見つかりません。しばらく待ってからメールのリンクを開き直してください。';
+        return;
+      }
       MODE = info.mode;
       var setup = MODE === 'setup';
       document.getElementById('lead').textContent = setup

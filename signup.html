@@ -45,10 +45,9 @@
 <body>
 <div class="container">
 
-  <form id="signupForm" method="POST" action="<?= execUrl ?>">
-    <input type="hidden" name="action" value="signup">
-    <input type="hidden" name="from" value="<?= fromValue ?>">
-    <input type="hidden" name="lineId" value="<?= lineIdValue ?>">
+  <form id="signupForm" onsubmit="return false;">
+    <input type="hidden" id="hFrom" value="<?= fromValue ?>">
+    <input type="hidden" id="hLineId" value="<?= lineIdValue ?>">
     <h1>運行管理システム お申し込み（無料デモ）</h1>
     <p class="lead">送信すると、ご入力のメールアドレスに利用規約（契約書）のご案内が届きます。営業所ごとにご利用の場合は、営業所ごとに別のメールアドレスでお申し込みください（1契約＝1営業所）。</p>
 
@@ -86,18 +85,38 @@
 
 </div>
 <script>
-// S-2: 送信（通常のフォームPOSTで送る。LINEアプリ内ブラウザでも確実に送信でき、結果はサーバー（doPost）が返す）
+// S-2: 送信（google.script.runで①のsubmitSignupを直接呼ぶ。フォームPOSTはGASの302リダイレクトでGETに変換されdoPostに届かないため使わない）
 function doSend() {
   var company = document.getElementById('company').value.trim();
   var manager = document.getElementById('manager').value.trim();
   var email   = document.getElementById('email').value.trim();
   var drivers = document.getElementById('drivers').value.trim();
+  var memo    = document.getElementById('memo').value.trim();
   var err = document.getElementById('errMsg');
   if (!company || !manager || !email || !drivers) { err.textContent = '必須の項目（会社名・担当者名・メールアドレス・乗務員数）を入力してください'; return; }
   err.textContent = '';
   document.getElementById('sendBtn').disabled = true;
   document.getElementById('loadingMsg').style.display = 'block';
-  document.getElementById('signupForm').submit();
+  var data = { company:company, manager:manager, email:email, drivers:drivers, memo:memo,
+               from:document.getElementById('hFrom').value, lineId:document.getElementById('hLineId').value };
+  google.script.run.withSuccessHandler(function(r) {
+    document.getElementById('loadingMsg').style.display = 'none';
+    if (r && r.ok) {
+      document.getElementById('signupForm').style.display = 'none';
+      document.getElementById('okArea').style.display = 'block';
+    } else if (r && r.dup) {
+      document.getElementById('signupForm').style.display = 'none';
+      document.getElementById('dupMsg').textContent = r.msg || 'すでにお申し込みを受け付けています。';
+      document.getElementById('dupArea').style.display = 'block';
+    } else {
+      err.textContent = (r && r.msg) || '送信できませんでした。時間をおいてもう一度お試しください。';
+      document.getElementById('sendBtn').disabled = false;
+    }
+  }).withFailureHandler(function(e) {
+    document.getElementById('loadingMsg').style.display = 'none';
+    err.textContent = '送信中にエラーが起きました。時間をおいてもう一度お試しください。';
+    document.getElementById('sendBtn').disabled = false;
+  }).submitSignup(data);
 }
 </script>
 </body>
