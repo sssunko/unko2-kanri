@@ -269,8 +269,13 @@ html { scroll-behavior: smooth; }
 .card { scroll-margin-top: 90px; }
 #pending { scroll-margin-top: 90px; }
 .ss-wrap { margin-top: 16px; }
-.ss-img { max-width: 100%; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); display: block; image-rendering: auto; }
+.ss-img { width: 100%; display: block; border-radius: 6px; border: 3px solid #e03030; box-shadow: 0 0 0 1px #7a0000, 0 4px 16px rgba(0,0,0,.5); image-rendering: auto; cursor: zoom-in; }
 .ss-cap { margin: 4px 0 0 2px; font-size: 11px; color: #aaa; }
+/* ライトボックス */
+#ss-lb { display:none; position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:9999; overflow:auto; cursor:zoom-out; }
+#ss-lb.open { display:flex; align-items:flex-start; justify-content:flex-start; }
+#ss-lb img { display:block; max-width:none; border:none; box-shadow:none; border-radius:0; cursor:zoom-out; margin:auto; }
+#ss-lb-hint { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.7); color:#ccc; font-size:13px; padding:6px 16px; border-radius:20px; pointer-events:none; white-space:nowrap; }
 
 @media (max-width: 680px) {
   .hdr { padding: 18px 16px; }
@@ -401,7 +406,7 @@ html { scroll-behavior: smooth; }
       <div class="sheet-grp-hd g-red">配車・運行系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="red"><div class="sheet-ncard-name">配車板</div></div>
       <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('unkou')"><div class="sheet-ncard-name">運行　全35項目</div></div>
-      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('shuukei')"><div class="sheet-ncard-name">集計表　2 / 18項目</div></div>
+      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('shuukei')"><div class="sheet-ncard-name">集計表　6 / 18項目</div></div>
       <div class="sheet-grp-hd g-green">マスタ・設定系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属マスタ</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属運行</div></div>
@@ -515,10 +520,10 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#"><span class="toc-n">1</span><span class="toc-name">運行シートからの自動同期</span></a>
       <a class="toc-item done" href="#"><span class="toc-n">2</span><span class="toc-name">孤立ID自動削除</span></a>
       <div class="toc-sep">【自動計算】値の自動計算</div>
-      <a class="toc-item pend" href="#"><span class="toc-n">3</span><span class="toc-name">燃料代自動計算</span></a>
-      <a class="toc-item pend" href="#"><span class="toc-n">4</span><span class="toc-name">支払い自動計算</span></a>
-      <a class="toc-item pend" href="#"><span class="toc-n">5</span><span class="toc-name">利益自動計算</span></a>
-      <a class="toc-item pend" href="#"><span class="toc-n">6</span><span class="toc-name">仮日数・給料・%自動引き当て</span></a>
+      <a class="toc-item done" href="#feat-s03"><span class="toc-n">3</span><span class="toc-name">燃料代自動計算</span></a>
+      <a class="toc-item done" href="#feat-s04"><span class="toc-n">4</span><span class="toc-name">支払い自動計算</span></a>
+      <a class="toc-item done" href="#feat-s05"><span class="toc-n">5</span><span class="toc-name">利益自動計算</span></a>
+      <a class="toc-item done" href="#feat-s06"><span class="toc-n">6</span><span class="toc-name">仮日数・給料・%自動引き当て</span></a>
       <div class="toc-sep">【色表示】セルや行の色で状態を視覚化</div>
       <a class="toc-item pend" href="#"><span class="toc-n">7</span><span class="toc-name">利益マイナス行の薄赤着色<span class="toc-chip" style="background:#ffebee;border-color:#e88"></span></span></a>
       <a class="toc-item pend" href="#"><span class="toc-n">8</span><span class="toc-name">時刻間隔異常の色警告<span class="toc-chip" style="background:#ffd600;border-color:#bba000"></span><span class="toc-chip" style="background:#4fc3f7;border-color:#0288d1"></span></span></a>
@@ -869,12 +874,12 @@ html { scroll-behavior: smooth; }
           <div class="blk-label warn">① 誘導(N)が空のままR列（降完）を入力しようとした場合</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/12-time-order-4.png" class="ss-img" alt="R列（降完）を先に入力しようとした状態"></div>
-        <div class="ss-wrap"><img src="screenshots/12-time-order-5.png" class="ss-img" style="width:auto;max-width:100%;" alt="順序エラー：先に誘導時刻を入力してください"></div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-5.png" class="ss-img" alt="順序エラー：先に誘導時刻を入力してください"></div>
         <div class="block">
           <div class="blk-label warn">② 誘導(N)が空のままO列（積完）を入力しようとした場合</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/12-time-order-6.png" class="ss-img" alt="O列（積完）を先に入力しようとした状態"></div>
-        <div class="ss-wrap"><img src="screenshots/12-time-order-7.png" class="ss-img" style="width:auto;max-width:100%;" alt="順序エラー：先に誘導時刻を入力してください"></div>
+        <div class="ss-wrap"><img src="screenshots/12-time-order-7.png" class="ss-img" alt="順序エラー：先に誘導時刻を入力してください"></div>
         <div class="block">
           <div class="blk-label auto">✅ 全列を順序通りに入力した状態</div>
         </div>
@@ -1624,7 +1629,7 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">① メニュー「帳票・送信メニュー」→「🗒 受領書の耳生成」を選ぶ</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/30-1-menu.png" class="ss-img" alt="受領書の耳生成メニュー"><div style="position:absolute;top:67.3%;left:47.6%;width:50.4%;height:13.6%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/30-1-menu.png" class="ss-img" alt="受領書の耳生成メニュー"><div style="position:absolute;top:67.3%;left:47.6%;width:50.4%;height:13.6%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">② 絞り込みポップアップが開く</div>
         </div>
@@ -1632,7 +1637,7 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">③ 絞り込み条件を選ぶ（空白=全件対象）</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/30-3-select.png" class="ss-img" alt="絞り込み条件選択"><div style="position:absolute;top:20.1%;left:10.4%;width:64.8%;height:49.5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/30-3-select.png" class="ss-img" alt="絞り込み条件選択"><div style="position:absolute;top:20.1%;left:10.4%;width:64.8%;height:49.5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">④ 「生成」を押す</div>
         </div>
@@ -1640,15 +1645,15 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">⑤ 受領書_耳シートが生成される</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/30-5-sheet.png" class="ss-img" alt="受領書_耳シート生成"><div style="position:absolute;top:95.0%;left:56.6%;width:8.2%;height:4.3%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/30-5-sheet.png" class="ss-img" alt="受領書_耳シート生成"><div style="position:absolute;top:95.0%;left:56.6%;width:8.2%;height:4.3%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label tip">💡 生成と同時に、運行シートの「受領書」列に発行日時が自動で記録される</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/30-ss-col2.png" class="ss-img" alt="受領書列に発行日時が自動記録"><div style="position:absolute;top:0%;left:87.2%;width:6.5%;height:100%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/30-ss-col2.png" class="ss-img" alt="受領書列に発行日時が自動記録"><div style="position:absolute;top:0%;left:87.2%;width:6.5%;height:100%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">⑥ 「印刷用PDFを開く」を押す</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/30-6-pdfbtn.png" class="ss-img" alt="印刷用PDFを開くボタン"><div style="position:absolute;top:83.1%;left:10.7%;width:40.9%;height:10.0%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/30-6-pdfbtn.png" class="ss-img" alt="印刷用PDFを開くボタン"><div style="position:absolute;top:83.1%;left:10.7%;width:40.9%;height:10.0%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">⑦ A4縦のPDFが表示される。そのまま印刷できる</div>
         </div>
@@ -1678,7 +1683,7 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">① メニュー「📒 経理・出力」→「🧾 請求書生成」を選ぶ</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/31-01-menu.png" class="ss-img" alt="請求書生成メニュー選択"><div style="position:absolute;top:46%;left:49%;width:50%;height:14%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/31-01-menu.png" class="ss-img" alt="請求書生成メニュー選択"><div style="position:absolute;top:46%;left:49%;width:50%;height:14%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">② ダイアログが開く</div>
         </div>
@@ -1694,7 +1699,7 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">⑤ 「請求書」シートが自動生成される</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/31-05-sheet.png" class="ss-img" alt="生成された請求書シート"><div style="position:absolute;top:95%;left:84%;width:13%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/31-05-sheet.png" class="ss-img" alt="生成された請求書シート"><div style="position:absolute;top:95%;left:84%;width:13%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
       </div>
     </div>
 
@@ -1719,7 +1724,7 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">① メニュー「📒 経理・出力」→「💾 CSV・Excel出力」を選ぶ</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/32-1-menu.png" class="ss-img" alt="CSV・Excel出力メニュー選択"><div style="position:absolute;top:80%;left:48%;width:51%;height:13%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/32-1-menu.png" class="ss-img" alt="CSV・Excel出力メニュー選択"><div style="position:absolute;top:80%;left:48%;width:51%;height:13%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">② ダイアログが開く。全シートが一覧表示される（非表示シートは除外）</div>
         </div>
@@ -1727,7 +1732,7 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">③ 出力したいシートにチェックを入れる</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/32-3-select.png" class="ss-img" alt="運行シートを選択"><div style="position:absolute;top:56%;left:4%;width:92%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/32-3-select.png" class="ss-img" alt="運行シートを選択"><div style="position:absolute;top:56%;left:4%;width:92%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div style="font-size:12px;font-weight:800;color:var(--gold);border-bottom:1px solid var(--border);padding:12px 0 5px;margin-top:4px;letter-spacing:.04em">Excel出力</div>
         <div class="block">
           <div class="blk-label">・「選択シートをExcel DL」ボタンを押す</div>
@@ -1777,11 +1782,11 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">【事前確認】自車専属マスタの「運行状態」が「運行」の車両が生成対象</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/33-1-master.png" class="ss-img" alt="自車専属マスタ 運行状態確認"><div style="position:absolute;top:13%;left:38%;width:27%;height:20%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/33-1-master.png" class="ss-img" alt="自車専属マスタ 運行状態確認"><div style="position:absolute;top:13%;left:38%;width:27%;height:20%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">① メニュー「🗓 月次処理」→「📅 今月分生成」を選ぶ</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/33-2-menu.png" class="ss-img" alt="今月分生成 メニュー選択"><div style="position:absolute;top:65%;left:51%;width:48%;height:10%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/33-2-menu.png" class="ss-img" alt="今月分生成 メニュー選択"><div style="position:absolute;top:65%;left:51%;width:48%;height:10%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">② 完了ポップアップが表示される。生成した月・行数が確認できる</div>
         </div>
@@ -1789,7 +1794,7 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">③ 運行シートに今月1日から本日までの行が追加されている</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/33-4-result.png" class="ss-img" alt="運行シート 生成結果"><div style="position:absolute;top:94.5%;left:13%;width:6%;height:5.5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/33-4-result.png" class="ss-img" alt="運行シート 生成結果"><div style="position:absolute;top:94.5%;left:13%;width:6%;height:5.5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label warn">⚠️ 注意</div>
           <ul class="pts">
@@ -1821,11 +1826,11 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">【現在の状態】翌月生成前：当月のデータが最後まで入っている</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/34-1-current.png" class="ss-img" alt="当月分の運行シート（翌月生成前）"><div style="position:absolute;top:95%;left:10%;width:7%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/34-1-current.png" class="ss-img" alt="当月分の運行シート（翌月生成前）"><div style="position:absolute;top:95%;left:10%;width:7%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">① メニュー「🗓 月次処理」→「📅 翌月分生成（前月アーカイブ）」を選ぶ</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/34-2-menu.png" class="ss-img" alt="翌月分生成 メニュー選択"><div style="position:absolute;top:73%;left:51%;width:48%;height:10%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/34-2-menu.png" class="ss-img" alt="翌月分生成 メニュー選択"><div style="position:absolute;top:73%;left:51%;width:48%;height:10%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">② 完了ポップアップが表示される。生成した月・台数・行数が確認できる</div>
         </div>
@@ -1833,7 +1838,7 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">③ 運行シートに来月分の行が追加されている</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/34-4-result.png" class="ss-img" alt="翌月分生成後の運行シート"><div style="position:absolute;top:42%;left:0%;width:99%;height:54%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/34-4-result.png" class="ss-img" alt="翌月分生成後の運行シート"><div style="position:absolute;top:42%;left:0%;width:99%;height:54%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">④ 3か月以上のデータがあれば、一番古い月が別のスプレッドシートに自動でアーカイブ保存される</div>
         </div>
@@ -1841,7 +1846,7 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">アーカイブSSには「運行」「集計表」の2シートのみが保存されている</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/34-6-archive-sheet.png" class="ss-img" alt="アーカイブSSの中身"><div style="position:absolute;top:95%;left:0.5%;width:15%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/34-6-archive-sheet.png" class="ss-img" alt="アーカイブSSの中身"><div style="position:absolute;top:95%;left:0.5%;width:15%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label warn">⚠️ 注意</div>
           <ul class="pts">
@@ -1873,11 +1878,11 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">【現在の状態】運行シートに前月分データが残っている</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/35-1-before.png" class="ss-img" alt="運行シートに前月分がある状態"><div style="position:absolute;top:93%;left:11%;width:5%;height:7%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/35-1-before.png" class="ss-img" alt="運行シートに前月分がある状態"><div style="position:absolute;top:93%;left:11%;width:5%;height:7%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">① メニュー「🗓 月次処理」→「📦 前月分アーカイブ」を選ぶ</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/35-2-menu.png" class="ss-img" alt="前月分アーカイブ メニュー選択"><div style="position:absolute;top:64%;left:52%;width:47%;height:12%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/35-2-menu.png" class="ss-img" alt="前月分アーカイブ メニュー選択"><div style="position:absolute;top:64%;left:52%;width:47%;height:12%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">② 完了ポップアップが表示される。アーカイブした月・行数・保存先が確認できる</div>
         </div>
@@ -1893,7 +1898,7 @@ html { scroll-behavior: smooth; }
         <div class="block">
           <div class="blk-label">⑤ 開くと「運行」「集計表」の2シートのみが保存されている</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:inline-block;line-height:0;font-size:0;"><img src="screenshots/35-6-archive.png" class="ss-img" alt="アーカイブSS中身"><div style="position:absolute;top:95%;left:0.5%;width:15%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/35-6-archive.png" class="ss-img" alt="アーカイブSS中身"><div style="position:absolute;top:95%;left:0.5%;width:15%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label warn">⚠️ 注意</div>
           <ul class="pts">
@@ -2086,11 +2091,106 @@ html { scroll-behavior: smooth; }
       </div>
     </div>
 
-    <!-- 集計表 3〜18 pending -->
-    <div class="card"><div class="card-hdr"><span class="num">03</span><span class="cat cat-calc">自動計算</span><span class="feat-name">燃料代自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
-    <div class="card"><div class="card-hdr"><span class="num">04</span><span class="cat cat-calc">自動計算</span><span class="feat-name">支払い自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
-    <div class="card"><div class="card-hdr"><span class="num">05</span><span class="cat cat-calc">自動計算</span><span class="feat-name">利益自動計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
-    <div class="card"><div class="card-hdr"><span class="num">06</span><span class="cat cat-calc">自動計算</span><span class="feat-name">仮日数・給料・%自動引き当て</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <!-- 集計表 3〜18 -->
+
+    <div class="card" id="feat-s03">
+      <div class="card-hdr">
+        <span class="num">03</span>
+        <span class="cat cat-calc">自動計算</span>
+        <span class="feat-name">燃料代自動計算</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>距離 ÷ 燃費 × ガソリン代 で自動計算される。いずれかを変更すると即座に更新</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">黄枠：距離・燃費・ガソリン代（入力値）　赤枠：燃料代（自動計算結果・例：2,889円）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s03-crop.png" class="ss-img" alt="集計表 燃料代（給料方式）"></div>
+      </div>
+    </div>
+
+    <div class="card" id="feat-s04">
+      <div class="card-hdr">
+        <span class="num">04</span>
+        <span class="cat cat-calc">自動計算</span>
+        <span class="feat-name">支払い自動計算</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動（給料方式 or %方式）</div>
+          <ul class="pts">
+            <li>【給料方式】給料 ÷ 仮日数 × 実働日数で日割り計算</li>
+            <li>【%方式】売上 × % ÷ 100 で歩合計算</li>
+            <li>どちらの方式かは自車専属マスタの設定で決まる（→ 06. 仮日数・給料・%自動引き当て参照）</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">給料方式の支払い（赤枠）例：17,500円</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s04-kyuryo.png" class="ss-img" alt="集計表 支払い（給料方式）17,500"></div>
+        <div class="block">
+          <div class="blk-label">%方式の支払い（赤枠）例：15,000円</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s04-pct.png" class="ss-img" alt="集計表 支払い（%方式）15,000"></div>
+      </div>
+    </div>
+
+    <div class="card" id="feat-s05">
+      <div class="card-hdr">
+        <span class="num">05</span>
+        <span class="cat cat-calc">自動計算</span>
+        <span class="feat-name">利益自動計算</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>売上 ＋ 合計高速代 − 燃料代 − 支払い − 経費合計 で自動計算される</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">給料方式の利益（赤枠）例：24,611円</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s05-kyuryo.png" class="ss-img" alt="集計表 利益（給料方式）24,611"></div>
+        <div class="block">
+          <div class="blk-label">%方式の利益（赤枠）例：27,111円</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s05-pct.png" class="ss-img" alt="集計表 利益（%方式）27,111"></div>
+      </div>
+    </div>
+
+    <div class="card" id="feat-s06">
+      <div class="card-hdr">
+        <span class="num">06</span>
+        <span class="cat cat-calc">自動計算</span>
+        <span class="feat-name">仮日数・給料・%自動引き当て</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label auto">🔵 自動</div>
+          <ul class="pts">
+            <li>集計表の仮日数・給料・%は、自車専属マスタの同名列から車両ごとに自動引き当てされる</li>
+            <li>マスタを変更したら「📃 集計表再生成」を実行すると反映される</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">マスタ（給料方式）— 例：仮日数20・給料350,000（赤枠）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s06-master-kyuryo.png" class="ss-img" alt="自車専属マスタ 仮日数20・給料350,000（給料方式）"></div>
+        <div class="block">
+          <div class="blk-label">マスタ（%方式）— 例：仮日数20・%=30（赤枠）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s06-master-pct.png" class="ss-img" alt="自車専属マスタ 仮日数20・%(P)=30（%方式）"></div>
+      </div>
+    </div>
     <div class="card"><div class="card-hdr"><span class="num">07</span><span class="cat cat-color">色表示</span><span class="feat-name">利益マイナス行の薄赤着色</span><div class="clr-grp"><span class="clr-swatch" style="background:#ffebee"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
     <div class="card"><div class="card-hdr"><span class="num">08</span><span class="cat cat-color">色表示</span><span class="feat-name">時刻間隔異常の色警告</span><div class="clr-grp"><span class="clr-swatch" style="background:#ffd600"></span><span class="clr-swatch" style="background:#4fc3f7"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
     <div class="card"><div class="card-hdr"><span class="num">09</span><span class="cat cat-color">色表示</span><span class="feat-name">拘束時間13時間超えオレンジ</span><div class="clr-grp"><span class="clr-swatch" style="background:#ff9800"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
@@ -2252,6 +2352,33 @@ document.getElementById('grid-shuukei').style.display='none';
 document.getElementById('toc-wrap-shuukei').style.display='none';
 document.getElementById('grid-auth').style.display='none';
 document.getElementById('toc-wrap-auth').style.display='none';
+})();
+</script>
+
+<!-- ライトボックス -->
+<div id="ss-lb"><span id="ss-lb-hint">クリックまたは Esc で閉じる</span></div>
+<script>
+(function(){
+  var lb = document.getElementById('ss-lb');
+  var lbImg = null;
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if(t.classList.contains('ss-img') && !lb.classList.contains('open')){
+      if(!lbImg){ lbImg = document.createElement('img'); lb.insertBefore(lbImg, lb.firstChild); }
+      lbImg.src = t.src;
+      lb.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    } else if(lb.classList.contains('open')){
+      lb.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && lb.classList.contains('open')){
+      lb.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+  });
 })();
 </script>
 </body>
