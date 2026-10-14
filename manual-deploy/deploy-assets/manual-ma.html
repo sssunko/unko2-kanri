@@ -2256,6 +2256,7 @@ html { scroll-behavior: smooth; }
           <ul class="pts">
             <li>集計表のZ列（燃料代）に「=距離/燃費*ガソリン代」の数式を設定する。数式は generateSummaryCore_ / syncSummaryForId_ の両方で書き込まれる</li>
             <li>距離(W)・ガソリン代(Y)は手入力列（保持される）。燃費(X)は自車専属マスタから引き当て</li>
+            <li>※距離・燃費・ガソリン代の入力値から概算します。正確な金額は手入力で修正してください</li>
           </ul>
         </div>
         <div class="block">
@@ -2281,14 +2282,15 @@ html { scroll-behavior: smooth; }
             <li>【%方式】AG(%)が設定されている場合：売上 × % ÷ 100</li>
             <li>手入力値（AA列に直接入力された値）は保持される（上書きしない）</li>
             <li>どちらの方式かはマスタで決まる（→ 06. 仮日数・給料・%自動引き当て参照）</li>
+            <li>※給料・仮日数・%の入力値から概算します。正確な金額は手入力で修正してください</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label">給料方式の支払い（赤枠）例：17,500円</div>
+          <div class="blk-label">黄枠：仮日数・給料（入力値）　赤枠：支払い（自動計算結果・例：17,500円）</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/s04-kyuryo.png" class="ss-img" alt="集計表 支払い（給料方式）17,500"></div>
         <div class="block">
-          <div class="blk-label">%方式の支払い（赤枠）例：15,000円</div>
+          <div class="blk-label">黄枠：仮日数・%（入力値）　赤枠：支払い（自動計算結果・例：15,000円）</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/s04-pct.png" class="ss-img" alt="集計表 支払い（%方式）15,000"></div>
       </div>
@@ -2309,14 +2311,15 @@ html { scroll-behavior: smooth; }
             <li>AC列（利益）= 売上(S) + 合計高速代(V) − （燃料代(Z) + 支払い(AA) + 経費合計(AB)）を値で書き込む</li>
             <li>いずれかの列が空の場合は利益も空（すべて空なら '' を書き込む）</li>
             <li>利益 &lt; 0 の行はこの時点で薄赤(#ffebee)に着色（機能07と連動）</li>
+            <li>※燃料代・支払い・経費合計は入力値からの概算です。正確な金額は手入力で修正してください</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label">給料方式の利益（赤枠）例：24,611円</div>
+          <div class="blk-label">黄枠：売上・燃料代・支払い・経費合計（入力値）　赤枠：利益（自動計算結果・例：24,611円）</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/s05-kyuryo.png" class="ss-img" alt="集計表 利益（給料方式）24,611"></div>
         <div class="block">
-          <div class="blk-label">%方式の利益（赤枠）例：27,111円</div>
+          <div class="blk-label">黄枠：売上・燃料代・支払い・経費合計（入力値）　赤枠：利益（自動計算結果・例：27,111円）</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/s05-pct.png" class="ss-img" alt="集計表 利益（%方式）27,111"></div>
       </div>
