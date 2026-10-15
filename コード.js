@@ -27,6 +27,8 @@
 //            帳票発行日時の正規化
 //   1-1d : normalizeTons_(val)
 //            トン数表記の正規化
+//   1-1e : isTollDeductMark_(v)
+//            「高速を引く」の丸の判定（〇・○・◯・⭕・◎・●のどれかならtrue）
 //   1-2  : getOrCreateFolder_(name)
 //            Googleドライブのフォルダ取得or作成（補助）
 //   1-3  : delaySyncSummary_(id, ss)
@@ -65,6 +67,10 @@
 //            メニュー再生成
 //   2-2  : doGet(e)
 //            Webアプリ起動
+//   2-2a-2: doPost(e)
+//            申し込みのPOST受付
+//   2-2a-3: signupResultHtml_(...)
+//            申し込み結果ページのHTML
 //   2-2b : storeCompanySsId(ssId)
 //            旧版画面との互換用の受け口
 //   2-2c : getTargetSS_(ssId)
@@ -77,6 +83,8 @@
 //            正規に発行・登録されたSSか確認
 //   2-2g : getLicenseStatus_ / assertLicense_ / syncLicenseStatus_
 //            起動時ライセンス認証ロック（停止・期限切れの客SSを止める）
+//   2-2g-2: applySetupLock / releaseSetupLock
+//            初期設定前は全シートを隠して「⚙️初期設定」シートだけ表示（初期設定で解除）
 //   2-2h : applyLockdown_ / releaseLockdown_
 //            停止中は全シートを隠して「利用停止」画面だけ表示（データを見せない）
 //   2-3  : showSidebar()
@@ -178,7 +186,7 @@
 //   4-2k : dispatchStructureChange(e)
 //            シート構造変更の検知と復元
 //   4-2l : setNoSheetGuard_()
-//            シート追加保護の解除
+//            シート追加保護の解除用の値を書く（今は読む処理・呼び出し元なし）
 //   4-2m : getOrCreateBackupSheet_(ss, sheetName, canon)
 //            バックアップシート取得・作成
 //   4-2n : backupSheetRow_(ss, sheetName, rowIdx)
@@ -188,13 +196,13 @@
 //   4-2p : backupAllSheets_(ss)
 //            全シートバックアップ
 //   4-3  : expandAndRefreshSheets()
-//            シート再生成
-//   4-3a-2: refreshPlApportionColumn_(ss, sheet)
-//            PL按分列を全行自動更新
-//   4-3b : autoFillExpense()
-//            経費自動入力
-//   4-3c : repairJohoSheet()
+//            シート再生成（集計表を含む全シートを正しくする）
+//   4-3a : repairJohoSheet()
 //            配車板 列ズレ修復
+//   4-3b : refreshPlApportionColumn_(ss, sheet)
+//            PL按分列を全行自動更新
+//   4-3c : autoFillExpense()
+//            経費自動入力
 //   4-4  : calculatePaymentAmount(companySsId)
 //            支払い再計算
 //   4-5  : refreshActiveVehicles / refreshActiveVehiclesAuto_
@@ -435,16 +443,20 @@
 //            WebアプリのベースURL取得
 //   12-2 : setWebAppUrl()
 //            WebアプリURLをScript Propertiesに保存
-//   12-2z: getValidClientSheetNames_() / getEnsureSheetNames_() / hideSystemSheets_()
-//            ②③共通シート一覧と非表示処理（唯一の定義。全箇所がここを参照）
+//   12-2z: getValidClientSheetNames_() / isClientKeepSheet_(name, markerName) / getEnsureSheetNames_() / hideSystemSheets_()
+//            ②③共通シート一覧・残すシートの判定（バックアップ _BK_〜 は残す）・非表示処理（唯一の定義。全箇所がここを参照）
 //   12-3 : createCompanySpreadsheet_(companyName, adminEmail, targetFolderId)
 //            会社専用スプレッドシートを作成
 //   12-3a: getNewSsScriptId_(ssId)
 //            新規SSのバインドスクリプトID取得
+//   12-3a-1: applyClientSheetProtection_(...)
+//            新規③へ②と同じシート保護を付与
 //   12-3a-2: deployClientWebApp_(ssId, companyName, existingScriptId, libVersion)
 //            各客SS用 WebApp を自動デプロイ
 //   12-3b: initClientSSSheets_(ss, companyName)
 //            クライアントSSシート初期化共通処理（②③共通30シートのみ残し、マスタ・設定等を初期値で書き込む）
+//   12-3b-2: fixDemoRowLabels_(ss)
+//            見本行の看板名・備考を①の文字にそろえる（②反映・③反映の共通処理）
 //   12-3c: syncToTemplateSS()
 //            ①修正用SS→②客用SSに反映（ヘッダー同期＋不要シート削除＋ensureSheets作成）
 //   12-3c-1: createLibraryVersion_(description)
@@ -473,14 +485,28 @@
 //            重複した申し込みへの連絡
 //   12-7c-2: processSignupAsync_trigger_()
 //            申込後の裏処理（時限トリガーで実行。SS作成・メール送信を画面遷移後に裏で行う）
+//   12-7c-3: processSignupAsync(companyName, adminEmail)
+//            申込後の裏処理の直接呼び出し（現在呼び出し元なし）
 //   12-7d: registerSignup_(d)
 //            申し込みの登録（LINE_IDが空ならpendingLineUserから自動取得・重複時も保存）
+//   12-7d-0: sendMail_(...)
+//            メール送信共通
 //   12-7d-1: sendSignupConfirmation_(...)
 //            申込内容の確認送信（LINEまたはメール）
-//   12-7d-2: setLineToken()
-//            LINEチャネルアクセストークンの保存
+//   12-7d-2: setLineToken() / getLineToken_()
+//            LINEチャネルアクセストークンの保存と取得
+//   12-7d-2b: checkLineSetup_()
+//            LINE設定の確認表示（トークン・Webhook・LINE_ID件数）
 //   12-7d-3: handleLineWebhook_(e)
 //            LINE Webhook受信（follow時にpendingLineUser保存＋無料デモ/即契約リンク付き案内送信・メール照合でLINE_ID保存）
+//   12-7d-4: linkLineUserToCompany_(email, uid)
+//            LINEの友だちと会社の紐づけ（申込メールで照合してLINE_IDを保存）
+//   12-7d-5: lineReply_(replyToken, text)
+//            LINEへの返信
+//   12-7d-6: pushLineMessage_(userId, text)
+//            LINEへの送信
+//   12-7d-7: autoSetupLineWebhook_()
+//            LINE Webhookの自動登録
 //   12-7e: submitSignup(f)
 //            申し込みページからの申し込み（登録成功時は即画面遷移し、SS作成＋メール送信は時限トリガーで裏実行）
 //   12-7f: ensureInquirySheet_(ss)
@@ -569,6 +595,8 @@
 // ── グループ14：トリガー・反映・帳票 ─────────────
 //   14-1 : installTriggers()
 //            インストール型トリガーのセットアップ
+//   14-1a: runInstallTriggers_(...)
+//            scripts.run でスタブ内 installTriggers を遠隔実行
 //   14-1b: showFirstSetupPopup()
 //            初回SS起動時の初期設定完了ポップアップ（③各客SSのみ）
 //   14-2 : installedOnEdit_(e)
@@ -837,7 +865,7 @@
 //     AB=経費合計, AC=利益, AD=備考, AE=仮日数, AF=給料, AG=％, AH=有休手当, AI=その他手当, AJ=点呼前完了, AK=点呼後完了, AL=拘束時間(h),
 //     AM=点呼前担当者, AN=点呼後担当者
 //     ※ 運行シートをID単位に1行へ集約。V＝請求−実費、Z＝距離÷燃費×ガソリン代（数式）、
-//        AC（利益）＝売上＋V−(燃料代＋支払い＋経費合計)。手入力可はW・Y・AA・AD・AI列、AE〜AGは自車専属マスタから引き当て
+//        AC（利益）＝自車専属マスタにある行は売上＋V−(燃料代＋支払い＋経費合計＋有休手当)、ない行は売上−支払い（高速代は入れない）。手入力可はW・Y・AA・AD・AI列、AE〜AGは自車専属マスタから引き当て
 //
 //   【自車専属マスタシート】（38列）
 //     A=車両ID, B=運行状態, C=区分, D=会社名, E=看板名, F=トン数, G=車種, H=車番, I=乗務員名, J=携帯番号, K=アドレス, L=燃費, M=備考, N=仮日数,
@@ -866,8 +894,9 @@
 
 
 // ================================================================
-//  1-1: ID番号取得補助関数  【大B / 中1 / 小1-1】
+//  1-1: ID番号取得補助関数（getNextIdNum_）  【大B / 中1 / 小1-1】
 //  指定シートのA列にある最大番号と、発行済み最大番号の記録（1-1a）の大きい方に+1した値を返す
+//  返す番号はその場で1-1aに記録する（行削除後も同じ番号を二度出さない）
 // ================================================================
 function getNextIdNum_(sheet, prefix) {
   var lastRow = sheet.getLastRow();
@@ -985,7 +1014,17 @@ function normalizeTons_(val) {
 
 
 // ================================================================
-//  1-2: Googleドライブのフォルダ取得or作成（補助）  【大B / 中1 / 小1-2】
+//  1-1e: 「高速を引く」の丸の判定（isTollDeductMark_）  【大B / 中1 / 小1-1e】
+//  自車専属マスタQ列「高速を引く」の値が丸の記号（〇・○・◯・⭕・◎・●のどれか1文字）なら true を返す
+//  3-3（入力時に正しい「〇」へ自動変換）・4-1・4-2・4-4（支払い再計算。%方式で高速代を足すか）から呼ばれる
+// ================================================================
+function isTollDeductMark_(v) {
+  return /^[〇○◯⭕◎●]$/.test(String(v == null ? '' : v).trim());
+}
+
+
+// ================================================================
+//  1-2: Googleドライブのフォルダ取得or作成（補助・getOrCreateFolder_）  【大B / 中1 / 小1-2】
 //  指定名のフォルダが存在すれば返し、なければ作成して返す
 // ================================================================
 function getOrCreateFolder_(name) {
@@ -996,7 +1035,7 @@ function getOrCreateFolder_(name) {
 
 
 // ================================================================
-//  1-3: 集計表遅延同期ラッパー  【大B / 中1 / 小1-3】
+//  1-3: 集計表遅延同期ラッパー（delaySyncSummary_）  【大B / 中1 / 小1-3】
 //  syncSummaryForId_をtry-catchで安全に呼び出す
 // ================================================================
 function delaySyncSummary_(id, ss) { try { syncSummaryForId_(id, ss); } catch(e) { logError_('delaySyncSummary_', e); } }
@@ -1022,7 +1061,7 @@ function logError_(context, e) {
 
 
 // ================================================================
-//  1-4: 集計表の孤立ID削除・欠落行復元  【大B / 中1 / 小1-4】
+//  1-4: 集計表の孤立ID削除・欠落行復元（cleanAllOrphanSummary_）  【大B / 中1 / 小1-4】
 //  運行シートに存在しないIDが集計表にある場合、その行を削除する
 //  運行シートにあるIDが集計表にない場合、4-1a で集計表を一括再生成して復元し、手入力列を_BK_集計表から戻す
 //  最後に、ロック待ちで同期できなかったID（PENDING_SUM_IDS）をまとめて同期する
@@ -1174,7 +1213,7 @@ function applyHolidayRowColors_(ss) {
       return rowArr;
     });
     sheet.getRange(2, 1, lr - 1, lastCol).setBackgrounds(bgs2D);
-    // データ最終行より下の残骸色（過去バージョンの塗り跡）もF5で自動除去
+    // データ最終行より下に残った色（保護色・有休/休み色・期限色など）も開くたびに除去
     var maxR = sheet.getMaxRows();
     if (maxR > lr) {
       var tailBgs = sheet.getRange(lr + 1, 1, maxR - lr, lastCol).getBackgrounds();
@@ -1296,7 +1335,7 @@ function markIdCollisions_(ss) {
 //  自車専属マスタの4期限列（免許証・安全教育・健康診断・適性診断）を参照し
 //  運行シートのA列（ID）を乗務員ごとの最も近い期限に応じて着色する。
 //  淡い赤=期限超過 / 淡い青=当日 / 淡い緑=7日以内
-//  有休・休み行(グレー)・ID衝突行(#ff1744)には上書きしない。
+//  有休・休み行(グレー)・ID衝突行(#ff1744)には上書きしない。区分（B列）が空の行・マスタに期限のない乗務員の行は期限色を外す。
 //  A1セルに色の凡例メモを書き、自車専属マスタの期限切れ日付を赤文字にする
 // ================================================================
 function applyExpiryWarningColors_(ss) {
@@ -1481,12 +1520,18 @@ function sortUnkouByDate_(companySsId, skipBlankDelete) {
 // ================================================================
 //  1-9: 集計表シートを日付順に並び替え（sortSummaryByDate_）  【大B / 中1 / 小1-9】
 //  集計表シートのデータ行を J列(日付)昇順 → G列(乗務員名)昇順 でソートする
-//  ソート後に合計(高速代)V（請求−実費）・燃料代Z・利益AC（売上＋V−(Z＋支払＋経費)）を値で計算して書き戻す
+//  ソート後に合計(高速代)V（請求−実費）・燃料代Z・利益AC（自車専属マスタにある行は売上＋V−(Z＋支払＋経費＋有休手当)、ない行は売上−支払）を値で計算して書き戻す
+//  1行同期（4-2）・再生成（4-1）と同じ順番待ち（1-1b）に入ってから読み書きする（呼び出し元が順番待ち中なら lockHeld=true）。IDのない行は一番下に回す
 // ================================================================
-function sortSummaryByDate_(companySsId) {
+function sortSummaryByDate_(companySsId, lockHeld) {
   var ss = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('集計表');
   if (!sheet || sheet.getLastRow() < 3) return;
+  var sortLock = lockHeld ? null : getSsLock_();
+  if (sortLock) {
+    try { sortLock.waitLock(10000); } catch(lErr) { logError_('sortSummaryByDate_', 'ロック取得失敗'); return; }
+  }
+  try {
   var lastRow = sheet.getLastRow();
   var numRows = lastRow - 1;
   var colCount = sheet.getLastColumn();
@@ -1495,20 +1540,34 @@ function sortSummaryByDate_(companySsId) {
   var bgs  = sheet.getRange(2, 1, numRows, cols).getBackgrounds();
   var indexed = data.map(function(row, idx) { return { row: row, bg: bgs[idx] }; });
   indexed.sort(function(a, b) {
+    var ia = String(a.row[0] || '').trim() ? 0 : 1, ib = String(b.row[0] || '').trim() ? 0 : 1;
+    if (ia !== ib) return ia - ib;  // IDのない行は一番下
     var da = (a.row[9] instanceof Date) ? a.row[9].getTime() : 0;
     var db = (b.row[9] instanceof Date) ? b.row[9].getTime() : 0;
     if (da !== db) return da - db;
     return String(a.row[6] || '').localeCompare(String(b.row[6] || ''));
   });
-  // 値を計算して書き戻す（数式廃止でフィルター後もズレない）
+  // 自車専属マスタにある 車番+乗務員名 の一覧（利益の計算式の切り替えに使う）
+  var sortMasterKeys = {};
+  var sortMaster = ss.getSheetByName('自車専属マスタ');
+  if (sortMaster && sortMaster.getLastRow() >= 2) {
+    sortMaster.getRange(2, 8, sortMaster.getLastRow()-1, 2).getValues().forEach(function(mr) {
+      sortMasterKeys[String(mr[0]||'').trim() + '_' + String(mr[1]||'').trim()] = true;
+    });
+  }
+  // 値を計算して書き戻す（数式ではなく値にすることで、フィルター後も行がずれない）
   var writeData = indexed.map(function(item) {
     var row = item.row.slice();
     var tollReq = Number(row[19])||0, tollReal = Number(row[20])||0;
     row[21] = (tollReq === 0 && tollReal === 0) ? '' : tollReq - tollReal;  // V=合計(高速代)=請求−実費
     row[25] = row[22] ? Math.round(Number(row[22])/(Number(row[23])||3)*(Number(row[24])||0)) : '';  // Z
     var vNS = typeof row[21]==='number'?row[21]:0, zNS = typeof row[25]==='number'?row[25]:0;
-    var payNS = Number(row[26])||0, expNS = Number(row[27])||0, salesNS = Number(row[18])||0;
-    row[28] = (!salesNS&&!vNS&&!zNS&&!payNS&&!expNS) ? '' : salesNS+vNS-(zNS+payNS+expNS);  // AC=売上＋合計(高速代)−(燃料代＋支払＋経費)
+    var payNS = Number(row[26])||0, expNS = Number(row[27])||0, salesNS = Number(row[18])||0, ykNS = Number(row[33])||0;
+    if (sortMasterKeys[String(row[5]||'').trim() + '_' + String(row[6]||'').trim()]) {
+      row[28] = (!salesNS&&!vNS&&!zNS&&!payNS&&!expNS&&!ykNS) ? '' : salesNS+vNS-(zNS+payNS+expNS+ykNS);  // AC=売上＋合計(高速代)−(燃料代＋支払＋経費＋有休手当)
+    } else {
+      row[28] = (!salesNS&&!payNS) ? '' : salesNS-payNS;  // AC=売上−支払い（自車専属マスタにない行。高速代は入れない）
+    }
     return row;
   });
   sheet.getRange(2, 1, numRows, cols).setValues(writeData);
@@ -1518,6 +1577,9 @@ function sortSummaryByDate_(companySsId) {
   sheet.getRange(2, 10, numRows, 1).setNumberFormat('yyyy/MM/dd');
   applyMoneyFormat_(sheet, 2, numRows, 'summary');
   applyDateTimeFormat_(sheet, 2, numRows);
+  } finally {
+    if (sortLock) sortLock.releaseLock();
+  }
 }
 
 
@@ -1539,11 +1601,13 @@ function sortBothSheetsByDate() {
 //  2-1: メニュー設定（onOpen）  【大C / 中2 / 小2-1】
 //  ①修正用SS専用メニュー（全機能フル搭載）。②客用SS・③各客SSはスタブの onOpen で表示。
 //  GASはサブメニューの2階層が上限のため、大カテゴリ＋直接項目の構成で実装。
-//  大カテゴリ: 🏠毎日の配車業務 / 📥データ読み込み / 📨帳票・送信 / 📒経理・出力
-//             / 📊PL管理 / 🗓月次処理 / ⚙️システム設定・保守 / 🏢管理者専用
-//  メニュー作成後：masterSsId保存・管理データURL変換（4-1b）・合計(高速代)の移行（4-1c）・色付け（1-7）・
-//  隠しシート整理・期限アラート（1-7d）・期限色（1-7c）・1日1回のバックアップ（4-2p）・エラー通知・
-//  管理者シートの旧パスワード列の撤去（P-4k）・共通保存値の掃除（2-2e）・会社登録のログイン情報の写し（P-4c）・会社登録の管理者名・乗務員数の見出し（12-7a）・未読の問い合わせ件数（12-7h）
+//  大カテゴリ: 🏠毎日の配車業務 / 📥データ読み込み（CSV） / 📨帳票・送信 / 📒経理・出力
+//             / 📊PL管理 / 🗓月次処理 / ⚙️システム設定・保守 / 🏢管理者・セットアップ（開発専用） / 🔄バックアップ・復旧
+//  最初に正規SS・停止の確認（P-5f）と、①のトリガー3本（編集・構造変更・夜間距離計算）の削除→再登録を行う（権限が足りない時は飛ばす）
+//  メニュー作成後：masterSsId保存・管理データURL変換（4-1b）・
+//  初回1回だけ：合計(高速代)の移行（4-1c）・管理者シートの旧パスワード列の撤去（P-4k）・共通保存値の掃除（2-2e）・会社登録の見出し（12-7a）・
+//  毎回：未読の問い合わせ件数（12-7h）・会社登録のログイン情報の写し（P-4c）・停止/期限の写し（2-2g）・色付け（1-7）・
+//  隠しシート整理・期限アラート（1-7d）・期限色（1-7c）・1日1回のバックアップ（4-2p）・エラー通知（_ErrorLog_のA1が「⚠️ 要確認」なら表示）
 //  スプレッドシートから開いた時だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function onOpen(e) {
@@ -1703,16 +1767,19 @@ function onOpen(e) {
 // ================================================================
 //  2-1a: 客SS用メニュー構築（buildClientMenu）  【大C / 中2 / 小2-1a】
 //  ②客用SS・③各客SSのスタブの onOpen から呼ばれる
+//  初期設定が終わっていない③（__COMPANY_SS__シートと「⚙️初期設定」シートがある）は「初期設定（必須）」だけのメニューを出す
 //  正規に発行・登録されていないSS（コピー。2-2f）ではメニューを出さず、使えない旨だけ表示する
+//  停止・期限切れ（2-2g）なら全シートを隠して案内だけ出し（2-2h）、解除されていればシートを元に戻してからメニューを出す
 //  メニュー定義をライブラリに置き、ライブラリのバージョン更新だけでメニューが追随する
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function buildClientMenu() {
-  // 初期設定未完了の③客SSは最小メニューのみ（旧スタブ対応のため、スタブ側のガードと二重防御）
+  // 初期設定未完了の③客SSは最小メニューのみ（スタブ側のガードと二重防御）
+  // 判定は「⚙️初期設定」シートの有無で行う（初期設定前にスタブの2-2g-2が作り、初期設定で消える）。
+  // SETUP_DONE はスタブ側の保存場所にあり、ライブラリから読むと別の保存場所になるため使わない
   try {
     var _bSs = SpreadsheetApp.getActiveSpreadsheet();
-    var _bDp = PropertiesService.getDocumentProperties();
-    if (_bSs.getSheetByName('__COMPANY_SS__') && !_bDp.getProperty('SETUP_DONE')) {
+    if (_bSs.getSheetByName('__COMPANY_SS__') && _bSs.getSheetByName(SETUP_LOCK_SHEET_)) {
       try { SpreadsheetApp.getUi().createMenu('⚙️ 設定メニュー').addItem('🔧 初期設定（必須）', 'installTriggers').addToUi(); } catch(_bme) {}
       return;
     }
@@ -2024,7 +2091,10 @@ function reloadMenu() {
 // ================================================================
 //  2-2: Webアプリ起動（doGet）  【大C / 中2 / 小2-2】
 //  URLアクセス時にWebアプリとして表示する。
-//  ?action=agree → 契約同意（12-4b）／?page=login・signup・contract・terms・privacy → 各ページ／?page=parent・tool → 「準備中」（管理画面は販売開始後に着手）／それ以外 → index.html
+//  停止・期限切れ（2-2g）のSSならロック画面（license_expired.html）を返して止める
+//  ?action=protectSS・unprotectSS → 対象SSの全シートに初期設定用の保護（説明 __SETUP__）を付ける／外す
+//  ?action=agree → 契約同意（12-4b。同意済みなら「すでに同意済み」画面）／?page=contract → 契約書（同意済みなら「すでに同意済み」画面）
+//  ?page=login・signup・terms・privacy → 各ページ／?page=parent・tool → 「準備中」（管理画面は販売開始後に着手）／それ以外 → index.html
 //  ?ssId=XXXX パラメータはHTMLテンプレートに渡す（無い時はスタブがついているSSのID）
 //  本番デプロイのURLでアクセスされた時だけ、そのURLを Script Properties（webAppUrl）に保存する
 // ================================================================
@@ -2240,6 +2310,7 @@ function doGet(e) {
 //  2-2a-2: 申し込みのPOST受付（doPost）  【大A / 中2 / 小2-2a-2】
 //  申し込みページ（?page=signup）からのPOST送信を受ける。google.script.run が動かないLINEアプリ内ブラウザでも
 //  通常のフォーム送信で確実に申し込めるようにする。action=signup のときだけ submitSignup（12-7e）を呼び、結果ページを返す
+//  本文がJSONで "events" を含む時はLINEからの受信として 12-7d-3（handleLineWebhook_）に渡す
 // ================================================================
 function doPost(e) {
   // LINE Webhook（本文がJSONで events を含む）はLINE処理へ。既存の申込(action=signup)は従来どおり
@@ -2378,6 +2449,7 @@ function cleanupLegacySharedKeys_() {
 //  ①修正用SS（masterSsId）・②客用SS（P-4e）・こちらで作って登録した客SS（ScriptProperties の scriptId_SSのID か
 //  complogin_SSのID がある）だけを正規とする。客がSSを「コピーを作成」したものは登録が無いので正規ではない
 //  isRegisteredSs_ は true/false を返し、assertRegisteredSs_ は正規でなければ例外で止める
+//  masterSsId がまだ保存されていない時（①を一度も開いていない時）は、全SSを正規として扱う。結果は実行中だけ覚えておく
 //  2-2c・2-1a・3-1・14-2b・4-2k・P-5f から呼ばれる
 // ================================================================
 var _regCache_ = {};
@@ -2403,6 +2475,8 @@ function assertRegisteredSs_(ssId) {
 //  状態は syncLicenseStatus_ が ScriptProperties の「license_SSのID」に写す（複数経路で毎回シートを開かず高速に判定するため）。
 //  値は 'stop'（停止）／'exp:YYYY-MM-DD'（期限）で、期限は当日まで有効・翌日からロック。値が無い客は既定でロックしない（正規客を誤って止めないため）。
 //  getLicenseStatus_ は {locked, reason, until} を返し、assertLicense_ はロック時に例外で止める。
+//  syncLicenseStatus_ は見出しが旧名（利用状態・利用期限）なら新名（デモ状況・契約状況）に直し、列が無ければ作る。
+//  停止・期限が外れた客の「license_SSのID」は消す。会社登録F列のURLからSSのIDを取る。
 //  getTargetSS_（2-2c）・requireSheetUi_（P-5f）・buildClientMenu（2-1a）・onEdit（3-1）・14-2b・4-2k・doGet（2-2）から参照される。
 // ================================================================
 var _licCache_ = {};
@@ -2479,10 +2553,10 @@ function syncLicenseStatus_(regSheet) {
 
 
 // ================================================================
-//  2-2h: 停止中の全シート隠し（applyLockdown_ / releaseLockdown_）  【大B / 中2 / 小2-2h】
-//  停止・期限切れの客SSを開いた時、全シートを隠して「🔒利用停止」シートだけ表示し、データを見せない・触らせない。
-//  隠す前に「元から隠れていたシート名」をDocumentPropertiesに控え、解除時はこちらで隠したぶんだけ元に戻す。
-//  buildClientMenu（2-1a・onOpen経由）から、ロック時はapply・解除時はreleaseを呼ぶ。
+//  2-2g-2: 初期設定前の全シート隠し（applySetupLock / releaseSetupLock）  【大B / 中2 / 小2-2g-2】
+//  初期設定が終わっていない③客SSを開いた時、全シートを隠して「⚙️初期設定」シートだけ表示し、初期設定ボタンへ誘導する。
+//  隠す前に「元から隠れていたシート名」をDocumentProperties（SETUP_LOCK_PREHIDDEN）に控え、解除時はこちらで隠したぶんだけ元に戻して「⚙️初期設定」シートを消す。
+//  applySetupLock はスタブの onOpen（初期設定未完了時）から、releaseSetupLock はスタブの初期設定（installTriggers）から呼ばれる。
 // ================================================================
 var SETUP_LOCK_SHEET_ = '⚙️初期設定';
 function applySetupLock(ss) {
@@ -2515,6 +2589,13 @@ function releaseSetupLock(ss) {
   try { ss.deleteSheet(_slk); } catch(e){}
   try { PropertiesService.getDocumentProperties().deleteProperty('SETUP_LOCK_PREHIDDEN'); } catch(e){}
 }
+
+// ================================================================
+//  2-2h: 停止中の全シート隠し（applyLockdown_ / releaseLockdown_）  【大B / 中2 / 小2-2h】
+//  停止・期限切れの客SSを開いた時、全シートを隠して「🔒利用停止」シートだけ表示し、データを見せない・触らせない。
+//  隠す前に「元から隠れていたシート名」をDocumentPropertiesに控え、解除時はこちらで隠したぶんだけ元に戻す。
+//  buildClientMenu（2-1a・onOpen経由）から、ロック時はapply・解除時はreleaseを呼ぶ。
+// ================================================================
 var LOCK_SHEET_NAME_ = '🔒利用停止';
 function applyLockdown_(ss, lic) {
   if (!ss) return;
@@ -2569,7 +2650,8 @@ function showSidebar() {
 
 // ================================================================
 //  2-4: 写真・ファイル取込サイドバー（showUploadSidebar）  【大C / 中2 / 小2-4】
-//  運行シートの行を選択してメニューから起動 → X列（管理データ）に直接アップロード
+//  運行シートの行を選択してメニューから起動 → X列（管理データ）に直接アップロード（複数選択可・20MB超のファイルは飛ばす）
+//  運行シート以外・見出し行・IDが空の行では止めて案内を出す
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showUploadSidebar() {
@@ -2635,7 +2717,9 @@ function showUploadSidebar() {
 // ================================================================
 //  3-1: onEdit本体  【大B / 中3 / 小3-1】
 //  セル編集時にGASが自動実行するシンプルトリガー（イベントオブジェクト e を受け取る）
-//  編集されたシート名を判定し、対応する処理関数へ振り分ける
+//  編集されたシート名を判定し、対応する処理関数へ振り分ける。コピーしたSS・停止/期限切れのSSでは何もしない（2-2f/2-2g）
+//  3-1-1 集計表の編集ブロックと編集範囲の全行の再同期 ／ 3-1-2 運行V列（合計高速）の保護 ／ 3-1-2b 運行Y・Z列（端末）の保護 ／
+//  3-1-3 運行X列（管理データ）のURL変換 ／ 3-1-4 シート別振り分け（自車専属マスタ・PL設定・マスタ・配車板・会社登録・運行）
 //  ※ シンプルトリガーはユーザーの明示的な編集のみ発火し、GASからの書き込みでは発火しない
 // ================================================================
 function onEdit(e) {
@@ -2648,10 +2732,11 @@ function onEdit(e) {
     var row       = range.getRow();
     var ss        = sheet.getParent();
 
-    // ── 3-1-1: 集計表 編集ブロック ──────────────────────────────────
+    // ── 3-1-1: 集計表 編集ブロックと再同期 ──────────────────────────
     // 距離(W=23)・ガソリン代(Y=25)・支払い(AA=27)・備考(AD=30)・その他手当(AI=35)以外の列は直接編集を禁止する
-    // 禁止列が触れられた場合: IDがあれば集計表を再同期して正しい値に戻す
-    //                         IDがなく単一セルなら旧値に戻す
+    // 編集範囲の全行のIDを重複なしで集め、3件までは1行ずつ再同期、4件以上は集計表を一括再生成（4-1）する
+    // 禁止列が触れられた場合: 上記の再同期で正しい値・書式に戻す。IDがなく単一セルなら旧値に戻す
+    // 許可列の入力: 上記の再同期で燃料代・支払い・利益を入力値で計算し直す
     if (sheetName === '集計表' && row > 1) {
       var allowed = [23, 25, 27, 30, 35]; // W=距離, Y=ガソリン代, AA=支払い, AD=備考, AI=その他手当
       var numC = range.getNumColumns(), numR = range.getNumRows();
@@ -2659,17 +2744,30 @@ function onEdit(e) {
       for (var c = 0; c < numC; c++) {
         if (allowed.indexOf(col + c) === -1) { blocked = true; break; }
       }
+      var sumEditIds = [], sumEditSet = {};
+      var sumEditVals = sheet.getRange(row, 1, numR, 1).getValues();
+      for (var se = 0; se < sumEditVals.length; se++) {
+        var seId = String(sumEditVals[se][0] || '').trim();
+        if (seId && !sumEditSet[seId]) { sumEditSet[seId] = true; sumEditIds.push(seId); }
+      }
+      if (sumEditIds.length > 3) {
+        // 順番待ちに入れなかった場合は、あとで反映するリスト（1-4の最後に処理）に入れる
+        if (!generateSummary(ss)) {
+          try {
+            var pdpS = PropertiesService.getDocumentProperties();
+            var pendS = (pdpS.getProperty('PENDING_SUM_IDS') || '').split(',').filter(String);
+            sumEditIds.forEach(function(pid) { if (pendS.indexOf(pid) === -1) pendS.push(pid); });
+            pdpS.setProperty('PENDING_SUM_IDS', pendS.join(','));
+          } catch (pErrS) {}
+        }
+      } else {
+        for (var si = 0; si < sumEditIds.length; si++) delaySyncSummary_(sumEditIds[si], ss);
+      }
       if (blocked) {
-        var bRowId = sheet.getRange(row, 1).getValue();
-        if (bRowId) {
-          delaySyncSummary_(bRowId, ss); // IDあり→再同期で正しい値・書式に戻す
-        } else if (numR === 1 && numC === 1) {
+        if (sumEditIds.length === 0 && numR === 1 && numC === 1) {
           range.setValue(e.oldValue !== undefined ? e.oldValue : '');
         }
         ss.toast('この列は編集できません', '⛔ 保護', 3);
-      } else {
-        var rowId = sheet.getRange(row, 1).getValue();
-        if (rowId) delaySyncSummary_(rowId, ss);
       }
       return;
     }
@@ -2755,12 +2853,15 @@ function onEdit(e) {
 //  ・A列が空で他列にデータがあればV-XXXXのIDを自動生成
 //  ・J列（日付）：M/D入力は今年の日付に変換、時刻が00:00:00なら現在時刻を付加
 //  ・F列（車番）：全角→半角に変換し、自車専属マスタからB〜I列（区分〜看板名）を自動補完
+//    （車番の完全一致か数字部分の一致で探す。マスタの運行状態が故障・待機の車両は使わない。B〜I列に手入力があれば補完しない）
+//  ・J列（日付）変更時は、その乗務員の端末アプリ一覧キャッシュを消してすぐ反映させる
 //  ・V列（合計高速）の数式（請求−実費）を自動セット、T列入力時はU列が空なら同額をオレンジで自動コピー
 //  ・N〜R列・点呼列：時刻の正規化と入力順チェック（点呼前→誘導→積完→休憩開始→休憩終了→点呼後→降完）
 //  ・帳票発行日時列の正規化、行の背景色、金額・時刻書式、J列変更時の並び替え（1-8・1-9）、ID重複チェック（1-7b）
 //  ・集計表への反映は 14-2b（インストール型トリガー）が行う
-//  ・D列（トン数）編集時【3-2-7】: 先頭の数字をD列（t付加・left寄せ）、残りの文字（英字・ひらがな・カタカナ・漢字等）をE列（車種）に分離
-//  ・E列（車種）編集時【3-2-8】: 数字+文字の混合入力はD列にトン数・E列に文字を分離。文字のみは全角英字→半角大文字に統一
+//  ・D列（トン数）編集時【3-2-7】: 先頭の数字をD列（t付加・left寄せ）、残りの文字（英字・ひらがな・カタカナ・漢字等）をE列（車種）に分離。
+//    数字だけ・数字＋単位（t/トン/ton）だけの入力は分離せずトン数にする（例：10→10t）
+//  ・E列（車種）編集時【3-2-8】: 数字+文字の混合入力はD列にトン数・E列に文字を分離（数字＋単位だけは分離しない）。文字のみは全角英字→半角大文字に統一
 // ================================================================
 function onEditUnkou_(sheet, range, ss) {
   var startRow = range.getRow();
@@ -2815,6 +2916,7 @@ function onEditUnkou_(sheet, range, ss) {
 
   // D列(4)=トン数 一括正規化＋車種分離【3-2-7】（D列が編集範囲に含まれる時だけ）
   // 数字部分→D列（t付加）、数字以外の文字部分（英字・ひらがな・カタカナ・漢字問わず）→E列（車種）に分離
+  // 数字だけ・数字＋単位（t/トン/ton）だけの入力は分離せず、そのままトン数として正規化する（例：10→10t、4ton→4t）
   if (startRow >= 2 && editedCol <= 4 && editedEndCol >= 4) {
     var _uTons    = [];
     var _uTypeSep = []; // D列入力から分離したE列値（nullなら上書きしない）
@@ -2822,7 +2924,7 @@ function onEditUnkou_(sheet, range, ss) {
       var _rv = String(_allRowsData[_di][3] || '').trim()
         .replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); })
         .replace(/[ｔＴ]/g, 't');
-      var _ms = _rv.match(/^([\d.]+)(?:[tT]|トン|ｔｏｎ|ton)?\s*(.+)$/);
+      var _ms = _rv.match(/^(?![\d.]+(?:ton|ｔｏｎ|トン|[tT])?$)([\d.]+)(?:ton|ｔｏｎ|トン|[tT])?\s*([^\d.\s].*)$/);
       if (_ms) {
         _uTons.push([_ms[1] + 't']);
         var _sep = _ms[2].trim().replace(/[Ａ-Ｚａ-ｚ]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); }).toUpperCase();
@@ -2847,6 +2949,7 @@ function onEditUnkou_(sheet, range, ss) {
   }
   // E列(5)=車種正規化＋数字+文字混合入力の分離【3-2-8】（E列が編集範囲に含まれる時だけ）
   // 数字部分→D列（t付加）、文字部分→E列。文字のみ入力は全角英字→半角大文字に統一してE列に残す
+  // 数字だけ・数字＋単位だけの入力は分離しない（E列にそのまま残す）
   if (startRow >= 2 && editedCol <= 5 && editedEndCol >= 5) {
     var _eNewTons  = []; // E列入力から分離したD列値（nullなら書き込まない）
     var _eNewTypes = [];
@@ -2855,7 +2958,7 @@ function onEditUnkou_(sheet, range, ss) {
       var _etv = String(_allRowsData[_ei][4] || '').trim()
         .replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); })
         .replace(/[ｔＴ]/g, 't');
-      var _ems = _etv.match(/^([\d.]+)(?:[tT]|トン|ｔｏｎ|ton)?\s*(.+)$/);
+      var _ems = _etv.match(/^(?![\d.]+(?:ton|ｔｏｎ|トン|[tT])?$)([\d.]+)(?:ton|ｔｏｎ|トン|[tT])?\s*([^\d.\s].*)$/);
       if (_ems) {
         _eNewTons.push(_ems[1] + 't');
         var _eTyp = _ems[2].trim().replace(/[Ａ-Ｚａ-ｚ]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); }).toUpperCase();
@@ -2982,7 +3085,7 @@ function onEditUnkou_(sheet, range, ss) {
                 mData[m2][2], mData[m2][3], mData[m2][5], mData[m2][6],
                 masterCar, mData[m2][8], mData[m2][9], mData[m2][4]
               ]]);
-              // 以降の処理がバグらないようメモリ上の配列も同期する
+              // 以降の処理が正しい値を使うよう、メモリ上の配列も同じ値にそろえる
               rowData[1] = mData[m2][2]; rowData[2] = mData[m2][3];
               rowData[3] = mData[m2][5]; rowData[4] = mData[m2][6];
               rowData[5] = masterCar;    rowData[6] = mData[m2][8];
@@ -3136,7 +3239,7 @@ function onEditUnkou_(sheet, range, ss) {
 
 
 // ================================================================
-//  3-2b: 自車専属マスタ車種列の大文字・半角一括クレンジング（cleanMasterCarType）
+//  3-2b: 自車専属マスタ車種列の大文字・半角一括クレンジング（cleanMasterCarType）  【大C / 中3 / 小3-2b】
 //  1回限りの手動実行用。G列（車種）を大文字・半角に統一する。
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
@@ -3187,6 +3290,7 @@ function onEditPlSettings_(sheet, range) {
 //  ・トン数・燃費を設定シートの定義に合わせて正規化
 //  ・自車専属運行シートを自動更新
 //  ・給料と%は片方を入力するともう片方を消す（仮日数はどちらとも併用可）
+//  ・Q列（高速を引く）に丸の記号（○◯⭕◎●）を入れたら正しい「〇」に自動変換（判定は1-1e）
 //  ・同じ車番・乗務員名の集計表の行を即同期し、経費列（Q〜AE）を手入力したら文字色を黒に戻す
 // ================================================================
 function onEditMasterVehicle_(sheet, range, ss) {
@@ -3227,6 +3331,20 @@ function onEditMasterVehicle_(sheet, range, ss) {
       rowBgColors.push(Array(lastCol).fill(bg));
     }
     sheet.getRange(startRow, 1, numRows, lastCol).setBackgrounds(rowBgColors);
+  }
+
+  // Q列（高速を引く）を入力したら、丸の記号（1-1e）を正しい「〇」に自動変換する
+  if (startRow + numRows - 1 >= 2 && editedStartCol <= 17 && editedEndCol >= 17 &&
+      String(sheet.getRange(1, 17).getValue() || '').trim() === '高速を引く（引くは〇、引かないは空欄）') {
+    var _qS = Math.max(startRow, 2), _qN = startRow + numRows - _qS;
+    var _qVals = sheet.getRange(_qS, 17, _qN, 1).getValues();
+    var _qChg = false;
+    var _qNew = _qVals.map(function(r) {
+      var qv = String(r[0] == null ? '' : r[0]).trim();
+      if (qv !== '〇' && isTollDeductMark_(qv)) { _qChg = true; return ['〇']; }
+      return [r[0]];
+    });
+    if (_qChg) sheet.getRange(_qS, 17, _qN, 1).setValues(_qNew);
   }
 
   // 設定シートからトン数→燃費マップを取得（正規化: 全角数字→半角, 大文字小文字統一, 't'有無両対応）
@@ -3320,7 +3438,7 @@ function onEditMasterVehicle_(sheet, range, ss) {
     })();
     sheet.getRange(row, 17).setBackground(rowBg2);
 
-    // 経費列（Q=17〜AE=31）を手入力したら文字色を黒にリセット（自動入力の赤を解除）
+    // 経費列（Q=17〜AE=31）を手入力したら文字色を黒にリセット（自動入力の緑を解除）
     var expS = Math.max(editedStartCol, 17);
     var expE = Math.min(editedEndCol, 31);
     if (expS <= expE) {
@@ -3502,7 +3620,8 @@ function syncVehicleToCurrentMonth_(veh, skipSort, applyDate, ss) {
 
 // ================================================================
 //  3-3c: 全車両を今月分に同期（syncAllVehiclesToCurrentMonth_）  【大B / 中3 / 小3-3c】
-//  expandAndRefreshSheets から呼ばれる全車両一括同期
+//  自車専属マスタの全車両を3-3bで今月分に同期し、最後に並び替え（1-8）・色付け（1-7）・集計表の整合（1-4）を1回だけ行う
+//  現在コード・メニューからの呼び出し元はない
 // ================================================================
 function syncAllVehiclesToCurrentMonth_() {
   var ss     = SpreadsheetApp.getActiveSpreadsheet();
@@ -3557,9 +3676,10 @@ function onEditMasterCustomer_(sheet, range) {
 //  3-5: 配車板編集時の処理（onEditJoho_）  【大B / 中3 / 小3-5】
 //  配車板シートでセルを編集した際に自動実行される内部関数。
 //  ① 進捗色：貨物(A〜N)はB列、車両(O〜AC)はP列で色分け（確定=黄/両側確定=ピンク/キャンセル・終了=グレー/それ以外=白）
-//  　トン数(H・V列)を正規化、金額(L・AA列)に #,##0 書式、B列/P列が「確定」になったら 3-5a で運行シートに登録
+//  　トン数(H・V列)を正規化、金額(L・AA列)に #,##0 書式。複数列をまとめて貼った時はここで終わる
+//  　B列/P列を1セルだけ「確定」にし、登録ID（貨物N列／車両AC列）がまだ無ければ 3-5a で運行シートに登録
 //  ② C列（会社名・貨物）変更 → 取引先マスタを検索しTEL(D列)・FAX(E列)を自動入力
-//  ③ Q列（会社名・車両）変更 → 自車専属マスタ→取引先マスタの順で検索しTEL(R列)・FAX(S列)を自動入力
+//  ③ Q列（会社名・車両）変更 → TELは自車専属マスタの携帯番号を優先し、無ければ取引先マスタの電話。FAX(S列)は取引先マスタから自動入力
 //
 //  M&A向け補足: このトリガーにより「手入力ゼロ」の配車受付が実現できる。
 //              貨物側は取引先マスタ（荷主情報）、車両側は自社車両マスタから
@@ -4026,16 +4146,19 @@ function matchAndConfirmDispatchFromApp(ssId, resolvedType, token) {
 //  ・引数extraOld指定時は、既存集計表にないIDの手入力値をextraOldから引き継ぐ（1-4の欠落行復元で使用）
 //
 //  処理の流れ：
-//  ① 設定シート → トン数ごとの燃費をマップ化
-//  ② 自車専属マスタ → 車番+乗務員名ごとの仮日数/給料/%をマップ化
+//  ① 設定シート → トン数ごとの燃費（未登録・空・0のトン数は3）と有休日額を取得
+//  ② 自車専属マスタ → 車番+乗務員名ごとの仮日数/給料/%/高速を引く/月間経費合計/担当管理者をマップ化
 //  ③ 既存の集計表 → 手入力値（距離・ガソリン代・支払・備考・仮日数等）を退避
 //  ④ 運行シートをID単位で集約（同IDの複数行は売上/高速合算・時刻は先勝ち）
 //  ⑤ 集計表を全クリアして新しいデータを書き込み
-//  ⑥ 合計(高速代)V＝請求−実費・支払い・利益AC＝売上＋V−(燃料代＋支払＋経費)を値で計算し、燃料代Z列のみ数式
+//  ⑥ 合計(高速代)V＝請求−実費・支払い・利益AC（自車専属マスタにある行は売上＋V−(燃料代＋支払＋経費＋有休手当)、ない行は売上−支払）を値で計算し、燃料代Z列のみ数式
+//     支払い：%あり→（売上＋V※）×%÷100（※自車専属マスタ「高速を引く」が丸の記号（1-1e）の時だけVを足す）／%なし・給料と仮日数あり→給料÷仮日数（休みの日は0円）／どちらもなし→手入力値を保持
+//     有休の日：支払いは0円（%方式・給料方式とも）、有休手当AHに設定シートの有休日額を入れる
 //  ⑦ 時刻の間隔異常を色で警告（積完〜休憩4時間超=黄 / 休憩30分未満=水 / 休憩後〜点呼後4時間超=黄）
 //  ⑧ 利益マイナスの行を薄赤、拘束13時間超をオレンジ、支払条件不備・経費空欄をグレーで着色
 //  ⑨ 月締めロック（そのSSの recalcFromDate_SSID）より前の行は旧集計表の支払条件・経費を維持
-//  ⑩ 運行シートX列の旧URL形式をリッチテキストに変換（4-1b）し、色付け（1-7）・フィルター再作成を行う
+//  ⑩ 運行シートX列の旧URL形式をリッチテキストに変換（4-1b）し、色付け（1-7）・フィルター再作成を行う。
+//     最後に月締めの「いつから？」確認（recalcFromDateSet_SSのID）を消し、次のマスタ編集時に再び聞くようにする
 //  ・支払いは本体内で計算する（4-4 は呼ばない）
 //  ・1-1b（SS単位ロック）の順番待ちに入ってから本体（4-1a）を実行する（最大30秒待機）
 //    待ちきれなかった場合は中止してエラー記録・画面通知を出し、false を返す
@@ -4249,24 +4372,27 @@ function generateSummaryCore_(ss, extraOld) {
     if (useOld_ && old.expense !== undefined && old.expense !== '') {
       gExpense = old.expense;
     }
-    // V/Z/支払/利益を値で計算（数式廃止でフィルター時のズレを防止）
+    // V/Z/支払/利益を値で計算（数式ではなく値にすることで、フィルター時に行がずれない）
     var vRow = (g.tollReq === 0 && g.tollReal === 0) ? '' : (Number(g.tollReq)||0)-(Number(g.tollReal)||0); // 合計(高速代)=請求−実費
     var zRow = old.distance ? Math.round(Number(old.distance)/Number(fuel)*(Number(old.gas)||0)) : '';
     var pctNumG = Number(pct)||0, kyuryoNumG = Number(kyuryo)||0, kariNumG = Number(kari)||0;
     var thisTollG = (Number(g.tollReal)||0)-(Number(g.tollReq)||0);
-    var payRow, yukyuRow = gIsYukyu ? yukyuRate : '';
+    var payRow, yukyuRow = gIsYukyu ? yukyuRate : '';  // 有休の日は方式を問わず有休手当（設定シートの有休日額）を入れる
     if (pctNumG > 0) {
-      var deductTollG = (pc.tollDeduct === '○') ? thisTollG : 0;
-      payRow = Math.round(((Number(g.sales)||0)-deductTollG)*pctNumG/100);
+      var deductTollG = isTollDeductMark_(pc.tollDeduct) ? thisTollG : 0;  // 高速を引く：丸の記号なら引く（1-1e）
+      payRow = gIsYukyu ? 0 : Math.round(((Number(g.sales)||0)-deductTollG)*pctNumG/100);  // 有休の日は支払い0円（有休手当だけ）
     } else if (kyuryoNumG > 0 && kariNumG > 0) {
-      payRow = gIsYasumi ? -Math.round(kyuryoNumG/kariNumG) : Math.round(kyuryoNumG/kariNumG);
+      payRow = (gIsYasumi || gIsYukyu) ? 0 : Math.round(kyuryoNumG/kariNumG);  // 休み・有休の日は0円（給料÷仮日数×実働日数。有休は有休手当だけ）
     } else {
       payRow = old.pay || '';
     }
     var vNG = typeof vRow==='number'?vRow:0, zNG = typeof zRow==='number'?zRow:0;
     var payNG = typeof payRow==='number'?payRow:(Number(old.pay)||0);
-    var salesNG = Number(g.sales)||0, expNG = Number(gExpense)||0;
-    var acRow = (!salesNG&&!vNG&&!zNG&&!payNG&&!expNG) ? '' : salesNG+vNG-(zNG+payNG+expNG);
+    var salesNG = Number(g.sales)||0, expNG = Number(gExpense)||0, ykNG = Number(yukyuRow)||0;
+    // 利益：自車専属マスタにある行は 売上＋合計(高速代)−(燃料代＋支払い＋経費＋有休手当)、ない行は 売上−支払い（高速代は入れない）
+    var acRow = hasMasterG
+      ? ((!salesNG&&!vNG&&!zNG&&!payNG&&!expNG&&!ykNG) ? '' : salesNG+vNG-(zNG+payNG+expNG+ykNG))
+      : ((!salesNG&&!payNG) ? '' : salesNG-payNG);
     // 点呼前後完了を Date に正規化（文字列・全角コロン対応）して集計表に書き込む
     var iBefore_g = normInspTime_(g.inspBefore, g.date);
     var iAfter_g  = normInspTime_(g.inspAfter,  g.date);
@@ -4332,12 +4458,8 @@ function generateSummaryCore_(ss, extraOld) {
     var bgColors_ = [];
     for (var row = 2; row <= outRows.length; row++) {
       var g2      = idMap[idOrder[row-2]];
-      var rowVN   = typeof outRows[row-1][21]==='number' ? outRows[row-1][21] : 0;
-      var rowZN   = typeof outRows[row-1][25]==='number' ? outRows[row-1][25] : 0;
-      var rowPayN = typeof outRows[row-1][26]==='number' ? outRows[row-1][26] : 0;
-      var rowExpN = Number(outRows[row-1][27])||0;
-      var calcProfit = (Number(g2.sales)||0)+rowVN-(rowZN+rowPayN+rowExpN);
-      var rowRed = calcProfit < 0 ? '#ffebee' : null;
+      var rowAcN  = outRows[row-1][28];  // 上で計算した利益AC
+      var rowRed = (typeof rowAcN === 'number' && rowAcN < 0) ? '#ffebee' : null;
       var rowBg_ = [];
       for (var c_ = 0; c_ < 40; c_++) rowBg_.push(rowRed);   // base: 全40列
       rowBg_[14] = rowRed; rowBg_[15] = rowRed; rowBg_[16] = rowRed; rowBg_[17] = rowRed; // 15-18上書き
@@ -4456,10 +4578,15 @@ function migrateSummaryTollSign_(ss) {
 
 // ================================================================
 //  4-2: 集計表をID単位で同期（syncSummaryForId_）  【大B / 中4 / 小4-2】
-//  運行シートから対象IDのデータを集計し集計表の該当行を更新する
+//  運行シートから対象IDのデータを集計し集計表の該当行を更新する（集計表が無い・空なら4-1で全体を作り直す）
+//  ・設定シート（燃費・有休日額）は5分、自車専属マスタ（支払条件）は1分キャッシュする（マスタ編集時は3-3がキャッシュを消す）
 //  ・AE〜AG列（仮日数・給料・%）はマスタから引き当て、手入力列（距離・ガソリン代・支払・備考・その他手当）は保持
 //  ・色（利益マイナス・時刻間隔・拘束13時間超・支払条件不備）を再適用、重複行を削除、運行にないIDは行を削除
 //  ・燃料代Z列のみ数式、合計(高速代)V（請求−実費）・支払・利益ACは値で書き込む
+//  ・利益AC：自車専属マスタにある行は売上＋V−(燃料代＋支払＋経費＋有休手当)、ない行は売上−支払（高速代は入れない）
+//  ・支払い：%あり→（売上＋V※）×%÷100（※自車専属マスタ「高速を引く」が丸の記号（1-1e）の時だけVを足す）／%なし・給料と仮日数あり→給料÷仮日数（休みの日は0円）／どちらもなし→既存値を保持
+//  ・有休の日：支払いは0円（%方式・給料方式とも）、有休手当AHに設定シートの有休日額を入れる
+//  ・集計表の行番号と手入力値の読み取りから書き込み・色付け・重複削除の最後までを、1-1b の順番待ちの中で行う（待っている間に行が動いても、待った後に読むので別の行に書かない）
 //  ・ロック待ちで同期できなかったIDはPENDING_SUM_IDSに記録し、1-4の最後にまとめて同期する
 // ================================================================
 function syncSummaryForId_(targetId, ss) {
@@ -4557,6 +4684,22 @@ function syncSummaryForId_(targetId, ss) {
     applyDateTimeFormat_(unkouSheet, minR, maxR - minR + 1);
   }
 
+  // 集計表の行番号・手入力値の読み取りから書き込みの最後までを、1-1b の順番待ちの中で行う
+  // （待っている間に並び替え・再生成で行が動いても、待った後に読み直すので別の行に書かない）
+  var sumInsLock = getSsLock_();
+  try {
+    sumInsLock.waitLock(10000);
+  } catch(e) {
+    logError_('syncSumSheet_', 'ロック取得に失敗しました（タイムアウト）');
+    try {
+      var pdp = PropertiesService.getDocumentProperties();
+      var pend = (pdp.getProperty('PENDING_SUM_IDS') || '').split(',').filter(String);
+      if (pend.indexOf(String(targetId)) === -1) pend.push(String(targetId));
+      pdp.setProperty('PENDING_SUM_IDS', pend.join(','));
+    } catch(pErr) {}
+    throw new Error('現在他の処理が実行中です。しばらく待ってから再度お試しください。');
+  }
+  try {
   var sumLast = sumSheet.getLastRow();
   var sumRow  = 0;
   var keepDistance='', keepGas='', keepPay='', keepMemo='';
@@ -4644,51 +4787,30 @@ function syncSummaryForId_(targetId, ss) {
     iBefore_s ? (pc.manager || '') : '', iAfter_s ? (pc.manager || '') : ''  // 点呼前担当者, 点呼後担当者（時刻あり時のみ）
   ];
 
-  // LockServiceで並行実行による集計表重複挿入を防止
-  // _lockAcq_ フラグで「ロック取得できた場合のみ release」にし、
-  // waitLock タイムアウト時の releaseLock() 例外による途中終了を防ぐ
-  var sumInsLock = getSsLock_();
-  var _lockAcq_ = false;
-  try {
-    sumInsLock.waitLock(10000);
-    _lockAcq_ = true;
-  } catch(e) {
-    logError_('syncSumSheet_', 'ロック取得に失敗しました（タイムアウト）');
-    try {
-      var pdp = PropertiesService.getDocumentProperties();
-      var pend = (pdp.getProperty('PENDING_SUM_IDS') || '').split(',').filter(String);
-      if (pend.indexOf(String(targetId)) === -1) pend.push(String(targetId));
-      pdp.setProperty('PENDING_SUM_IDS', pend.join(','));
-    } catch(pErr) {}
-    throw new Error('現在他の処理が実行中です。しばらく待ってから再度お試しください。');
+  // 順番待ちの中で、書く直前に同じIDの行を探し直す（行が動いていても今の行に書く。新規なら最終行の次に足す）
+  sumRow = 0;
+  if (sumSheet.getLastRow() >= 2) {
+    var recheckIds = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 1).getValues();
+    for (var rc = 0; rc < recheckIds.length; rc++) {
+      if (String(recheckIds[rc][0]).trim() === String(targetId).trim()) {
+        sumRow = rc + 2;
+        break;
+      }
+    }
   }
-  try {
-    // ロック取得後に再度同IDが存在しないか確認（並行実行で先に挿入された場合の対策）
-    if (sumRow === 0 && sumSheet.getLastRow() >= 2) {
-      var recheckIds = sumSheet.getRange(2, 1, sumSheet.getLastRow()-1, 1).getValues();
-      for (var rc = 0; rc < recheckIds.length; rc++) {
-        if (String(recheckIds[rc][0]).trim() === String(targetId).trim()) {
-          sumRow = rc + 2;
-          break;
-        }
-      }
+  if (sumRow > 0) {
+    sumSheet.getRange(sumRow, 1, 1, 40).setValues([rowData]);
+    SpreadsheetApp.flush();
+  } else {
+    sumRow = sumSheet.getLastRow()+1;
+    if (sumRow === 1) {
+      var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考','仮日数','給料','％','有休手当','その他手当','点呼前完了','点呼後完了','拘束時間(h)','点呼前担当者','点呼後担当者'];
+      sumSheet.getRange(1, 1, 1, 40).setValues([hdr]);
+      sumSheet.setFrozenRows(1);
+      sumRow = 2;
     }
-    if (sumRow > 0) {
-      sumSheet.getRange(sumRow, 1, 1, 40).setValues([rowData]);
-      SpreadsheetApp.flush();
-    } else {
-      sumRow = sumSheet.getLastRow()+1;
-      if (sumRow === 1) {
-        var hdr = ['ID','区分','会社名','トン数','車種','車番','乗務員名','携帯番号','看板名','日付','荷主','積地','降地','誘導時刻','積完時刻','休憩開始','休憩終了','降完時刻','売上','請求(高速代)','実費(高速代)','合計(高速代)','距離','燃費','ガソリン代','燃料代','支払い','経費合計','利益','備考','仮日数','給料','％','有休手当','その他手当','点呼前完了','点呼後完了','拘束時間(h)','点呼前担当者','点呼後担当者'];
-        sumSheet.getRange(1, 1, 1, 40).setValues([hdr]);
-        sumSheet.setFrozenRows(1);
-        sumRow = 2;
-      }
-      sumSheet.getRange(sumRow, 1, 1, 40).setValues([rowData]);
-      SpreadsheetApp.flush();
-    }
-  } finally {
-    if (_lockAcq_) sumInsLock.releaseLock();
+    sumSheet.getRange(sumRow, 1, 1, 40).setValues([rowData]);
+    SpreadsheetApp.flush();
   }
 
   var vSyncVal = (g.tollReq === 0 && g.tollReal === 0) ? '' : (Number(g.tollReq)||0)-(Number(g.tollReal)||0); // 合計(高速代)=請求−実費
@@ -4711,22 +4833,26 @@ function syncSummaryForId_(targetId, ss) {
   var yukyuVal = '';
   var finalPaySync = null;
   if (pctNum > 0) {
-    var tollDeductS = (pc.tollDeduct === '○') ? thisToll : 0;
-    finalPaySync = Math.round(((Number(g.sales) || 0) - tollDeductS) * pctNum / 100);
+    var tollDeductS = isTollDeductMark_(pc.tollDeduct) ? thisToll : 0;  // 高速を引く：丸の記号なら引く（1-1e）
+    finalPaySync = sIsYukyu ? 0 : Math.round(((Number(g.sales) || 0) - tollDeductS) * pctNum / 100);  // 有休の日は支払い0円（有休手当だけ）
     payCell.setValue(finalPaySync);
-    if (sIsYukyu) yukyuVal = yukyuRate;
   } else if (kyuryoNum > 0 && kariNum > 0) {
     var dailyPay = Math.round(kyuryoNum / kariNum);
-    finalPaySync = sIsYasumi ? -dailyPay : dailyPay;
+    finalPaySync = (sIsYasumi || sIsYukyu) ? 0 : dailyPay;  // 休み・有休の日は0円（給料÷仮日数×実働日数。有休は有休手当だけ）
     payCell.setValue(finalPaySync);
   }
+  if (sIsYukyu) yukyuVal = yukyuRate;  // 有休の日は方式を問わず有休手当（設定シートの有休日額）を入れる
   // AC(29)=利益
   var vSN = typeof vSyncVal==='number' ? vSyncVal : 0;
   var zSN = (Number(keepDistance) > 0 && Number(fuel) > 0 && Number(keepGas) > 0)
     ? Math.round(Number(keepDistance) / Number(fuel) * Number(keepGas)) : 0;
   var resolvedPaySync = finalPaySync !== null ? finalPaySync : (Number(keepPay)||0);
   var salesSync = Number(g.sales)||0;
-  var acSyncVal = (!salesSync&&!vSN&&!zSN&&!resolvedPaySync&&!expenseVal) ? '' : salesSync+vSN-(zSN+resolvedPaySync+(Number(expenseVal)||0));
+  var ykSN = Number(yukyuVal)||0;
+  // 利益：自車専属マスタにある行は 売上＋合計(高速代)−(燃料代＋支払い＋経費＋有休手当)、ない行は 売上−支払い（高速代は入れない）
+  var acSyncVal = hasMaster
+    ? ((!salesSync&&!vSN&&!zSN&&!resolvedPaySync&&!expenseVal&&!ykSN) ? '' : salesSync+vSN-(zSN+resolvedPaySync+(Number(expenseVal)||0)+ykSN))
+    : ((!salesSync&&!resolvedPaySync) ? '' : salesSync-resolvedPaySync);
   sumSheet.getRange(sumRow, 29).setValue(acSyncVal);
   sumSheet.getRange(sumRow, 34).setValue(yukyuVal);
   // ── 背景色を1配列に積んで1回のsetBackgroundsで書き込む（API呼び出しを削減）──
@@ -4782,6 +4908,9 @@ function syncSummaryForId_(targetId, ss) {
         sumSheet.deleteRow(di + 2);
       }
     }
+  }
+  } finally {
+    sumInsLock.releaseLock();
   }
 }
 
@@ -4878,8 +5007,9 @@ function ensureSettingItems_(ss) {
 //  4-2b: 運行シートのID・車番一括補完（fillMissingIdsAndCars）  【大C / 中4 / 小4-2b】
 //  行程を一括追加したあとにIDや車番が空のまま残っている行を一括補完する
 //  ・A列が空でB〜K列にデータがあれば V-XXXX 形式のIDを自動採番
-//  ・F(車番)か G(乗務員名) の片方が空の場合、自車専属マスタから補完
-//  ・集計表を一括再同期して反映
+//  ・F(車番)か G(乗務員名) の片方が空の場合、もう片方で自車専属マスタを探して補完（故障・待機の車両は使わない）。
+//    あわせて空の区分・会社名・トン数・車種・携帯番号・看板名もマスタの値で埋める
+//  ・集計表を一括再同期して反映し、運行シートの日付順並び替え（1-8）と色付け（1-7）を行い、件数を表示する
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function fillMissingIdsAndCars() {
@@ -5496,7 +5626,8 @@ function onStructureChange_(e) { dispatchStructureChange(e); }
 
 // ================================================================
 //  4-2l: シート追加保護の解除（setNoSheetGuard_）  【大C / 中4 / 小4-2l】
-//  このSSのシート追加保護を解除する（DocumentProperties の __NO_SHEET_GUARD__ を設定）
+//  DocumentProperties に __NO_SHEET_GUARD__=true を書いてトーストを出すだけ。今はこの値を読む処理も呼び出し元も無いため、
+//  実際にはシート追加保護（4-2k が②③で常に行う）は解除されない
 // ================================================================
 function setNoSheetGuard_() {
   PropertiesService.getDocumentProperties().setProperty('__NO_SHEET_GUARD__', 'true');
@@ -5594,14 +5725,17 @@ function backupAllSheets() {
 
 // ================================================================
 //  4-3: シート再生成（expandAndRefreshSheets）  【大B / 中4 / 小4-3】
-//  メニューの「シート再生成」から呼び出す
+//  メニューの「シート再生成」から呼び出す。集計表を含む全シートを正しい状態にする（集計表再生成は集計表だけ）
 //  ・自車専属マスタに仮日数/給料/%列がなければ追加
 //  ・自車専属マスタに15経費列がなければ追加（按分計算用）
 //  ・自車専属運行シートをマスタから再生成（15列対応）
-//  ・末尾で initImportDictionary_（辞書v10更新）・createImportTestSheetUnkou（初回のみテストシート生成）を実行
+//  ・末尾で initImportDictionary_（取込辞書の更新）・createImportTestSheetUnkou（初回のみテストシート生成）・
+//    createDummyUnkouSheet_（ダミー運行シート）・シート並び順（4-2j）・集計表の作り直し（4-1。支払い・利益なども計算し直す）を実行し、
+//    完了を表示する（集計表が別の処理中で作り直せなかった時はその旨も表示）
 //  ・ほかに：対象シートの列順復元・見出し復旧（4-2e）、自車専属マスタの列整備（高速を引く・コンプラ4列・担当管理者）、
 //    管理者シート作成、燃費再計算、運行/集計表の点呼列追加、取引先メール列、点検項目（4-2a）、配車板の作成・移行、
-//    トン数・車種の一括正規化、色付け（8-6a-1・1-7）、シート並び順（4-2j）
+//    自社設定シートの補完、テスト用マスタ（①のみ）、自車専属運行の更新（4-5）、配車板の色の付け直し（3-5b）、隠しシートの整理、
+//    運行・自車専属マスタのトン数・車種の一括正規化、色付け（8-6a-1・1-7）
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function expandAndRefreshSheets() {
@@ -5666,7 +5800,7 @@ function expandAndRefreshSheets() {
     var oldIdx = mTollHeaders.indexOf(tollOldName);  // 0-based
 
     if (newIdx >= 0 && oldIdx >= 0) {
-      // 新旧両方ある（前回の誤追加）→ 余分な列（後のほう）を削除して名称統一
+      // 新旧両方の列がある時は、余分な列（後のほう）を削除して名称を統一
       var delCol = Math.max(newIdx, oldIdx) + 1; // 1-based
       masterSheet.deleteColumn(delCol);
       // 残った方が旧名称なら新名称にリネーム
@@ -5713,7 +5847,7 @@ function expandAndRefreshSheets() {
     }
   }
 
-  // コンプライアンス4列・担当管理者の重複列を後方から自動削除（ensureSettingItems_の多重実行で生じた二重追加を修正）
+  // コンプライアンス4列・担当管理者の列が重複していたら、後ろのほうを自動削除して1列にする
   if (masterSheet) {
     var _dedupTargets = ['免許証有効期限','安全教育次回予定日','健康診断次回予定日','適性診断次回予定日','担当管理者'];
     var _dedupFound = true;
@@ -6109,13 +6243,14 @@ function expandAndRefreshSheets() {
   createImportTestSheetUnkou();
   createDummyUnkouSheet_();
   arrangeSheetsOrder_(ss);
-  getUiOrWeb_().alert('シート再生成が完了しました。');
+  var regenSumOk = generateSummary(ss);  // 集計表も作り直す（4-1）。利益など値で書く列もここで計算し直す
+  getUiOrWeb_().alert(regenSumOk ? 'シート再生成が完了しました。' : 'シート再生成が完了しました。（集計表は別の処理中のため作り直せませんでした。もう一度押してください）');
 }
 
 
 // ================================================================
-//  4-3c: 配車板 列ズレ修復（repairJohoSheet）  【大B / 中4 / 小4-3c】
-//  移行コードの誤実行により配車板のO〜AC列が1つ右にズレた場合の修復関数
+//  4-3a: 配車板 列ズレ修復（repairJohoSheet）  【大B / 中4 / 小4-3a】
+//  配車板のO〜AC列（車両側）が1つ右にずれている時に元へ戻す修復関数
 //  P列(16)にbool値(TRUE/FALSE)が入っていれば列ズレと判定し、左に1シフトして元に戻す
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
@@ -6178,8 +6313,9 @@ function repairJohoSheet() {
 
 
 // ================================================================
-//  4-3a-2: PL按分列を全行自動更新（refreshPlApportionColumn_）  【大B / 中4 / 小4-3a-2】
-//  自車専属マスタのB列（状態）変更時にonEditから呼ばれ、AG列の按分額を全行再計算する
+//  4-3b: PL按分列を全行自動更新（refreshPlApportionColumn_）  【大B / 中4 / 小4-3b】
+//  PL設定の月額合計を運行中の台数で割り、自車専属マスタのPL設定按分（参照）列（車両リース代の列＋15）を全行書き直す
+//  現在コードからの呼び出し元はない
 // ================================================================
 function refreshPlApportionColumn_(ss, sheet) {
   var plSh = ss.getSheetByName('PL設定');
@@ -6235,12 +6371,13 @@ function refreshPlApportionColumn_(ss, sheet) {
 
 
 // ================================================================
-//  4-3b: 経費自動入力（autoFillExpense）  【大B / 中4 / 小4-3b】
+//  4-3c: 経費自動入力（autoFillExpense）  【大B / 中4 / 小4-3c】
 //  自車専属マスタで選択中の行（管理画面ではタップした行・P-5d）のトン数（F列）を読み
-//  トン数別平均値を15経費列（Q〜AE列）に一括セットする
-//  ・平均値セル → 文字色を赤にして「自動入力」とわかるようにする
-//  ・手入力済みセル（文字色が黒/null）は上書きしない
-//  ・トン数不明は4トンを使うか確認（1〜30t対応）
+//  トン数別平均値（1〜30t）を15経費列（「車両リース代」の列から15列）に一括セットする
+//  ・平均値セル → 文字色を緑にして「自動入力」とわかるようにする（手で直すと3-3で黒に戻る）
+//  ・手入力済みセル（緑以外の文字色で値あり）がある時は「全部上書き／手入力は残す／中止」を確認する
+//  ・トン数不明は4トンを使うか確認し、使わない行は飛ばす
+//  ・PL設定の月額合計（PL含入がFALSEの費目は除く）を運行中の台数で割り、PL設定按分（参照）列に書く（運行以外の行は消す）
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function autoFillExpense() {
@@ -6459,17 +6596,26 @@ function autoFillExpense() {
 // ================================================================
 //  4-4: 支払い再計算（calculatePaymentAmount）  【大B / 中4 / 小4-4】
 //  集計表のAE列(仮日数)・AF列(給料)・AG列(%)からAA列(支払い)を計算し、有休手当(AH)・利益(AC)も書き込む
-//  ・パターンA: %あり → 売上×%/100（「高速を引く」=○の車両は（売上＋合計(高速代)）×%/100、合計(高速代)＝請求−実費）
-//  ・パターンB: %なし・給料と仮日数あり → 給料÷仮日数
-//              片方欠け → 欠けているセルを赤警告
-//  ・パターンC: 条件なし → Y列が空なら赤警告（手入力値は保持）
+//  ・利益(AC)：自車専属マスタにある行は売上＋合計(高速代)−(燃料代＋支払い＋経費＋有休手当)、ない行は売上−支払い（高速代は入れない）
+//  ・1行同期（4-2）・再生成（4-1）・並び替え（1-9）と同じ順番待ち（1-1b）の中で読み書きする（取込（16章）から呼ぶ時は呼び出し元が順番待ち中）
+//  ・パターンA: %あり → 売上×%/100（「高速を引く」が丸の記号（1-1e）の車両は（売上＋合計(高速代)）×%/100、合計(高速代)＝請求−実費）
+//  ・パターンB: %なし・給料と仮日数あり → 給料÷仮日数（休みの日は0円）
+//              片方欠け → 欠けているセル（仮日数AE・給料AF）を赤警告（支払いは手入力値を保持）
+//  ・パターンC: 条件なし → 支払い（AA列）が空なら赤警告（手入力値は保持）
+//  ・有休の日：支払いは0円（パターンA・Bとも）、有休手当(AH)に設定シートの有休日額を入れる
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
-function calculatePaymentAmount(companySsId) {
+function calculatePaymentAmount(companySsId, lockHeld) {
   requireSheetUi_();
   var ss    = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName('集計表');
   if (!sheet) return;
+  // 1行同期（4-2）・再生成（4-1）・並び替え（1-9）と同じ順番待ち（1-1b）に入ってから読み書きする（呼び出し元が順番待ち中なら lockHeld=true）
+  var payLock = lockHeld ? null : getSsLock_();
+  if (payLock) {
+    try { payLock.waitLock(30000); } catch(lErr) { logError_('calculatePaymentAmount', 'ロック取得失敗'); return; }
+  }
+  try {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
 
@@ -6483,19 +6629,19 @@ function calculatePaymentAmount(companySsId) {
     }
   }
 
-  // 自車専属マスタから 車番+乗務員名 → 高速を引く 設定を取得
+  // 自車専属マスタから 車番+乗務員名 → 高速を引く 設定と、マスタにある車番+乗務員名の一覧を取得
   var tollDeductMap = {};
+  var masterKeyMap  = {};
   var masterForCalc = ss.getSheetByName('自車専属マスタ');
   if (masterForCalc && masterForCalc.getLastRow() >= 2) {
     var mcReadCols = Math.max(masterForCalc.getLastColumn(), 31);
     var mcHdr = masterForCalc.getRange(1, 1, 1, mcReadCols).getValues()[0];
     var mcHasToll = String(mcHdr[16]||'').trim() === '高速を引く（引くは〇、引かないは空欄）';
-    if (mcHasToll) {
-      var mcData = masterForCalc.getRange(2, 1, masterForCalc.getLastRow()-1, mcReadCols).getValues();
-      for (var mc = 0; mc < mcData.length; mc++) {
-        var mcKey = String(mcData[mc][7]||'').trim() + '_' + String(mcData[mc][8]||'').trim();
-        tollDeductMap[mcKey] = String(mcData[mc][16] || '').trim();
-      }
+    var mcData = masterForCalc.getRange(2, 1, masterForCalc.getLastRow()-1, mcReadCols).getValues();
+    for (var mc = 0; mc < mcData.length; mc++) {
+      var mcKey = String(mcData[mc][7]||'').trim() + '_' + String(mcData[mc][8]||'').trim();
+      masterKeyMap[mcKey] = true;
+      if (mcHasToll) tollDeductMap[mcKey] = String(mcData[mc][16] || '').trim();
     }
   }
 
@@ -6526,14 +6672,13 @@ function calculatePaymentAmount(companySsId) {
     var yukyuVal = '';
     var finalPay;
     if (pct > 0) {
-      var effectiveTollC = (tollDeductC === '○') ? totalToll : 0;
-      finalPay = Math.round((sales + effectiveTollC) * (pct / 100));
+      var effectiveTollC = isTollDeductMark_(tollDeductC) ? totalToll : 0;  // 高速を引く：丸の記号なら引く（1-1e）
+      finalPay = isYukyu ? 0 : Math.round((sales + effectiveTollC) * (pct / 100));  // 有休の日は支払い0円（有休手当だけ）
       yCell.setValue(finalPay);
-      if (isYukyu) yukyuVal = yukyuRate;
     } else if (kyuryo > 0 || kari > 0) {
       if (kyuryo > 0 && kari > 0) {
         var dailyPay = Math.round(kyuryo / kari);
-        finalPay = isYasumi ? -dailyPay : dailyPay;
+        finalPay = (isYasumi || isYukyu) ? 0 : dailyPay;  // 休み・有休の日は0円（給料÷仮日数×実働日数。有休は有休手当だけ）
         yCell.setValue(finalPay);
       } else {
         if (!kyuryo) sheet.getRange(rowNum, 32).setBackground('#f4cccc');
@@ -6544,15 +6689,24 @@ function calculatePaymentAmount(companySsId) {
       if (yCell.getValue() === '') yCell.setBackground('#f4cccc');
       finalPay = Number(data[i][26]) || 0;
     }
+    if (isYukyu) yukyuVal = yukyuRate;  // 有休の日は方式を問わず有休手当（設定シートの有休日額）を入れる
     yukyuVals.push([yukyuVal]);
-    // AC(29)=利益 を更新
-    var acAllEmpty = !sales && !totalToll && !fuelCost && !finalPay && !expense;
-    acVals.push([acAllEmpty ? '' : sales+totalToll-(fuelCost+finalPay+expense)]);
+    // AC(29)=利益 を更新：自車専属マスタにある行は 売上＋合計(高速代)−(燃料代＋支払い＋経費＋有休手当)、ない行は 売上−支払い（高速代は入れない）
+    var ykC = Number(yukyuVal) || 0;
+    if (masterKeyMap[carNameKey]) {
+      var acAllEmpty = !sales && !totalToll && !fuelCost && !finalPay && !expense && !ykC;
+      acVals.push([acAllEmpty ? '' : sales+totalToll-(fuelCost+finalPay+expense+ykC)]);
+    } else {
+      acVals.push([(!sales && !finalPay) ? '' : sales-finalPay]);
+    }
   }
 
   if (yukyuVals.length > 0) {
     sheet.getRange(2, 34, yukyuVals.length, 1).setValues(yukyuVals);
     sheet.getRange(2, 29, acVals.length,    1).setValues(acVals);
+  }
+  } finally {
+    if (payLock) payLock.releaseLock();
   }
 }
 
@@ -6561,7 +6715,8 @@ function calculatePaymentAmount(companySsId) {
 //  4-5: 自車専属運行シート更新（refreshActiveVehicles / refreshActiveVehiclesAuto_）  【大B / 中4 / 小4-5】
 //  自車専属マスタの運行状態=「運行」の行のみを抽出し
 //  自車専属運行シートに16列（A〜P列、仮日数/給料/%含む）で書き出す
-//  refreshActiveVehicles() はメニューから呼ぶ呼び出し口
+//  本体 refreshActiveVehiclesAuto_ は自車専属マスタ編集時（3-3）とシート再生成（4-3）から呼ばれる
+//  refreshActiveVehicles() は手動実行用の呼び出し口（今はどのメニューにも登録されていない）
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function refreshActiveVehicles() { requireSheetUi_(); refreshActiveVehiclesAuto_(); }
@@ -6938,18 +7093,19 @@ function archiveOldestMonthIfNeeded_(ss) {
 //  指定年月の運行・集計表データをアーカイブ用スプレッドシートへコピーし元行を削除する
 //  処理順序:
 //   1. 対象月の行を収集
-//   2. 新規スプレッドシート作成・2シート(運行/集計表)に値のみ書き込み
+//   2. 新規スプレッドシート作成・2シート(運行/集計表)に値のみ書き込み（両シートとも実際の全列を保存）
 //   3. 「運行管理_アーカイブ/会社名/」フォルダへ移動
 //   4. 自車専属マスタK列(アドレス)全員に編集権限を付与
-//   5. 運行シート・集計表から対象行を削除
+//   5. 運行シート・集計表から対象行を削除（1-1b の順番待ちの中で行を探し直してから消す）
 // ================================================================
 function archiveMonthData_(ss, year, month, companyName) {
   var monthLabel = year + '年' + (month + 1) + '月';
   var fileName   = monthLabel + '_' + companyName;
 
-  // 運行シートから対象月の行を取得
+  // 運行シートから対象月の行を取得（全列保存）
   var unkouSheet = ss.getSheetByName('運行');
-  var unkouRows  = getMonthRows_(unkouSheet, year, month, 26);
+  var unkouCols  = unkouSheet ? unkouSheet.getLastColumn() : 26;
+  var unkouRows  = getMonthRows_(unkouSheet, year, month, unkouCols);
   if (unkouRows.length === 0) return { fileName: fileName, archived: 0 };
 
   // 対象IDを収集（集計表の絞り込みに使用）
@@ -6962,8 +7118,9 @@ function archiveMonthData_(ss, year, month, companyName) {
   // 集計表から対象IDの行を取得
   var sumSheet = ss.getSheetByName('集計表');
   var sumRows  = [];
+  var sumCols = sumSheet ? sumSheet.getLastColumn() : 34;
   if (sumSheet && sumSheet.getLastRow() >= 2) {
-    var sumVals = sumSheet.getRange(2, 1, sumSheet.getLastRow() - 1, 34).getValues();
+    var sumVals = sumSheet.getRange(2, 1, sumSheet.getLastRow() - 1, sumCols).getValues();
     for (var j = 0; j < sumVals.length; j++) {
       var sid = String(sumVals[j][0] || '').trim();
       if (archiveIds[sid]) sumRows.push({ rowNum: j + 2, data: sumVals[j] });
@@ -6977,20 +7134,20 @@ function archiveMonthData_(ss, year, month, companyName) {
   // 運行シートを書き込み（値のみ）
   var newUnkou   = newSs.getActiveSheet();
   newUnkou.setName('運行');
-  var unkouHeader = unkouSheet.getRange(1, 1, 1, 26).getValues()[0];
+  var unkouHeader = unkouSheet.getRange(1, 1, 1, unkouCols).getValues()[0];
   var unkouData   = [unkouHeader].concat(unkouRows.map(function(r) { return r.data; }));
-  newUnkou.getRange(1, 1, unkouData.length, 26).setValues(unkouData);
+  newUnkou.getRange(1, 1, unkouData.length, unkouCols).setValues(unkouData);
   newUnkou.setFrozenRows(1);
-  newUnkou.getRange(1, 1, 1, 26).setBackground('#efefef');
+  newUnkou.getRange(1, 1, 1, unkouCols).setBackground('#efefef');
 
   // 集計表シートを書き込み（値のみ）
   if (sumRows.length > 0) {
     var newSum    = newSs.insertSheet('集計表');
-    var sumHeader = sumSheet.getRange(1, 1, 1, 34).getValues()[0];
+    var sumHeader = sumSheet.getRange(1, 1, 1, sumCols).getValues()[0];
     var sumData   = [sumHeader].concat(sumRows.map(function(r) { return r.data; }));
-    newSum.getRange(1, 1, sumData.length, 34).setValues(sumData);
+    newSum.getRange(1, 1, sumData.length, sumCols).setValues(sumData);
     newSum.setFrozenRows(1);
-    newSum.getRange(1, 1, 1, 34).setBackground('#efefef');
+    newSum.getRange(1, 1, 1, sumCols).setBackground('#efefef');
   }
 
   // アーカイブフォルダへ移動（ルートから削除）
@@ -7017,11 +7174,30 @@ function archiveMonthData_(ss, year, month, companyName) {
   }
 
   // 元データから対象行を一括削除（連続行をまとめて deleteRows でタイムアウト回避）
+  // コピー中に行が動くことがあるため、1-1b の順番待ちの中で行を探し直してから削除する
+  //  運行：今の対象月の行のうち、コピーした行と中身が同じ行だけ　集計表：コピーしたIDの行だけ
   SpreadsheetApp.flush();
-  deleteRowsGrouped_(unkouSheet, unkouRows.map(function(r) { return r.rowNum; }));
+  var arcLock = getSsLock_();
+  arcLock.waitLock(30000);
+  try {
+    var copiedUnkou = {};
+    unkouRows.forEach(function(r) { var k = JSON.stringify(r.data); copiedUnkou[k] = (copiedUnkou[k] || 0) + 1; });
+    var delUnkou = [];
+    getMonthRows_(unkouSheet, year, month, 26).forEach(function(r) {
+      var k = JSON.stringify(r.data);
+      if (copiedUnkou[k] > 0) { copiedUnkou[k]--; delUnkou.push(r.rowNum); }
+    });
+    deleteRowsGrouped_(unkouSheet, delUnkou);
 
-  if (sumRows.length > 0) {
-    deleteRowsGrouped_(sumSheet, sumRows.map(function(r) { return r.rowNum; }));
+    if (sumRows.length > 0 && sumSheet.getLastRow() >= 2) {
+      var delSum = [];
+      sumSheet.getRange(2, 1, sumSheet.getLastRow() - 1, 1).getValues().forEach(function(r, ri) {
+        if (archiveIds[String(r[0] || '').trim()]) delSum.push(ri + 2);
+      });
+      deleteRowsGrouped_(sumSheet, delSum);
+    }
+  } finally {
+    arcLock.releaseLock();
   }
 
   return { fileName: fileName, archived: unkouRows.length };
@@ -7086,7 +7262,8 @@ function getCompanyName_(ss) {
 
 // ================================================================
 //  5-1: 起動時の初期データ一括取得（getInitialData）  【大A / 中5 / 小5-1】
-//  端末保存のアドレスを元にマスタから該当行を一括検索して返す
+//  端末保存のアドレスを元にマスタから該当行を一括検索して返す（アドレスの大文字・小文字は区別しない。見つからなければ email を空で返す）
+//  あわせて資格期限（免許証・安全教育・健康診断・適性診断）の一覧と7日以内の警告、設定シートの業務前・業務後点検項目を返す
 // ================================================================
 function getInitialData(hintEmail, companySsId) {
   var savedEmail = (hintEmail && String(hintEmail).indexOf('@') !== -1) ? String(hintEmail).trim() : '';
@@ -7359,8 +7536,7 @@ function getTodayRoutes(email, companySsId) {
 
 
 // ================================================================
-//  7-1b: IDとルートインデックスで行番号を動的検索（findRowByIdAndIndex_）
-//  【大A / 中7 / 小7-1b】
+//  7-1b: IDとルートインデックスで行番号を動的検索（findRowByIdAndIndex_）  【大A / 中7 / 小7-1b】
 //  SS側で行移動・削除が発生しても現在の正しい行番号を返す
 // ================================================================
 function findRowByIdAndIndex_(sheet, id, routeIndex) {
@@ -7387,6 +7563,7 @@ function findRowByIdAndIndex_(sheet, id, routeIndex) {
 //  ・今日の未割当プレースホルダー（積地空）があれば新規IDを生成せずそれを使用
 //    → スプレッドシートで積地が先入力済みなら別ID生成（既存動作にフォールバック）
 //    → 複数行程の場合は先頭行をプレースホルダー更新、追加行程は末尾に新規追加（同ID）
+//  ・書き込み後に集計表を同期（4-2）し、距離マスタ照合で集計表の距離を入れ、運行シートを日付順に並べ替え、一覧キャッシュを消す
 // ================================================================
 function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, email) {
   validateDriverEmail_(email, companySsId);
@@ -7430,7 +7607,7 @@ function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, emai
     var sheet = ss.getSheetByName('運行');
     if (!sheet) throw new Error('運行シートがありません');
 
-    // 日付: 端末から渡された場合はその日付＋現在時刻を合成（new Date(dateStr)はUTC0時=JST9時になるバグ回避）
+    // 日付: 端末から渡された場合はその日付＋現在時刻を合成（new Date(dateStr)だとUTC0時＝日本時間9時になるため）
     var cur  = new Date();
     var now  = dateStr
       ? (function() { var b = new Date(dateStr); return new Date(b.getFullYear(), b.getMonth(), b.getDate(), cur.getHours(), cur.getMinutes(), cur.getSeconds()); })()
@@ -7630,7 +7807,9 @@ function setDropComplete(id, routeIndex, companySsId, email) {
 // ================================================================
 //  7-7: 状態保存＋時刻記録 一括実行（recordAction）  【大A / 中7 / 小7-7】
 //  saveRunState と setXxxComplete を1回のサーバー呼び出しでまとめて実行する
-//  actionType: 'guide' / 'pick' / 'restStart' / 'restEnd' / 'drop'
+//  actionType: 'guide' / 'pick' / 'restStart' / 'restEnd' / 'drop' / 'inspBefore'・'inspAfter'（点呼完了・7-8）
+//              'syncSummary'（時刻は書かず集計表だけ同期する後追い呼び出し）
+//  最後に一覧キャッシュを消し、書いた時刻（HH:mm）と項目名を返す
 // ================================================================
 function recordAction(actionType, id, routeIndex, stateObj, companySsId, email) {
   validateDriverEmail_(email, companySsId);
@@ -7685,7 +7864,7 @@ function setInspectionComplete_(id, type, companySsId) {
 
 // ================================================================
 //  7-9: 点呼時刻クリア（clearInspTime）  【大A / 中7 / 小7-9】
-//  戻るボタン用：IDで点呼前/後の完了時刻をクリアして集計表を同期する
+//  戻るボタン用：IDが一致する最初の行の点呼前/後の完了時刻をクリアする（集計表の同期はしない）
 // ================================================================
 function clearInspTime(id, type, companySsId, email) {
   validateDriverEmail_(email, companySsId);
@@ -7711,7 +7890,8 @@ function clearInspTime(id, type, companySsId, email) {
 
 // ================================================================
 //  8-1: 行程データ更新（updateRouteData）  【大A / 中8 / 小8-1】
-//  戻るボタン用：IDで行を動的検索してL列（積地）・M列（降地）を更新し集計表を同期する
+//  戻るボタン用：IDで行を動的検索してL列（積地）・M列（降地）を上から順に更新し、行程が増えた分は同じIDで末尾に追加して集計表を同期する
+//  （既存行は削除しない。メールアドレスが渡された時だけ 2-2d で乗務員を確認する）
 // ================================================================
 function updateRouteData(id, picks, drops, companySsId, email) {
   if (email) validateDriverEmail_(email, companySsId);
@@ -7778,7 +7958,7 @@ function deleteRunRows(id, companySsId, email) {
 
 // ================================================================
 //  8-3: 時刻セルクリア（clearTimeCell）  【大A / 中8 / 小8-3】
-//  戻るボタン用：IDとルートインデックスで行を動的検索して指定列をクリアし集計表を同期する
+//  戻るボタン用：IDとルートインデックスで行を動的検索して指定列をクリアする（集計表の同期はしない）
 // ================================================================
 function clearTimeCell(id, routeIndex, col, companySsId, email) {
   validateDriverEmail_(email, companySsId);
@@ -7794,8 +7974,8 @@ function clearTimeCell(id, routeIndex, col, companySsId, email) {
 //  8-4: 運行一覧データ取得（getListData）  【大A / 中8 / 小8-4】
 //  端末アプリの「一覧」画面に表示するデータを月単位で返す関数
 //
-//  8-4-1: 紐づけメールアドレス（PropertiesService）から乗務員名を取得
-//          → 未紐づけなら空のデータを返す
+//  8-4-1: 端末から渡されたアドレスで自車専属マスタを探し乗務員名を取得（大文字・小文字は区別しない。60秒キャッシュ）
+//          → アドレスが無い・見つからない時は空のデータを返す
 //  8-4-2: 運行シートを全件読み込み、指定年月・乗務員名で絞り込みID単位に集約
 //          → 同一IDの複数行（複数行程）は売上/高速を合算・時刻は先頭行優先
 //          → dateSort はJ列（初回行程登録時刻）のまま固定（積完時刻では更新しない）
@@ -7804,7 +7984,8 @@ function clearTimeCell(id, routeIndex, col, companySsId, email) {
 //          → ③ プレーン値（getValues）がURLなら直接使用
 //  8-4-4: 集計表（payMap）から支払い・高速計を引き当てて各IDに付加
 //  8-4-5: dateDisp は積完時刻があれば「yyyy/MM/dd　HH:mm」形式、なければ日付のみ
-//  8-4-6: 月合計（稼働日数・売上合計・高速合計・支払合計）を計算して一緒に返す
+//  8-4-6: 月合計（稼働日数〔積地ありの日〕・売上・高速・支払・有休手当・その他手当・有休日数・休み日数）を計算して一緒に返す
+//  結果は SSごと・乗務員ごと・年月ごとに30秒キャッシュし、書き込み後は 8-4b で消す
 // ================================================================
 function getListData(year, month, companySsId, email) {
   // 端末に紐付いたメールアドレスを取得（未連携なら空リストを返す）
@@ -8119,8 +8300,10 @@ function getEditData(id, companySsId, email) {
 //  ・日付はDate型で書き込む（文字列だとonEditUnkou_が誤発火するため）
 //  ・荷主名/積地/降地は undefined/null でなければ上書きする（空文字でも書き込み可）
 //  ・時刻は「日付＋時刻」を合成したDate型で書き込み、空なら clearContent する
-//  ・売上/高速は同一IDに複数行ある場合、先頭行のみ書き込み（重複防止）
-//  ・書き込み後にdelaySyncSummary_を呼んで集計表を同期する
+//  ・売上/高速・点呼前後は同一IDに複数行ある場合、先頭行のみ書き込み、2行目以降の請求・実費高速は空にする（重複防止）
+//  ・車両情報（区分〜看板名）・日付・連絡(端末)は同一IDの全行に書く
+//  ・origId と id が違う時はIDを変更する（運行シートの全行と集計表のA列）。その他手当は集計表AI列に直接書く
+//  ・書き込み後に集計表を同期（4-2）し、色付け（1-7）と一覧キャッシュ削除（8-4b）を行う。1-1b（SS単位ロック）で排他制御
 // ================================================================
 function saveEditData(obj, companySsId, email) {
   validateDriverEmail_(email, companySsId);
@@ -8433,7 +8616,7 @@ function setupSheetProtection() {
 
 // ================================================================
 //  8-6b-0a: 看板名列を既存シートに挿入（insertKanbanColumn）  【大C / 中8 / 小8-6b-0a】
-//  メニューから1回だけ実行する。I列（col9）に看板名を追加し
+//  1回だけ実行する手動処理（今はどのメニューにも登録されていない）。運行・集計表のI列（col9）に看板名を追加し
 //  既存行は会社名(C列)をデフォルト値として埋める。
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
@@ -8591,6 +8774,7 @@ function importImageToDrive_(url) {
 
 // ================================================================
 //  8-6b-3: 管理側ファイルURLをリッチテキストで書込（setAdminDataRichText_）  【大B / 中8 / 小8-6b-3】
+//  URL1件を 8-6b-3b に渡して運行シートX列（管理データ）に書く（空なら消す）
 // ================================================================
 function setAdminDataRichText_(sheet, rowNum, url) {
   setAdminDataRichTextMulti_(sheet, rowNum, url ? [url] : []);
@@ -8599,6 +8783,8 @@ function setAdminDataRichText_(sheet, rowNum, url) {
 
 // ================================================================
 //  8-6b-3b: 管理側ファイル複数URLをリッチテキストで書込（setAdminDataRichTextMulti_）  【大B / 中8 / 小8-6b-3b】
+//  運行シートX列（管理データ）に「ファイル1  ファイル2…」のリンク付き文字を書き、URL一覧をセルのメモにも保存する（次の追記用）
+//  URLが無ければセルとメモを消す
 // ================================================================
 function setAdminDataRichTextMulti_(sheet, rowNum, urls) {
   var cell = sheet.getRange(rowNum, 24);
@@ -8621,6 +8807,7 @@ function setAdminDataRichTextMulti_(sheet, rowNum, urls) {
 
 // ================================================================
 //  8-6b-4: 管理側ファイルURLをリッチテキストから取得（getAdminDataUrl_）  【大B / 中8 / 小8-6b-4】
+//  運行シートX列のリンクURLをカンマ区切りで返す。リンクが無ければセルの文字をそのまま返す
 // ================================================================
 function getAdminDataUrl_(sheet, rowNum) {
   var rtv = sheet.getRange(rowNum, 24).getRichTextValue();
@@ -8675,7 +8862,9 @@ function appendTerminalFile(id, fileName, base64Data, mimeType, companySsId, ema
 
 
 // ================================================================
-//  8-6c-a: 端末ファイル追加（管理者用・メール認証なし）  【大A / 中8 / 小8-6c-a】
+//  8-6c-a: 端末ファイル追加（管理者用・appendTerminalFileAdmin）  【大A / 中8 / 小8-6c-a】
+//  乗務員アドレスではなく管理者ログイン（verifyAdmin_）で確認し、ファイルをDrive「端末データ」に保存して
+//  運行シートZ列（データ(端末)）のリンクに追記する。1-1b（SS単位ロック）で排他制御
 // ================================================================
 function appendTerminalFileAdmin(id, fileName, base64Data, mimeType, companySsId, token) {
   verifyAdmin_(token, companySsId);
@@ -8712,7 +8901,9 @@ function appendTerminalFileAdmin(id, fileName, base64Data, mimeType, companySsId
 
 
 // ================================================================
-//  8-6c-2: 管理側ファイル追加・削除・差替（ID指定）  【大A / 中8 / 小8-6c-2】
+//  8-6c-2: 管理側ファイル追加・削除・差替（ID指定・appendAdminFileById / deleteAdminFileById / replaceAdminFileById）  【大A / 中8 / 小8-6c-2】
+//  アプリの確認（verifyAppAuth_）の後、IDが一致する最初の行の運行シートX列（管理データ）のリンクを操作する
+//  追加・差替はファイルをDrive「運行データ」に保存してリンクに加える（差替は旧URLの位置に入れ替え、無ければ末尾に追加）。削除はリンクから外すだけ
 // ================================================================
 function appendAdminFileById(id, fileName, base64Data, mimeType, companySsId, auth) {
   verifyAppAuth_(auth, companySsId);
@@ -8863,7 +9054,7 @@ function saveNotice(id, text, companySsId, email) {
 // ================================================================
 //  9-2: ファイルアップロード・管理側（uploadFile）  【大A / 中9 / 小9-2】
 //  ファイルをGoogleドライブの「運行データ」フォルダに保存し
-//  URLを運行シートのX列（24列目・管理データ）に書き込む
+//  URLを運行シートのX列（24列目・管理データ）に書き込む。現在コード・画面からの呼び出し元はない（写真・ファイル取込は2-4の画面から9-2cを使う）
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function uploadFile(id, fileName, base64Data, mimeType) {
@@ -8890,7 +9081,7 @@ function uploadFile(id, fileName, base64Data, mimeType) {
 
 // ================================================================
 //  9-2b: シートボタン用ファイルアップロードダイアログ（openFileUploadDialog）  【大C / 中9 / 小9-2b】
-//  運行シートで行を選択した状態でボタンを押すとダイアログが開く
+//  運行シートで行を選択した状態でボタンを押すとダイアログが開く（10MB超のファイルは飛ばし、9-2dで裏でアップロードする）
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function openFileUploadDialog() {
@@ -8945,6 +9136,7 @@ function openFileUploadDialog() {
 
 // ================================================================
 //  9-2c: シートボタン用ファイルアップロード処理（uploadFileToRow）  【大A / 中9 / 小9-2c】
+//  写真・ファイル取込（2-4）の画面から呼ばれ、ファイルをDrive「運行データ」に保存して指定行のX列（管理データ）のリンクに追記する（同じURLは重ねない）
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function uploadFileToRow(rowNum, fileName, base64Data, mimeType) {
@@ -8970,7 +9162,8 @@ function uploadFileToRow(rowNum, fileName, base64Data, mimeType) {
 
 // ================================================================
 //  9-2d: アップロードキュー登録（queueFileUpload）  【大A / 中9 / 小9-2d】
-//  base64をDriveの一時ファイルに保存し、時間トリガーで後処理させる
+//  base64をDrive「_upload_queue_」の一時ファイルに保存してScriptPropertyに積み、後処理（9-2e）の時間トリガーが無ければ90秒後に1本作る
+//  シートボタン用ダイアログ（9-2b）から呼ばれる
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function queueFileUpload(rowNum, fileName, base64Data, mimeType) {
@@ -8995,7 +9188,8 @@ function queueFileUpload(rowNum, fileName, base64Data, mimeType) {
 
 // ================================================================
 //  9-2e: アップロードキュー処理（processUploadQueue）  【大A / 中9 / 小9-2e】
-//  時間トリガーから呼ばれ、キューに積まれたファイルを実際にアップロードする
+//  時間トリガーから呼ばれ、キューに積まれたファイルをDrive「運行データ」に保存して運行シートX列（管理データ）のリンクに追記する
+//  失敗は3回目で諦めて_ErrorLog_に記録し要確認を出す（9-2f）。最後に後処理の時間トリガーを全部消す
 // ================================================================
 function processUploadQueue() {
   var props = PropertiesService.getScriptProperties();
@@ -9147,7 +9341,8 @@ function getMyNotices(companySsId, email) {
 // ================================================================
 //  10-2: ID指定行程取得（getRoutesById）  【大A / 中10 / 小10-2】
 //  指定IDの全行程と進捗状態を返す
-//  progress: pick / restStart / restEnd / drop / complete
+//  progress: guide / pick / restStart / restEnd / drop / inspAfter（降完済みで点呼後未完了）/ complete
+//  firstGap: 前の工程が抜けたまま先の工程が入っている時、抜けている最初の工程名（降完済みで点呼後未完了なら inspAfter）
 // ================================================================
 function getRoutesById(id, companySsId, email) {
   validateDriverEmail_(email, companySsId);
@@ -9267,7 +9462,7 @@ function getReadNotices(email, companySsId) {
 
 // ================================================================
 //  11-1: 会社登録シートのonEditハンドラ（onEditCompanyRegister_）  【大B / 中11 / 小11-1】
-//  ・A列(会社名)+B列(管理Gmail) が揃いC列が空 → フォルダ作成・通知メール送信
+//  ・A列(会社名)・B列(管理Gmail) の編集では何もしない（フォルダ作成・通知メールはインストール型トリガー 14-2b が行う）
 //  ・F列(スプレッドシートURL)+G列(WebアプリURL) が両方揃いH列が空 → 配布メール自動送信
 //  C列: セットアップ状態（済/エラー）  D列: 実行日時  E列: フォルダURL
 //  F列: スプレッドシートURL  G列: WebアプリURL  H列: 配布メール送信状態
@@ -9305,7 +9500,7 @@ function onEditCompanyRegister_(sheet, range) {
 // ================================================================
 //  11-2: 1社分のセットアップ実行（setupOneCompany_）  【大B / 中11 / 小11-2】
 //  「運行管理_アーカイブ/会社名/」フォルダを作成し管理Gmailに編集権限を付与する。
-//  suppressEmail=true のとき通知メールを送らない（processNewCompany_ から呼ぶ場合）。
+//  suppressEmail=true のとき通知メールを送らない（processNewCompany_ から呼ぶ場合）。skipEditor=true のとき編集権限を付けない（同意後に付ける）。
 //  戻り値: { folderUrl, folderId }
 // ================================================================
 function setupOneCompany_(companyName, adminEmail, suppressEmail, skipEditor) {
@@ -9431,7 +9626,7 @@ function setupCompanies() {
 // ================================================================
 //  11-4: スプレッドシート内「使い方」シート自動作成（createUsageSheet）  【大C / 中11 / 小11-4】
 //  スプレッドシートを開いたまま確認できる操作手順書シートを作成する
-//  管理者向け（スプレッドシート操作）とドライバー向け（アプリ操作）の2部構成
+//  管理者向け（スプレッドシート操作）とドライバー向け（アプリ操作）の2部構成。今ある「使い方」シートは消して作り直す
 //  スクリプトエディタまたは管理者メニューから手動実行
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
@@ -9702,6 +9897,7 @@ function createUsageSheet() {
 
 // ================================================================
 //  11-7: 詳細説明書シート作成（createManualSheet）  【大C / 中11 / 小11-7】
+//  今ある「説明書」シートを消して作り直し、機能ごとの使い方（現場スタッフ向け）を書き込む
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function createManualSheet() {
@@ -9855,6 +10051,7 @@ function createManualSheet() {
 
 // ================================================================
 //  11-8a: 機能解説書シート作成（createManualMASheet）  【大C / 中11 / 小11-8a】
+//  今ある「解説書」シートを消して作り直し、機能ごとのコード番号と処理内容（保守エンジニア向け）を書き込む
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function createManualMASheet() {
@@ -10008,6 +10205,7 @@ function createManualMASheet() {
 
 // ================================================================
 //  11-8: サポート返信テンプレートシート作成（createSupportSheet）  【大C / 中11 / 小11-8】
+//  今ある「サポート」シートを消して作り直し、問い合わせへの返信文の見本を書き込む
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function createSupportSheet() {
@@ -10312,7 +10510,7 @@ function createSupportSheet() {
 //  11-5: 配布メール自動送信（sendDistributionMail_）  【大B / 中11 / 小11-5】
 //  管理者向け（スプレッドシートURL＋アプリURL）と乗務員向け（アプリURL＋紐づけ手順）の
 //  2種類のメールを送信する。乗務員メールは自車専属マスタのK列（アドレス）から全員分個別送信。
-//  onEditCompanyRegister_（F/G列入力時）または triggerDistributionMail から呼び出す。
+//  会社登録のF/G列入力時（14-2b）・triggerDistributionMail（11-6）から呼び出す（11-1 も呼ぶが11-1自体は今呼ばれていない）。
 // ================================================================
 function sendDistributionMail_(companyName, adminEmail, ssUrl, appUrl, row, sheet) {
   // 乗務員リストは③各客SSのマスタから取得する
@@ -10501,9 +10699,11 @@ function setWebAppUrl() {
 
 
 // ================================================================
-//  12-2z: ②③共通シート一覧・非表示処理（getValidClientSheetNames_ / getEnsureSheetNames_ / hideSystemSheets_）  【大B / 中12 / 小12-2z】
+//  12-2z: ②③共通シート一覧・非表示処理（getValidClientSheetNames_ / isClientKeepSheet_ / getEnsureSheetNames_ / hideSystemSheets_）  【大B / 中12 / 小12-2z】
 //  ②反映・③反映・新規③作成・initClientSSSheets_の全箇所が参照する唯一のシート一覧。
 //  ②と③は必ず同じ構成。この一覧だけを変更すれば全箇所に反映される。
+//  isClientKeepSheet_：残すシートかの判定（一覧・目印シート・PL・PL_〜・バックアップ _BK_〜）。4か所で共用し、バックアップは消さない
+//  hideSystemSheets_：システムシートとバックアップ（_BK_〜）を非表示にする
 // ================================================================
 function getValidClientSheetNames_() {
   return [
@@ -10513,6 +10713,10 @@ function getValidClientSheetNames_() {
     '請求書','支払確認書','_ErrorLog_','指示先履歴','指示先ID別',
     '__運行取込__','__自車専属マスタ取込__','__取引先取込__','__取込用__'
   ];
+}
+function isClientKeepSheet_(name, markerName) {
+  return getValidClientSheetNames_().indexOf(name) >= 0 || name === markerName ||
+         name === 'PL' || name.indexOf('PL_') === 0 || name.indexOf('_BK_') === 0;
 }
 function getEnsureSheetNames_() {
   return ['メモ','使い方','説明書','解説書','サポート','受領書_耳',
@@ -10527,12 +10731,15 @@ function hideSystemSheets_(ss) {
       if (sh && !sh.isSheetHidden()) sh.hideSheet();
     } catch(e) {}
   }
+  ss.getSheets().forEach(function(s) {
+    try { if (s.getName().indexOf('_BK_') === 0 && !s.isSheetHidden()) s.hideSheet(); } catch(e) {}
+  });
 }
 
 
 // ================================================================
 //  12-3a: 新規SSのバインドスクリプトID取得（getNewSsScriptId_）  【大B / 中12 / 小12-3a】
-//  DriveApp でSSの子ファイルからApps Scriptを検索してスクリプトIDを返す
+//  Drive API（files.list・親がそのSSのApps Script）を検索して、最初に見つかったスクリプトIDを返す（無ければ null）
 //  ※ createCompanySpreadsheet_(12-3)の補助関数。12-3本体より前に配置されている
 // ================================================================
 function getNewSsScriptId_(ssId) {
@@ -10552,8 +10759,10 @@ function getNewSsScriptId_(ssId) {
 
 // ================================================================
 //  12-3: 会社専用スプレッドシートを作成（createCompanySpreadsheet_）  【大B / 中12 / 小12-3】
-//  ②客用SS（スタブコード入り）をコピーして各客SSを作る。
-//  コピー元は Script Properties の clientTemplateSsId。未設定ならハードコードIDを使用。
+//  SpreadsheetApp.create で新しいSSを作り、②客用SSの全シートを1枚ずつ写す（makeCopyは使わない＝スクリプトを複製しない）。
+//  写し元は Script Properties の clientTemplateSsId。未設定なら②の固定IDを使う。
+//  ①専用シートを消し（残す一覧は12-2z）、テスト用の初期データ（initClientSSSheets_）と点検項目（4-2a）を入れ、
+//  スクリプトIDを記録して12-3a-2でスタブを書き込みWebアプリを作る。
 //  __TEMPLATE_SS__ を削除して __COMPANY_SS__ に会社名をセット。
 //  targetFolderId が指定されたそのフォルダに移動する（未指定なら「運行管理_会社別」）。
 //  戻り値: { ssId, ssUrl }
@@ -10595,10 +10804,8 @@ function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
 
   // 不要シート（_BK_・会社登録・問い合わせ等の①専用）だけ削除し、客に必要な業務シートは残す。
   // 残すシート一覧は getValidClientSheetNames_（12-2z）を共用。②③は必ず同じ構成。
-  var validNames = getValidClientSheetNames_().concat(['__COMPANY_SS__']);
   newSs.getSheets().forEach(function(s) {
-    var sn = s.getName();
-    var isValid = validNames.indexOf(sn) >= 0 || sn === 'PL' || sn.indexOf('PL_') === 0;
+    var isValid = isClientKeepSheet_(s.getName(), '__COMPANY_SS__');  // 12-2z の共通判定
     if (!isValid && newSs.getSheets().length > 1) {
       try { newSs.deleteSheet(s); } catch(e) {}
     }
@@ -10622,7 +10829,8 @@ function createCompanySpreadsheet_(companyName, adminEmail, targetFolderId) {
 
 // ================================================================
 //  12-3a-1: 新規③へ②と同じシート保護を付与（applyClientSheetProtection_）  【大B / 中12 / 小12-3a-1】
-//  setupSheetProtection() のUI依存を外しss引数で動く版。copyToが複製しない集計表保護・端末列保護を再現する
+//  setupSheetProtection（8-6b）の画面操作を外し、ss引数で集計表保護・端末列保護を付ける版
+//  現在コードからの呼び出し元はない
 // ================================================================
 function applyClientSheetProtection_(ss) {
   var sumSheet = ss.getSheetByName('集計表');
@@ -10650,6 +10858,8 @@ function applyClientSheetProtection_(ss) {
 // ================================================================
 //  12-3a-2: 各客SS用 WebApp を自動デプロイ（deployClientWebApp_）  【大B / 中12 / 小12-3a-2】
 //  Apps Script API でスクリプトにスタブコードを書き込み WebApp をデプロイして URL を返す
+//  スクリプトIDは引数→14-3aの対応表→無ければ新規作成の順で決める。ライブラリの版は引数→approvedLibVersion→pinnedLibVersion→308
+//  書き込む設定（appsscript.json）の権限は6項目（12-3c-2の②③反映は8項目）。返り値：{scriptId, webAppUrl} ／ {error}
 // ================================================================
 function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
   try {
@@ -10698,7 +10908,9 @@ function deployClientWebApp_(ssId, companyName, existingScriptId, libVersion) {
         'https://www.googleapis.com/auth/script.external_request',
         'https://www.googleapis.com/auth/script.scriptapp',
         'https://www.googleapis.com/auth/gmail.send',
-        'https://www.googleapis.com/auth/script.container.ui'
+        'https://www.googleapis.com/auth/script.container.ui',
+        'https://www.googleapis.com/auth/script.projects',
+        'https://www.googleapis.com/auth/script.deployments'
       ],
       exceptionLogging: 'STACKDRIVER', runtimeVersion: 'V8'
     });
@@ -11140,7 +11352,8 @@ function useToolSs_(ssId, token) {
 // ================================================================
 //  P-5f: スプレッドシート専用の処理か確認（requireSheetUi_）  【大B / 中P / 小P-5f】
 //  スプレッドシートのメニュー・ダイアログから動いている時と、管理画面から P-5b・P-5g を通った時だけ通す
-//  WebアプリのURLから直接呼ばれた時と、正規に発行・登録されていないSS（コピー。2-2f）からの時は例外で止める
+//  WebアプリのURLから直接呼ばれた時、正規に発行・登録されていないSS（コピー。2-2f）からの時、停止・期限切れのSS（2-2g）からの時は例外で止める
+//  管理画面から P-5b・P-5g を通した時（WEB_TOOL_ がある時）は確認せずに通す
 // ================================================================
 function requireSheetUi_() {
   if (WEB_TOOL_) return;
@@ -11334,7 +11547,8 @@ function getClientStubSource_() {
 // ================================================================
 //  12-3b: クライアントSSシート初期化共通処理（initClientSSSheets_）  【大B / 中12 / 小12-3b】
 //  createCompanySpreadsheet_（12-3）から呼ばれる。
-//  ②③共通30シートのみ残し（createCompanySpreadsheet_のvalidNamesと同一）、マスタ・設定等を初期値で書き込む。
+//  12-2z の一覧（getValidClientSheetNames_）にあるシートだけ残し、運行・自車専属マスタ・マスタ・設定などにデモ用のテストデータを書き込む。
+//  __COMPANY_SS__ マーカーを作り、自車専属マスタの運行状態の入力規則・行の色と自車専属運行を整える。
 // ================================================================
 function initClientSSSheets_(ss, companyName) {
   var unkouHeader = [
@@ -11407,11 +11621,11 @@ function initClientSSSheets_(ss, companyName) {
 
   // 給料行・%行を別々に作成（給料と%はどちらか一方のみ有効）
   masterSheet.getRange(2, 1, 2, 32).setValues([
-    ['S-0001','運行','自車','テスト商事','テスト看板（給料）','4t','平車','品川1234','山田太郎','090-0000-0000',
+    ['S-0001','運行','自車','テスト商事','テスト看板','4t','平車','品川1234','山田太郎','090-0000-0000',
      'test1@example.com',6.5,'テスト備考',25,200000,'','〇',
      30000,15000,5000,10000,8000,5000,5000,3000,5000,3000,2000,2000,1000,1000,5000],
-    ['S-0002','待機','自車','テスト商事','テスト看板（％）','4t','平車','品川5678','鈴木花子','090-1111-1111',
-     'test2@example.com',6.5,'テスト備考（%）',25,'',75,'',
+    ['S-0002','待機','自車','テスト商事','テスト看板','4t','平車','品川5678','鈴木花子','090-1111-1111',
+     'test2@example.com',6.5,'テスト備考',25,'',75,'',
      30000,15000,5000,10000,8000,5000,5000,3000,5000,3000,2000,2000,1000,1000,5000]
   ]);
   // 自車専属マスタ B列（運行状態）に 運行・故障・待機 のドロップダウンを設定
@@ -11463,9 +11677,8 @@ function initClientSSSheets_(ss, companyName) {
 
   // 不要シートを削除（取引先マスタ・会社登録・Sheet1 等）
   // 残すシート一覧は getValidClientSheetNames_（12-2z）を共用。②③は必ず同じ構成。
-  var validNames = getValidClientSheetNames_().concat(['__COMPANY_SS__']);
   ss.getSheets().forEach(function(s) {
-    if (validNames.indexOf(s.getName()) === -1 && ss.getSheets().length > 1) {
+    if (!isClientKeepSheet_(s.getName(), '__COMPANY_SS__') && ss.getSheets().length > 1) {  // 12-2z の共通判定
       try { ss.deleteSheet(s); } catch(e) {}
     }
   });
@@ -11504,6 +11717,38 @@ function initClientSSSheets_(ss, companyName) {
   try { generateSummary(ss); } catch(e) {}
   applySheetColors_(ss);
   ensureSettingItems_(ss);
+}
+
+
+// ================================================================
+//  12-3b-2: 見本行の看板名・備考を①の文字にそろえる（fixDemoRowLabels_）  【大B / 中12 / 小12-3b-2】
+//  ②に反映（12-3c）・③に反映（14-3）の両方から呼ぶ。②③は必ずこの1つの処理を通る
+//  運行・集計表の看板名、自車専属マスタ・自車専属運行の看板名と備考のうち、
+//  下の一覧の古い文字と完全に同じセルだけ新しい文字に書き換える（それ以外のデータは触らない）
+// ================================================================
+var DEMO_ROW_LABEL_FIX_ = {
+  'テスト看板（給料）': 'テスト看板',
+  'テスト看板（％）':   'テスト看板',
+  'テスト備考（%）':    'テスト備考'
+};
+function fixDemoRowLabels_(ss) {
+  // シート名 → 対象の列番号（1始まり）
+  var targets = { '運行': [9], '集計表': [9], '自車専属マスタ': [5, 13], '自車専属運行': [5, 13] };
+  Object.keys(targets).forEach(function(name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastRow() < 2) return;
+    targets[name].forEach(function(col) {
+      if (sh.getLastColumn() < col) return;
+      var rng  = sh.getRange(2, col, sh.getLastRow() - 1, 1);
+      var vals = rng.getValues();
+      var changed = false;
+      for (var i = 0; i < vals.length; i++) {
+        var v = String(vals[i][0]);
+        if (DEMO_ROW_LABEL_FIX_.hasOwnProperty(v)) { vals[i][0] = DEMO_ROW_LABEL_FIX_[v]; changed = true; }
+      }
+      if (changed) rng.setValues(vals);
+    });
+  });
 }
 
 
@@ -11733,6 +11978,7 @@ function prepareUketorishoForPrint() {
 
 // ================================================================
 //  16-3: 請求書生成ダイアログ（showInvoiceDialog）  【大C / 中16 / 小16-3】
+//  マスタ（取引先）のID・カナ・会社名・電話を選択肢にしたダイアログを出す（期間の初期値は今月1日〜末日）。選んだ会社で 16-3b を呼ぶ
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showInvoiceDialog() {
@@ -11793,6 +12039,7 @@ function showInvoiceDialog() {
 
 // ================================================================
 //  16-3b: 請求書一括生成（generateInvoiceBatch）  【大A / 中16 / 小16-3b】
+//  ダイアログ（16-3）から受けた会社ごとに 16-6 で請求書シートを作り、会社ごとの「生成完了」を改行区切りで返す（同じ「請求書」シートを上書きするため、最後の会社の分が残る）
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function generateInvoiceBatch(companies, dateFrom, dateTo, taxRate) {
@@ -11809,6 +12056,8 @@ function generateInvoiceBatch(companies, dateFrom, dateTo, taxRate) {
 
 // ================================================================
 //  16-3c: 請求書FAX送信（sendInvoiceFax_）  【大B / 中16 / 小16-3c】
+//  マスタ（取引先）のB列（取引先名カナ）が会社名と一致する行のE列（FAX）を探し、ログに記録して「FAX:番号」を返すだけ。
+//  実際のFAX送信はしない。FAX番号が無ければ「FAX番号未登録」を返す。現在呼び出し元はない
 // ================================================================
 function sendInvoiceFax_(company) {
   var ss  = SpreadsheetApp.getActiveSpreadsheet();
@@ -11827,6 +12076,7 @@ function sendInvoiceFax_(company) {
 
 // ================================================================
 //  16-4: 支払確認書生成ダイアログ（showPaymentDialog）  【大C / 中16 / 小16-4】
+//  集計表から会社名・車番・乗務員名の選択肢を作ってダイアログを出す（期間の初期値は今月1日〜末日）。選んだ条件で 16-7 を呼ぶ
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showPaymentDialog() {
@@ -11885,6 +12135,8 @@ function getNextDocNum_(type, ss) {
 
 // ================================================================
 //  16-6: 請求書シート生成（generateInvoiceSheet）  【大A / 中16 / 小16-6】
+//  集計表から、荷主（K列）に会社名を含み・期間内・積地あり・有休/休みでない行を日付順に集め、「請求書」シートを作り直して書く
+//  自社設定（会社名など）とマスタ（入金サイクル・入金サイト）を使う。taxRate は消費税率
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function generateInvoiceSheet(company, dateFrom, dateTo, taxRate) {
@@ -12069,6 +12321,8 @@ function generateInvoiceSheet(company, dateFrom, dateTo, taxRate) {
 
 // ================================================================
 //  16-7: 支払確認書シート生成（generatePaymentSheet）  【大A / 中16 / 小16-7】
+//  集計表から、期間内で会社名・車番・乗務員名（指定があれば）が一致し、積地あり・有休でない行を日付順に集め、「支払確認書」シートを作り直して書く
+//  書類番号は「S-」＋16-5の連番。支払い（AA列）と実費高速（U列）を合計する
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function generatePaymentSheet(company, carNo, driverName, dateFrom, dateTo) {
@@ -12158,6 +12412,11 @@ function generatePaymentSheet(company, carNo, driverName, dateFrom, dateTo) {
 
 // ================================================================
 //  12-3c: ①修正用SS→②客用SSに反映（syncToTemplateSS）  【大C / 中12 / 小12-3c】
+//  ①の今のコードからライブラリの新しい版を作り（12-3c-1）、②のスタブをその版で書き直す（12-3c-2）。成功したら approvedLibVersion に記録
+//  ②の業務11シート（運行・集計表・自車専属マスタ・自車専属運行・マスタ・設定・配車板・自社設定・距離マスタ・PL設定・管理者）の1行目（見出しの値・色）だけを①に合わせる（データ行は触らない）
+//  足りないシートを作り（12-2z）、①専用シートを消し、システムシートを隠し、__TEMPLATE_SS__ マーカーに版番号を書き、保護を全部外す
+//  点検項目（4-2a）・取込辞書と設定シートH〜K列の辞書を①から上書きし、自車専属マスタの日付書式・見出し色を整える
+//  見本行の看板名・備考を①の文字にそろえる（12-3b-2。③反映と同じ処理）
 //
 //  ★ M&A後の引き継ぎメモ ★
 //  この関数は①から直接実行（メニュー「テスト客SS反映」）することが必要。
@@ -12236,10 +12495,8 @@ function syncToTemplateSS() {
   }
 
   // ②から不要シートを削除（getValidClientSheetNames_ 12-2zを共用。②③は必ず同じ基準）
-  var validSheets = getValidClientSheetNames_().concat(['__TEMPLATE_SS__']);
   tgtSs.getSheets().forEach(function(s) {
-    var sn = s.getName();
-    var isValid = validSheets.indexOf(sn) >= 0 || sn === 'PL' || sn.indexOf('PL_') === 0;
+    var isValid = isClientKeepSheet_(s.getName(), '__TEMPLATE_SS__');  // 12-2z の共通判定（バックアップ _BK_〜 は残す）
     if (!isValid && tgtSs.getSheets().length > 1) {
       try { tgtSs.deleteSheet(s); } catch(e) {}
     }
@@ -12266,6 +12523,7 @@ function syncToTemplateSS() {
 
   ensureSettingItems_(tgtSs);
   initImportDictionary_(tgtSs);
+  fixDemoRowLabels_(tgtSs);  // 見本行の看板名・備考を①の文字にそろえる（12-3b-2・③反映と共通）
   // 設定シートH-K列の辞書エントリ（カスタムエイリアス含む全データ）を①から②へ完全上書き配信
   (function() {
     var _dSrc = masterSs.getSheetByName('設定');
@@ -12312,14 +12570,15 @@ function syncToTemplateSS() {
 
 // ================================================================
 //  12-4: 新規会社フルセットアップ（processNewCompany_）  【大B / 中12 / 小12-4】
-//  ① 共有フォルダ（運行管理_アーカイブ/会社名/）を作成して管理Gmailに共有
-//  ② 12-3 で②客用SS（スタブ入り）をコピーしてそのフォルダ内に作成
+//  ① 共有フォルダ（運行管理_アーカイブ/会社名/）を作成（11-2。この時点では管理Gmailに共有しない・メールも送らない）
+//  ② 12-3 で新しいSSを作り②のシートを写す（makeCopyは使わない）。③SSを申込アドレスへ編集者共有する（Googleの共有通知メールは送らない）
 //  ③ アプリURL（WebアプリURL?ssId=会社SS_ID）を生成
 //  ④ 契約書URL（?page=contract&ssId=...&company=...&row=...）を生成
-//  ⑤ 会社登録シートにSSURL・AppURL・フォルダURLを記録し、契約書URLをI列に記録。デモ状況列に「デモ中」+日付を記録
-//  ⑥ 管理Gmail宛に「契約書確認のお願い」メールを送信
+//  ⑤ ③に __AGREE_META__ シート（①のSSのIDと会社登録の行番号）を作る。会社登録シートのC列を「契約書送信済」、D列に日時、
+//     E〜G列にフォルダURL・SSURL・AppURL、I列に契約書URL、スクリプトID列、デモ状況列に「デモ中」+日付を記録
+//  ⑥ 管理Gmail宛に「利用規約への同意のお願い」メールを送信し、H列に送信済を記録
 //  ⑦ LINE_IDがあればLINE宛にも同意書案内を送信
-//  12-5・12-7・14-2b（会社登録入力時）から呼ばれる。
+//  12-5（全未処理会社の一括）・12-7c-2（申込後の時限トリガー）・12-7c-3・12-8（キュー処理）・14-2b（会社登録のA・B列入力時）から呼ばれる。
 // ================================================================
 function processNewCompany_(companyName, adminEmail) {
   var ss;
@@ -12350,7 +12609,7 @@ function processNewCompany_(companyName, adminEmail) {
   var folderUrl = folderResult.folderUrl;
   var folderId  = folderResult.folderId;
 
-  // ② ②客用SSをコピーして③各客SS作成（スタブコードのみ・心臓部コードは含まれない）
+  // ② 新しいSSを作り②客用SSのシートを写して③各客SSを作成（12-3。スタブコードのみ・心臓部コードは含まれない）
   var ssResult   = createCompanySpreadsheet_(companyName, adminEmail, folderId);
   var ssUrl      = ssResult.ssUrl;
   var ssId       = ssResult.ssId;
@@ -12483,7 +12742,8 @@ function processNewCompany_(companyName, adminEmail) {
 //  ① 会社登録シートのJ列(10)に同意時刻を記録・C列を「同意済」に更新
 //  ② 管理Gmail宛に、SSを開くためのログイン画面のURL（2-6〜2-6e）をメール送信（アプリURLはログイン後の画面に出す）
 //  ③ LINE_IDがあればLINE宛にも同じ案内（ログインURL・乗務員アプリ配布方法）を送信
-//  ③ H列(8)に送信済ステータスを記録
+//  ④ H列(8)に送信済ステータスを記録
+//  ⑤ SSとその親フォルダを申込アドレス（会社登録B列）へ編集者として共有（Googleの共有通知メールは送らない）
 //  外から渡された adminEmail・masterSsIdParam は使わない（送り先は会社登録B列、①は __AGREE_META__ か Script Properties）
 //  ssId と会社登録の行（F列のスプレッドシートURL）が一致しない時は止める
 // ================================================================
@@ -12723,7 +12983,7 @@ function createSignupForm() {
 
 // ================================================================
 //  12-7: フォーム送信時の自動処理（onFormSubmit_）  【大B / 中12 / 小12-7】
-//  Googleの申し込みフォームが送信されたら、12-7d で会社登録シートに追記し、SS作成＋メール送信を自動実行する。
+//  Googleの申し込みフォームが送信されたら、12-7d で会社登録シートに追記する（SS作成・契約書メールは行わない）。
 //  重複（会社名またはアドレスが登録済み）の時は登録せず、申込者に「すでに受け付けています」メールを送る（12-7c）
 //  createSignupForm() が設定したトリガーから自動実行される。
 // ================================================================
@@ -12746,7 +13006,7 @@ function onFormSubmit_(e) {
 // ================================================================
 //  12-7a: 会社登録の申し込み項目の見出し（ensureSignupHeaders_）  【大B / 中12 / 小12-7a】
 //  会社登録シートのP1・Q1 が空なら「管理者名」「乗務員数」を付け、A1 と同じ見た目にする
-//  ①のonOpen（2-1）と 12-7 から呼ばれる。P1・Q1 に別の見出しがある時は何もしない
+//  ①のonOpen（2-1・初回1回だけ）と 12-7d から呼ばれる。P1・Q1 に別の見出しがある時は何もしない
 // ================================================================
 function ensureSignupHeaders_(regSheet) {
   if (!regSheet) return;
@@ -12809,6 +13069,12 @@ function processSignupAsync_trigger_() {
     processNewCompany_(data.company, data.email);
   } catch(e) { logError_('processSignupAsync_trigger_', e); }
 }
+
+// ================================================================
+//  12-7c-3: 申込後の裏処理の直接呼び出し（processSignupAsync）  【大A / 中12 / 小12-7c-3】
+//  会社名・管理者メールを受け取り processNewCompany_（12-4）でSS作成・メール送信を行う。失敗は_ErrorLog_に記録
+//  現在コード・画面からの呼び出し元はない（申込は12-7c-2の時限トリガー経由で処理される）
+// ================================================================
 function processSignupAsync(companyName, adminEmail) {
   try { processNewCompany_(companyName, adminEmail); } catch(e) { logError_('processSignupAsync', e); }
 }
@@ -12913,7 +13179,7 @@ function registerSignup_(d) {
 
 // ================================================================
 //  12-7d-0: メール送信共通（sendMail_）  【大B / 中12 / 小12-7d-0】
-//  GmailApp.sendEmailのラッパー。送信と同時にオーナー（デプロイユーザー）にBCCで控えを送る
+//  GmailApp.sendEmailのラッパー。ScriptProperty ccEmail（①のonOpenで保存する実行者のアドレス）をCCに付けて控えを送る（宛先と同じ時は付けない）
 // ================================================================
 function sendMail_(to, subject, body, opts) {
   opts = opts || {};
@@ -12926,8 +13192,8 @@ function sendMail_(to, subject, body, opts) {
 
 // ================================================================
 //  12-7d-1: 申込内容の確認送信（sendSignupConfirmation_）  【大B / 中12 / 小12-7d-1】
-//  申し込み登録直後に、登録した内容を客に送る。LINE IDがあればLINEで送り、
-//  なければB列の管理用Gmail宛にメールで送る。送信元のGmailに送信履歴が自動で残る
+//  申し込み登録直後に、登録した内容を客に送る。LINE IDがあればLINEにも送り、
+//  メールはLINEの成否にかかわらず必ず申込アドレス宛に送る（12-7d-0 でCC付き）
 // ================================================================
 function sendSignupConfirmation_(regSheet, companyName, adminEmail, managerName, drivers, lineId) {
   var confirmText =
@@ -12952,9 +13218,10 @@ function sendSignupConfirmation_(regSheet, companyName, adminEmail, managerName,
 
 
 // ================================================================
-//  12-7d-2: LINEチャネルアクセストークンの保存（setLineToken）  【大A / 中12 / 小12-7d-2】
+//  12-7d-2: LINEチャネルアクセストークンの保存と取得（setLineToken / getLineToken_）  【大A / 中12 / 小12-7d-2】
 //  ①修正用SSのメニュー「🔑 LINEトークン設定」から実行。トークンはチャット/コードに出さず
-//  Script Properties（LINE_CHANNEL_TOKEN）に保存する。LINE送信時は getLineToken_() で読む。
+//  Script Properties（LINE_CHANNEL_TOKEN）に保存し、保存後にWebhookを自動登録（12-7d-7）する。
+//  LINE送信時は getLineToken_() で読む（未設定なら空文字）。
 // ================================================================
 function setLineToken() {
   requireSheetUi_();
@@ -12976,6 +13243,12 @@ function setLineToken() {
 function getLineToken_() {
   return PropertiesService.getScriptProperties().getProperty('LINE_CHANNEL_TOKEN') || '';
 }
+
+// ================================================================
+//  12-7d-2b: LINE設定の確認表示（checkLineSetup_）  【大A / 中12 / 小12-7d-2b】
+//  ①修正用SSのメニュー「🔍 LINE設定確認」から実行。トークン設定の有無（末尾4桁）・Webhook登録先・
+//  会社登録シートのLINE_ID列の位置と、LINE_IDが入っている件数／空の件数をダイアログで表示する
+// ================================================================
 function checkLineSetup_() {
   requireSheetUi_();
   var props = PropertiesService.getScriptProperties();
@@ -13043,7 +13316,11 @@ function handleLineWebhook_(e) {
   return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
 }
 
-// 申込メールアドレスで会社登録を照合し、userIdを「LINE_ID」列（無ければ作成）に保存
+// ================================================================
+//  12-7d-4: LINEの友だちと会社の紐づけ（linkLineUserToCompany_）  【大A / 中12 / 小12-7d-4】
+//  LINEで送られた申込メールアドレスを会社登録のB列（申込メール）・N列（ログインメール）と照合し、
+//  一致した行の「LINE_ID」列（無ければ作成）にLINEのuserIdを保存する。12-7d-3から呼ばれる。返り値：{ok, company}
+// ================================================================
 function linkLineUserToCompany_(email, uid) {
   try {
     var mid = PropertiesService.getScriptProperties().getProperty('masterSsId');
@@ -13069,7 +13346,10 @@ function linkLineUserToCompany_(email, uid) {
   } catch(e) { logError_('linkLineUserToCompany_', e); return { ok: false }; }
 }
 
-// LINE応答（replyToken使用・無料）
+// ================================================================
+//  12-7d-5: LINEへの返信（lineReply_）  【大A / 中12 / 小12-7d-5】
+//  受信したメッセージへ replyToken で返信する（無料枠）。トークン未設定・replyTokenなしなら何もしない。失敗は_ErrorLog_に記録
+// ================================================================
 function lineReply_(replyToken, text) {
   var tok = getLineToken_();
   if (!tok || !replyToken) return;
@@ -13083,7 +13363,11 @@ function lineReply_(replyToken, text) {
   } catch(e) { logError_('lineReply_', e); }
 }
 
-// LINEへ任意送信（userId指定・push）。会社登録「LINE_ID」が空の客には送らない
+// ================================================================
+//  12-7d-6: LINEへの送信（pushLineMessage_）  【大A / 中12 / 小12-7d-6】
+//  userIdを指定してLINEへメッセージを送る（push）。会社登録「LINE_ID」が空の客には送らない。
+//  HTTPエラー・例外は_ErrorLog_に記録。返り値：送信成功ならtrue
+// ================================================================
 function pushLineMessage_(userId, text) {
   var tok = getLineToken_();
   if (!tok || !userId) return false;
@@ -13100,7 +13384,11 @@ function pushLineMessage_(userId, text) {
   } catch(e) { logError_('pushLineMessage_', e); return false; }
 }
 
-// ①のWebアプリURLをLINEのWebhookに自動登録する（トークン保存後、①を開いた時に1回だけ実行）
+// ================================================================
+//  12-7d-7: LINE Webhookの自動登録（autoSetupLineWebhook_）  【大A / 中12 / 小12-7d-7】
+//  ①のWebアプリURLをLINEのWebhookに登録する。12-7d-2のトークン保存後に実行。
+//  同じURLで登録済み（ScriptProperty lineWebhookSet）なら何もしない
+// ================================================================
 function autoSetupLineWebhook_() {
   try {
     var tok = getLineToken_();
@@ -13123,7 +13411,8 @@ function autoSetupLineWebhook_() {
 
 // ================================================================
 //  12-7e: 申し込みページからの申し込み（submitSignup）  【大A / 中12 / 小12-7e】
-//  signup.html（2-2 の ?page=signup）から呼ばれる。12-7d で登録し、成功時は12-4（SS作成＋契約書メール）を同期実行する
+//  signup.html（2-2 の ?page=signup）と 2-2a-2（POST受付）から呼ばれる。12-7d で登録し、成功時は申込内容を ScriptProperty（pendingSignup）に
+//  保存して5秒後の時限トリガー（12-7c-2）を作る（SS作成＋契約書メール＝12-4はそのトリガーで裏で実行。画面はすぐ完了を返す）
 //  ご質問（memo）があれば、登録の結果にかかわらず問い合わせ管理シート（12-7g）に入れる
 //  f：{ company, manager, email, drivers, memo, from, lineId }
 //  返り値：{ ok:true } ／ { ok:false, dup:true, msg:'すでに登録済みです…' } ／ { ok:false, msg }
@@ -13350,7 +13639,7 @@ function loadDistanceMasterMap_(ss) {
 
 // ================================================================
 //  4-9f: 距離マスタ追記（appendDistanceMasterRows_）  【大B / 中4 / 小4-9f】
-//  距離マスタに新規ルートを一括追記する（既存キーはスキップ・setValuesで一括書き込み）
+//  距離マスタの末尾に、渡されたルート（キー・km・計算方法・今日の日付）をsetValuesで一括追記する（既存キーとの重複は確認しない。呼び出し側で確認する）
 // ================================================================
 function appendDistanceMasterRows_(ss, newRoutes) {
   if (!newRoutes || !newRoutes.length) return;
@@ -13388,17 +13677,24 @@ function calcDistanceMapsApi_(locations) {
 // ================================================================
 //  4-9h: 集計表への距離反映（setDistanceInSummary_）  【大B / 中4 / 小4-9h】
 //  集計表W列（距離・col23）に値をセットする。isAuto=trueで緑文字（API計算済み）
+//  1行同期（4-2）などと同じ順番待ち（1-1b）の中で、IDの行を探してから書く
 // ================================================================
 function setDistanceInSummary_(ss, id, km, isAuto) {
   var sh = ss.getSheetByName('集計表');
   if (!sh || sh.getLastRow() < 2) return;
-  var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
-  for (var i = 0; i < ids.length; i++) {
-    if (String(ids[i][0] || '').trim() !== String(id).trim()) continue;
-    var cell = sh.getRange(i + 2, 23);
-    cell.setValue(km);
-    if (isAuto) cell.setFontColor('#1a9a50');
-    return;
+  var distLock = getSsLock_();
+  try { distLock.waitLock(10000); } catch(lErr) { logError_('setDistanceInSummary_', 'ロック取得失敗'); return; }
+  try {
+    var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0] || '').trim() !== String(id).trim()) continue;
+      var cell = sh.getRange(i + 2, 23);
+      cell.setValue(km);
+      if (isAuto) cell.setFontColor('#1a9a50');
+      return;
+    }
+  } finally {
+    distLock.releaseLock();
   }
 }
 
@@ -13429,7 +13725,10 @@ function lookupAndSetDistanceAfterCreate_(ss, id, picks, drops) {
 
 // ================================================================
 //  4-9j: 未計算行の距離一括計算（calcDistanceForAllPending_）  【大B / 中4 / 小4-9j】
-//  降完あり・距離未入力の行を一括処理して集計表W列に反映する（トリガー・手動ボタン共通）
+//  集計表のうち積地・降地があり、距離が緑字（自動計算済み）でない行を一括処理して集計表W列に緑字で反映する（空欄も黒字の手入力値も上書きする）
+//  ①積地/降地の並びのキーで距離マスタ照合 → ②降完ありなら時刻順キーでも照合 → ③住所の候補数を確認（0件=エラー・2件以上=住所確認待ちとして距離マスタに記録）してMaps APIで計算
+//  距離マスタでエラー・住所確認待ちのルートは計算し直さない。トリガー（4-9o・4-9p）・手動（4-10）共通。返り値：反映した件数
+//  書き戻しは、計算した距離をIDごとに控え、1-1b の順番待ちの中で今の行を探し直して、そのIDの行のW列にだけ書く
 // ================================================================
 function calcDistanceForAllPending_(ss) {
   var sumSh   = ss.getSheetByName('集計表');
@@ -13440,6 +13739,7 @@ function calcDistanceForAllPending_(ss) {
   var sumCols  = Math.max(sumSh.getLastColumn(), 37);
   var sumData  = sumSh.getRange(2, 1, numRows, sumCols).getValues();
   var sumFonts = sumSh.getRange(2, 1, numRows, sumCols).getFontColors();
+  var origDist = sumData.map(function(r) { return r[22]; });  // 書き戻す時に「変えた行」だけを見分けるための控え
   var unkouData = unkouSh.getDataRange().getValues();
   var masterMap = loadDistanceMasterMap_(ss);
 
@@ -13535,12 +13835,36 @@ function calcDistanceForAllPending_(ss) {
     if (apiCalls % 10 === 0) Utilities.sleep(500);
   }
 
-  // W列のみ一括書き込み（setValues + setFontColors各1回）
+  // W列の書き込み：計算に時間がかかり、その間に行が動くことがあるため、計算した距離をIDごとに控え、
+  // 1-1b の順番待ちの中で今の行の並びを読み直してから、そのIDの行にだけ書く（ほかの行の距離は今の値のまま）
   if (processed > 0) {
-    var distVals  = sumData.map(function(r) { return [r[22]]; });
-    var distFonts = sumFonts.map(function(r) { return [r[22]]; });
-    sumSh.getRange(2, 23, numRows, 1).setValues(distVals);
-    sumSh.getRange(2, 23, numRows, 1).setFontColors(distFonts);
+    var newDistById = {};
+    for (var nd = 0; nd < sumData.length; nd++) {
+      var ndId = String(sumData[nd][0] || '').trim();
+      if (ndId && sumData[nd][22] !== origDist[nd]) newDistById[ndId] = { v: sumData[nd][22], f: sumFonts[nd][22] };
+    }
+    var pdLock = getSsLock_();
+    var pdOk = false;
+    try { pdLock.waitLock(30000); pdOk = true; } catch(lErr) { logError_('calcDistanceForAllPending_', 'ロック取得失敗'); }
+    if (pdOk) {
+      try {
+        var curLast = sumSh.getLastRow();
+        if (curLast >= 2) {
+          var curIds   = sumSh.getRange(2, 1, curLast - 1, 1).getValues();
+          var curRng   = sumSh.getRange(2, 23, curLast - 1, 1);
+          var curVals  = curRng.getValues();
+          var curFonts = curRng.getFontColors();
+          for (var cr = 0; cr < curIds.length; cr++) {
+            var hit = newDistById[String(curIds[cr][0] || '').trim()];
+            if (hit) { curVals[cr][0] = hit.v; curFonts[cr][0] = hit.f; }
+          }
+          curRng.setValues(curVals);
+          curRng.setFontColors(curFonts);
+        }
+      } finally {
+        pdLock.releaseLock();
+      }
+    }
   }
   if (newRoutes.length)     appendDistanceMasterRows_(ss, newRoutes);
   if (errorRoutes.length)   { appendDistanceMasterRows_(ss, errorRoutes);  applyDistanceMasterErrorStyle_(ss); }
@@ -13741,7 +14065,7 @@ function calcDistanceForSS(ssId, scriptId) {
 
 // ================================================================
 //  4-10: 距離計算手動実行（calcDistanceManual）  【大C / 中4 / 小4-10】
-//  メニュー「距離計算（未計算分）」: 積地・降地あり・距離未設定の行をMaps APIで一括計算して集計表に反映
+//  メニュー「距離計算（未計算分）」: 4-9j を実行して件数を表示する（積地・降地があり、距離が緑字でない行が対象）
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function calcDistanceManual() {
@@ -13822,7 +14146,9 @@ function initDistanceMasterMajorCities() {
 
 // ================================================================
 //  14-1: インストール型トリガーのセットアップ（installTriggers）  【大C / 中14 / 小14-1】
-//  最初に1回だけ実行する。メニュー「⚙️ システム設定・保守」→「🔧 初期設定」から実行。
+//  最初に1回だけ実行する。メニュー「⚙️ システム設定・保守」→「🔧 初期設定」から実行（①用。②③はスタブの installTriggers を使う）。
+//  開いているSSのIDを masterSsId に保存し、WebアプリURLを入力してもらって保存（キャンセル時は今の値のまま）、
+//  このSSのインストール型トリガーを全部消してから3本（installedOnEdit_・onStructureChange_・calcDistanceTrigger_）を登録し直す。
 //  ※ シンプルトリガー(onEdit)は認証付きサービス（Drive/Gmail等）やダイアログ表示が使えないため
 //    インストール型トリガー(installedOnEdit_/onStructureChange_/calcDistanceTrigger_)を別途登録する必要がある。
 //  【トリガーの仕組み・恒久メモ（必読）】
@@ -13889,7 +14215,8 @@ function installTriggers() {
 
 // ================================================================
 //  14-1a: scripts.run でスタブ内 installTriggers を遠隔実行（runInstallTriggers_）  【大C / 中14 / 小14-1a】
-//  全客SS③反映・新規作成後にトリガーを自動登録する。devMode:true でHEAD版を即使用。
+//  対象スクリプトの installTriggers を Apps Script API（scripts.run・devMode:true）で遠隔実行してトリガーを登録する。
+//  現在コードからの呼び出し元はない（トリガーは客が③で初期設定ボタンを押して登録する）
 // ================================================================
 function runInstallTriggers_(scriptId, ssId) {
   try {
@@ -13909,7 +14236,8 @@ function runInstallTriggers_(scriptId, ssId) {
 
 // ================================================================
 //  14-1b: 初回SS起動時の初期設定完了ポップアップ（showFirstSetupPopup）  【大C / 中14 / 小14-1b】
-//  ③各客SSのスタブonOpenから初回のみ呼ばれる。会社登録からアプリURLを取得し案内を表示する
+//  ③各客SSのスタブonOpenから、初期設定が終わるまで毎回呼ばれ、初期設定を押すよう案内のダイアログを出す
+//  （案内文のメニュー名は「⚙️ システム設定・保守」→「🔧 初期設定」だが、初期設定前の③のメニューは「⚙️ 設定メニュー」→「🔧 初期設定（必須）」）
 // ================================================================
 function showFirstSetupPopup() {
   try {
@@ -13923,6 +14251,8 @@ function showFirstSetupPopup() {
 
 // ================================================================
 //  17-7a: PL設定按分を全マスタ行に即時反映（updatePlApportionment_）  【大B / 中17 / 小17-7a】
+//  PL設定の月額合計（PL含入がFALSEの費目は除く）を運行中の台数で割り、自車専属マスタの「PL設定按分（参照）」列の運行行に緑字で書く（運行以外の行は空にする）
+//  列が無ければ何もしない。インストール型トリガー（14-2b）から呼ばれる
 // ================================================================
 function updatePlApportionment_(ss) {
   var plSheet     = ss.getSheetByName('PL設定');
@@ -13960,7 +14290,7 @@ function updatePlApportionment_(ss) {
   if (agColIdx === -1) return;
   var agCol = agColIdx + 1; // 1-based
 
-  // [MOD-v1.3] ループ内setValue廃止→配列構築後に一括setValues/setFontColors/setNumberFormatsへ変更
+  // 値・文字色・表示形式を配列に組み立ててから、setValues/setFontColors/setNumberFormatsで一括書き込み
   var numRows    = statusVals.length;
   var writeVals  = [];
   var writeFonts = [];
@@ -13987,7 +14317,10 @@ function updatePlApportionment_(ss) {
 //  14-2b: インストール型トリガーのディスパッチャ（dispatchInstalledEdit）  【大B / 中14 / 小14-2b】
 //  installedOnEdit_ から分離した公開関数。②③スタブからも呼べる（アンダースコアなし）
 //  UI表示（showModalDialog）はスタブ側で行うため、ポップアップ案件は htmlなどを返す
-//  非UI案件は直接処理してnullを返す
+//  非UI案件は直接処理してnullを返す。コピーしたSS・停止/期限切れのSSでは何もしない（2-2f/2-2g）
+//  ・見出し行（1行目）の編集 → 正規見出しに戻す ／ 自車専属マスタB列（運行状態）→ 適用日を聞くダイアログを返す
+//  ・PL設定の編集 → 17-7a で按分を更新 ／ 運行シートの編集 → 集計表を同期（4件以上は4-1で再生成）、積地・降地なら距離も反映、帳票日時の正規化、行のバックアップ
+//  ・取込用シートの対応行の編集 → 取込辞書に追加 ／ 会社登録A・B列 → 12-4でフルセットアップ、F・G列 → 11-5で配布メール
 // ================================================================
 function dispatchInstalledEdit(e) {
   try {
@@ -14244,7 +14577,7 @@ function setRecalcChoice(choice, ssId) {
 
 // ================================================================
 //  12-9: 修正用SSを作成（createDevSs）  【大C / 中12 / 小12-9】
-//  今のSS（元SS）をコピーして「修正用_運行管理」を作成する。
+//  今のSS（元SS）を create()+Sheet.copyTo() 方式で複製して「修正用_運行管理」を作成する（スクリプトは複製しない。claspで別途設定が必要）。
 //  メニュー未登録（スクリプトエディタから直接実行）。作成後、修正用SSで 12-10 を実行してIDを担当者に伝える。
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
@@ -14264,8 +14597,15 @@ function createDevSs() {
     if (ans !== ui.Button.YES) return;
   }
 
-  var copy    = file.makeCopy('修正用_運行管理');
-  var copyUrl = 'https://docs.google.com/spreadsheets/d/' + copy.getId() + '/edit';
+  // create()+Sheet.copyTo() 方式（makeCopyはスクリプトも複製して幽霊が増えるため絶対禁止。スクリプトはclaspで別途設定すること）
+  var devSs      = SpreadsheetApp.create('修正用_運行管理');
+  var devFile    = DriveApp.getFileById(devSs.getId());
+  var devDefShts = devSs.getSheets();
+  ss.getSheets().forEach(function(sh) { try { sh.copyTo(devSs); } catch(ce) {} });
+  devDefShts.forEach(function(ds) { try { devSs.deleteSheet(ds); } catch(de) {} });
+  var devParent  = file.getParents();
+  if (devParent.hasNext()) { var devFolder = devParent.next(); devFolder.addFile(devFile); DriveApp.getRootFolder().removeFile(devFile); }
+  var copyUrl = 'https://docs.google.com/spreadsheets/d/' + devSs.getId() + '/edit';
 
   PropertiesService.getScriptProperties().setProperty('originalSsId', ss.getId());
 
@@ -14301,8 +14641,8 @@ function showMyScriptId() {
 
 // ================================================================
 //  14-2a: 必須シートの補完（ensureRequiredSheets）  【大B / 中14 / 小14-2a】
-//  F5時に必須シートが無ければ①からコピーして補完する
-//  onOpen（stub）から呼ばれる。getUi() 不使用のため LIMITED モードでも動作する
+//  使い方・説明書・サポート・メモの4シートのどれかが無ければ、①（引数のSSのID）から写して補完する（①が開けなければ空シートを作る）
+//  スタブの onOpen から __COMPANY_SS__ シートのB1の値を①のIDとして渡して呼ばれる（③作成直後はB1が空なので動かず、③への反映（14-3）でB1に①のIDが書かれた後から動く）
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function ensureRequiredSheets(masterSsId) {
@@ -14323,8 +14663,11 @@ function ensureRequiredSheets(masterSsId) {
 }
 
 // ================================================================
-//  14-3: ①修正用SS→全③各客SSにヘッダー・設定を反映（syncToAllClientSS）
+//  14-3: ①修正用SS→全③各客SSにヘッダー・設定を反映（syncToAllClientSS）  【大C / 中14 / 小14-3】
 //  ①修正用SSのメニュー「🌐 全客SS（③）に反映」から実行（①②どちらからも実行可能）。データ行は一切消さない。
+//  会社登録の全③について：スタブを最新版で書き直し（12-3c-2）、幽霊スクリプトを無効化、業務シートの見出し行を①に合わせ、
+//  足りないシートを作り・①専用シートを消し・保護を全部外し、取込辞書・運行状態の入力規則・自車専属マスタの書式をそろえ、__COMPANY_SS__ のB1に①のIDを書く。
+//  見本行の看板名・備考を①の文字にそろえる（12-3b-2。②反映と同じ処理）
 //  ②の __TEMPLATE_SS__ シートのB1から①修正用SSのIDを取得し会社登録シートを参照する。
 //
 //  ★ M&A後の引き継ぎメモ ★
@@ -14454,6 +14797,7 @@ function syncToAllClientSS() {
       });
       ensureSettingItems_(clientSs);
       initImportDictionary_(clientSs);
+      fixDemoRowLabels_(clientSs);  // 見本行の看板名・備考を①の文字にそろえる（12-3b-2・②反映と共通）
       // 設定シートH-K列の辞書エントリ（カスタムエイリアス含む全データ）を①から③へ完全上書き配信
       (function() {
         var _dSrc = masterSs.getSheetByName('設定');
@@ -14498,10 +14842,8 @@ function syncToAllClientSS() {
       }
 
       // 不要シートを削除（getValidClientSheetNames_ 12-2zを共用。②③は必ず同じ基準）
-      var validClientSheets = getValidClientSheetNames_().concat(['__COMPANY_SS__']);
       clientSs.getSheets().forEach(function(s) {
-        var sn = s.getName();
-        var isValid = validClientSheets.indexOf(sn) >= 0 || sn === 'PL' || sn.indexOf('PL_') === 0;
+        var isValid = isClientKeepSheet_(s.getName(), '__COMPANY_SS__');  // 12-2z の共通判定（バックアップ _BK_〜 は残す）
         if (!isValid && clientSs.getSheets().length > 1) {
           try { clientSs.deleteSheet(s); } catch(e) {}
         }
@@ -14569,8 +14911,9 @@ function syncToAllClientSS() {
 }
 
 // ================================================================
-//  14-3x: 特定1社のスタブを強制修復（repairOneClientSS）
+//  14-3x: 特定1社のスタブを強制修復（repairOneClientSS）  【大C / 中14 / 小14-3x】
 //  メニュー未登録（スクリプトエディタから直接実行）。SS URLを入力して対象1社だけ再反映する。
+//  正スクリプト以外を全て先に無効化してから（絶対ルール：無効化→書き込みの順）、正スクリプトにだけスタブを書き込む
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function repairOneClientSS() {
@@ -14610,26 +14953,24 @@ function repairOneClientSS() {
     }
     if (!primaryId) { ui.alert('スクリプトIDが特定できませんでした。会社登録シートのURLを確認してください。'); return; }
 
-    // 全スクリプトを一度すべてスタブで上書き（古い幽霊も含め強制更新）
-    var updated = 0, failed = [];
+    // 先に正スクリプト以外を全て無効化（絶対ルール：無効化→書き込みの順。逆順は幽霊が生き残る）
+    var neutralized = 0;
     for (var j = 0; j < allScriptIds.length; j++) {
-      var r = updateStubVersion_(allScriptIds[j], approvedVersion, false);
-      if (r && r.ok) { updated++; } else {
-        // primaryでなければ無効化
-        if (allScriptIds[j] !== primaryId) { neutralizeScript_(allScriptIds[j]); }
-        else { failed.push(allScriptIds[j]); }
-      }
+      if (allScriptIds[j] !== primaryId) { neutralizeScript_(allScriptIds[j]); neutralized++; }
     }
-    ui.alert('修復完了\nスクリプト更新: ' + updated + '個\n失敗: ' + failed.length + '個\n\n該当SSでF5→「🔧初期設定」を1回押してください。');
+    // 正スクリプトにだけスタブを書き込む
+    var updated = 0, failed = [];
+    var r = updateStubVersion_(primaryId, approvedVersion, false);
+    if (r && r.ok) { updated++; } else { failed.push(primaryId); }
+    ui.alert('修復完了\n幽霊無効化: ' + neutralized + '個\nスクリプト更新: ' + updated + '個\n失敗: ' + failed.length + '個\n\n該当SSでF5→「🔧初期設定」を1回押してください。');
   } catch(e) {
     ui.alert('エラー: ' + e.message);
   }
 }
 
 // ================================================================
-//  14-3a: 全バインドスクリプトの対応表を作る（buildSsScriptMap_）
-//  syncToAllClientSS専用。Drive親検索（"SSID" in parents）は結果が欠落することが
-//  あるため廃止し、実行者から見える全スクリプトファイルを広域列挙 →
+//  14-3a: 全バインドスクリプトの対応表を作る（buildSsScriptMap_）  【大B / 中14 / 小14-3a】
+//  syncToAllClientSS専用。実行者から見える全スクリプトファイルを広域列挙 →
 //  Apps Script API projects.get の parentId（バインド先SSのID）で確実に照合する。
 //  戻り値: { <SSのID>: [scriptId, ...], ... }
 // ================================================================
@@ -14699,7 +15040,7 @@ function buildSsScriptMap_() {
 }
 
 // ================================================================
-//  14-3b: WebアプリURL（会社登録G列）のデプロイIDを持つスクリプトを正として特定（findWebAppScriptId_）
+//  14-3b: WebアプリURL（会社登録G列）のデプロイIDを持つスクリプトを正として特定（findWebAppScriptId_）  【大B / 中14 / 小14-3b】
 //  複数バインドスクリプトがある場合、実際にWebAppが動いている方を正スクリプトと判定する。
 // ================================================================
 function findWebAppScriptId_(scriptIds, webAppUrl) {
@@ -14727,7 +15068,7 @@ function findWebAppScriptId_(scriptIds, webAppUrl) {
 }
 
 // ================================================================
-//  14-3c: 余分なバインドスクリプトを無効化（neutralizeScript_）
+//  14-3c: 余分なバインドスクリプトを無効化（neutralizeScript_）  【大B / 中14 / 小14-3c】
 //  ライブラリ依存なし・全処理を空関数化した最小コードに上書きする。
 //  バインドスクリプトはAPI削除不可のため無効化で対応。
 //  残存インストール済みトリガーが発火しても空関数のため何も起きない
@@ -14768,7 +15109,7 @@ function neutralizeScript_(scriptId) {
 }
 
 // ================================================================
-//  14-3d: コンテナバインドスクリプトを削除（deleteScriptProject_）
+//  14-3d: コンテナバインドスクリプトを削除（deleteScriptProject_）  【大B / 中14 / 小14-3d】
 //  Drive API DELETE で幽霊スクリプトを完全削除する。
 //  削除不可（403等）の場合は false を返す → 呼び出し元で neutralizeScript_ にフォールバック。
 // ================================================================
@@ -14986,19 +15327,22 @@ function diagCheckClientScriptContent_() {
 
 
 // ================================================================
-//  13-1: CSV/Excel一括読込ダイアログ表示（運行）  【大C / 中13 / 小13-1】
+//  13-1: CSV/Excel一括読込ダイアログ表示（運行・showCsvImportDialogUnkou）  【大C / 中13 / 小13-1】
+//  運行シート用の読込ダイアログを 13-2 で開く
 // ================================================================
 function showCsvImportDialogUnkou() { showCsvImportDialog_('unkou'); }
 
 
 // ================================================================
-//  13-1b: CSV/Excel一括読込ダイアログ表示（自車専属マスタ）  【大C / 中13 / 小13-1b】
+//  13-1b: CSV/Excel一括読込ダイアログ表示（自車専属マスタ・showCsvImportDialogMaster）  【大C / 中13 / 小13-1b】
+//  自車専属マスタ用の読込ダイアログを 13-2 で開く
 // ================================================================
 function showCsvImportDialogMaster() { showCsvImportDialog_('master'); }
 
 
 // ================================================================
-//  13-1c: CSV/Excel一括読込ダイアログ表示（マスタ取引先）  【大C / 中13 / 小13-1c】
+//  13-1c: CSV/Excel一括読込ダイアログ表示（マスタ取引先・showCsvImportDialogCust）  【大C / 中13 / 小13-1c】
+//  マスタ（取引先）用の読込ダイアログを 13-2 で開く
 // ================================================================
 function showCsvImportDialogCust() { showCsvImportDialog_('cust'); }
 
@@ -15111,7 +15455,7 @@ function createImportTestSheetUnkou() {
 }
 // ================================================================
 //  13-3e: ダミー運行シート自動生成（createDummyUnkouSheet_）  【大A / 中13 / 小13-3e】
-//  シート再生成(F5)時に「ダミー運行」シートが存在しない場合のみ作成する
+//  シート再生成（4-3）の最後に、「ダミー運行」シートが存在しない場合のみ作成する
 //  2026/7/1〜9/16 × 4台のダミー運行データを挿入する（時刻は距離別ランダム）
 // ================================================================
 function createDummyUnkouSheet_() {
@@ -15377,9 +15721,6 @@ function executePasteImport() {
 // ================================================================
 //  13-4a: 自動マッピング書込（applyPasteImportMapping_）  【大C / 中13 / 小13-4a】
 //  貼付取込シート（13-3f の名前）の1行目と辞書を照合し、2行目に標準項目名を書き込む
-//  【分割ルール】t/T/トン以外の文字（W・平・箱・幌・冷蔵・ユニック等）は車種として扱う
-//  例: 「4W」→ トン数=4・車種=W / 「13ユニック」→ トン数=13・車種=ユニック
-//  「4t」「4T」「4トン」は車種なし（分割しない） / 数字のみも分割しない
 // ================================================================
 function applyPasteImportMapping_(ss, sh) {
   sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p){p.remove();});
@@ -15481,7 +15822,8 @@ function applyPasteImportMapping_(ss, sh) {
 
 // ================================================================
 //  13-4b: 取込用シート行データ取得（getPasteImportRows）  【大A / 中13 / 小13-4b】
-//  貼付取込シート（13-3f の名前）の先頭6行（見出し＋最大5行）を2次元配列で返す（HTML→GAS API）
+//  貼付取込シート（13-3f の名前）の先頭6行（見出し＋最大5行）を2次元配列で返す
+//  現在コード・画面からの呼び出し元はない
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function getPasteImportRows(companySsId) {
@@ -15499,8 +15841,11 @@ function getPasteImportRows(companySsId) {
 
 // ================================================================
 //  13-4c: トン数・車種自動分解（decomposeTonCarType_）  【大B / 中13 / 小13-4c】
-//  fieldMapのton/carTypeに「4W」「13w」「2t平」等の複合値がある場合に分解する
-//  数字部分→ton, t/T除く文字部分→carType
+//  fieldMapのton/carTypeに「4W」「13w」「2t平」等の複合値がある場合に分解する（全角英数字は半角にしてから判定）
+//  ・トン数と車種の両方に値がある時：車種が「数字＋t/トン＋残り」なら残りだけを車種にし、数字だけなら車種を空にする
+//  ・片方だけの時：先頭の数字をton、t/トンを除いた残りをcarTypeにする（例：4W→4・W／13ユニック→13・ユニック／4t・4トン・10→車種なし）
+//    数字で始まらない値がトン数欄にある時は車種に移す
+//  ・「4ton」は t を単位として読むため車種が「on」になる
 // ================================================================
 function decomposeTonCarType_(fmap) {
   function _nz(s) { return String(s).replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);}); }
@@ -16040,8 +16385,8 @@ function importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaym
           }
         }
         sortUnkouByDate_(companySsId, true);
-        sortSummaryByDate_(companySsId);
-        calculatePaymentAmount(companySsId);
+        sortSummaryByDate_(companySsId, true);      // この処理は順番待ち中なので、中で待たない
+        calculatePaymentAmount(companySsId, true);
       }
     }
     return { ok: writeRows.length, total: mappedRows.length, skipped: _skipped };
@@ -16202,7 +16547,7 @@ function buildSheetRow_(sheetType, id, fieldMap, ss) {
 //  設定シートH列に辞書ヘッダー（【辞書v10】種別）とデフォルトエントリを自動生成する
 //  全3シートの全列を取込対象とする
 //   unkou: 時刻5列（誘導/積完/休憩開始・終了/降完）を含む
-//   master: 仮日数・給料・全経費・日付・管理者など25列を含む
+//   master: 仮日数・給料・高速を引く・全経費・期限日付・担当管理者など33項目を含む
 //   cust: 銀行4列・メール・インボイス2列を含む
 // ================================================================
 function initImportDictionary_(ss) {
@@ -16330,7 +16675,7 @@ function initImportDictionary_(ss) {
     ['common', 'memo',     '備考',          '備考,メモ,特記,注意事項,摘要,コメント,備考欄,記事,その他,フリー'],
   ];
 
-  // H2が空白の場合は過去バグによるゴミデータがH列下部に残っている可能性があるため全クリア（自己修復）
+  // H2が空白の時は、H列の下のほうに不要なデータが残っていることがあるため全クリアする
   if (setting.getLastRow() > 1 && String(setting.getRange(2, 8).getValue()).trim() === '') {
     var _selfFixMaxR = setting.getMaxRows();
     if (_selfFixMaxR > 1) setting.getRange(2, 8, _selfFixMaxR - 1, 4).clearContent();
@@ -16369,6 +16714,7 @@ function initImportDictionary_(ss) {
 
 // ================================================================
 //  13-8a: 辞書エイリアス追加（addImportDictionaryAlias_）  【大B / 中13 / 小13-8a】
+//  設定シートH〜K列の取込辞書で、種類（H列）と表示名（J列）が一致する行のK列（別名のカンマ区切り）に新しい別名を足す（すでにあれば何もしない）
 // ================================================================
 function addImportDictionaryAlias_(ss, sheetType, displayName, newAlias) {
   var setting = ss.getSheetByName('設定');
@@ -16462,6 +16808,7 @@ function saveImportAliases(sheetType, newMappings, companySsId, token) {
 
 // ================================================================
 //  14-4: 帳票発行済マーク（markDocumentIssued）  【大A / 中14 / 小14-4】
+//  運行シートでIDが一致する最初の行の「発注書・指示書」列（docType=hatchu）または「車番連絡」列に、今の日時（MM/dd HH:mm の文字）を書く
 //  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
 function markDocumentIssued(rowId, docType, ssId, token) {
@@ -16490,6 +16837,8 @@ function markDocumentIssued(rowId, docType, ssId, token) {
 
 // ================================================================
 //  14-5: 帳票メール／FAX送信（sendDocumentEmail）  【大A / 中14 / 小14-5】
+//  荷主名でマスタ（取引先）を探し、method=email ならメールアドレス宛に送って発行済（14-4）にし、指示先があれば履歴に保存（14-7i）する
+//  method=fax はFAX番号をログに書いて発行済にするだけで、実際のFAX送信はしない。返り値：{ok, msg}
 //  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
 function sendDocumentEmail(docData, docType, method, token) {
@@ -16796,7 +17145,8 @@ function saveKyoryokuHistory_(clientName, youshaData, ss) {
 //  ・1行チェック: 貨物単独または車両単独として運行シートに登録
 //  ・2行チェック: 貨物行と車両行をマッチング→1つの運行IDで運行シートに登録
 //  ・貨物2行＋車両1行: 同じIDの2行程として登録
-//  ・貨物3行以上・車両2行以上: エラーを出して中断
+//  ・貨物3行以上・車両2行以上・貨物2行で車両なし: エラーを出して中断
+//  ・両側確定済み（ピンク）の行が含まれる時: 再マッチングできないのでエラーを出して中断
 //
 //  【車種不一致チェック】
 //  屋根ありグループ（W・箱・幌等）と屋根なしグループ（平・ユニック等）が
@@ -17143,7 +17493,7 @@ function buildJohoNewRow_(newRow, uIdx, cargoRow, vehRow, overrideType) {
 
 // ================================================================
 //  15-3: テスト用マスタテストシート自動生成（ensureTestMasterSheet_）  【大B / 中15 / 小15-3】
-//  シート再生成(F5)時に「マスタテスト」シートが存在しない場合のみ作成する
+//  シート再生成（4-3）の時に（①のみ）、「マスタテスト」シートが存在しない場合のみ作成する
 // ================================================================
 function ensureTestMasterSheet_(ss) {
   var SHEET_NAME = 'マスタテスト';
@@ -17776,6 +18126,7 @@ function generateUketorishoSheet(filters) {
 
 // ================================================================
 //  17-1: PLフィルタモーダル表示（showPlDialog）  【大C / 中17 / 小17-1】
+//  PL作成の条件を選ぶ画面（P-5i の pl）をダイアログで開く
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function showPlDialog() {
@@ -17961,6 +18312,7 @@ function generatePl(filters, ssId, token) {
 
 // ================================================================
 //  17-3a: 表示単位別内訳生成（buildPlBreakdown_）  【大B / 中17 / 小17-3a】
+//  PLの明細行を日別（yyyy/MM/dd）・週別（月曜始まり）・月別（yyyy年MM月）にまとめ、売上・実費高速・燃料代・支払い・経費・利益を合計して、キーの順に返す
 // ================================================================
 function buildPlBreakdown_(rows, unit) {
   var groups = {};
@@ -18788,6 +19140,7 @@ function initFixedCostMaster() {
 //  3-3d: 車両ステータス変更の同期実行（executeStatusSync）  【大A / 中3 / 小3-3d】
 //  ステータス変更ポップアップから呼ばれ、指定された日付を起点に運行シートを同期する
 //  対象車両ごとに 3-3b を実行し、並び替えは最後の1台だけで行う
+//  choice：today＝今日から／month＝今月1日から／それ以外＝全期間（2000/1/1から）。cancel なら何もしない
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function executeStatusSync(rowsParam, choice, ssId) {
@@ -18930,7 +19283,7 @@ function prepareEtcImport(csvText, colConfig, companySsId, token) {
 
 // ================================================================
 //  13-12: ETC照合実行（executeEtcImport）  【大A / 中13 / 小13-12】
-//  etcRows・車番解決マップ・手入力上書きフラグを受け取り集計表U列に書き込む
+//  etcRows・車番解決マップ・手入力上書きフラグを受け取り、運行シートU列（実費高速）に合計額を緑字で書き込んで、更新したIDの集計表を同期する（4-2）
 //  照合範囲：前行程の降完時刻 〜 この行程の降完時刻（降完なしはスキップ）
 //  スプレッドシートの画面から、または管理画面（ログイン状態 token）から対象SSを決めて動く（P-5e）
 // ================================================================
@@ -19044,6 +19397,7 @@ function detectEtcColumns_(headers) {
 
 // ================================================================
 //  13-14: ETC CSV行パース補助（parseEtcCsvLine_）  【大B / 中13 / 小13-14】
+//  CSVの1行をカンマで区切って配列にする（ダブルクォートで囲まれた中のカンマと "" は1文字として扱う）
 // ================================================================
 function parseEtcCsvLine_(line) {
   var result = [], cur = '', inQ = false;
@@ -19386,7 +19740,7 @@ function getOrCreateCompanyBackupFolder_(companyName) {
 
 // ================================================================
 //  4-12c: 毎日のバックアップ（runDailyBackup_）  【大B / 中4 / 小4-12c】
-//  毎日3時台の時間トリガーから呼ばれ、会社登録シートの各客SSのコピーを会社別フォルダに保存する
+//  毎日3時台の時間トリガーから呼ばれ、会社登録シートの各客SSを新規SS作成＋Sheet.copyTo方式で複製して会社別フォルダに保存する（スクリプトは複製しない）
 //  同日分が既にあれば削除してから再作成し、保持期間を超えた古いファイルを削除する
 // ================================================================
 function runDailyBackup_() {
@@ -19413,7 +19767,15 @@ function runDailyBackup_() {
       // 同日分が既にあれば削除してから再作成
       var existing = folder.getFilesByName(fileName);
       while (existing.hasNext()) existing.next().setTrashed(true);
-      DriveApp.getFileById(match[1]).makeCopy(fileName, folder);
+      // create()+Sheet.copyTo() 方式（makeCopyはスクリプトも複製して幽霊が増えるため絶対禁止）
+      var bkSrcSs   = SpreadsheetApp.openById(match[1]);
+      var bkNewSs   = SpreadsheetApp.create(fileName);
+      var bkNewFile = DriveApp.getFileById(bkNewSs.getId());
+      var bkDef     = bkNewSs.getSheets();
+      bkSrcSs.getSheets().forEach(function(sh) { try { sh.copyTo(bkNewSs); } catch(ce) {} });
+      bkDef.forEach(function(ds) { try { bkNewSs.deleteSheet(ds); } catch(de) {} });
+      folder.addFile(bkNewFile);
+      DriveApp.getRootFolder().removeFile(bkNewFile);
       // 保持期間を超えた古いファイルを削除
       var all = folder.getFiles();
       while (all.hasNext()) {
@@ -19682,7 +20044,8 @@ function getBackupListForRestore(ssId) {
 // ================================================================
 //  4-13e: バックアップからの復元実行（executeRestore）  【大A / 中4 / 小4-13e】
 //  google.script.run 経由で呼ばれる（復旧ダイアログから）
-//  バックアップSSのデータ行を対象SSに上書きコピーする（ヘッダー行は変えない）
+//  バックアップSSの各シートのデータ行を、同じ名前の対象SSのシートへ上書きコピーする（ヘッダー行は変えない）
+//  名前が「_」で始まるシート（_BK_・_ErrorLog_等）と対象SSに無いシートは飛ばす。値で写すため数式の列（合計高速・燃料代など）も値になる
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function executeRestore(backupFileId, targetSsId) {

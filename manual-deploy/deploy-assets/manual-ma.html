@@ -411,7 +411,7 @@ html { scroll-behavior: smooth; }
       <div class="sheet-grp-hd g-red">配車・運行系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="red"><div class="sheet-ncard-name">配車板</div></div>
       <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('unkou')"><div class="sheet-ncard-name">運行　全35項目</div></div>
-      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('shuukei')"><div class="sheet-ncard-name">集計表　6 / 18項目</div></div>
+      <div class="sheet-ncard sheet-ncard-ready" data-g="red" onclick="go中('shuukei')"><div class="sheet-ncard-name">集計表　5 / 18項目</div></div>
       <div class="sheet-grp-hd g-green">マスタ・設定系</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属マスタ</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="green"><div class="sheet-ncard-name">自車専属運行</div></div>
@@ -586,7 +586,7 @@ html { scroll-behavior: smooth; }
       <a class="toc-item done" href="#feat-s03"><span class="toc-n">3</span><span class="toc-name">燃料代自動計算</span></a>
       <a class="toc-item done" href="#feat-s04"><span class="toc-n">4</span><span class="toc-name">支払い自動計算</span></a>
       <a class="toc-item done" href="#feat-s05"><span class="toc-n">5</span><span class="toc-name">利益自動計算</span></a>
-      <a class="toc-item done" href="#feat-s06"><span class="toc-n">6</span><span class="toc-name">仮日数・給料・%自動引き当て</span></a>
+      <a class="toc-item pend" href="#feat-s06"><span class="toc-n">6</span><span class="toc-name">仮日数・給料・%自動引き当て</span></a>
       <div class="toc-sep">【色表示】セルや行の色で状態を視覚化</div>
       <a class="toc-item pend" href="#"><span class="toc-n">7</span><span class="toc-name">利益マイナス行の薄赤着色</span></a>
       <a class="toc-item pend" href="#"><span class="toc-n">8</span><span class="toc-name">時刻間隔異常の色警告</span></a>
@@ -618,7 +618,7 @@ html { scroll-behavior: smooth; }
     <!-- 1 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">01</span>
+        <span class="num">1</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">ID自動採番</span>
         <div class="clr-grp">
@@ -647,7 +647,7 @@ html { scroll-behavior: smooth; }
     <!-- 2 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">02</span>
+        <span class="num">2</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">トン数正規化</span>
         <div class="clr-grp">
@@ -672,7 +672,7 @@ html { scroll-behavior: smooth; }
     <!-- 3 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">03</span>
+        <span class="num">3</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">車番自動補完</span>
         <div class="clr-grp">
@@ -707,7 +707,7 @@ html { scroll-behavior: smooth; }
     <!-- 4 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">04</span>
+        <span class="num">4</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">車種 全角→半角・大文字統一変換</span>
         <div class="clr-grp">
@@ -731,7 +731,7 @@ html { scroll-behavior: smooth; }
     <!-- 5 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">05</span>
+        <span class="num">5</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">車番 全角→半角自動変換</span>
         <div class="clr-grp">
@@ -755,7 +755,7 @@ html { scroll-behavior: smooth; }
     <!-- 6 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">06</span>
+        <span class="num">6</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">日付への現在時刻付与</span>
         <div class="clr-grp">
@@ -780,7 +780,7 @@ html { scroll-behavior: smooth; }
     <!-- 7 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">07</span>
+        <span class="num">7</span>
         <span class="cat cat-input">入力補助</span>
         <span class="feat-name">時刻の正規化と日付合成</span>
         <div class="clr-grp">
@@ -812,7 +812,7 @@ html { scroll-behavior: smooth; }
     <!-- 8 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">08</span>
+        <span class="num">8</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">書式自動設定</span>
         <div class="clr-grp">
@@ -836,7 +836,7 @@ html { scroll-behavior: smooth; }
     <!-- 9 -->
     <div class="card">
       <div class="card-hdr">
-        <span class="num">09</span>
+        <span class="num">9</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">請求高速 → 実費高速 コピー</span>
         <div class="clr-grp">
@@ -2128,7 +2128,17 @@ html { scroll-behavior: smooth; }
         <span class="feat-name">シート再生成</span>
         <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
       </div>
-      <div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
+      <div class="card-body">
+        <div class="block">
+          <div class="blk-label">📌 処理概要</div>
+          <ul class="pts">
+            <li>コード.js 4-3：集計表を含む全シートを正しい状態に整える</li>
+            <li>最後に4-1（集計表の作り直し）を呼び、支払い・利益など値で書く列も計算し直す</li>
+            <li>集計表が別の処理中で作り直せなかった時は、完了表示にその旨を出す</li>
+            <li>集計表だけを作り直すのは「集計表再生成」（4-1）</li>
+          </ul>
+        </div>
+        <div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div>
     </div>
 
     <!-- 37 - pending -->
@@ -2150,7 +2160,7 @@ html { scroll-behavior: smooth; }
     <!-- 集計表 1 -->
     <div class="card" id="feat-s01">
       <div class="card-hdr">
-        <span class="num">01</span>
+        <span class="num">1</span>
         <span class="cat cat-calc">自動同期</span>
         <span class="feat-name">運行シートからの自動同期</span>
         <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
@@ -2188,7 +2198,7 @@ html { scroll-behavior: smooth; }
 
     <div class="card" id="feat-s02">
       <div class="card-hdr">
-        <span class="num">02</span>
+        <span class="num">2</span>
         <span class="cat cat-calc">自動同期</span>
         <span class="feat-name">孤立ID自動削除</span>
         <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
@@ -2244,7 +2254,7 @@ html { scroll-behavior: smooth; }
 
     <div class="card" id="feat-s03">
       <div class="card-hdr">
-        <span class="num">03</span>
+        <span class="num">3</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">燃料代自動計算</span>
         <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
@@ -2268,66 +2278,139 @@ html { scroll-behavior: smooth; }
 
     <div class="card" id="feat-s04">
       <div class="card-hdr">
-        <span class="num">04</span>
+        <span class="num">4</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">支払い自動計算</span>
         <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 4-4（calculatePaymentAmount）— AA列を計算し有休手当(AH)・利益(AC)も書き込む / 4-1a でもインライン計算（行4704付近）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 4-1a（再生成）・4-2（1行同期）・4-4（支払い再計算）の3か所で同じ計算 / 1-1e（高速を引くの丸の判定）・3-3（丸を〇に自動変換）</span>
         <div class="block">
-          <div class="blk-label">🔵 処理概要</div>
+          <div class="blk-label auto">🔵 処理概要</div>
           <ul class="pts">
-            <li>【給料方式】AE(仮日数)・AF(給料)が設定されている場合：給料 ÷ 仮日数 × 当月仮日数</li>
-            <li>【%方式】AG(%)が設定されている場合：売上 × % ÷ 100</li>
-            <li>手入力値（AA列に直接入力された値）は保持される（上書きしない）</li>
-            <li>どちらの方式かはマスタで決まる（→ 06. 仮日数・給料・%自動引き当て参照）</li>
+            <li>どちらの方式かは自車専属マスタで決まる（→ 6. 仮日数・給料・%自動引き当て参照）</li>
+            <li>%も給料・仮日数も無い行は、手入力値（AA列に直接入力された値）を保持する（上書きしない）</li>
             <li>※給料・仮日数・%の入力値から概算します。正確な金額は手入力で修正してください</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label">黄枠：仮日数・給料（入力値）　赤枠：支払い（自動計算結果・例：17,500円）</div>
+          <div class="blk-label auto">① 給料方式</div>
+          <ul class="pts">
+            <li>AE(仮日数)・AF(給料)がある時：出勤した日に「給料 ÷ 仮日数」を1日分入れる</li>
+            <li>例：給料350,000・仮日数20 → 1日 17,500円</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">黄枠：仮日数・給料（入力値）　赤枠：支払い（例：17,500円）</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/s04-kyuryo.png" class="ss-img" alt="集計表 支払い（給料方式）17,500"></div>
         <div class="block">
-          <div class="blk-label">黄枠：仮日数・%（入力値）　赤枠：支払い（自動計算結果・例：15,000円）</div>
+          <div class="blk-label auto">② %方式</div>
+          <ul class="pts">
+            <li>AG(%)がある時：売上 × % ÷ 100</li>
+            <li>例：売上50,000・30% → 15,000円</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">黄枠：仮日数・%（入力値）　赤枠：支払い（例：15,000円）</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/s04-pct.png" class="ss-img" alt="集計表 支払い（%方式）15,000"></div>
+        <div class="block">
+          <div class="blk-label auto">③ 休み・有休の日</div>
+          <ul class="pts">
+            <li>休みの日：支払い0円</li>
+            <li>有休の日：給料方式・%方式とも支払い0円で、有休手当(AH)に設定シートの有休日額が入る</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">給料方式 — 黄枠：積地（有休・休み）　赤枠：支払い0円・有休手当（例：8,000円）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s04-yasumi-kyuryo.png" class="ss-img" style="width:76%" alt="給料方式 休み・有休の支払い0円と有休手当"></div>
+        <div class="block">
+          <div class="blk-label">%方式 — 黄枠：積地（有休・休み）　赤枠：支払い0円・有休手当（例：8,000円）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s04-yasumi-pct.png" class="ss-img" style="width:76%" alt="%方式 休み・有休の支払い0円と有休手当"></div>
+        <div class="block">
+          <div class="blk-label auto">④ 高速を引く（%方式だけ）</div>
+          <ul class="pts">
+            <li>自車専属マスタの「高速を引く」に〇を入れると、売上から高速の負担分を引いてから%を掛ける</li>
+            <li>負担分＝実費高速 − 請求高速（荷主に請求できなかった高速代）</li>
+            <li>計算式：（売上 − 高速料金）× 歩合率</li>
+            <li>コードでは合計高速代V（請求−実費。負担分はマイナス）を売上に足してから%を掛ける。〇・○・◯・⭕・◎・●のどれでも「引く」（入力時に〇に直る）</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">〇あり — 自車専属マスタ（赤枠：高速を引くに〇）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s04-toll-master-on.png" class="ss-img" style="width:28%" alt="自車専属マスタ 高速を引く〇あり"></div>
+        <div class="block">
+          <div class="blk-label">〇あり — 黄枠：売上・合計高速代　赤枠：支払い（例：（50,000 − 1,000）× 30% ＝ 14,700円）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s04-toll-on.png" class="ss-img" style="width:91%" alt="高速を引く〇ありの支払い14,700"></div>
+        <div class="block">
+          <div class="blk-label">〇なし — 自車専属マスタ（赤枠：高速を引くが空欄）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s04-toll-master-off.png" class="ss-img" style="width:28%" alt="自車専属マスタ 高速を引く空欄"></div>
+        <div class="block">
+          <div class="blk-label">〇なし — 黄枠：売上・合計高速代　赤枠：支払い（例：50,000 × 30% ＝ 15,000円。高速の負担分は引かない）</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s04-toll-off.png" class="ss-img" style="width:91%" alt="高速を引く〇なしの支払い15,000"></div>
       </div>
     </div>
 
     <div class="card" id="feat-s05">
       <div class="card-hdr">
-        <span class="num">05</span>
+        <span class="num">5</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">利益自動計算</span>
         <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 4-1a（generateSummaryCore_）行4339 / 4-4（calculatePaymentAmount）行6550</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 4-1a（再生成）・4-2（1行同期）・4-4（支払い再計算）・1-9（並び替え）の4か所で同じ計算</span>
         <div class="block">
-          <div class="blk-label">🔵 処理概要</div>
+          <div class="blk-label auto">🔵 処理概要</div>
           <ul class="pts">
-            <li>AC列（利益）= 売上(S) + 合計高速代(V) − （燃料代(Z) + 支払い(AA) + 経費合計(AB)）を値で書き込む</li>
-            <li>いずれかの列が空の場合は利益も空（すべて空なら '' を書き込む）</li>
-            <li>利益 &lt; 0 の行はこの時点で薄赤(#ffebee)に着色（機能07と連動）</li>
+            <li>自車専属マスタに車番＋乗務員名があるかで、計算式が2つに分かれる</li>
+            <li>AC列（利益）は値で書き込む。計算に使う列がすべて空なら空欄</li>
+            <li>利益がマイナスの行は薄赤（#ffebee）に着色（→ 7.）</li>
             <li>※燃料代・支払い・経費合計は入力値からの概算です。正確な金額は手入力で修正してください</li>
           </ul>
         </div>
         <div class="block">
-          <div class="blk-label">黄枠：売上・燃料代・支払い・経費合計（入力値）　赤枠：利益（自動計算結果・例：24,611円）</div>
+          <div class="blk-label auto">① 自車専属マスタにある車</div>
+          <ul class="pts">
+            <li>出勤した日：利益(AC) ＝ 売上(S) ＋ 合計高速(V) − 燃料代(Z) − 支払い(AA) − 経費合計(AB)</li>
+            <li>有休の日：利益(AC) ＝ − 有休手当(AH)（売上・燃料代・支払い・経費合計は0。計算式としては有休手当(AH)も引いている）</li>
+          </ul>
         </div>
-        <div class="ss-wrap"><img src="screenshots/s05-kyuryo.png" class="ss-img" alt="集計表 利益（給料方式）24,611"></div>
         <div class="block">
-          <div class="blk-label">黄枠：売上・燃料代・支払い・経費合計（入力値）　赤枠：利益（自動計算結果・例：27,111円）</div>
+          <div class="blk-label">給料方式の例：50,000 ＋ 0 − 2,889 − 17,500 − 5,000 ＝ 24,611円　黄枠：使う数字　赤枠：利益</div>
         </div>
-        <div class="ss-wrap"><img src="screenshots/s05-pct.png" class="ss-img" alt="集計表 利益（%方式）27,111"></div>
+        <div class="ss-wrap"><img src="screenshots/s05-kyuryo.png" class="ss-img" alt="自車専属マスタにある車 給料方式 利益24,611"></div>
+        <div class="block">
+          <div class="blk-label">%方式の例：50,000 ＋ 0 − 2,889 − 15,000 − 5,000 ＝ 27,111円　黄枠：使う数字　赤枠：利益</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s05-pct.png" class="ss-img" alt="自車専属マスタにある車 %方式 利益27,111"></div>
+        <div class="block">
+          <div class="blk-label">有休の日の例：利益 ＝ − 有休手当9,000 ＝ −9,000円（赤字）。支払いは0円　青枠：積地（有休）・支払い・有休手当　赤枠：利益</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s05-yukyu.png" class="ss-img" style="width:72%" alt="有休の日 利益−9,000"></div>
+        <div class="block">
+          <div class="blk-label auto">② 自車専属マスタにない車</div>
+          <ul class="pts">
+            <li>利益(AC) ＝ 売上(S) − 支払い(AA)（高速代・燃料代・経費合計は入れない。高速代は請求書でも売上と別・非課税）</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">例：40,000 − 35,000 ＝ 5,000円　青枠：使う数字　赤枠：利益</div>
+        </div>
+        <div class="ss-wrap"><img src="screenshots/s05-nomaster.png" class="ss-img" style="width:79%" alt="自車専属マスタにない車 利益5,000"></div>
       </div>
     </div>
 
     <div class="card" id="feat-s06">
       <div class="card-hdr">
-        <span class="num">06</span>
+        <span class="num">6</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">仮日数・給料・%自動引き当て</span>
         <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
@@ -2352,12 +2435,20 @@ html { scroll-behavior: smooth; }
         <div class="ss-wrap"><img src="screenshots/s06-master-pct.png" class="ss-img" alt="自車専属マスタ 仮日数20・%(P)=30（%方式）"></div>
       </div>
     </div>
-    <div class="card"><div class="card-hdr"><span class="num">07</span><span class="cat cat-color">色表示</span><span class="feat-name">利益マイナス行の薄赤着色</span><div class="clr-grp"><span class="clr-swatch" style="background:#ffebee"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
-    <div class="card"><div class="card-hdr"><span class="num">08</span><span class="cat cat-color">色表示</span><span class="feat-name">時刻間隔異常の色警告</span><div class="clr-grp"><span class="clr-swatch" style="background:#ffd600"></span><span class="clr-swatch" style="background:#4fc3f7"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
-    <div class="card"><div class="card-hdr"><span class="num">09</span><span class="cat cat-color">色表示</span><span class="feat-name">拘束時間13時間超えオレンジ</span><div class="clr-grp"><span class="clr-swatch" style="background:#ff9800"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">7</span><span class="cat cat-color">色表示</span><span class="feat-name">利益マイナス行の薄赤着色</span><div class="clr-grp"><span class="clr-swatch" style="background:#ffebee"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">8</span><span class="cat cat-color">色表示</span><span class="feat-name">時刻間隔異常の色警告</span><div class="clr-grp"><span class="clr-swatch" style="background:#ffd600"></span><span class="clr-swatch" style="background:#4fc3f7"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">9</span><span class="cat cat-color">色表示</span><span class="feat-name">拘束時間13時間超えオレンジ</span><div class="clr-grp"><span class="clr-swatch" style="background:#ff9800"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
     <div class="card"><div class="card-hdr"><span class="num">10</span><span class="cat cat-color">色表示</span><span class="feat-name">期限列の色付け</span><div class="clr-grp"><span class="clr-swatch" style="background:#ffcdd2"></span><span class="clr-swatch" style="background:#bbdefb"></span><span class="clr-swatch" style="background:#c8e6c9"></span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
     <div class="card"><div class="card-hdr"><span class="num">11</span><span class="cat cat-guard">警告・保護</span><span class="feat-name">編集ブロック（手入力列以外）</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
-    <div class="card"><div class="card-hdr"><span class="num">12</span><span class="cat cat-menu">手動操作</span><span class="feat-name">集計表再生成</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
+    <div class="card"><div class="card-hdr"><span class="num">12</span><span class="cat cat-menu">手動操作</span><span class="feat-name">集計表再生成</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body">
+        <div class="block">
+          <div class="blk-label">📌 処理概要</div>
+          <ul class="pts">
+            <li>コード.js 4-1：集計表シートだけを作り直す</li>
+            <li>全シートを整えるのは「シート再生成」（4-3。最後にこの4-1も呼ぶ）</li>
+          </ul>
+        </div>
+        <div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
     <div class="card"><div class="card-hdr"><span class="num">13</span><span class="cat cat-menu">手動操作</span><span class="feat-name">経費自動入力</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
     <div class="card"><div class="card-hdr"><span class="num">14</span><span class="cat cat-menu">手動操作</span><span class="feat-name">支払い再計算</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
     <div class="card"><div class="card-hdr"><span class="num">15</span><span class="cat cat-menu">手動操作</span><span class="feat-name">日付順並び替え</span><div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div></div><div class="card-body"><div class="pend-card">未チェック — バグチェック・HP化はまだ実施されていません</div></div></div>
@@ -2420,7 +2511,7 @@ function buildList(){
   var items=SHEETS_ITEMS[curSheet]||[];
   el.innerHTML=items.map(function(item){
     return '<div class="item-row-nav" onclick="nav小('+item.num+')">'
-      +'<span class="item-row-num">'+String(item.num).padStart(2,'0')+'</span>'
+      +'<span class="item-row-num">'+String(item.num)+'</span>'
       +'<span class="'+item.catCls+'" style="font-size:9px;padding:1px 6px">'+item.cat+'</span>'
       +'<span class="item-row-name">'+item.name+'</span>'
       +'<span class="'+(item.status==='済'?'ibadge-ok':'ibadge-pend')+'">'+item.status+'</span>'
@@ -2480,7 +2571,7 @@ window.nav小=function(num){
   bc.innerHTML='<button class="nav-btn" onclick="go大()">◀ シート一覧</button>'
     +'<button class="nav-btn" onclick="go中(\''+curSheet+'\')">◀ 項目一覧</button>'
     +'<span class="nav-bc-sep" style="margin-left:4px">›</span>'
-    +'<span class="nav-bc-cur">'+String(num).padStart(2,'0')+'. '+item.name+'</span>';
+    +'<span class="nav-bc-cur">'+String(num)+'. '+item.name+'</span>';
   document.getElementById('view-大').classList.remove('active');
   document.getElementById('view-中').classList.remove('active');
   var m=document.querySelector('main.main');

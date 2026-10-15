@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // deploy.js - ワンコマンドデプロイ
 // 使い方: node deploy.js <説明> (例: node deploy.js reloadMenuバグ修正)
-// 実行順: check_integrity → build_stub → clasp push → clasp deploy → stub push → appsscript.json更新 → バージョン一致検証
+// 実行順: check_integrity → build_stub → clasp push → clasp deploy → appsscript.json更新 → バージョン一致検証（②③へは送らない）
 //
 // 【重要：バージョン管理の教訓】
 // 過去に「計算値(nextVer)」をstubのappsscript.jsonライブラリバージョンに書き込んでいたため、
@@ -86,9 +86,9 @@ if (!verMatch) {
 const actualVer = parseInt(verMatch[1], 10);
 console.log(`✓ 実バージョン番号取得: v${actualVer}`);
 
-// stub appsscript.json を実バージョン番号で更新してpush
+// stub appsscript.json（手元の控え）を実バージョン番号で更新する。②へのpushはしない（②③は①の反映ボタンからのみ更新）
 // ※ここで nextVer や固定値を使うことは禁止。必ず actualVer を使うこと。
-console.log('\n[5/5] スタブpush & appsscript.json バージョン更新...');
+console.log('\n[5/5] appsscript.json バージョン更新（②へは送らない）...');
 const manifestPath = path.join(ROOT, 'stub_for_clientSS', 'appsscript.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 manifest.dependencies.libraries.forEach(lib => {
@@ -98,7 +98,6 @@ manifest.dependencies.libraries.forEach(lib => {
   }
 });
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
-run('clasp push --force', { cwd: path.join(ROOT, 'stub_for_clientSS') });
 
 // 【バージョン一致検証】
 // stubのappsscript.jsonを再読込し、実バージョン番号と一致することを必ず確認する。

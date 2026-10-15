@@ -12,3 +12,5 @@ deploy.js
 gas_obfuscate.js
 bootstrap.js
 blob.js
+fix_*.js
+find_cols_tmp.js
