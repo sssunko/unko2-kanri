@@ -394,7 +394,7 @@ function onPrint() {
 
 function onEmailSend() {
   if (!DATA.clientEmail) {
-    alert('メールアドレスが未登録です。\nマスタシートのQ列にメールアドレスを登録してください。');
+    alert('メールアドレスが未登録です。\nマスタシートの「メールアドレス」列にメールアドレスを登録してください。');
     return;
   }
   if (!confirm('この宛先に送信してもよろしいですか？\n\n宛先：' + DATA.clientEmail)) return;
@@ -420,32 +420,9 @@ function onEmailSend() {
     .sendDocumentEmail(DATA, TYPE, 'email', TOOL_TOKEN);
 }
 
+// FAXは各会社のFAX機能（印刷先にFAXを選ぶ）で送るため、印刷と同じく印刷画面を開いて発行日時を記録するだけ（こちらからは何も表示しない）
 function onFaxSend() {
-  if (!DATA.clientFax) {
-    alert('FAX番号が未登録です。\nマスタシートのD列にFAX番号を登録してください。');
-    return;
-  }
-  if (!confirm('この宛先にFAX送信してもよろしいですか？\n\n宛先：' + DATA.clientFax)) return;
-  var btn = document.getElementById('btn-fax');
-  btn.disabled = true; btn.textContent = '送信中...';
-  if (TYPE === 'hatchu') { DATA.shijisaki = getShijisaki(); }
-  else { var yhF = getKyoryoku(); if (yhF.signboard || yhF.car || yhF.driver || yhF.phone) google.script.run.saveKyoryokuHistory(DATA.client, yhF, DATA.ssId, TOOL_TOKEN); }
-  google.script.run
-    .withSuccessHandler(function(r) {
-      if (r && r.ok) {
-        _hasUnsaved = false;
-        alert(r.msg);
-        btn.textContent = '✅ 送信完了'; btn.className = 'tbtn tbtn-sent';
-      } else {
-        alert((r && r.msg) || '送信に失敗しました。');
-        btn.disabled = false; btn.textContent = '📠 FAX送信';
-      }
-    })
-    .withFailureHandler(function(e) {
-      alert('エラー: ' + e.message);
-      btn.disabled = false; btn.textContent = '📠 FAX送信';
-    })
-    .sendDocumentEmail(DATA, TYPE, 'fax', TOOL_TOKEN);
+  onPrint();
 }
 
 (function(){

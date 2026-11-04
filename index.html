@@ -71,19 +71,28 @@
              既存の連絡事項を表示した上でテキストエリアで編集・上書き防止
     B-11 : 連絡詳細画面
              連絡事項の本文と添付ファイルリンクを表示
+    B-11b: 紐づけ番号の入力枠
+             メールで届いた6桁の番号を入れる枠（×を押すか紐づけOKになるまで消えない）。番号の送り直しもこの枠から
 
   ── JavaScript 関数 ────────────────────────────────
     C-1  : window.onload / 初期データ取得
-             ページ読み込み時に getInitialData を呼び出し、紐づけ情報・連絡事項を取得
+             ページ読み込み時にスマホの合言葉で getInitialData を呼び出し、紐づけ情報・連絡事項を取得
+             紐づけ番号を送った後、×か紐づけOKまでは、開き直しても番号の入力枠（C-4b）を出し直す
+             サーバーへの本人確認は全て合言葉（getMyEmail）で行う。アドレスだけでは使えない
              ★紐づけは解除ボタン以外では絶対に消さない
     C-2  : displayData(data)
              サーバーから返ったドライバー情報をホーム画面に表示する
     C-3  : clearDisplay()
              ホーム画面のドライバー情報表示をクリアする
-    C-4  : handleLink()
-             メールアドレス入力欄の値でサーバーに紐づけ登録を要求する
+    C-4  : handleLink() / sendLinkCode(email)
+             入力アドレスに紐づけ番号（6桁）をメールで送り、番号の入力枠（C-4b）を出す（送り直しは枠の中から）
+    C-4a : confirmLink(email, code)
+             入れた番号をサーバーで確かめ、通ったらこのスマホ用の合言葉を受け取って保存し、枠を閉じる。違う時は枠の中に理由を出す
+    C-4b : showLinkCodeBox(email) / closeLinkCodeBox() / submitLinkCode() / setLinkPending_(email)
+             番号の入力枠の表示・×で閉じる・OKで確かめる。番号を送った控えを端末とアプリのURL（lp）の両方に残し、
+             ×か紐づけOKまでは開き直しても枠を出し直す。控えがある間はホームに「番号を入力」ボタンを出す
     C-5  : handleUnlink()
-             解除ボタン押下時のみ紐づけをサーバーから削除する（他の操作では消えない）
+             解除ボタン押下時のみ、このスマホの合言葉をサーバーと端末から削除する（他の操作では消えない）
     C-6  : グローバル変数定義
              picks/drops/runRows（現在の行程データ）, phase（運行フェーズ管理）,
              listRows/listYear/listMonth（一覧データ）, filterCar/filterDateFrom 等
@@ -381,6 +390,7 @@
         <button class="mini-btn btn-link" onclick="handleLink()">紐づけ</button>
         <button class="mini-btn btn-unlink" onclick="handleUnlink()">解除</button>
       </div>
+      <button id="linkCodeOpenBtn" class="mini-btn btn-link" onclick="reopenLinkCodeBox()" style="display:none;width:100%;margin-top:8px;">番号を入力</button>
       <div id="statusText" style="color:#4caf50; font-size:13px; margin-top:10px; font-weight:bold;">状態：待機中</div>
     </div>
   </div>
@@ -830,17 +840,37 @@
     <button class="big-btn dark" id="noticeBackBtn" onclick="closeNoticeDetail()">閉じる</button>
   </div>
 
+  <!-- ============================================================
+       B-11b: 紐づけ番号の入力枠（×を押すか紐づけOKになるまで消えない。送り直しもここから）
+       ============================================================ -->
+  <div id="linkCodeOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:500;justify-content:center;align-items:center;padding:16px;">
+    <div style="background:#1e1e1e;border-radius:18px;padding:20px;width:100%;max-width:340px;position:relative;">
+      <button onclick="closeLinkCodeBox()" style="position:absolute;top:8px;right:8px;width:44px;height:44px;border-radius:22px;background:#37474f;color:#fff;font-size:20px;font-weight:900;">×</button>
+      <h3 style="margin:0 0 8px;padding-right:44px;">紐づけ番号</h3>
+      <div id="linkCodeMsg" style="font-size:13px;color:#aaa;margin-bottom:12px;"></div>
+      <input type="text" id="linkCodeInput" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6桁の番号" style="font-size:22px;text-align:center;letter-spacing:6px;">
+      <div id="linkCodeErr" style="color:#ef5350;font-size:13px;font-weight:bold;min-height:18px;margin-top:8px;"></div>
+      <button class="mini-btn btn-link" onclick="submitLinkCode()" style="width:100%;margin-top:8px;">OK</button>
+      <button class="mini-btn btn-unlink" onclick="sendLinkCode(document.getElementById('linkCodeOverlay').dataset.email)" style="width:100%;margin-top:8px;">番号を送り直す</button>
+    </div>
+  </div>
+
   <script>
 // ============================================================
 //  C-1: 初期データ取得（起動時）
 //  ★解除ボタン以外では紐づけを絶対に消さない
 //  COMPANY_SS_ID（URLの ?ssId=xxx、無い時はサーバーが入れたこのURLのSSのID）を全てのサーバー呼び出しに付ける
+//  本人確認は、紐づけ番号を入れた時にサーバーから受け取った合言葉（LS_TOKEN_KEY に保存）で行う。getMyEmail() はこの合言葉を返す
+//  LS_EMAIL_KEY のアドレスは入力欄に表示するためだけに使う
+//  紐づけ番号を送った控え（端末の LS_LINK_PENDING_KEY か、アプリのURLの lp）があれば、起動時に番号の入力枠（C-4b）を出し直す
 // ============================================================
 var COMPANY_SS_ID = '<?= companySsId ?>'; // doGet(e) から渡される会社のスプレッドシートID
 var LS_EMAIL_KEY = 'unkouLinkedEmail' + (COMPANY_SS_ID ? '_' + COMPANY_SS_ID : '');
 // 旧キー（SSID無し）→新キーへの1回限り移行（移行後に旧キーを削除して新規SSへの混入を防ぐ）
 try { if (!localStorage.getItem(LS_EMAIL_KEY)) { var _old = localStorage.getItem('unkouLinkedEmail'); if (_old && _old.indexOf('@') !== -1) { localStorage.setItem(LS_EMAIL_KEY, _old); localStorage.removeItem('unkouLinkedEmail'); } } } catch(e) {}
-function getMyEmail() { return localStorage.getItem(LS_EMAIL_KEY) || ''; }
+var LS_TOKEN_KEY = 'unkouDrvToken' + (COMPANY_SS_ID ? '_' + COMPANY_SS_ID : '');
+var LS_LINK_PENDING_KEY = 'unkouLinkPending' + (COMPANY_SS_ID ? '_' + COMPANY_SS_ID : ''); // 番号を送ったアドレスと時刻（C-4b）
+function getMyEmail() { return localStorage.getItem(LS_TOKEN_KEY) || ''; }
 
 window.onload = function() {
   var savedEmail = localStorage.getItem(LS_EMAIL_KEY) || '';
@@ -894,7 +924,17 @@ window.onload = function() {
     .withFailureHandler(function() {
       if (savedEmail) document.getElementById('email').value = savedEmail;
     })
-    .getInitialData(savedEmail, COMPANY_SS_ID);
+    .getInitialData(getMyEmail(), COMPANY_SS_ID);
+  // 紐づけ番号を送った控えがあれば、番号の入力枠を出し直す（メールを見に行って読み込み直された時用。×か紐づけOKまで出し続ける）
+  var _lpEmail = '';
+  try { var _lp = JSON.parse(localStorage.getItem(LS_LINK_PENDING_KEY) || 'null'); if (_lp && _lp.email) _lpEmail = _lp.email; } catch(e) {}
+  if (_lpEmail) showLinkCodeBox(_lpEmail);
+  try {
+    google.script.url.getLocation(function(loc) {
+      var p = (loc && loc.parameter) || {};
+      if (p.lp && document.getElementById('linkCodeOverlay').style.display !== 'flex') showLinkCodeBox(p.lp);
+    });
+  } catch(e) {}
 };
 
 // ============================================================
@@ -921,22 +961,61 @@ function clearDisplay() {
 }
 
 // ============================================================
-//  C-4: 紐づけ処理（handleLink）
+//  C-4: 紐づけ処理（handleLink / sendLinkCode）
+//  入力アドレスに紐づけ番号（6桁）をメールで送り（requestLinkCode）、番号を送った控えを残して番号の入力枠（C-4b）を出す
+//  1分以内の送り直しで「送信済み」と返った時も、エラーで止めずに枠を出す（前に送った番号が使える）
+//  枠の中の「番号を送り直す」もここ（sendLinkCode）を使う。未登録などのエラーは、枠が出ていれば枠の中に出す
 // ============================================================
 function handleLink() {
   var email = document.getElementById('email').value.trim();
   if (!email) return alert('アドレスを入力してください');
+  sendLinkCode(email);
+}
+function sendLinkCode(email) {
+  var boxOpen = document.getElementById('linkCodeOverlay').style.display === 'flex';
+  document.getElementById('statusText').innerText = '状態：照会中...';
+  showLoading();
+  google.script.run
+    .withSuccessHandler(function(res) {
+      hideLoading();
+      if (typeof res === 'string' && res.indexOf('送信済み') === -1) {
+        document.getElementById('statusText').innerText = '状態：' + res;
+        if (boxOpen) document.getElementById('linkCodeErr').innerText = res; else alert(res);
+        return;
+      }
+      document.getElementById('statusText').innerText = '状態：番号を送信しました';
+      setLinkPending_(email);
+      showLinkCodeBox(email);
+      if (typeof res === 'string') document.getElementById('linkCodeErr').innerText = '番号は送信済みです。届いた番号を入れてください';
+    })
+    .withFailureHandler(function(err) {
+      hideLoading();
+      document.getElementById('statusText').innerText = '状態：通信エラー';
+      if (boxOpen) document.getElementById('linkCodeErr').innerText = '通信エラー：' + err; else alert('通信エラー：' + err);
+    })
+    .requestLinkCode(email, COMPANY_SS_ID);
+}
+
+// ============================================================
+//  C-4a: 紐づけ番号の確かめ（confirmLink）
+//  入れた番号をサーバーで確かめ（confirmLinkCode）、通ったらこのスマホ用の合言葉を LS_TOKEN_KEY に保存して枠を閉じる
+//  番号が違う・期限切れ・5回間違い・通信エラーの時も枠は閉じず、理由を枠の中に出す（期限切れ・5回間違いは「番号を送り直す」で送り直す）
+// ============================================================
+function confirmLink(email, code) {
   document.getElementById('statusText').innerText = '状態：照会中...';
   showLoading();
   google.script.run
     .withSuccessHandler(function(data) {
       hideLoading();
       if (typeof data === 'string') {
-        alert(data);
         document.getElementById('statusText').innerText = '状態：' + data;
+        document.getElementById('linkCodeErr').innerText = data === 'エラー：番号が違います' ? '番号が違います。もう一度入れてください' : data;
+        document.getElementById('linkCodeInput').value = '';
       } else if (data && data.status === '紐づけOK') {
         var linkedEmail = data.email || email;
+        localStorage.setItem(LS_TOKEN_KEY, data.token);
         localStorage.setItem(LS_EMAIL_KEY, linkedEmail);
+        closeLinkCodeBox();
         document.getElementById('email').value           = linkedEmail;
         document.getElementById('companyName').innerText = data.company || '';
         document.getElementById('carSpecs').innerText    = (data.tons || '') + ' ' + (data.type || '');
@@ -951,15 +1030,61 @@ function handleLink() {
     })
     .withFailureHandler(function(err) {
       hideLoading();
-      alert('通信エラー：' + err);
+      document.getElementById('linkCodeErr').innerText = '通信エラー：' + err;
       document.getElementById('statusText').innerText = '状態：通信エラー';
     })
-    .linkAddress(email, COMPANY_SS_ID);
+    .confirmLinkCode(email, code, COMPANY_SS_ID);
+}
+
+// ============================================================
+//  C-4b: 紐づけ番号の入力枠（showLinkCodeBox / closeLinkCodeBox / submitLinkCode / reopenLinkCodeBox / setLinkPending_）
+//  枠（B-11b）は、×を押すか紐づけOKになるまで消えない（枠の外を触っても閉じない）
+//  番号を送った控えは、端末（LS_LINK_PENDING_KEY）とアプリのURLの lp の両方に残す（片方が読めなくても開き直しで枠を出し直せる）
+//  控えは ×か紐づけOKの時だけ両方から消す。控えがある間はホームに「番号を入力」ボタンを出す
+// ============================================================
+function showLinkCodeBox(email) {
+  var ov = document.getElementById('linkCodeOverlay');
+  ov.dataset.email = email;
+  document.getElementById('linkCodeMsg').innerText = email + ' に届いた6桁の番号を入れてください（番号は10分間有効）';
+  document.getElementById('linkCodeErr').innerText = '';
+  document.getElementById('linkCodeInput').value = '';
+  document.getElementById('linkCodeOpenBtn').style.display = 'block';
+  ov.style.display = 'flex';
+}
+function reopenLinkCodeBox() {
+  var email = document.getElementById('linkCodeOverlay').dataset.email;
+  if (email) showLinkCodeBox(email);
+}
+function closeLinkCodeBox() {
+  document.getElementById('linkCodeOverlay').style.display = 'none';
+  document.getElementById('linkCodeOpenBtn').style.display = 'none';
+  setLinkPending_('');
+  if (!getMyEmail()) document.getElementById('statusText').innerText = '状態：未紐づけ';
+}
+function submitLinkCode() {
+  var code = document.getElementById('linkCodeInput').value.replace(/[^0-9０-９]/g, '').replace(/[０-９]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
+  if (code.length !== 6) { document.getElementById('linkCodeErr').innerText = '6桁の番号を入れてください'; return; }
+  confirmLink(document.getElementById('linkCodeOverlay').dataset.email, code);
+}
+// 控えを残す（email）・消す（空）。URLは今の他の値（ssId など）を残したまま lp だけを足す・外す
+function setLinkPending_(email) {
+  try {
+    if (email) localStorage.setItem(LS_LINK_PENDING_KEY, JSON.stringify({ email: email, t: Date.now() }));
+    else localStorage.removeItem(LS_LINK_PENDING_KEY);
+  } catch(e) {}
+  try {
+    google.script.url.getLocation(function(loc) {
+      var p = {}, src = (loc && loc.parameter) || {};
+      for (var k in src) if (k !== 'lp') p[k] = src[k];
+      if (email) p.lp = email;
+      google.script.history.replace(null, p);
+    });
+  } catch(e) {}
 }
 
 // ============================================================
 //  C-5: 解除処理（handleUnlink）
-//  ★解除ボタンを押した時だけ紐づけを消す
+//  ★解除ボタンを押した時だけ紐づけを消す（このスマホの合言葉をサーバーと端末から消す）
 // ============================================================
 function handleUnlink() {
   if (!confirm('紐づけを解除しますか？')) return;
@@ -967,6 +1092,7 @@ function handleUnlink() {
   google.script.run
     .withSuccessHandler(function(msg) {
       hideLoading();
+      localStorage.removeItem(LS_TOKEN_KEY);
       localStorage.removeItem(LS_EMAIL_KEY);
       document.getElementById('statusText').innerText = '状態：' + msg;
       document.getElementById('email').value = '';
@@ -980,7 +1106,7 @@ function handleUnlink() {
       hideLoading();
       document.getElementById('statusText').innerText = '状態：解除エラー';
     })
-    .unlinkAddress(COMPANY_SS_ID);
+    .unlinkAddress(getMyEmail(), COMPANY_SS_ID);
 }
 
 // ============================================================

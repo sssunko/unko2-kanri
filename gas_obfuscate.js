@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const JavaScriptObfuscator = require('javascript-obfuscator');
+const JOURNAL = require('./build_journal.js'); // 難読化の前に「書いたマスの記録」を差し込む（コード.js 4-2k-1・4-2k-2）
 
 const ROOT = __dirname;
 const SRC = path.join(ROOT, 'コード.js');
@@ -43,7 +44,10 @@ function recoverIfLeftover() {
 function backupAndObfuscate() {
   fs.copyFileSync(SRC, BAK); // バイト単位でそのまま控える（改行コードも保持）
   const clean = fs.readFileSync(SRC, 'utf8');
-  const result = JavaScriptObfuscator.obfuscate(clean, OPTIONS).getObfuscatedCode();
+  // 書いたマスの記録を差し込む（読める本体は書き換えない。差し込んだ後のコードが読めなければここで止まり、送らない）
+  const jr = JOURNAL.transform(clean);
+  console.log('✓ 書いたマスの記録を差し込み（書き込み' + jr.marks + '件・処理の入口' + jr.wrapped + '件）');
+  const result = JavaScriptObfuscator.obfuscate(jr.code, OPTIONS).getObfuscatedCode();
   fs.writeFileSync(SRC, result, 'utf8');
   console.log(`✓ コード.js を難読化（元${clean.length}→難読化後${result.length}文字）`);
 }

@@ -430,10 +430,9 @@ html { scroll-behavior: smooth; }
       <div class="sheet-ncard sheet-ncard-pend" data-g="orange"><div class="sheet-ncard-name">仕訳表</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="orange"><div class="sheet-ncard-name">監査用</div></div>
       <div class="sheet-grp-hd g-blue">ガイド・メモ系</div>
-      <div class="sheet-ncard sheet-ncard-pend" data-g="blue"><div class="sheet-ncard-name">使い方</div></div>
-      <div class="sheet-ncard sheet-ncard-pend" data-g="blue"><div class="sheet-ncard-name">説明書</div></div>
+      <div class="sheet-ncard sheet-ncard-ready" data-g="blue" onclick="go中('setsumei')"><div class="sheet-ncard-name">説明書　全1項目</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="blue"><div class="sheet-ncard-name">サポート</div></div>
-      <div class="sheet-ncard sheet-ncard-pend" data-g="blue"><div class="sheet-ncard-name">メモ</div></div>
+      <div class="sheet-ncard sheet-ncard-ready" data-g="blue" onclick="go中('memo')"><div class="sheet-ncard-name">メモ　全1項目</div></div>
       <div class="sheet-grp-hd g-pink">修正用専用シート</div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="pink"><div class="sheet-ncard-name">会社登録</div></div>
       <div class="sheet-ncard sheet-ncard-pend" data-g="pink"><div class="sheet-ncard-name">運行客テスト</div></div>
@@ -607,6 +606,22 @@ html { scroll-behavior: smooth; }
   </div>
 </div>
 
+<div class="toc-wrap" id="toc-wrap-setsumei" style="display:none">
+  <div class="toc-inner">
+    <div class="toc-heading">▼ 説明書の開き方「<span class="hi">全 1</span>」項目</div>
+    <div class="toc-grid">
+      <a class="toc-item done" href="#feat-m01"><span class="toc-n">1</span><span class="toc-name">説明書を開く</span></a>
+    </div>
+  </div>
+</div>
+<div class="toc-wrap" id="toc-wrap-memo" style="display:none">
+  <div class="toc-inner">
+    <div class="toc-heading">▼ メモ「<span class="hi">全 1</span>」項目</div>
+    <div class="toc-grid">
+      <a class="toc-item done" href="#feat-memo01"><span class="toc-n">1</span><span class="toc-name">メモ</span></a>
+    </div>
+  </div>
+</div>
 <main class="main">
   <div class="md-nav-bar"></div>
   <div class="view-小-nav" id="bc-小"></div>
@@ -1550,12 +1565,12 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 2-4（showUploadSidebar）・9-2c（uploadFileToRow）</span>
+        <span class="code-ref"><span class="code-lbl">REF</span> コード.js: 2-4（showUploadSidebar）・9-2（uploadFileToRow）・7-1b（findRowByIdAndIndex_）・1-1b（getSsLock_）</span>
         <div class="block">
           <div class="blk-label tip">💡 手動実行（メニュー「📷 写真・ファイル取込」）</div>
           <ul class="pts">
-            <li>showUploadSidebar: 運行シート限定。アクティブ行のA列IDを取得しサイドバーHTMLを生成してスプレッドシート右端に表示</li>
-            <li>uploadFileToRow: google.script.run経由で呼び出し。DriveApp でファイルを保存し、X列(col24)のリッチテキストリンクを追記（重複URL自動除去）</li>
+            <li>showUploadSidebar（2-4）: 運行シート限定。選んだ行のA列IDと、同じIDの中で上から何行目か（idx）を覚えてサイドバーを右端に表示する。<br>行の番号では覚えない（開いた後に並び替わっても正しい行に付けるため）</li>
+            <li>uploadFileToRow（9-2）: ファイル1つずつ呼ばれ、DriveApp でファイルを保存する。<br>書き戻しは 1-1b の順番待ち（鍵）の中で、7-1b で ID と idx から今の行を探し直し、「今あるリンクを読む → 足す → 書く」を1件ずつ行う（同時に送ってもリンクは消えない。重複URLは1つにまとめる）。<br>行が見つからない時は書かずに知らせる</li>
             <li>対応ファイル: image/* / application/pdf / .doc .docx .xls .xlsx（最大20MB、超過はスキップ）</li>
             <li>保存フォルダ: DriveApp.getRootFolder() 配下の「運行データ」フォルダ（なければ自動作成）</li>
             <li>フロントエンド（サイドバー）からのgoogle.script.run呼び出しのため、uploadFileToRow内でgetActiveSpreadsheet()を使用しているが、サイドバーはコンテナバインド環境内で動作するため問題なし</li>
@@ -1680,7 +1695,7 @@ html { scroll-behavior: smooth; }
           <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
             <li>運行シートの行を選択して発注書・指示書を作成し、印刷・メール・FAX送信できる</li>
-            <li>FAX送信は各会社のFAX機に接続して送信する（事前にFAX番号の登録が必要）</li>
+            <li>FAX送信を押すと印刷画面が開く。印刷先に自社のFAX（複合機など）を選んで送る。押した時点で発行日時が記録される</li>
           </ul>
         </div>
         <div class="block">
@@ -1723,7 +1738,7 @@ html { scroll-behavior: smooth; }
           <ul class="pts">
             <li>showHatchuDocDialog → getDocumentData_('sum')で運行シート・集計表・マスタからデータ取得しdocumentPreview.htmlをモーダル表示</li>
             <li>markDocumentIssued(rowId, docType, ssId) → openById(ssId)で運行シートの発行済み列を更新（ssId引数必須）</li>
-            <li>sendDocumentEmail → docData.ssIdでopenById、GmailApp経由でメール・FAX送信</li>
+            <li>sendDocumentEmail → docData.ssIdでopenById、GmailApp経由でメール送信（メールのみ。FAXボタンは印刷と同じく印刷画面を開いて markDocumentIssued で発行日時を記録するだけで、送信は各会社のFAX機能で行う）</li>
             <li>コード番号：コード.js 14-2c, 14-2e, 14-4, 14-5</li>
           </ul>
         </div>
@@ -1747,7 +1762,7 @@ html { scroll-behavior: smooth; }
           <div class="blk-label tip">💡 手動操作（メニュー）</div>
           <ul class="pts">
             <li>運行シートの行を選択して車番連絡を作成し、印刷・メール・FAX送信できる</li>
-            <li>FAX送信は各会社のFAX機に接続して送信する（事前にFAX番号の登録が必要）</li>
+            <li>FAX送信を押すと印刷画面が開く。印刷先に自社のFAX（複合機など）を選んで送る。押した時点で発行日時が記録される</li>
           </ul>
         </div>
         <div class="block">
@@ -1872,42 +1887,57 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="card-body">
-        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 16-3, 16-3b, 16-6</span>
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 16-3, 16-3b, 16-6, 16-6a〜16-6e, 15-4</span>
         <div class="block">
           <div class="blk-label">操作フロー</div>
           <ul class="pts">
             <li>メニュー「📒 経理・出力」→「🧾 請求書生成」→ ダイアログで顧客・期間・税率を選んで「生成」を押す</li>
-            <li>4つのドロップダウン（マスタID / 取引先名カナ / 会社名 / 電話）は連動。いずれか1つ選ぶと残り3つが自動同期される</li>
+            <li>4つの選択欄（連動）で選ぶと、その会社にチェックが入る。<br>検索欄の文字を会社名・カナ・マスタID・電話に含む会社がチェック付きで並び、複数選べる</li>
             <li>期間の初期値は当月1日〜末日、消費税率の初期値は10%</li>
-            <li>完了後に「請求書」シートが生成される</li>
+            <li>1社なら「請求書」シート、2社以上なら1社1ページで並んだ画面（印刷・一括送信）。<br>マスタに無い荷主・荷主が空の運行は画面に件数を出す</li>
           </ul>
         </div>
         <div class="block">
           <div class="blk-label">① メニュー「📒 経理・出力」→「🧾 請求書生成」を選ぶ</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/31-01-menu.png" class="ss-img" alt="請求書生成メニュー選択"><div style="position:absolute;top:46%;left:49%;width:50%;height:14%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:48%;line-height:0;font-size:0;"><img src="screenshots/31-01-menu.png" class="ss-img" alt="請求書生成メニュー選択"><div style="position:absolute;top:46%;left:49%;width:50%;height:14%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
           <div class="blk-label">② ダイアログが開く</div>
         </div>
-        <div class="ss-wrap"><img src="screenshots/31-02-dialog.png" class="ss-img" alt="請求書生成ダイアログ初期状態"></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:54%;line-height:0;font-size:0;"><img src="screenshots/31-02-dialog.png" class="ss-img" alt="請求書生成ダイアログ（4つの選択欄・検索欄・全選択・全解除）"><div style="position:absolute;top:13.3%;left:28.7%;width:39.8%;height:13.7%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div><div style="position:absolute;top:28.7%;left:6.7%;width:78.9%;height:5.1%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
-          <div class="blk-label">③ 顧客・期間・消費税率を選ぶ<br>4つのドロップダウン（マスタID / 取引先名カナ / 会社名 / 電話）は連動。いずれか1つ選ぶと残り3つが自動同期される</div>
+          <div class="blk-label">③ 会社・期間・消費税率を選ぶ（複数選択可）<br>4つの選択欄（マスタID / 取引先名カナ / 会社名 / 電話）はどれか1つ選ぶと残り3つも合い、その会社にチェックが入る。<br>検索欄に一部を入れると当てはまる会社がチェック付きで並ぶ（例：「A」→ A運輸・A商事・A・A商店）。<br>「全選択」で一覧に出ている会社を全部チェック、「全解除」でチェックを全部外す</div>
         </div>
-        <div class="ss-wrap"><img src="screenshots/31-03-select.png" class="ss-img" alt="顧客・期間・税率入力後"></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:55%;line-height:0;font-size:0;"><img src="screenshots/31-03-select.png" class="ss-img" alt="検索して2社にチェック"><div style="position:absolute;top:29%;left:7.2%;width:57.5%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div><div style="position:absolute;top:35%;left:8.3%;width:57.5%;height:6.8%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
-          <div class="blk-label">④ 「生成」ボタンを押す</div>
+          <div class="blk-label">④ 「生成」ボタンを押す（「生成中…（○社）」と出る）</div>
         </div>
-        <div class="ss-wrap"><img src="screenshots/31-04-btn.png" class="ss-img" alt="生成ボタンを押す"></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:15%;line-height:0;font-size:0;"><img src="screenshots/31-04-btn.png" class="ss-img" alt="生成ボタンを押す（生成中）"><div style="position:absolute;top:9.1%;left:4%;width:39.5%;height:81.8%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
         <div class="block">
-          <div class="blk-label">⑤ 「請求書」シートが自動生成される</div>
+          <div class="blk-label">⑤ 1社なら「請求書」シートが作られる</div>
         </div>
-        <div class="ss-wrap"><div style="position:relative;display:block;width:100%;line-height:0;font-size:0;"><img src="screenshots/31-05-sheet.png" class="ss-img" alt="生成された請求書シート"><div style="position:absolute;top:95%;left:84%;width:13%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:65%;line-height:0;font-size:0;"><img src="screenshots/31-05-sheet.png" class="ss-img" alt="生成された請求書シート"><div style="position:absolute;top:95%;left:84%;width:13%;height:5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">⑥ 2社以上の時は、1社1ページで並んだ画面が開く。<br>スクロールで選んだ会社の分を順に見られる（上の「印刷（全社）」「一括送信」で印刷・送信）</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:76%;line-height:0;font-size:0;"><img src="screenshots/31-06-preview-p1.png" class="ss-img" alt="1社目の請求書"><div style="position:absolute;top:9.3%;left:12.3%;width:26.2%;height:5.1%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">1社目と2社目のつなぎ目（1社＝1ページ）</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:76%;line-height:0;font-size:0;"><img src="screenshots/31-07-preview-join.png" class="ss-img" alt="1社目と2社目のつなぎ目"><div style="position:absolute;top:9.5%;left:12.2%;width:26%;height:5.1%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div><div style="position:absolute;top:65.6%;left:10.6%;width:75.7%;height:5.5%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">2社目の請求書</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:76%;line-height:0;font-size:0;"><img src="screenshots/31-08-preview-p2.png" class="ss-img" alt="2社目の請求書"><div style="position:absolute;top:9.9%;left:12.9%;width:26%;height:4.9%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label tip">📠 ＦＡＸやメール送信は一社毎に送信及び一括送信のパターンでご用意してます。<br>お使いのＦＡＸ機の仕様を確認してください。<br>インターネットFAXで一括送信する場合は、自社設定の「インターネットFAX宛先」に登録してください。</div>
+        </div>
         <div class="block">
           <div class="blk-label">🔧 実装概要</div>
           <ul class="pts">
-            <li>showInvoiceDialog（16-3）：マスタシートから顧客一覧を取得してインラインHTMLでモーダルダイアログを生成。google.script.run経由でgenerateInvoiceBatchを呼び出す</li>
-            <li>generateInvoiceBatch（16-3b）：会社名リストを受け取り各社に対しgenerateInvoiceSheetを順次呼び出す</li>
-            <li>generateInvoiceSheet（16-6）：SpreadsheetApp.getActiveSpreadsheet()でバインドSS取得（ライブラリ呼び出し時は呼び出し元SS文脈で動作）。明細行はsetValues/setBackgroundsでバッチ書き込みしAPIコール数を削減</li>
+            <li>showInvoiceDialog（16-3）：4つの選択欄（連動・選ぶとチェックが入る）と、検索欄＋チェック一覧で会社を選ぶダイアログを出す。<br>選んだ会社のマスタID（無い行は「#行番号」）をgenerateInvoiceBatchに渡す</li>
+            <li>generateInvoiceBatch（16-3b）：collectInvoiceRows_（16-6a）で運行シートから集めた行から、buildInvoiceData_（16-6b）で会社ごとの中身を作る。<br>1社はwriteInvoiceSheet_（16-6c）で請求書シートへ、2社以上はshowInvoicePreview_（16-6d）で1画面に1社1ページで並べる</li>
+            <li>collectInvoiceRows_（16-6a）：請求書は運行シートから作る（集計表は同じIDの運行を1行にまとめ荷主・売上を合計しているので使わない）。<br>運行の荷主を12-6bでそろえた名前でマスタIDに結び、鍵ごとに分ける。<br>名前の一部が同じだけの別会社は別の鍵になり混ざらない</li><li>一括送信：FAX番号は必ずマスタのその会社の番号を使う。<br>自社設定（15-4）の「インターネットFAX宛先」（例 {FAX}@ifax.example.jp）があれば、sendInvoiceFaxBatch（16-6e）が1社ずつそのページだけをPDFにしてメールで送る（CCは付けない）。<br>無ければ1社ずつそのページだけの印刷画面を開き、会社名とFAX番号を知らせて自社のFAX機で送る</li>
             <li>withFailureHandler：GASキャッシュ伝播遅延によるエラー発生時に「F5更新を促すメッセージ」をダイアログ上に表示（ユーザーがフリーズ中に気づけるよう対策済み）</li>
           </ul>
         </div>
@@ -2257,7 +2287,8 @@ html { scroll-behavior: smooth; }
         <span class="num">3</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">燃料代自動計算</span>
-        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け（文字）</span>
+        <div class="clr-grp"><div class="color-chip" style="background:#1a9a50;width:14px;height:14px;border-radius:3px;" title="#1a9a50 自動で入れた金額（緑の文字）。手で直すと黒"></div></div>
       </div>
       <div class="card-body">
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 4-1a（generateSummaryCore_）行4310付近 — Z列（燃料代）に数式設定 / 4-2（syncSummaryForId_）でも同様に処理</span>
@@ -2267,6 +2298,8 @@ html { scroll-behavior: smooth; }
             <li>集計表のZ列（燃料代）に「=距離/燃費*ガソリン代」の数式を設定する。数式は generateSummaryCore_ / syncSummaryForId_ の両方で書き込まれる</li>
             <li>距離(W)・ガソリン代(Y)は手入力列（保持される）。燃費(X)は自車専属マスタから引き当て</li>
             <li>※距離・燃費・ガソリン代の入力値から概算します。正確な金額は手入力で修正してください</li>
+            <li>手で直せるのは、自車専属マスタにある車の行だけです。<br>手で直した燃料代は、そのあと再生成などをしても変わりません。<br>空にすると、次から自動の金額に戻ります</li>
+            <li>自動で入れた金額は緑の文字、手で直した金額は黒の文字になります</li>
           </ul>
         </div>
         <div class="block">
@@ -2281,7 +2314,8 @@ html { scroll-behavior: smooth; }
         <span class="num">4</span>
         <span class="cat cat-calc">自動計算</span>
         <span class="feat-name">支払い自動計算</span>
-        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け（文字）</span>
+        <div class="clr-grp"><div class="color-chip" style="background:#1a9a50;width:14px;height:14px;border-radius:3px;" title="#1a9a50 自動で入れた金額（緑の文字）。手で直すと黒"></div></div>
       </div>
       <div class="card-body">
         <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 4-1a（再生成）・4-2（1行同期）・4-4（支払い再計算）の3か所で同じ計算 / 1-1e（高速を引くの丸の判定）・3-3（丸を〇に自動変換）</span>
@@ -2291,6 +2325,8 @@ html { scroll-behavior: smooth; }
             <li>どちらの方式かは自車専属マスタで決まる（→ 6. 仮日数・給料・%自動引き当て参照）</li>
             <li>%も給料・仮日数も無い行は、手入力値（AA列に直接入力された値）を保持する（上書きしない）</li>
             <li>※給料・仮日数・%の入力値から概算します。正確な金額は手入力で修正してください</li>
+            <li>手で直した支払いは、そのあと再生成・支払い再計算をしても変わりません。<br>空にすると、次から自動の金額に戻ります</li>
+            <li>自動で入れた金額は緑の文字、手で直した金額は黒の文字になります</li>
           </ul>
         </div>
         <div class="block">
@@ -2374,13 +2410,14 @@ html { scroll-behavior: smooth; }
             <li>AC列（利益）は値で書き込む。計算に使う列がすべて空なら空欄</li>
             <li>利益がマイナスの行は薄赤（#ffebee）に着色（→ 7.）</li>
             <li>※燃料代・支払い・経費合計は入力値からの概算です。正確な金額は手入力で修正してください</li>
+            <li>手で直した燃料代・支払い・経費合計は、そのあと再生成などをしても変わりません。<br>空にすると、次から自動の金額に戻ります</li>
           </ul>
         </div>
         <div class="block">
           <div class="blk-label auto">① 自車専属マスタにある車</div>
           <ul class="pts">
-            <li>出勤した日：利益(AC) ＝ 売上(S) ＋ 合計高速(V) − 燃料代(Z) − 支払い(AA) − 経費合計(AB)</li>
-            <li>有休の日：利益(AC) ＝ − 有休手当(AH)（売上・燃料代・支払い・経費合計は0。計算式としては有休手当(AH)も引いている）</li>
+            <li>出勤した日：利益(AC) ＝ 売上(S) ＋ 合計高速(V) − 燃料代(Z) − 支払い(AA) − 経費合計(AB) − その他手当(AI)</li>
+            <li>有休の日：利益(AC) ＝ − 有休手当(AH)（売上・燃料代・支払い・経費合計は0。計算式としては有休手当(AH)・その他手当(AI)も引いている）</li>
           </ul>
         </div>
         <div class="block">
@@ -2392,7 +2429,7 @@ html { scroll-behavior: smooth; }
         </div>
         <div class="ss-wrap"><img src="screenshots/s05-pct.png" class="ss-img" alt="自車専属マスタにある車 %方式 利益27,111"></div>
         <div class="block">
-          <div class="blk-label">有休の日の例：利益 ＝ − 有休手当9,000 ＝ −9,000円（赤字）。支払いは0円　青枠：積地（有休）・支払い・有休手当　赤枠：利益</div>
+          <div class="blk-label">有休の日の例：利益 ＝ − 有休手当9,000 ＝ −9,000円（赤字）。支払いは0円　黄枠：有休手当（入力値）　赤枠：利益</div>
         </div>
         <div class="ss-wrap"><img src="screenshots/s05-yukyu.png" class="ss-img" style="width:72%" alt="有休の日 利益−9,000"></div>
         <div class="block">
@@ -2458,6 +2495,81 @@ html { scroll-behavior: smooth; }
 
   </div><!-- /grid-shuukei -->
 
+  <!-- ──────── 説明書 機能カード ──────── -->
+  <div class="grid" id="grid-setsumei" style="display:none">
+
+    <!-- setsumei 1 -->
+    <div class="card" id="feat-m01">
+      <div class="card-hdr">
+        <span class="num">1</span>
+        <span class="cat cat-menu">手動操作</span>
+        <span class="feat-name">説明書を開く</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 11-4（showManualLink）・2-1（①のメニュー）・2-1a（②③のメニュー）</span>
+        <div class="block">
+          <div class="blk-label tip">💡 メニューから操作</div>
+          <ul class="pts">
+            <li>メニューの一番上「📖 説明書を開く」を押すと、この説明書が新しいタブで開く</li>
+            <li>開かない時は、出てくる画面のボタンを押す</li>
+          </ul>
+        </div>
+        <div class="block">
+          <div class="blk-label">① メニューの一番上「📖 説明書を開く」を押す</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:27%;line-height:0;font-size:0;"><img src="screenshots/man-01-menu.png" class="ss-img" alt="メニューの一番上 説明書を開く"><div style="position:absolute;top:10.9%;left:2.7%;width:94.6%;height:8.9%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">② 修正用SSでは「説明書を開く」と「解説書を開く」の2つのボタンが出る</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:38%;line-height:0;font-size:0;"><img src="screenshots/man-02-popup-master.png" class="ss-img" alt="修正用SSの画面 説明書を開く・解説書を開く"><div style="position:absolute;top:49.7%;left:9.8%;width:63.6%;height:17.9%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">③ お客様のSSでは「説明書を開く」のボタンが出る</div>
+        </div>
+        <div class="ss-wrap"><div style="position:relative;display:block;width:37%;line-height:0;font-size:0;"><img src="screenshots/man-03-popup-client.png" class="ss-img" alt="お客様のSSの画面 説明書を開く"><div style="position:absolute;top:54.7%;left:9.9%;width:32.3%;height:19.2%;border:3px solid #f5c400;box-sizing:border-box;pointer-events:none;"></div></div></div>
+        <div class="block">
+          <div class="blk-label">🔧 実装概要</div>
+          <ul class="pts">
+            <li>showManualLink（11-4）：ネットの説明書（manual-user.html）を新しいタブで開き、開かなかった時のためのボタンを出す。<br>①（__COMPANY_SS__・__TEMPLATE_SS__ のどちらの目印も無いSS）では解説書（manual-ma.html）のボタンも出す</li>
+            <li>メニューの一番上の項目は、①は2-1、②③は2-1a で作る。②③はスタブの showManualLink から呼ぶ</li>
+            <li>SSの中の使い方・説明書・解説書シートは使わない（②③の一覧 12-2z から外し、①はF5で消す）</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid-setsumei -->
+
+  <!-- ──────── メモ 機能カード ──────── -->
+  <div class="grid" id="grid-memo" style="display:none">
+
+    <!-- memo 1 -->
+    <div class="card" id="feat-memo01">
+      <div class="card-hdr">
+        <span class="num">1</span>
+        <span class="cat cat-infra">自由記入</span>
+        <span class="feat-name">メモ</span>
+        <div class="clr-grp"><span class="clr-tag">自動での色付け　無</span></div>
+      </div>
+      <div class="card-body">
+        <span class="code-ref"><span class="code-lbl">REF</span>コード.js: 4-2q（backupMemoSheet_）・4-2r（restoreMemoSheet_）・4-2k（シート削除時の復元）・3-1（メモの編集時）</span>
+        <div class="block">
+          <div class="blk-label tip">📝 フリーゾーンです。<br>入力した内容はシート削除しても戻ります。</div>
+        </div>
+        <div class="block">
+          <div class="blk-label">🔧 実装概要</div>
+          <ul class="pts">
+            <li>メモは客ごとのフリーゾーン。①のメモは②③に絶対に写さない。<br>客が書いた中身はどの処理でも消さない・上書きしない</li>
+            <li>メモを編集するたび（3-1-4）と、行・列の追加削除など構造が変わった時（4-2k）に、backupMemoSheet_（4-2q）が今の中身を隠しシート「_BK_メモ」に控える</li>
+            <li>メモのシートが消されたら、4-2k が _BK_メモ の最新の中身で戻す。<br>③を開いた時（14-2a）・②③に反映した時（12-3c・14-3）・シート再生成（4-3）でも、メモが無ければ restoreMemoSheet_（4-2r）が控えから戻す</li>
+            <li>新しい③を作る時（12-3）は、メモの中身を空にし、②の控え（_BK_メモ）は持ち込まない</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid-memo -->
+
 
 </main>
 
@@ -2466,9 +2578,9 @@ html { scroll-behavior: smooth; }
 <script>
 (function(){
 var curSheet='unkou';
-var SHEETS_ITEMS={unkou:[],shuukei:[]};
-var SHEET_GRIDS={unkou:'grid-unkou',shuukei:'grid-shuukei'};
-var SHEET_TOCS={unkou:'toc-wrap-unkou',shuukei:'toc-wrap-shuukei'};
+var SHEETS_ITEMS={unkou:[],shuukei:[],setsumei:[],memo:[]};
+var SHEET_GRIDS={unkou:'grid-unkou',shuukei:'grid-shuukei',setsumei:'grid-setsumei',memo:'grid-memo'};
+var SHEET_TOCS={unkou:'toc-wrap-unkou',shuukei:'toc-wrap-shuukei',setsumei:'toc-wrap-setsumei',memo:'toc-wrap-memo'};
 
 function hideAllSheets(){
   Object.keys(SHEET_GRIDS).forEach(function(s){
@@ -2480,7 +2592,7 @@ function hideAllSheets(){
 }
 
 function initItems(){
-  var sheetGridMap={unkou:'grid-unkou',shuukei:'grid-shuukei'};
+  var sheetGridMap={unkou:'grid-unkou',shuukei:'grid-shuukei',setsumei:'grid-setsumei',memo:'grid-memo'};
   Object.keys(sheetGridMap).forEach(function(sheet){
     var grid=document.getElementById(sheetGridMap[sheet]);
     if(!grid) return;
@@ -2601,6 +2713,10 @@ initItems();
 wireTocItems();
 document.getElementById('grid-shuukei').style.display='none';
 document.getElementById('toc-wrap-shuukei').style.display='none';
+document.getElementById('grid-setsumei').style.display='none';
+document.getElementById('toc-wrap-setsumei').style.display='none';
+document.getElementById('grid-memo').style.display='none';
+document.getElementById('toc-wrap-memo').style.display='none';
 })();
 </script>
 

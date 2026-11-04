@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // deploy.js - ワンコマンドデプロイ
 // 使い方: node deploy.js <説明> (例: node deploy.js reloadMenuバグ修正)
-// 実行順: check_integrity → build_stub → clasp push → clasp deploy → appsscript.json更新 → バージョン一致検証（②③へは送らない）
+// 実行順: check_integrity → build_stub → （書いたマスの記録の差し込み build_journal.js → 難読化）→ clasp push → clasp deploy → appsscript.json更新 → バージョン一致検証（②③へは送らない）
 //
 // 【重要：バージョン管理の教訓】
 // 過去に「計算値(nextVer)」をstubのappsscript.jsonライブラリバージョンに書き込んでいたため、

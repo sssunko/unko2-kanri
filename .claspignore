@@ -10,6 +10,7 @@ build_stub.js
 check_integrity.js
 deploy.js
 gas_obfuscate.js
+build_journal.js
 bootstrap.js
 blob.js
 fix_*.js
