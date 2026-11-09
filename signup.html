@@ -7,8 +7,13 @@
   <title>お申し込み - 運行管理システム</title>
   <!--
     signup.html：申し込みページ（コード.js 2-2 の ?page=signup）
-    S-1: 会社名・担当者名・メールアドレス・乗務員数・ご質問 の入力（ご質問は①の問い合わせ管理シートへ）
-    S-2: 送信（12-7e）。その場で「受付完了」または「すでに登録済み」を表示
+    S-1: 会社名・担当者名・メールアドレス（確認のためもう一度）・乗務員数・ご質問 の入力（ご質問は①の問い合わせ管理シートへ）
+    S-2: 送信。2段で行う
+         ①「確認番号を送る」：入れたアドレスに6けたの確認番号をメールで送る（コード.js 12-6e-1）。メールアドレスと確認用が違う時は送らず「メールアドレスが一致しません」と出す
+         ②番号を入れて「申し込む」：番号が合った時だけ会社登録に入れる（12-6e）。その場で「受付完了」または「すでに登録済み」を表示
+         ・番号の画面には「届かない時はアドレスが間違っている可能性があります」と出し、アドレスを直して送り直せる欄を置く
+           （打ち間違いのアドレスの申し込みは会社登録に入らないので、正しいアドレスで送り直せばそのまま申し込める）
+         ・受付完了には送り先のアドレスを出す
   -->
   <style>
     * { box-sizing: border-box; }
@@ -60,21 +65,39 @@
     <label for="email">担当者メールアドレス（Gmail）<span class="req">必須</span></label>
     <input type="email" id="email" name="email" autocomplete="email">
 
+    <label for="email2">メールアドレス（確認のため、もう一度入力してください）<span class="req">必須</span></label>
+    <input type="email" id="email2" name="email2" autocomplete="off">
+
     <label for="drivers">乗務員数<span class="req">必須</span></label>
     <input type="number" id="drivers" name="drivers" min="1" inputmode="numeric">
 
     <label for="memo">ご質問・メモ<span class="opt">（任意）</span></label>
     <textarea id="memo" name="memo"></textarea>
 
-    <button id="sendBtn" type="button" class="send-btn" onclick="doSend()">申し込む</button>
+    <button id="sendBtn" type="button" class="send-btn" onclick="doSend()">確認番号を送る</button>
     <div id="loadingMsg" class="loading-msg">送信中...スプレッドシートを準備しています（1分ほどかかることがあります）</div>
     <div id="errMsg" class="err-msg"></div>
   </form>
+
+  <div id="codeArea" style="display:none;">
+    <h1>確認番号の入力</h1>
+    <p class="lead"><b id="codeEmail"></b> に、6けたの確認番号をメールで送りました。<br>届いた番号を入力して「申し込む」を押してください。</p>
+    <label for="code">確認番号（6けた）<span class="req">必須</span></label>
+    <input type="text" id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+    <button id="codeBtn" type="button" class="send-btn" onclick="doConfirm()">申し込む</button>
+    <div id="codeLoading" class="loading-msg">送信中...スプレッドシートを準備しています（1分ほどかかることがあります）</div>
+    <div id="codeErr" class="err-msg"></div>
+    <p class="lead" style="margin-top:18px;color:#c62828;">しばらくしてもメールが届かない場合は、メールアドレスが間違っている可能性があります。<br>下でメールアドレスを直して、もう一度送ってください。</p>
+    <label for="email3">メールアドレス</label>
+    <input type="email" id="email3" autocomplete="email">
+    <button id="resendBtn" type="button" class="send-btn" style="background:#5f6368;" onclick="doResend()">確認番号をもう一度送る</button>
+  </div>
 
   <div id="okArea" class="result">
     <div class="icon">✅</div>
     <h2 style="color:#188038;">お申し込みを受け付けました</h2>
     <p>ご入力のメールアドレスに、利用規約（契約書）のご案内をお送りしました。<br>メールをご確認ください。</p>
+    <p style="margin-top:12px;">送り先：<b id="okEmail"></b></p>
   </div>
 
   <div id="dupArea" class="result">
@@ -85,38 +108,82 @@
 
 </div>
 <script>
-// S-2: 送信（google.script.runで①のsubmitSignupを直接呼ぶ。フォームPOSTはGASの302リダイレクトでGETに変換されdoPostに届かないため使わない）
+var _data = null;
+// S-2 ①：確認番号を送る（12-6e-1）
 function doSend() {
   var company = document.getElementById('company').value.trim();
   var manager = document.getElementById('manager').value.trim();
   var email   = document.getElementById('email').value.trim();
+  var email2  = document.getElementById('email2').value.trim();
   var drivers = document.getElementById('drivers').value.trim();
   var memo    = document.getElementById('memo').value.trim();
   var err = document.getElementById('errMsg');
   if (!company || !manager || !email || !drivers) { err.textContent = '必須の項目（会社名・担当者名・メールアドレス・乗務員数）を入力してください'; return; }
+  if (email !== email2) { err.textContent = 'メールアドレスが一致しません。もう一度ご確認ください'; return; }
   err.textContent = '';
+  _data = { company:company, manager:manager, email:email, drivers:drivers, memo:memo,
+            from:document.getElementById('hFrom').value, lineId:document.getElementById('hLineId').value };
   document.getElementById('sendBtn').disabled = true;
-  document.getElementById('loadingMsg').style.display = 'block';
-  var data = { company:company, manager:manager, email:email, drivers:drivers, memo:memo,
-               from:document.getElementById('hFrom').value, lineId:document.getElementById('hLineId').value };
+  sendCode_(function(msg) { err.textContent = msg; document.getElementById('sendBtn').disabled = false; }, function() {
+    document.getElementById('signupForm').style.display = 'none';
+    showCodeArea_();
+  });
+}
+function showCodeArea_() {
+  document.getElementById('codeEmail').textContent = _data.email;
+  document.getElementById('email3').value = _data.email;
+  document.getElementById('code').value = '';
+  document.getElementById('codeErr').textContent = '';
+  document.getElementById('codeArea').style.display = 'block';
+}
+function sendCode_(onErr, onOk) {
   google.script.run.withSuccessHandler(function(r) {
-    document.getElementById('loadingMsg').style.display = 'none';
+    if (r && r.ok) onOk(); else onErr((r && r.msg) || '確認番号を送れませんでした。時間をおいてもう一度お試しください。');
+  }).withFailureHandler(function(e) {
+    onErr('送信中にエラーが起きました。時間をおいてもう一度お試しください。');
+  }).requestSignupCode(_data);
+}
+// アドレスを直して確認番号を送り直す（前の番号は使えなくなる）
+function doResend() {
+  var e3 = document.getElementById('email3').value.trim();
+  var cErr = document.getElementById('codeErr');
+  if (!e3) { cErr.textContent = 'メールアドレスを入力してください'; return; }
+  _data.email = e3;
+  document.getElementById('resendBtn').disabled = true;
+  sendCode_(function(msg) { cErr.textContent = msg; document.getElementById('resendBtn').disabled = false; }, function() {
+    document.getElementById('resendBtn').disabled = false;
+    showCodeArea_();
+    cErr.textContent = '確認番号を送り直しました。';
+  });
+}
+// S-2 ②：番号を入れて申し込む（12-6e。番号が合った時だけ会社登録に入る）
+function doConfirm() {
+  var code = document.getElementById('code').value.trim();
+  var cErr = document.getElementById('codeErr');
+  if (!code) { cErr.textContent = '確認番号を入力してください'; return; }
+  cErr.textContent = '';
+  _data.code = code;
+  document.getElementById('codeBtn').disabled = true;
+  document.getElementById('codeLoading').style.display = 'block';
+  google.script.run.withSuccessHandler(function(r) {
+    document.getElementById('codeLoading').style.display = 'none';
     if (r && r.ok) {
-      document.getElementById('signupForm').style.display = 'none';
+      document.getElementById('codeArea').style.display = 'none';
+      document.getElementById('okEmail').textContent = _data.email;
       document.getElementById('okArea').style.display = 'block';
     } else if (r && r.dup) {
-      document.getElementById('signupForm').style.display = 'none';
+      document.getElementById('codeArea').style.display = 'none';
       document.getElementById('dupMsg').textContent = r.msg || 'すでにお申し込みを受け付けています。';
       document.getElementById('dupArea').style.display = 'block';
     } else {
-      err.textContent = (r && r.msg) || '送信できませんでした。時間をおいてもう一度お試しください。';
-      document.getElementById('sendBtn').disabled = false;
+      cErr.textContent = (r && r.msg) || '送信できませんでした。時間をおいてもう一度お試しください。';
+      document.getElementById('codeBtn').disabled = false;
     }
   }).withFailureHandler(function(e) {
-    document.getElementById('loadingMsg').style.display = 'none';
-    err.textContent = '送信中にエラーが起きました。時間をおいてもう一度お試しください。';
-    document.getElementById('sendBtn').disabled = false;
-  }).submitSignup(data);
+    document.getElementById('codeLoading').style.display = 'none';
+    cErr.textContent = '送信中にエラーが起きました。時間をおいてもう一度お試しください。';
+    document.getElementById('codeBtn').disabled = false;
+  }).submitSignup(_data);
 }
 </script>
 </body>

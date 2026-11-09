@@ -288,6 +288,7 @@ function webSetupLogin(a,b,c,d,e)       { return UnkouLib.webSetupLogin(a,b,c,d,
 function webLogin(a,b,c,d)              { return UnkouLib.webLogin(a,b,c,d); }
 function checkWebLogin(a,b)             { return UnkouLib.checkWebLogin(a,b); }
 function submitSignup(a)                { return UnkouLib.submitSignup(a); }
+function requestSignupCode(a)           { return UnkouLib.requestSignupCode(a); }
 function recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }
 function clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }
 function getCarInfoByNumber(a,b,c)       { return UnkouLib.getCarInfoByNumber(a,b,c); }
