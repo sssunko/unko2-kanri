@@ -121,13 +121,17 @@
     C-16 : showDropScreen()
              降完画面（誘導画面）の表示。行程ごとの降完ボタンを描画する
     C-16a: selectDrop(rowIdx)
-             降完ボタン押下処理。時刻をサーバーに記録する
+             降完ボタン押下処理。運行番号を控えて時刻をサーバーに記録してから画面を進める（最後の行程でも必ず送る）
     C-16b: clearRunStateAndHome()
              全行程の降完完了後に進捗をサーバーから削除してホームへ戻る
     C-17 : 一覧画面表示・月移動・データ読み込み
-             showList(): 一覧画面を表示して今月のデータをロード
+             showList(): 一覧画面を表示（前に選んだ月。覚えている一覧があればすぐ出す）。既読の取得は並べて行う
              prevMonth() / nextMonth(): 月を移動してデータを再ロード
-             loadList(): サーバーから月データを取得してテーブルを描画
+             loadList(): 覚えている一覧（端末に保存）があればすぐ出し、裏でサーバーから読み直す（同じなら書き換えない）。無い時だけ「読み込み中」を出す
+    C-17b: 端末に覚える（lsGet_ / lsPut_ / lsClearAll_ / _getListCache_ / _putListCache_）
+             一覧・起動時のデータ・連絡事項を端末に覚え、次に開いた時すぐ出す。解除した時は全部消す
+    C-17c: 時刻の反映（_optimisticTime_）
+             ボタンを押した瞬間に一覧の時刻を今の時刻で入れる（サーバーの返事を待たない。返事が来たらサーバーの時刻に置き換える）
     C-18 : 絞り込み・ソート・カラムフィルター・テーブル描画
              C-18a: 絞り込みパネルの開閉・車番フィルター・日付範囲フィルターの適用と解除
              C-18b: sortList(col) - ヘッダークリックでソートを切り替える
@@ -173,6 +177,9 @@
              deleteTermFile(id, encodedUrl): 端末データから指定URLのファイルを削除
              changeTermFile(id, oldUrl): 端末データの指定ファイルを差し替える
     C-23 : startRunFromList(id)
+             先読みしておいた行程（C-23a。120秒以内）があればサーバーを待たずに進む。無ければサーバーから取って進む
+    C-23a: 行程の先読み（_prefetchRoutes_）
+             一覧を出した時、今日・前後1日の終わっていない運行（3件まで）の行程を裏で読んでおく。時刻を入れた・直した・削除した運行の分は捨てる
              一覧の「運行開始」または「運行再開」ボタン押下時の処理
              サーバーから進捗を取得して適切な画面（積完/休憩/降完等）に遷移する
     C-24 : 連絡事項関連
@@ -863,6 +870,7 @@
 //  本人確認は、紐づけ番号を入れた時にサーバーから受け取った合言葉（LS_TOKEN_KEY に保存）で行う。getMyEmail() はこの合言葉を返す
 //  LS_EMAIL_KEY のアドレスは入力欄に表示するためだけに使う
 //  紐づけ番号を送った控え（端末の LS_LINK_PENDING_KEY か、アプリのURLの lp）があれば、起動時に番号の入力枠（C-4b）を出し直す
+//  前に読み込んだ起動時のデータ・連絡事項が端末に残っていれば、すぐ画面に出し（applyInit_・renderNotices_）、裏でサーバーから読み直す（同じなら書き換えない・本人確認が通らなければ覚えたものを全部消す）
 // ============================================================
 var COMPANY_SS_ID = '<?= companySsId ?>'; // doGet(e) から渡される会社のスプレッドシートID
 var LS_EMAIL_KEY = 'unkouLinkedEmail' + (COMPANY_SS_ID ? '_' + COMPANY_SS_ID : '');
@@ -872,10 +880,8 @@ var LS_TOKEN_KEY = 'unkouDrvToken' + (COMPANY_SS_ID ? '_' + COMPANY_SS_ID : '');
 var LS_LINK_PENDING_KEY = 'unkouLinkPending' + (COMPANY_SS_ID ? '_' + COMPANY_SS_ID : ''); // 番号を送ったアドレスと時刻（C-4b）
 function getMyEmail() { return localStorage.getItem(LS_TOKEN_KEY) || ''; }
 
-window.onload = function() {
-  var savedEmail = localStorage.getItem(LS_EMAIL_KEY) || '';
-  google.script.run
-    .withSuccessHandler(function(init) {
+// 起動時のデータを画面に出す（C-1）：覚えていたデータ・サーバーから読み直したデータの両方で使う
+function applyInit_(init, savedEmail) {
       if (init && init.email) {
         document.getElementById('email').value = init.email;
         if (init.profile) {
@@ -919,10 +925,23 @@ window.onload = function() {
         document.getElementById('statusText').innerText = '状態：未紐づけ';
         if (savedEmail) document.getElementById('email').value = savedEmail;
       }
+}
+
+window.onload = function() {
+  var savedEmail = localStorage.getItem(LS_EMAIL_KEY) || '';
+  // 前に読み込んだ内容が端末に残っていれば、すぐ出す（C-17b）。裏で読み直して、変わっていれば書き換える
+  var _cInit = getMyEmail() ? lsGet_('init') : null;
+  if (_cInit && _cInit.email) { applyInit_(_cInit, savedEmail); }
+  var _cNotices = getMyEmail() ? lsGet_('notices') : null;
+  if (_cNotices) renderNotices_(_cNotices);
+  google.script.run
+    .withSuccessHandler(function(init) {
+      if (init && init.email) { lsPut_('init', init); } else { lsClearAll_(); }
+      if (!(_cInit && init && JSON.stringify(_cInit) === JSON.stringify(init))) applyInit_(init, savedEmail);
       loadNotices();
     })
     .withFailureHandler(function() {
-      if (savedEmail) document.getElementById('email').value = savedEmail;
+      if (!_cInit && savedEmail) document.getElementById('email').value = savedEmail;
     })
     .getInitialData(getMyEmail(), COMPANY_SS_ID);
   // 紐づけ番号を送った控えがあれば、番号の入力枠を出し直す（メールを見に行って読み込み直された時用。×か紐づけOKまで出し続ける）
@@ -1094,6 +1113,7 @@ function handleUnlink() {
       hideLoading();
       localStorage.removeItem(LS_TOKEN_KEY);
       localStorage.removeItem(LS_EMAIL_KEY);
+      lsClearAll_();
       document.getElementById('statusText').innerText = '状態：' + msg;
       document.getElementById('email').value = '';
       document.getElementById('companyName').innerText = '';
@@ -1501,6 +1521,7 @@ function showGuideScreen() {
 }
 function selectGuide(i) {
   guideDone[i]=true; guideHistory.push(i);
+  _optimisticTime_('guideTime');
   showGuideScreen();
   if (runId) {
     google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('guide', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
@@ -1532,6 +1553,7 @@ function showPickScreen() {
 }
 function selectPick(i) {
   lastPickIndex=i; pickDone[i]=true; pickHistory.push(i);
+  _optimisticTime_('pickTime');
   showPickScreen();
   if (runId) {
     google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('pick', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
@@ -1547,6 +1569,7 @@ function selectPick(i) {
 function restStart() {
   var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
   phase='restEnd'; showScreen('step4','休憩終了');
+  _optimisticTime_('restStart');
   if (runId) {
     google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('restStart', runId, targetIndex, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
@@ -1561,6 +1584,7 @@ function restEnd() {
   showTimeToast(nowHHmm() + ' 休憩終了');
   var targetIndex = (lastPickIndex !== null) ? lastPickIndex : (picks.length - 1);
   phase='inspAfter'; inspAfterDone=new Array(inspAfterItems.length).fill(false); showInspScreen('after');
+  _optimisticTime_('restEnd');
   if (runId) {
     google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('restEnd', runId, targetIndex, getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
@@ -1624,26 +1648,36 @@ function inspCheckAll() {
   showInspScreen(_inspType);
 }
 
+// 点呼完了（inspComplete）：点呼前・点呼後の完了時刻を送ってから、次の画面へ進む
+// 時刻の送信は画面を進めるより先に行う。次が降完画面で全行程が降完済みの時、降完画面（C-16）が全完了リセット（C-16b）を呼び
+// 運行番号（runId）を消すため、先に運行番号を控えてから送る（C-16a と同じ）。その時は進捗を保存しない（すぐ C-16b が消すため）
 function inspComplete() {
   var type = _inspType;
+  function sendInsp_(act) {
+    var _id = runId;
+    _optimisticTime_(act);
+    var _allDone = drops.length > 0 && drops.every(function(d, k) { return !!dropDone[k]; });
+    if (_id) { google.script.run.withSuccessHandler(function(r){ _onActionSuccess(r, _id); }).withFailureHandler(function(e){console.error(e);}).recordAction(act, _id, 0, (phase === 'drop' && _allDone) ? null : getStateObj(), COMPANY_SS_ID, getMyEmail()); }
+    else     { _pendingActions.push({type:act, idx:0}); }
+  }
   if (type === 'before') {
     // _inspNextPhase が設定されている場合（一覧から再開）はそのphaseへ。なければ誘導へ。
     var next = _inspNextPhase || 'guide';
     _inspNextPhase = '';
-    if      (next === 'guide')     { phase='guide';     showGuideScreen(); }
-    else if (next === 'pick')      { phase='pick';      showPickScreen(); }
-    else if (next === 'restStart') { phase='restStart'; showScreen('step3','休憩開始'); }
-    else if (next === 'restEnd')   { phase='restEnd';   showScreen('step4','休憩終了'); }
-    else if (next === 'inspAfter') { phase='inspAfter'; showInspScreen('after'); }
-    else if (next === 'drop')      { phase='drop';      showDropScreen(); }
-    else                           { phase='guide';     showGuideScreen(); }
-    if (runId) { google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('inspBefore', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
-    else        { _pendingActions.push({type:'inspBefore', idx:0}); }
+    if (next !== 'pick' && next !== 'restStart' && next !== 'restEnd' && next !== 'inspAfter' && next !== 'drop') next = 'guide';
+    phase = next;
+    sendInsp_('inspBefore');
+    if      (next === 'guide')     { showGuideScreen(); }
+    else if (next === 'pick')      { showPickScreen(); }
+    else if (next === 'restStart') { showScreen('step3','休憩開始'); }
+    else if (next === 'restEnd')   { showScreen('step4','休憩終了'); }
+    else if (next === 'inspAfter') { showInspScreen('after'); }
+    else                           { showDropScreen(); }
   } else {
     showTimeToast(nowHHmm() + ' 点呼後完了');
-    phase = 'drop'; showDropScreen();
-    if (runId) { google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('inspAfter', runId, 0, getStateObj(), COMPANY_SS_ID, getMyEmail()); }
-    else        { _pendingActions.push({type:'inspAfter', idx:0}); }
+    phase = 'drop';
+    sendInsp_('inspAfter');
+    showDropScreen();
   }
 }
 
@@ -1707,17 +1741,24 @@ function showDropScreen() {
 // ============================================================
 //  C-16a: 降完ボタン押下（selectDrop）
 //  GASの完了を待たずにすぐ画面を更新する
+//  時刻の送信は、画面を進める（C-16）より先に行う。最後の行程の降完では C-16 が全完了リセット（C-16b）を呼び
+//  運行番号（runId）を消すため、先に運行番号を控えてから送る（後で送ると運行番号が空で時刻が送られない）
+//  最後の行程の時は進捗を保存しない（すぐ C-16b がサーバーの進捗を消すので、保存し直さない）
+//  一覧の書き換えと集計表への反映（C-17 の _onActionSuccess）にも、控えた運行番号を渡す
 // ============================================================
 function selectDrop(i) {
   showTimeToast(nowHHmm() + ' 行程' + (i + 1) + ' 降完');
   dropDone[i] = true;
   dropHistory.push(i);
-  showDropScreen();
-  if (runId) {
-    google.script.run.withSuccessHandler(_onActionSuccess).withFailureHandler(function(e){console.error(e);}).recordAction('drop', runId, i, getStateObj(), COMPANY_SS_ID, getMyEmail());
+  var _dropId  = runId;
+  _optimisticTime_('dropTime');
+  var _allDone = drops.every(function(d, k) { return !!dropDone[k]; });
+  if (_dropId) {
+    google.script.run.withSuccessHandler(function(r){ _onActionSuccess(r, _dropId); }).withFailureHandler(function(e){console.error(e);}).recordAction('drop', _dropId, i, _allDone ? null : getStateObj(), COMPANY_SS_ID, getMyEmail());
   } else {
     _pendingActions.push({type:'drop', idx:i});
   }
+  showDropScreen();
 }
 
 // ============================================================
@@ -1736,21 +1777,60 @@ function clearRunStateAndHome() {
 
 // ============================================================
 //  C-17: 運行一覧表示・月移動・データ読み込み
-//  showList  : 一覧画面を開く（readIds取得→loadList）
+//  showList  : 一覧画面を開く（readIds取得→loadList）。前回選択した年月を localStorage から復元する（選択した月は勝手に変わらない）
 //  prevMonth : 前月へ移動してloadList
 //  nextMonth : 次月へ移動してloadList
-//  loadList  : GASからデータ取得→集計表示→renderTable
+//  loadList  : GASからデータ取得→集計表示→renderTable。表示中の年月を localStorage に保存する
+//  _saveListYM_ / _loadListYM_ : localStorage への年月保存・読み出し
 // ============================================================
+var LS_LIST_YM = 'list_ym_' + (typeof COMPANY_SS_ID !== 'undefined' ? COMPANY_SS_ID : '');
+function _saveListYM_() {
+  try { localStorage.setItem(LS_LIST_YM, listYear + '_' + listMonth); } catch(e) {}
+}
+function _loadListYM_() {
+  try {
+    var v = localStorage.getItem(LS_LIST_YM);
+    if (v) { var p = v.split('_'); if (p.length === 2 && Number(p[0]) > 2000) { listYear = Number(p[0]); listMonth = Number(p[1]); return; } }
+  } catch(e) {}
+  var now = new Date(); listYear = now.getFullYear(); listMonth = now.getMonth() + 1;
+}
+// 端末に覚える（C-17b）：一覧・起動時のデータ・連絡事項を端末（localStorage）に覚え、次に開いた時はそれをすぐ出して、裏で読み直す。
+// 読み直した結果が覚えていたものと同じなら画面は書き換えない。紐づけを解除した時・本人確認が通らない時は全部消す
+var LS_CACHE_PREFIX = 'uc_' + (typeof COMPANY_SS_ID !== 'undefined' ? COMPANY_SS_ID : '') + '_';
+function lsGet_(k) { try { var v = localStorage.getItem(LS_CACHE_PREFIX + k); return v ? JSON.parse(v) : null; } catch(e) { return null; } }
+function lsPut_(k, v) { try { localStorage.setItem(LS_CACHE_PREFIX + k, JSON.stringify(v)); } catch(e) {} }
+function lsClearAll_() {
+  try {
+    var del = [];
+    for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf(LS_CACHE_PREFIX) === 0) del.push(k); }
+    del.forEach(function(k) { localStorage.removeItem(k); });
+  } catch(e) {}
+  _listDataCache = {};
+}
+function _getListCache_(ck) {
+  if (_listDataCache[ck]) return _listDataCache[ck];
+  var e = lsGet_('list_' + ck);
+  if (e && e.data && e.data.rows) { _listDataCache[ck] = e; return e; }
+  return null;
+}
+function _putListCache_(ck, data) {
+  var e = { data: data, ts: Date.now() };
+  _listDataCache[ck] = e;
+  lsPut_('list_' + ck, e);
+}
+function _persistListCache_() {
+  var ck = listYear + '_' + listMonth, e = _listDataCache[ck];
+  if (e) lsPut_('list_' + ck, e);
+}
 function showList() {
   var status = document.getElementById('statusText').innerText;
   if (status.indexOf('紐づけOK') === -1) { alert('先にアドレスを紐づけしてください'); return; }
-  var now = new Date();
-  listYear = now.getFullYear();
-  listMonth = now.getMonth() + 1;
+  _loadListYM_();
   showScreen('listScreen', '運行一覧');
+  loadList();
   google.script.run
-    .withSuccessHandler(function(r) { readIds = r || []; loadList(); })
-    .withFailureHandler(function() { readIds = []; loadList(); })
+    .withSuccessHandler(function(r) { readIds = r || []; if (listRows && listRows.length) renderTable(); })
+    .withFailureHandler(function() { readIds = []; })
     .getReadNotices(getMyEmail(), COMPANY_SS_ID);
 }
 
@@ -1846,42 +1926,44 @@ function _applyListData(data) {
   document.getElementById('filterDateFrom').value = filterDateFrom;
   document.getElementById('filterDateTo').value   = filterDateTo;
   renderTable();
+  _prefetchRoutes_();
 }
 
 function loadList(forceRefresh) {
   document.getElementById('listYM').innerText = listYear + '年 ' + listMonth + '月';
+  _saveListYM_();
   var _ldCK = listYear + '_' + listMonth;
-  // キャッシュが新鮮（60秒以内）なら即描画してバックグラウンド更新
-  if (!forceRefresh) {
-    var _ldEntry = _listDataCache[_ldCK];
-    if (_ldEntry && (Date.now() - _ldEntry.ts) < 60000) {
-      _applyListData(_ldEntry.data);
-      google.script.run
-        .withSuccessHandler(function(data) { _listDataCache[_ldCK] = {data:data, ts:Date.now()}; listRows = (data.rows||[]); renderTable(); })
-        .withFailureHandler(function(){})
-        .getListData(listYear, listMonth, COMPANY_SS_ID, getMyEmail());
-      return;
-    }
-  }
-  // キャッシュなし・強制更新 → 読み込み中...表示してフェッチ
-  if (forceRefresh) delete _listDataCache[_ldCK];
-  document.getElementById('listBody').innerHTML = '<div style="padding:20px;text-align:center;color:#aaa;">読み込み中...</div>';
+  var _ent = forceRefresh ? null : _getListCache_(_ldCK);
+  if (forceRefresh) { delete _listDataCache[_ldCK]; try { localStorage.removeItem(LS_CACHE_PREFIX + 'list_' + _ldCK); } catch(e) {} }
+  // 覚えている一覧があれば、古くてもすぐ出して、裏で読み直す（読み込み中...は出さない）
+  if (_ent) _applyListData(_ent.data);
+  else document.getElementById('listBody').innerHTML = '<div style="padding:20px;text-align:center;color:#aaa;">読み込み中...</div>';
   google.script.run
     .withSuccessHandler(function(data) {
-      _listDataCache[_ldCK] = {data:data, ts:Date.now()};
-      _applyListData(data);
+      if (_ldCK !== listYear + '_' + listMonth) return;   // 読んでいる間に別の月へ移った時は書き換えない
+      if (data && data.error === 'duplicate_email') {
+        document.getElementById('listBody').innerHTML = '<div style="padding:20px;color:#ff5252;line-height:1.8;">このアドレスは複数の乗務員に登録されています。<br>事務所にお問い合わせください。</div>';
+        return;
+      }
+      var same = _ent && JSON.stringify(_ent.data) === JSON.stringify(data);
+      _putListCache_(_ldCK, data);
+      if (!same) _applyListData(data);
     })
     .withFailureHandler(function(err) {
+      if (_ent) return;
       document.getElementById('listBody').innerHTML = '<div style="padding:20px;color:#ff5252;">データ取得エラー: '+err+'</div>';
     })
     .getListData(listYear, listMonth, COMPANY_SS_ID, getMyEmail());
 }
 
-// 一覧のサイレント更新：画面を「読み込み中」にせず裏でデータだけ差し替える
+// 一覧のサイレント更新：画面を「読み込み中」にせず裏でデータだけ差し替える（今見ている月だけ書き換える）
 function refreshListSilent(rerender) {
+  var _ck = listYear + '_' + listMonth;
   google.script.run
     .withSuccessHandler(function(data){
-      _listDataCache[listYear+'_'+listMonth]={data:data,ts:Date.now()};
+      if (!data || data.error) return;
+      _putListCache_(_ck, data);
+      if (_ck !== listYear + '_' + listMonth) return;
       listRows=(data.rows||[]);
       if (rerender) renderTable();
     })
@@ -1889,23 +1971,41 @@ function refreshListSilent(rerender) {
     .getListData(listYear, listMonth, COMPANY_SS_ID, getMyEmail());
 }
 
+// 時刻の反映（C-17c）：ボタンを押した瞬間に、覚えている一覧のその運行の時刻を今の時刻で入れて一覧を書き換える（サーバーの返事を待たない。返事が来たらサーバーの時刻に置き換える）
+function _optimisticTime_(field, id) {
+  var _rid = id || runId;
+  if (_rid) delete _routesCache[_rid];
+  if (!_rid || !listRows || !listRows.length) return;
+  var t = nowHHmm(), ch = false;
+  for (var _j = 0; _j < listRows.length; _j++) {
+    if (String(listRows[_j].id) === String(_rid) && !listRows[_j][field]) { listRows[_j][field] = t; listRows[_j].isNew = false; ch = true; }
+  }
+  if (!ch) return;
+  _persistListCache_();
+  if (document.getElementById('listScreen').style.display === 'block') renderTable();
+}
 // 時刻書き込み成功後の後追い集計同期（応答を待たせず裏で実行）
-function bgSyncSummary() {
-  if (!runId) return;
-  _listDataCache = {};
-  if (listYear && listMonth) refreshListSilent(true);
+// id：対象の運行番号。省略時は今の運行（runId）。最後の降完のように runId を消した後でも、渡された番号で同期する
+function bgSyncSummary(id) {
+  var _rid = id || runId;
+  if (!_rid) return;
+  delete _routesCache[_rid];
+  if (listYear && listMonth && document.getElementById('listScreen').style.display === 'block') refreshListSilent(true);   // 一覧を見ている時だけ裏で読み直す（見ていない時は開いた時に読み直す。覚えている一覧は消さない）
   google.script.run
     .withFailureHandler(function(err){ console.error(err); })
-    .recordAction('syncSummary', runId, 0, null, COMPANY_SS_ID, getMyEmail());
+    .recordAction('syncSummary', _rid, 0, null, COMPANY_SS_ID, getMyEmail());
 }
-function _onActionSuccess(result) {
+// 時刻書き込み成功時：一覧のその運行の時刻を書き換え、集計表を後追い同期する
+// id：対象の運行番号。省略時は今の運行（runId）
+function _onActionSuccess(result, id) {
+  var _rid = id || runId;
   if (result && result.field && result.time) {
     for (var _j = 0; _j < listRows.length; _j++) {
-      if (String(listRows[_j].id) === String(runId)) { listRows[_j][result.field] = result.time; }
+      if (String(listRows[_j].id) === String(_rid)) { listRows[_j][result.field] = result.time; }
     }
-    if (listRows.length) renderTable();
+    if (listRows.length) { _persistListCache_(); renderTable(); }
   }
-  bgSyncSummary();
+  bgSyncSummary(_rid);
 }
 
 // ============================================================
@@ -2374,7 +2474,7 @@ function saveListRowAuto(id) {
   if (inspBEl)     obj.inspBefore = extractHmm_(inspBEl.value);
   if (inspAEl)     obj.inspAfter  = extractHmm_(inspAEl.value);
   google.script.run
-    .withSuccessHandler(function() { delete _editDataCache[id]; refreshListSilent(false); })
+    .withSuccessHandler(function() { delete _editDataCache[id]; delete _routesCache[id]; refreshListSilent(false); })
     .withFailureHandler(function(e) { console.error('自動保存エラー: ' + e.message); })
     .saveEditData(obj, COMPANY_SS_ID, getMyEmail());
 }
@@ -2566,20 +2666,37 @@ function changeAdminFile(id, oldUrl) {
 
 // ============================================================
 //  C-21: カレンダー（日/月/年選択）
-//  openCalendar      : カレンダーを開く
-//  closeCalendar     : カレンダーを閉じる
-//  renderCalendar    : 日表示を描画
-//  renderMonthPicker : 月選択を描画
-//  renderYearPicker  : 年選択を描画
-//  calPrevMonth/calNextMonth : カレンダー内の月移動
-//  selectCalDay      : 日付を選択してその日だけ表示
-//  selectCalAllMonth : 月全体を表示
-//  selectCalMonth    : 月を選択
-//  selectCalYear     : 年を選択
+//  openCalendar        : カレンダーを開く（元の年月を calOrigYear/calOrigMonth に保存）
+//  closeCalendar       : オーバーレイ外クリックで閉じる（元の年月に戻す）
+//  closeCalendarBtn    : 閉じるボタンで閉じる（元の年月に戻す）
+//  renderCalendar      : 日表示を描画（「この月を表示」ボタンと「閉じる」ボタンあり）
+//  renderMonthPicker   : 月選択を描画（「閉じる」ボタンあり）
+//  renderYearPicker    : 年選択を描画（「閉じる」ボタンあり）
+//  calPrevMonth/calNextMonth : カレンダー内の月移動（listYear/listMonth を直接変更）
+//  selectCalDay        : 日付を選択してその日だけ表示（loadListで指定月データを取得）
+//  selectCalAllMonth   : 表示中の月全体を表示（loadListで指定月データを取得）
+//  selectCalMonth      : 月を選択してその月の一覧に切り替え
+//  selectCalYear       : 年を選択して月選択に戻る
 // ============================================================
 var calMode='day';
-function openCalendar() { calMode='day'; document.getElementById('calOverlay').classList.add('show'); renderCalendar(); }
-function closeCalendar(e) { if(e.target.id==='calOverlay') document.getElementById('calOverlay').classList.remove('show'); }
+var calOrigYear=0, calOrigMonth=0;
+// openCalendar: カレンダーを開く。元の年月を保存して、閉じる時に戻せるようにする
+function openCalendar() {
+  calMode='day';
+  calOrigYear=listYear; calOrigMonth=listMonth;
+  document.getElementById('calOverlay').classList.add('show');
+  renderCalendar();
+}
+// closeCalendar: 閉じるボタン or オーバーレイ外クリックで閉じる。年月を元に戻す
+function closeCalendar(e) {
+  if (e && e.target && e.target.id !== 'calOverlay') return;
+  listYear=calOrigYear; listMonth=calOrigMonth;
+  document.getElementById('calOverlay').classList.remove('show');
+}
+function closeCalendarBtn() {
+  listYear=calOrigYear; listMonth=calOrigMonth;
+  document.getElementById('calOverlay').classList.remove('show');
+}
 function renderCalendar() {
   var box=document.getElementById('calBox');
   if(calMode==='year'){renderYearPicker(box);return;}
@@ -2590,7 +2707,10 @@ function renderCalendar() {
   var h='<div class="cal-nav"><button class="cal-nav-btn" onclick="calPrevMonth()">◀</button>'+
     '<div class="cal-title" onclick="calMode=\'month\';renderCalendar();">'+listYear+'年 '+listMonth+'月</div>'+
     '<button class="cal-nav-btn" onclick="calNextMonth()">▶</button></div>';
-  h+='<div style="text-align:center;margin-bottom:8px;"><button class="cal-nav-btn" onclick="selectCalAllMonth()" style="font-size:12px;">月全体を表示</button></div>';
+  h+='<div style="display:flex;gap:6px;margin-bottom:8px;">';
+  h+='<button class="cal-nav-btn" onclick="selectCalAllMonth()" style="flex:1;font-size:12px;">この月を表示</button>';
+  h+='<button class="cal-nav-btn" onclick="closeCalendarBtn()" style="font-size:12px;padding:4px 10px;">閉じる</button>';
+  h+='</div>';
   h+='<div class="cal-grid">';
   ['日','月','火','水','木','金','土'].forEach(function(d){h+='<div class="cal-dow">'+d+'</div>';});
   for(var i=0;i<firstDay;i++) h+='<div class="cal-day empty"></div>';
@@ -2601,14 +2721,17 @@ function renderCalendar() {
   h+='</div>'; box.innerHTML=h;
 }
 function renderMonthPicker(box){
-  var h='<div class="cal-nav"><button class="cal-nav-btn" onclick="calMode=\'year\';renderCalendar();">'+listYear+'年</button></div>';
+  var h='<div class="cal-nav"><button class="cal-nav-btn" onclick="calMode=\'year\';renderCalendar();">'+listYear+'年</button>';
+  h+='<button class="cal-nav-btn" onclick="closeCalendarBtn()" style="font-size:12px;padding:4px 10px;">閉じる</button></div>';
   h+='<div class="cal-month-grid">';
   for(var m=1;m<=12;m++) h+='<div class="cal-month-btn'+(m===listMonth?' selected':'')+'" onclick="selectCalMonth('+m+')">'+m+'月</div>';
   h+='</div>'; box.innerHTML=h;
 }
 function renderYearPicker(box){
   var startY=listYear-4;
-  var h='<div class="cal-nav"><div class="cal-title">年を選択</div></div><div class="cal-year-grid">';
+  var h='<div class="cal-nav"><div class="cal-title">年を選択</div>';
+  h+='<button class="cal-nav-btn" onclick="closeCalendarBtn()" style="font-size:12px;padding:4px 10px;">閉じる</button></div>';
+  h+='<div class="cal-year-grid">';
   for(var y=startY;y<=startY+8;y++) h+='<div class="cal-year-btn'+(y===listYear?' selected':'')+'" onclick="selectCalYear('+y+')">'+y+'</div>';
   h+='</div>'; box.innerHTML=h;
 }
@@ -2620,14 +2743,15 @@ function selectCalDay(d){
   document.getElementById('filterDateFrom').value=ds;
   document.getElementById('filterDateTo').value=ds;
   document.getElementById('calOverlay').classList.remove('show');
-  renderTable();
+  loadList();
 }
+// selectCalAllMonth: カレンダーで表示している月のデータを全件表示（loadListで年月も更新）
 function selectCalAllMonth(){
   filterDateFrom=''; filterDateTo='';
   document.getElementById('filterDateFrom').value='';
   document.getElementById('filterDateTo').value='';
   document.getElementById('calOverlay').classList.remove('show');
-  renderTable();
+  loadList();
 }
 function selectCalMonth(m){listMonth=m;calMode='day';filterDateFrom='';filterDateTo='';renderCalendar();loadList();}
 function selectCalYear(y){listYear=y;calMode='month';renderCalendar();}
@@ -2759,7 +2883,7 @@ function deleteEditModal(){
 }
 function deleteFromList(id){
   if(!confirm('この運行データを削除しますか？')) return;
-  google.script.run.withSuccessHandler(function(){ delete _editDataCache[id]; refreshListSilent(true); }).withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(id, COMPANY_SS_ID, getMyEmail());
+  google.script.run.withSuccessHandler(function(){ delete _editDataCache[id]; delete _routesCache[id]; refreshListSilent(true); }).withFailureHandler(function(e){alert('削除エラー: '+(e&&e.message||e));}).deleteRunById(id, COMPANY_SS_ID, getMyEmail());
 }
 function addTermFile(id) {
   var input=document.createElement('input'); input.type='file'; input.multiple=true; input.accept='image/*,.pdf,.doc,.docx,.xls,.xlsx';
@@ -2841,7 +2965,32 @@ function startRunFromList(id) {
   if (phase && phase !== '' && runId && runId !== id) {
     if (!confirm('現在 ' + runId + ' の運行中です。\n' + id + ' に切り替えますか？')) return;
   }
-  google.script.run.withSuccessHandler(function(data) {
+  var _rc = _routesCache[id];
+  if (_rc && Date.now() - _rc.ts < 120000) { _startRunWith_(id, _rc.data); return; }   // 先読みしておいた行程があれば、サーバーを待たずに進む
+  google.script.run.withSuccessHandler(function(data) { _startRunWith_(id, data); })
+    .withFailureHandler(function(){alert('通信エラー');}).getRoutesById(id, COMPANY_SS_ID, getMyEmail());
+}
+// 行程の先読み（C-23a）：一覧を出した時、今日・前後1日の終わっていない運行（3件まで）の行程を裏で読んでおく。
+// 時刻を入れた・一覧で直した・削除した運行の分は捨てる（古い進み具合で画面を出さないため）。120秒で古くなる
+var _routesCache = {};
+function _prefetchRoutes_() {
+  var f = function(d) { return d.getFullYear() + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + ('0' + d.getDate()).slice(-2); };
+  var now = Date.now(), days = {};
+  days[f(new Date(now))] = 1; days[f(new Date(now - 86400000))] = 1; days[f(new Date(now + 86400000))] = 1;
+  var n = 0;
+  (listRows || []).forEach(function(r) {
+    if (n >= 3 || r.isComplete || !days[r.date]) return;
+    var e = _routesCache[r.id];
+    if (e && Date.now() - e.ts < 120000) return;
+    n++;
+    google.script.run
+      .withSuccessHandler(function(d) { if (d && d.routes) _routesCache[r.id] = { data: d, ts: Date.now() }; })
+      .withFailureHandler(function(){})
+      .getRoutesById(r.id, COMPANY_SS_ID, getMyEmail());
+  });
+}
+function _startRunWith_(id, data) {
+  {
     if (!data||!data.routes||data.routes.length===0){alert('行程がありません');return;}
     if (data.progress==='complete' && !data.firstGap) return;
     picks=data.routes.map(function(r){return r.pick;});
@@ -2880,7 +3029,7 @@ function startRunFromList(id) {
       phase='inspBefore'; inspBeforeDone=new Array(inspBeforeItems.length).fill(false); saveState();
       showInspScreen('before');
     }
-  }).withFailureHandler(function(){alert('通信エラー');}).getRoutesById(id, COMPANY_SS_ID, getMyEmail());
+  }
 }
 
 // ============================================================
@@ -2947,18 +3096,24 @@ function closeNewRouteModal() {
 //  openNoticeDetail    : 一覧の連絡詳細画面へ遷移
 //  closeNoticeDetail   : 連絡詳細を閉じて戻り先へ
 // ============================================================
+function renderNotices_(list) {
+  var el=document.getElementById('noticeArea');
+  if (!list||list.length===0){ el.innerHTML='<div style="color:#888;">未読の連絡事項はありません。</div>'; window._homeNotices=[]; return; }
+  var html='';
+  list.forEach(function(n,idx){
+    html+='<div id="homeNotice_'+n.id+'" style="border-bottom:1px solid #333;padding:10px 0;cursor:pointer;" onclick="openHomeNoticeDetail('+idx+')">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;">';
+    html+='<span style="font-size:14px;color:#bb86fc;font-weight:700;">📩 '+n.date+'</span>';
+    html+='<span style="font-size:12px;color:#f57c00;font-weight:700;">未開封有</span></div></div>';
+  });
+  el.innerHTML=html; window._homeNotices=list;
+}
 function loadNotices() {
   google.script.run.withSuccessHandler(function(list) {
-    var el=document.getElementById('noticeArea');
-    if (!list||list.length===0){ el.innerHTML='<div style="color:#888;">未読の連絡事項はありません。</div>'; return; }
-    var html='';
-    list.forEach(function(n,idx){
-      html+='<div id="homeNotice_'+n.id+'" style="border-bottom:1px solid #333;padding:10px 0;cursor:pointer;" onclick="openHomeNoticeDetail('+idx+')">';
-      html+='<div style="display:flex;justify-content:space-between;align-items:center;">';
-      html+='<span style="font-size:14px;color:#bb86fc;font-weight:700;">📩 '+n.date+'</span>';
-      html+='<span style="font-size:12px;color:#f57c00;font-weight:700;">未開封有</span></div></div>';
-    });
-    el.innerHTML=html; window._homeNotices=list;
+    var _old = lsGet_('notices');
+    lsPut_('notices', list || []);
+    if (_old && JSON.stringify(_old) === JSON.stringify(list || [])) return;   // 覚えていたものと同じなら書き換えない
+    renderNotices_(list);
   }).withFailureHandler(function(e){console.error(e);}).getMyNotices(COMPANY_SS_ID, getMyEmail());
 }
 function openHomeNoticeDetail(idx) {
@@ -2973,6 +3128,7 @@ function openHomeNoticeDetail(idx) {
   document.getElementById('noticeDetailBody').innerHTML=h;
   noticeReturnTo='home'; showScreen('noticeDetail','連絡詳細');
   google.script.run.withFailureHandler(function(e){console.error(e);}).markAsRead(n.id, getMyEmail(), COMPANY_SS_ID);
+  try { lsPut_('notices', (lsGet_('notices')||[]).filter(function(x){ return x.id !== n.id; })); } catch(e) {}
   var el=document.getElementById('homeNotice_'+n.id);
   if(el) el.remove();
   var area=document.getElementById('noticeArea');

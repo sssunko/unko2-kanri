@@ -59,6 +59,14 @@
 //            エラーログ記録
 //   1-4  : cleanAllOrphanSummary_(ssOpt)
 //            集計表の孤立ID削除・欠落行復元
+//   1-4b : healSummaryDriftOnOpen_(ss)
+//            開いた時の集計表ずれ直し（運行と時刻・金額が違う行を同期。1回3件まで）
+//   1-4c : flushPendingSummary_(ss)
+//            同期待ちのIDをまとめて同期（運行シートを直した時・開いた時。1回3件まで）
+//   1-4d : freezeIdColumn_(ss)
+//   1-4e : ensureSheetFilters_(ss)
+//            見出しのある全シート（4-2d-1 の一覧）に、フィルタが無ければつける
+//            A列の見出しがIDで終わるシートのA列を固定（開いた時。①は 2-1、②③は 16-2c）
 //   1-5  : applyMoneyFormat_(sheet, startRow, numRows, sheetType)
 //            金額列へのコンマ書式適用
 //   1-6  : applyDateTimeFormat_(sheet, startRow, numRows)
@@ -67,6 +75,8 @@
 //            有休・休み・配車漏れ・保護列の背景色設定
 //   1-7b : markIdCollisions_(ss)
 //            IDが重複している行のA列を赤色でマーク
+//   1-7c-1: paintMasterExpiryCells_(masterSheet)
+//            自車専属マスタの期限4列のセルごとの背景色（今日＝黄・過ぎた＝薄青・7日以内＝オレンジ）。1-7c の直前に置いた定義
 //   1-7c : applyExpiryWarningColors_(ss)
 //            期限アラート色付け
 //   1-7d : showExpiryAlert
@@ -86,7 +96,7 @@
 //
 // ── グループ2：スプレッドシート起動・表示 ──────────
 //   2-1  : onOpen(e)
-//            メニュー設定
+//            メニュー設定（直後にID列のあるシートのA列固定 1-4d）
 //   2-1a : buildClientMenu()
 //            客SS用メニュー構築
 //   2-1b : reloadMenu()
@@ -146,7 +156,7 @@
 //   3-3  : onEditMasterVehicle_(sheet, range, ss)
 //            自車専属マスタ編集時の処理
 //   3-3a : applyMasterVehicleWarnings_(sheet)
-//            自車専属マスタの支払条件不備警告
+//            自車専属マスタの必要なセル（運行状態〜担当管理者。備考・高速を引くは除く）が空ならグレー＋メモ。支払条件（仮日数・給料・%）の不備もグレー
 //   3-3b : syncVehicleToCurrentMonth_(veh, skipSort, applyDate, ss)
 //            車両ステータス変更時の運行シート同期
 //   3-3c : syncAllVehiclesToCurrentMonth_()
@@ -259,6 +269,8 @@
 //            集計表の支払い・燃料代・経費合計が手で直した値か（手で直した値は自動で変えない）
 //   4-2z-1: countSumHandEdited_(ss) / askOverwriteHandEdited_(count, what, fromWhat)
 //            手で入れた値の数を数え、「上書きしますか？」を聞く（メニューから動かす自動処理で共用）
+//   4-2z-2: setGreyWarnNotes_(sheet, startRow, numRows)
+//            集計表の灰色の警告セル（支払い・経費合計・仮日数・給料）にメモで意味を出す
 //   4-3  : expandAndRefreshSheets()
 //            シート再生成（集計表を含む全シートを正しくする）
 //   4-3a : repairJohoSheet()
@@ -299,6 +311,8 @@
 //            住所確認
 //   4-9a : parseLocation_(str)
 //            地名の順序解析
+//   4-9a-1: splitPlaces_(str)
+//            セルの中の複数の地名を、空白・記号（文字と数字以外すべて）で区切って入れた順に分ける
 //   4-9b : buildRouteKeyFromPicksDrops_(picks, drops)
 //            入力順のルートキー生成
 //   4-9c : buildTimeOrderedRouteKey_(unkouData, targetId)
@@ -319,6 +333,8 @@
 //            行程作成直後の距離反映
 //   4-9j : calcDistanceForAllPending_(ss)
 //            未計算行の距離一括計算
+//   4-9j-1: markDistanceFailCells_(sumSh, fails)
+//            距離を計算できなかった行の距離のセルを紫にしてメモで理由を出す
 //   4-9k : checkGeocode_(locs)
 //            住所の候補数確認
 //   4-9l : applyDistanceMasterErrorStyle_(ss)
@@ -747,7 +763,7 @@
 //   16-2b: clearUketorishoTimestamps()
 //            受領書耳の日時セルをクリア
 //   16-2c: ensureSheetsOnOpen()
-//            F5時の自社設定・シート並び順・合計(高速代)移行
+//            F5時の自社設定・シート並び順・合計(高速代)移行・集計表ずれ直し（1-4b）・ID列のあるシートのA列固定（1-4d）
 //   16-2d: prepareUketorishoForPrint()
 //            受領書耳の日時セルを印刷用に表示
 //   16-3 : showInvoiceDialog()
@@ -1352,6 +1368,111 @@ function cleanAllOrphanSummary_(ssOpt) {
 
 
 // ================================================================
+//  1-4b: 開いた時の集計表ずれ直し（healSummaryDriftOnOpen_）  【大B / 中1 / 小1-4b】
+//  SSを開いた時（①は 2-1、②③は 16-2c）に呼ばれる。運行シートと集計表を比べ、次のIDを 4-2 で同期する
+//   ・時刻（誘導〜降完＝N〜R列）の「入っている・空」が違う、または両方が日時で値が違うID
+//   ・売上・請求高速・実費高速（S〜U列）が違うID ／ 運行にあって集計表に無いID
+//  比べる値は 4-2 と同じ（同じIDの複数行は、時刻＝最初に入っている値、金額＝合計）
+//  1回に直すのは3件まで・10秒まで（開く処理を重くしない。残りは次に開いた時に直る）
+//  書くのは 4-2 だけ（手で直した値を残す決まりは 4-2 のまま）。運行・集計表のどちらかが無い・空の時は何もしない
+// ================================================================
+function healSummaryDriftOnOpen_(ss) {
+  var unkou = ss.getSheetByName('運行');
+  var sum   = ss.getSheetByName('集計表');
+  if (!unkou || !sum || unkou.getLastRow() < 2 || sum.getLastRow() < 2) return;
+  var uAll = unkou.getRange(2, 1, unkou.getLastRow() - 1, 21).getValues();
+  var want = {}, order = [];
+  for (var i = 0; i < uAll.length; i++) {
+    var id = String(uAll[i][0] || '').trim();
+    if (!id) continue;
+    var w = want[id];
+    if (!w) { w = want[id] = { t: ['', '', '', '', ''], m: [0, 0, 0] }; order.push(id); }
+    for (var c = 0; c < 5; c++) { if (uAll[i][13 + c] && !w.t[c]) w.t[c] = uAll[i][13 + c]; }
+    for (var d = 0; d < 3; d++) w.m[d] += Number(uAll[i][18 + d]) || 0;
+  }
+  var sAll = sum.getRange(2, 1, sum.getLastRow() - 1, 21).getValues();
+  var have = {};
+  for (var k = 0; k < sAll.length; k++) {
+    var sid = String(sAll[k][0] || '').trim();
+    if (sid && !have[sid]) have[sid] = sAll[k];
+  }
+  var timeDiff = function(a, b) {
+    if (!a !== !b) return true;
+    return (a instanceof Date) && (b instanceof Date) && Math.round(a.getTime() / 1000) !== Math.round(b.getTime() / 1000);
+  };
+  var moneyDiff = function(a, b) {
+    return Math.round((Number(a) || 0) * 100) !== Math.round((Number(b) || 0) * 100);
+  };
+  var bad = [];
+  for (var o = 0; o < order.length; o++) {
+    var w2 = want[order[o]], s2 = have[order[o]];
+    if (!s2) { bad.push(order[o]); continue; }
+    var differs = false;
+    for (var c2 = 0; c2 < 5 && !differs; c2++) differs = timeDiff(w2.t[c2], s2[13 + c2]);
+    for (var d2 = 0; d2 < 3 && !differs; d2++) differs = moneyDiff(w2.m[d2], s2[18 + d2]);
+    if (differs) bad.push(order[o]);
+  }
+  var t0 = Date.now();
+  for (var b = 0; b < bad.length && b < 3; b++) {
+    if (Date.now() - t0 > 10000) break;
+    delaySyncSummary_(bad[b], ss);
+  }
+  flushPendingSummary_(ss);   // 待たされて同期できなかった分もここで同期（1-4c）
+}
+
+
+// ================================================================
+//  1-4c: 同期待ちのIDをまとめて同期（flushPendingSummary_）  【大B / 中1 / 小1-4c】
+//  ロック待ちで同期できなかったID（PENDING_SUM_IDS。4-2 が記録）を、運行シートを直した時（14-2b）と開いた時（1-4b）に同期する
+//  1回に同期するのは3件まで。残りと、また待たされたIDは記録に残る（次の機会に同期）。同期待ちが無ければ何もしない
+// ================================================================
+function flushPendingSummary_(ss) {
+  var pdp = PropertiesService.getDocumentProperties();
+  var pend = (pdp.getProperty('PENDING_SUM_IDS') || '').split(',').filter(String);
+  if (!pend.length) return;
+  var rest = pend.slice(3);
+  if (rest.length) pdp.setProperty('PENDING_SUM_IDS', rest.join(','));
+  else pdp.deleteProperty('PENDING_SUM_IDS');
+  pend.slice(0, 3).forEach(function(pid) { delaySyncSummary_(pid, ss); });
+}
+
+
+// ================================================================
+//  1-4d: ID列のあるシートのA列を固定（freezeIdColumn_）  【大B / 中1 / 小1-4d】
+//  A列の見出し（1行目A）が「ID」で終わるシート（運行・集計表・自車専属マスタ・自車専属運行・マスタ・指示先ID別など）は、
+//  横にスクロールしてもA列が見えるよう、A列だけを固定する（固定が1列でないシートだけ直す。中身は触らない）
+//  開いた時に ①は 2-1、②③は 16-2c から呼ぶ。シートごとに失敗しても他のシートは続ける
+// ================================================================
+function freezeIdColumn_(ss) {
+  ss.getSheets().forEach(function(sh) {
+    try {
+      if (sh.getLastColumn() < 2 || sh.getFrozenColumns() === 1) return;
+      var h = String(sh.getRange(1, 1).getValue() || '').trim();
+      if (/ID$/.test(h)) sh.setFrozenColumns(1);
+    } catch (e) { try { logError_('freezeIdColumn_ ' + sh.getName(), e); } catch (e2) {} }
+  });
+}
+
+// ================================================================
+//  1-4e: 見出しのある全シートにフィルタをつける（ensureSheetFilters_）  【大B / 中1 / 小1-4e】
+//  1行目が見出しの表のシート（4-2d-1 の一覧＝運行・集計表・自車専属マスタ・自車専属運行・マスタ・設定・配車板・距離マスタ・PL設定・管理者・会社登録・指示先履歴・指示先ID別など）に、フィルタが無ければ、見出し行から最終行・最終列までのフィルタをつける
+//  ・フィルタが既にあるシートは触らない（絞り込み中の条件も変えない）。中身は触らない。請求書・PLなどの帳票のシートにはつけない
+//  開いた時に ①は 2-1、②③は 16-2c から呼ぶ（②③は同じ）。シートごとに失敗しても他のシートは続ける
+// ================================================================
+function ensureSheetFilters_(ss) {
+  getHeaderSheetNames_().forEach(function(name) {
+    try {
+      var sh = ss.getSheetByName(name);
+      if (!sh || sh.getFilter()) return;
+      var lc = sh.getLastColumn(), lr = sh.getLastRow();
+      if (lc < 1 || lr < 1) return;
+      sh.getRange(1, 1, lr, lc).createFilter();
+    } catch (e) { try { logError_('ensureSheetFilters_ ' + name, e); } catch (e2) {} }
+  });
+}
+
+
+// ================================================================
 //  1-5: 金額列へのコンマ書式適用（applyMoneyFormat_）  【大B / 中1 / 小1-5】
 //  指定シート・行範囲の金額列に #,##0（マイナスは赤）の書式をセットする
 //  運行はS〜V列、集計表はS〜W・Y〜AC・AH・AI列
@@ -1571,11 +1692,14 @@ function markIdCollisions_(ss) {
 //  淡い赤=期限超過 / 淡い青=当日 / 淡い緑=7日以内
 //  有休・休み行(グレー)・ID衝突行(#ff1744)には上書きしない。区分（B列）が空の行・マスタに期限のない乗務員の行は期限色を外す（期限が1人も無い時も全行外す）。
 //  A1セルに色の凡例メモを書き、自車専属マスタの期限切れ日付を赤文字にする
+//  開いた時と、自車専属マスタの乗務員名・期限4列を直した時（3-3）に動く
 // ================================================================
 function applyExpiryWarningColors_(ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet       = ss.getSheetByName('運行');
   var masterSheet = ss.getSheetByName('自車専属マスタ');
+  try { paintMasterExpiryCells_(masterSheet); } catch (e) { logError_('paintMasterExpiryCells_', e); }
+  try { applyMasterVehicleWarnings_(masterSheet); } catch (e) { logError_('applyMasterVehicleWarnings_', e); }   // 空白・支払条件不備のグレー（3-3a。期限の色を塗った後）
   if (!sheet || !masterSheet || sheet.getLastRow() < 2 || masterSheet.getLastRow() < 2) return;
 
   var mHeaders = masterSheet.getRange(1, 1, 1, masterSheet.getLastColumn()).getValues()[0];
@@ -1666,6 +1790,35 @@ function applyExpiryWarningColors_(ss) {
       masterSheet.getRange(2, expiCols[ci] + 1, mRows, 1).setFontColors(colFonts);
     }
   }
+}
+// ================================================================
+//  1-7c-1: 自車専属マスタの期限セルの背景色（paintMasterExpiryCells_）  【大B / 中1 / 小1-7c-1】
+//  自車専属マスタの4期限列（免許証・安全教育・健康診断・適性診断）のセルごとに、そのセルの日付で背景色を付ける
+//  今日＝黄色 / 過ぎた＝薄い青 / 7日以内（明日〜7日後）＝オレンジ / それ以外・空＝その行の運行状態の色（運行＝薄赤・待機＝薄黄・故障＝薄緑・その他は色なし）
+//  文字色（期限切れ＝赤・それ以外＝黒）は 1-7c が付ける。行全体に運行状態の色を塗る処理（3-3・12-3b）の後にも呼んで、期限セルの色を戻す
+// ================================================================
+function paintMasterExpiryCells_(masterSheet) {
+  if (!masterSheet || masterSheet.getLastRow() < 2) return;
+  var lc = masterSheet.getLastColumn();
+  var hdr = masterSheet.getRange(1, 1, 1, lc).getValues()[0];
+  var cols = ['免許証有効期限', '安全教育次回予定日', '健康診断次回予定日', '適性診断次回予定日']
+    .map(function(n) { return hdr.indexOf(n); }).filter(function(c) { return c >= 0; });
+  if (!cols.length) return;
+  var n = masterSheet.getLastRow() - 1;
+  var data = masterSheet.getRange(2, 1, n, lc).getValues();
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  cols.forEach(function(c) {
+    var bgs = data.map(function(r) {
+      var st = String(r[1] || '').trim();
+      var base = st === '運行' ? '#ffcdd2' : st === '待機' ? '#fff9c4' : st === '故障' ? '#c8e6c9' : null;
+      var dt = r[c];
+      if (!(dt instanceof Date) || isNaN(dt.getTime())) return [base];
+      var d = new Date(dt); d.setHours(0, 0, 0, 0);
+      var days = Math.round((d.getTime() - today.getTime()) / 86400000);
+      return [days < 0 ? '#bbdefb' : days === 0 ? '#ffee58' : days <= 7 ? '#ffb74d' : base];
+    });
+    masterSheet.getRange(2, c + 1, n, 1).setBackgrounds(bgs);
+  });
 }
 // 1-7c の呼び出し口（スタブ・メニュー用）
 function applyExpiryWarningColors() { requireSheetUi_(); applyExpiryWarningColors_(); }
@@ -1857,10 +2010,11 @@ function sortBothSheetsByDate() {
 //  最初に正規SS・停止の確認（P-5f）と、①のトリガー4本（編集・構造変更・夜間距離計算・毎日3時のバックアップ 4-12c）の削除→再登録を行う
 //  （旧Googleフォーム申込・旧ファイル取込の後処理のトリガーは削除だけして作らない。権限が足りない時は飛ばす）
 //  メニューの一番上は「📖 説明書を開く」（11-4・ネットの書を開く）、その下に「↩ 戻る」「↪ 進む」（4-2k-5。②③と同じ）
+//  メニュー作成の直後：見出しのある全シートにフィルタ（1-4e）・ID列のあるシートのA列固定（1-4d）。
 //  メニュー作成後：masterSsId保存・管理データURL変換（4-1b）・①に残った使い方・説明書・解説書シートの削除（説明はネットの書だけ）・
 //  初回1回だけ：合計(高速代)の移行（4-1c）・管理者シートの旧パスワード列の撤去（P-4k）・共通保存値の掃除（2-2e）・会社登録の見出し（12-6a）・
 //  毎回：未読の問い合わせ件数（12-6h）・会社登録のログイン情報の写し（P-4c）・停止/期限の写し（2-2g）・色付け（1-7）・
-//  隠しシート整理・期限アラート（1-7d）・期限色（1-7c）・一個前の写しが無いシートの写しを作る（4-2k-3）・1日1回のバックアップ（4-2p）・エラー通知（_ErrorLog_のA1が「⚠️ 要確認」なら表示）
+//  隠しシート整理・期限アラート（1-7d）・期限色（1-7c。自車専属マスタの期限セルの背景色 1-7c-1 を含む）・一個前の写しが無いシートの写しを作る（4-2k-3）・運行と集計表の時刻・金額がずれた行の入れ直し（1-4b）・1日1回のバックアップ（4-2p）・エラー通知（_ErrorLog_のA1が「⚠️ 要確認」なら表示）
 //  スプレッドシートから開いた時だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function onOpen(e) {
@@ -1961,6 +2115,8 @@ function onOpen(e) {
       .addItem('⏱ バックアップタイマー設定（毎日3時）', 'setupBackupTrigger')
       .addItem('📅 月次自動生成タイマー設定（毎月20日）', 'setupMonthlyTrigger'));
   menu.addToUi();
+  try { ensureSheetFilters_(SpreadsheetApp.getActiveSpreadsheet()); } catch(ex) {}   // 見出しのある全シートにフィルタ（1-4e）
+  try { freezeIdColumn_(SpreadsheetApp.getActiveSpreadsheet()); } catch(ex) {}   // ID列のあるシートのA列を固定（1-4d。メニューの直後に行い、後ろの処理の失敗・時間切れに巻き込まれないようにする。②③は 16-2c）
 
   try {
     PropertiesService.getScriptProperties().setProperty(
@@ -2004,6 +2160,7 @@ function onOpen(e) {
   try { showExpiryAlert(); } catch(ex) {}
   try { applyExpiryWarningColors_(); } catch(ex) {}
   try { jrEnsureMirrors_(SpreadsheetApp.getActiveSpreadsheet()); } catch(ex) {}   // 一個前の写しが無いシートの写しを作る（4-2k-3。②③は 16-2c）
+  try { healSummaryDriftOnOpen_(SpreadsheetApp.getActiveSpreadsheet()); } catch(ex) {}   // 運行と集計表の時刻・金額がずれた行を集計表へ入れ直す（1-4b。②③は 16-2c）
   try {
     var _bkProps = PropertiesService.getDocumentProperties();
     var _bkLast  = Number(_bkProps.getProperty('LAST_BACKUP_TS') || 0);
@@ -2646,13 +2803,15 @@ function storeCompanySsId(ssId) {
 
 // ================================================================
 //  2-2c: 対象スプレッドシート取得（getTargetSS_）  【大B / 中2 / 小2-2c】
-//  ssId があればそのSSを openById で開く。開けなければ例外で止める（別のSSに切り替えない）。
+//  ssId があればそのSSを openById で開く。開けなければ例外で止める（別のSSに切り替えない）。同じ実行の中では、一度確認して開いたSSを使い回す（開き直さない）。
 //  ssId が無い時は、呼び出し元のスタブがついているSS（getActiveSpreadsheet）を返す。
 //  どちらも、正規に発行・登録されたSS（2-2f）でなければ例外で止める（コピーしたSSでは動かさない）
 // ================================================================
+var _targetSsMemo_ = {};
 function getTargetSS_(ssId) {
   var ss;
   if (ssId) {
+    if (_targetSsMemo_[ssId]) return _targetSsMemo_[ssId];   // 同じ実行の中で一度確認して開いたSSは開き直さない（アプリの1操作で何度も開いて遅くなるため）
     try { ss = SpreadsheetApp.openById(ssId); }
     catch(e) { throw new Error('スプレッドシートを開けません（URLのSS指定を確認してください）'); }
   } else {
@@ -2661,6 +2820,7 @@ function getTargetSS_(ssId) {
   }
   assertRegisteredSs_(ss.getId());
   assertLicense_(ss.getId());   // 停止・期限切れの客SSはここで止める（2-2g）
+  if (ssId) _targetSsMemo_[ssId] = ss;
   return ss;
 }
 
@@ -2670,6 +2830,7 @@ function getTargetSS_(ssId) {
 //  自車専属マスタのK列（アドレス）にまだあるか（大文字・小文字は区別しない）確認して、そのアドレスを返す
 //  アドレスをそのまま渡されても通さない（アドレスを知っているだけの他のスマホからは使えない）
 //  例外：同じ実行の中で一度確認できたアドレスは通す（7-7 が中で 6-1 などを呼ぶ時用。画面から渡す値では作れない）
+//  同じ実行の中で一度確認できた合言葉・アドレスは、マスタを読み直さずにそのまま通す（1回の操作の中で何度も確認して遅くならないように。次の実行では必ず確認し直す）
 //  合言葉が無い・消された・アドレスがマスタから消えた時は例外をスローして即遮断
 // ================================================================
 var verifiedDriverEmails_ = {};
@@ -2679,6 +2840,7 @@ function validateDriverEmail_(cred, companySsId) {
   var ss   = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
   var ssId = ss.getId();
   var email = '';
+  if (verifiedDriverEmails_['tok_' + ssId + '_' + c]) return verifiedDriverEmails_['tok_' + ssId + '_' + c];   // 同じ実行の中で確認できた合言葉・アドレスは、マスタを読み直さずに通す（アプリの1操作で何度も確認して遅くなるため）
   if (c.indexOf('drv_') === 0) email = PropertiesService.getScriptProperties().getProperty('drvtok_' + ssId + '_' + c) || '';
   else if (verifiedDriverEmails_[ssId + '_' + c.toLowerCase()]) email = c;
   if (!email) throw new Error('認証エラー：このスマホは紐づけされていません。もう一度紐づけしてください');
@@ -2689,6 +2851,7 @@ function validateDriverEmail_(cred, companySsId) {
   for (var i = 0; i < emails.length; i++) {
     if (String(emails[i][0] || '').trim().toLowerCase() === normalized) {
       verifiedDriverEmails_[ssId + '_' + normalized] = true;
+      verifiedDriverEmails_['tok_' + ssId + '_' + c] = email;
       return email;
     }
   }
@@ -3003,7 +3166,7 @@ function showUploadSidebar() {
 //  3-1: onEdit本体  【大B / 中3 / 小3-1】
 //  セル編集時にGASが自動実行するシンプルトリガー（イベントオブジェクト e を受け取る）
 //  編集されたシート名を判定し、対応する処理関数へ振り分ける。コピーしたSS・停止/期限切れのSSでは何もしない（2-2f/2-2g）
-//  3-1-1 集計表の編集ブロックと編集範囲の全行の再同期 ／ 3-1-2 運行V列（合計高速）の保護 ／ 3-1-2b 運行Y・Z列（端末）の保護 ／
+//  3-1-1 集計表の編集ブロックと編集範囲の全行の再同期（IDが空の行は禁止列に貼った分をその場で空に戻す） ／ 3-1-2 運行V列（合計高速）の保護 ／ 3-1-2b 運行Y・Z列（端末）の保護 ／
 //  3-1-3 運行X列（管理データ）のURL変換 ／ 3-1-4 シート別振り分け（メモ＝4-2qで控えを取る・自車専属マスタ・PL設定・マスタ・配車板・会社登録・運行）
 //  ※ シンプルトリガーはユーザーの明示的な編集のみ発火し、GASからの書き込みでは発火しない
 // ================================================================
@@ -3022,6 +3185,7 @@ function onEdit(e) {
     // 燃料代(Z=26)・経費合計(AB=28)は、自車専属マスタにある車の行だけ入力できる（手で直した値は以後変えない。4-2z）。マスタに無い車の行は禁止
     // 編集範囲の全行のIDを重複なしで集め、3件までは1行ずつ再同期、4件以上は集計表を一括再生成（4-1）する
     // 禁止列が触れられた場合: 1マスなら打つ前の値にすぐ戻し、まとめて貼った分は再同期（4-2・4-1）で正しい値に戻す（仮日数・給料・%はマスタの値、マスタに無い車の行は空）
+    // ただしID（A列）が空の行は再同期で戻せないので、禁止列に貼った分だけをその場で空にする（許可列に貼った分は残す）
     // 許可列の入力: 上記の再同期で燃料代・支払い・利益を入力値で計算し直す
     if (sheetName === '集計表' && row > 1) {
       var allowed = [23, 25, 27, 30, 35]; // W=距離, Y=ガソリン代, AA=支払い, AD=備考, AI=その他手当
@@ -3046,6 +3210,17 @@ function onEdit(e) {
       for (var se = 0; se < sumEditVals.length; se++) {
         var seId = String(sumEditVals[se][0] || '').trim();
         if (seId && !sumEditSet[seId]) { sumEditSet[seId] = true; sumEditIds.push(seId); }
+      }
+      // まとめて貼った時、ID（A列）が空の行は再同期で戻せないので、禁止列に貼った分だけをその場で空に戻す（許可列に貼った分は残す）
+      if (blocked && !(numR === 1 && numC === 1)) {
+        var blkVals = sheet.getRange(row, col, numR, numC).getValues(), blkChg = false;
+        for (var br = 0; br < numR; br++) {
+          if (String(sumEditVals[br][0] || '').trim() !== '') continue;
+          for (var bc2 = 0; bc2 < numC; bc2++) {
+            if (allowed.indexOf(col + bc2) === -1 && blkVals[br][bc2] !== '') { blkVals[br][bc2] = ''; blkChg = true; }
+          }
+        }
+        if (blkChg) sheet.getRange(row, col, numR, numC).setValues(blkVals);
       }
       if (sumEditIds.length > 3) {
         // 順番待ちに入れなかった場合は、あとで反映するリスト（1-4の最後に処理）に入れる
@@ -3592,6 +3767,7 @@ function onEditPlSettings_(sheet, range) {
 //  ・A列が空で他列にデータがあればS-XXXXのIDを自動生成（1-1b（SS単位ロック）で排他制御）
 //  ・B列（運行状態）の値に応じて行の背景色を変更
 //    運行→薄赤, 待機→薄黄, 故障→薄緑, その他→なし
+//  ・乗務員名・4つの期限（免許証・安全教育・健康診断・適性診断）を直したら、運行シートのID列の期限色と期限切れの赤文字をすぐ付け直す（1-7c。期限を消したら色も外れる）
 //  ・トン数を設定シートの定義に合わせて正規化
 //  ・燃費（L列）：客がその車の燃費を入れる列（車ごとに違うため）。入れた・直した値は黒で、自動では変えない。
 //    空か緑（自動）の時だけ、トン数の設定シートの燃費（1-1d-1。小数のトン数は前後の燃費を割合で。読めなければ空）を緑で入れる。燃費を消すと設定シートの燃費（緑）に戻る
@@ -3642,7 +3818,16 @@ function onEditMasterVehicle_(sheet, range, ss) {
       rowBgColors.push(Array(lastCol).fill(bg));
     }
     sheet.getRange(startRow, 1, numRows, lastCol).setBackgrounds(rowBgColors);
+    try { paintMasterExpiryCells_(sheet); } catch (_pe) { logError_('onEditMasterVehicle_ 期限セル色', _pe); }   // 行全体の色で塗りつぶした期限セルの色を戻す（1-7c-1）
   }
+
+  // 乗務員名・4つの期限（免許証・安全教育・健康診断・適性診断）を直したら、運行シートのID列の期限色と期限切れの赤文字をすぐ付け直す（1-7c）
+  try {
+    var _exH = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var _exCols = ['乗務員名', '免許証有効期限', '安全教育次回予定日', '健康診断次回予定日', '適性診断次回予定日']
+      .map(function(n) { return _exH.indexOf(n) + 1; }).filter(function(c) { return c > 0; });
+    if (_exCols.some(function(c) { return c >= editedStartCol && c <= editedEndCol; })) { SpreadsheetApp.flush(); applyExpiryWarningColors_(ss); }
+  } catch (_exE) { logError_('onEditMasterVehicle_ 期限色', _exE); }
 
   // Q列（高速を引く）を入力したら、丸の記号（1-1e）を正しい「〇」に自動変換する
   if (startRow + numRows - 1 >= 2 && editedStartCol <= 17 && editedEndCol >= 17 &&
@@ -3770,37 +3955,55 @@ function onEditMasterVehicle_(sheet, range, ss) {
 
 
 // ================================================================
-//  3-3a: 自車専属マスタの支払条件不備警告（applyMasterVehicleWarnings_）  【大B / 中3 / 小3-3a】
-//  全行の支払条件（N=仮日数 / O=給料 / P=%）の不備をグレーで警告する（この3列のみ更新）
-//  ・仮日数なし かつ 給料/%/経費のいずれかあり → N列をグレー
-//  ・仮日数あり かつ 給料も%もなし → O列・P列をグレー
+//  3-3a: 自車専属マスタの空白・支払条件不備のグレー警告（applyMasterVehicleWarnings_）  【大B / 中3 / 小3-3a】
+//  車両IDのある行を見て、必要なセルが空ならグレー（#b0bec5）にして、メモで意味を出す
+//  ・空白のグレー：見出し「運行状態」から「担当管理者」までのセルのうち、「備考」と「高速を引く」（空欄＝引かない、が正しい入力）を除くセルが空（何も入っていない）ならグレー
+//    （0を入れたセルは入力済みなのでグレーにしない）
+//  ・支払条件のグレー（空白とは別の条件。値が入っていてもグレーになる）：仮日数が空または0 → 仮日数（N）をグレー／給料も%も空または0 → 給料（O）・%（P）をグレー
+//  ・グレーが消える時（入力した時）は、行の運行状態の色（運行＝赤・待機＝黄・故障＝緑）に戻す。グレー以外のセルの背景は触らない
+//  ・グレーのセルにはメモで意味を出す（マウスを合わせると出る）。メモが空のセルにだけ書く。グレーが消えたら、この処理が書いたメモだけ消す。手で書いたメモは触らない
+//  ・期限の4列（免許証・安全教育・健康診断・適性診断）は、期限の色（1-7c-1）を塗った後にこの処理を呼ぶ（空の期限はグレーのまま）
+//  ・動く時：自車専属マスタを直した時（3-3）・開いた時（1-7c から）・初期設定の色付け（12-3b）・自車専属マスタの取込（13-6）
 // ================================================================
 function applyMasterVehicleWarnings_(sheet) {
   if (!sheet || sheet.getLastRow() < 2) return;
-  var lr        = sheet.getLastRow();
-  var lc        = Math.max(sheet.getLastColumn(), 32);
-  var hdr       = sheet.getRange(1, 1, 1, lc).getValues()[0];
-  var data      = sheet.getRange(2, 1, lr - 1, lc).getValues();
-  var hasToll   = String(hdr[16] || '').trim() === '高速を引く（引くは〇、引かないは空欄）';
-  var expStartI = hasToll ? 17 : 16; // 0-based（payCondMapビルダーと同ロジック）
-  var warnBgs   = [];
+  var GREY = '#b0bec5';
+  var lr   = sheet.getLastRow();
+  var lc   = Math.max(sheet.getLastColumn(), 32);
+  var hdr  = sheet.getRange(1, 1, 1, lc).getValues()[0].map(function(x) { return String(x || '').trim(); });
+  var rng  = sheet.getRange(2, 1, lr - 1, lc);
+  var data = rng.getValues(), bgs = rng.getBackgrounds(), nts = rng.getNotes();
+  var c0 = hdr.indexOf('運行状態'), c1 = hdr.indexOf('担当管理者');
+  var kari = hdr.indexOf('仮日数'), kyu = hdr.indexOf('給料'), pct = hdr.indexOf('％');
+  var payT = {};
+  if (kari >= 0) payT[kari] = '仮日数が空です。給料を払う車は、仮日数（給料÷仮日数で1日分の支払いを出します）を入れてください。';
+  if (kyu  >= 0) payT[kyu]  = '給料が空です。給料と仮日数、または%のどちらかを入れてください。';
+  if (pct  >= 0) payT[pct]  = '%が空です。給料と仮日数、または%のどちらかを入れてください。';
+  function isOurNote(t, c) { t = String(t || ''); return !!t && (t === payT[c] || (t.charAt(0) === '「' && /」が空です。入力してください。$/.test(t))); }
+  var changed = false;
   for (var r = 0; r < data.length; r++) {
-    var kariN  = Number(data[r][13]) || 0;
-    var kyuN   = Number(data[r][14]) || 0;
-    var pctN   = Number(data[r][15]) || 0;
-    var expTot = 0;
-    for (var e = expStartI; e <= expStartI + 14; e++) expTot += Number(data[r][e]) || 0;
+    if (!String(data[r][0] || '').trim()) continue;
     var status = String(data[r][1] || '').trim();
     var rowBg  = status === '運行' ? '#ffcdd2' : status === '待機' ? '#fff9c4' : status === '故障' ? '#c8e6c9' : null;
-    // 仮日数なし かつ 給料/%/経費のいずれかあり → N列(仮日数)をグレー警告
-    var nBg = (!kariN && (kyuN > 0 || pctN > 0 || expTot > 0)) ? '#b0bec5' : rowBg;
-    // 仮日数あり かつ 給料も%もなし → O列(給料)とP列(%)を両方グレー警告
-    var opBg = (kariN > 0 && !kyuN && !pctN) ? '#b0bec5' : rowBg;
-    // Q列(高速を引く)はグレーにしない（給料制でも会社によって高速を引く場合があるため常に入力可）
-    var qBg = rowBg;
-    warnBgs.push([nBg, opBg, opBg, qBg]);
+    var kariN = Number(data[r][kari]) || 0, kyuN = Number(data[r][kyu]) || 0, pctN = Number(data[r][pct]) || 0;
+    for (var c = (c0 >= 0 ? c0 : 0); c <= (c1 >= 0 ? c1 : -1); c++) {
+      var h = hdr[c];
+      if (h === '備考' || h.indexOf('高速を引く') === 0) continue;
+      var v = data[r][c];
+      var blank = v === '' || v === null || v === undefined;
+      var payGrey = (c === kari && kariN === 0) || ((c === kyu || c === pct) && !kyuN && !pctN);
+      var grey = blank || payGrey;
+      var note = payGrey && payT[c] ? payT[c] : '「' + h + '」が空です。入力してください。';
+      if (grey) {
+        if (bgs[r][c] !== GREY) { bgs[r][c] = GREY; changed = true; }
+        if (!nts[r][c]) { nts[r][c] = note; changed = true; }
+      } else {
+        if (bgs[r][c] === GREY) { bgs[r][c] = rowBg; changed = true; }
+        if (isOurNote(nts[r][c], c)) { nts[r][c] = ''; changed = true; }
+      }
+    }
   }
-  sheet.getRange(2, 14, lr - 1, 4).setBackgrounds(warnBgs); // N,O,P,Q
+  if (changed) { rng.setBackgrounds(bgs); rng.setNotes(nts); }
 }
 
 
@@ -4503,7 +4706,7 @@ function matchAndConfirmDispatchFromApp(ssId, resolvedType, token) {
 //     （自動で出した値では上書きしない。空にした行だけ自動に戻る）。燃料代は自動の行だけ数式、手で直した行は値で書く
 //     文字色は 4-2z の決まり：自動の燃料代・支払い・経費合計は緑、手で直した・手で入れた値は黒
 //     メニューから動かした時は、手で直した値があれば「上書きしますか？」を聞く（4-2z-1）。「はい」の時だけ、自動の値が出る所を上書きする
-//     設定の適用開始日（4-2s）より前の行は、旧集計表の燃費（X）・有休手当（AH）を維持（旧集計表に値が無い時だけ今の設定の値）
+//     設定の適用開始日（4-2s）より前の行は、旧集計表の燃費（X）・有休手当（AH）を維持（旧集計表に値が無い時だけ今の設定の値）。燃費が自車専属マスタの緑（自動）の車も 4-2s、黒（客の燃費）の車は 4-2v で守る
 //  ⑩ 運行シートX列の旧URL形式をリッチテキストに変換（4-1b）し、色付け（1-7）・フィルター再作成を行う。
 //     最後に月締めの「いつから？」確認（recalcFromDateSet_SSのID）を消し、次のマスタ編集時に再び聞くようにする
 //  ・支払いは本体内で計算する（4-4 は呼ばない）
@@ -4567,6 +4770,7 @@ function generateSummaryCore_(ss, extraOld) {
     var mHasTollDeduct = String(mHdrRow[16]||'').trim() === '高速を引く（引くは〇、引かないは空欄）';
     var mExpStart = mHasTollDeduct ? 17 : 16;
     var mMgrIdx = mHdrRow.indexOf('担当管理者');
+    var mFuelFonts = master.getRange(2, 12, master.getLastRow()-1, 1).getFontColors();   // L=燃費の文字色（緑＝設定シートから自動で入れた燃費）
     for (var m = 0; m < mData.length; m++) {
       var mcar  = String(mData[m][7]  || '').trim();
       var mname = String(mData[m][8]  || '').trim();
@@ -4580,7 +4784,8 @@ function generateSummaryCore_(ss, extraOld) {
         tollDeduct: mHasTollDeduct ? String(mData[m][16] || '').trim() : '',
         expense:    mExp,
         manager:    mMgrIdx >= 0 ? String(mData[m][mMgrIdx] || '').trim() : '',
-        fuel:       Number(mData[m][11]) > 0 ? Number(mData[m][11]) : 0   // L=燃費（その車の燃費。集計表の燃費に最優先で使う）
+        fuel:       Number(mData[m][11]) > 0 ? Number(mData[m][11]) : 0,   // L=燃費（その車の燃費。集計表の燃費に最優先で使う）
+        fuelAuto:   String(mFuelFonts[m][0] || '').toLowerCase() === '#1a9a50'   // 緑＝自動の燃費（前の行を守る日付は設定の適用開始日 4-2s）
       };
     }
   }
@@ -4713,7 +4918,8 @@ function generateSummaryCore_(ss, extraOld) {
     var mFuelG_ = hasMasterG && Number(pc.fuel) > 0 ? Number(pc.fuel) : 0;
     if (mFuelG_) fuel = mFuelG_;
     // 適用開始日より前の行は前の燃費のまま：マスタの燃費の車は自車専属マスタの適用開始日（4-2v）、設定の燃費の車は設定の適用開始日（4-2s）
-    if ((mFuelG_ ? useOld_ : useOldCfg_) && Number(old.fuel) > 0) fuel = Number(old.fuel);
+    // 自車専属マスタの燃費が緑（設定シートから自動で入れた燃費）の車は、設定の適用開始日（4-2s）で守る。黒（客が入れた燃費）の車は自車専属マスタの適用開始日（4-2v）
+    if ((mFuelG_ && !pc.fuelAuto ? useOld_ : useOldCfg_) && Number(old.fuel) > 0) fuel = Number(old.fuel);
     // 仮日数・給料・%は自車専属マスタにある車だけで使う：マスタにある行はマスタの値（空は空のまま。適用開始日より前の行は旧集計表の値）
     // マスタに無い車の行は空にする（集計表に打たれた値も消す）
     var kari   = !hasMasterG ? '' : (useOld_ ? (old.kari   || '') : pc.kari);
@@ -4893,6 +5099,7 @@ function generateSummaryCore_(ss, extraOld) {
       bgColors_.push(rowBg_);
     }
     if (numDataRows_ > 0) sumSheet.getRange(2, 1, numDataRows_, 40).setBackgrounds(bgColors_);
+    try { if (numDataRows_ > 0) setGreyWarnNotes_(sumSheet, 2, numDataRows_); } catch(gnE) { logError_('setGreyWarnNotes_ 4-1', gnE); }   // 灰色の警告セルにメモ（4-2z-2）
     // 計算した燃費・経費・仮日数・給料・%・有休手当を集計表控えに書き直す（4-2y。次の計算で前の値として使う）
     var keepAll_ = {};
     for (var kr = 1; kr < outRows.length; kr++) {
@@ -4997,7 +5204,7 @@ function migrateSummaryTollSign_(ss) {
 //  4-2: 集計表をID単位で同期（syncSummaryForId_）  【大B / 中4 / 小4-2】
 //  運行シートから対象IDのデータを集計し集計表の該当行を更新する（集計表が無い・空なら4-1で全体を作り直す）
 //  ・設定シート（燃費・有休日額）は同期のたびに読む（燃費は 1-1d-1。設定に無い小数のトン数は前後のトン数の燃費を割合で出す。読めない時は3）。自車専属マスタ（支払条件）は1分キャッシュする（マスタ編集時は3-3がキャッシュを消す）
-//  ・設定の適用開始日（4-2s）より前の行は、集計表に入っている燃費（X）・有休手当（AH）のまま（値が無い時だけ今の設定の値）
+//  ・設定の適用開始日（4-2s）より前の行は、集計表に入っている燃費（X）・有休手当（AH）のまま（値が無い時だけ今の設定の値）。燃費が自車専属マスタの緑（設定シートから自動で入れた値）の車も、この日で守る。マスタの黒（客が入れた燃費）の車は 4-2v の日で守る
 //  ・自車専属マスタの適用開始日（4-2v）より前の行は、集計表に入っている仮日数・給料・%（AE〜AG）・経費合計（AB）・支払い（AA）のまま（値が無い時だけ今のマスタ）
 //  ・前の値の燃費・経費・仮日数・給料・%・有休手当は、集計表控え（4-2x）から取る（集計表に打たれた・貼られた値では計算しない。控えが無いIDだけ集計表の値）
 //    書き終えたら、その行の燃費・経費・仮日数・給料・%・有休手当・支払い（自動）・支払い手直しを集計表控えに書く（4-2y）
@@ -5013,7 +5220,8 @@ function migrateSummaryTollSign_(ss) {
 //  ・支払い：%あり→（売上＋V※）×%÷100（※自車専属マスタ「高速を引く」が丸の記号（1-1e）の時だけVを足す）／%なし・給料と仮日数あり→給料÷仮日数（休みの日は0円）／どちらもなし→既存値を保持
 //  ・有休の日：支払いは0円（%方式・給料方式とも）、有休手当AHに設定シートの有休日額を入れる
 //  ・集計表の行番号と手入力値の読み取りから書き込み・色付け・重複削除の最後までを、1-1b の順番待ちの中で行う（待っている間に行が動いても、待った後に読むので別の行に書かない）
-//  ・ロック待ちで同期できなかったIDはPENDING_SUM_IDSに記録し、1-4の最後にまとめて同期する
+//    順番待ちは最大30秒（運行シートを続けて直した時、前の同期が終わるのを待てるように）
+//  ・ロック待ちで同期できなかったIDはPENDING_SUM_IDSに記録し、1-4の最後・1-4c（運行シートを直した時・開いた時）にまとめて同期する
 // ================================================================
 function syncSummaryForId_(targetId, ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -5050,6 +5258,7 @@ function syncSummaryForId_(targetId, ss) {
       var mHasTollDeductS = String(mHdrRowS[16]||'').trim() === '高速を引く（引くは〇、引かないは空欄）';
       var mExpStartS = mHasTollDeductS ? 17 : 16;
       var mMgrIdxS = mHdrRowS.indexOf('担当管理者');
+      var mFuelFontsS = master.getRange(2, 12, master.getLastRow() - 1, 1).getFontColors();   // L=燃費の文字色（緑＝自動の燃費）
       for (var m = 1; m < mAllS.length; m++) {
         var mcar  = String(mAllS[m][7]  || '').trim();
         var mname = String(mAllS[m][8]  || '').trim();
@@ -5062,7 +5271,8 @@ function syncSummaryForId_(targetId, ss) {
           tollDeduct: mHasTollDeductS ? String(mAllS[m][16] || '').trim() : '',
           expense:    mExp,
           manager:    mMgrIdxS >= 0 ? String(mAllS[m][mMgrIdxS] || '').trim() : '',
-          fuel:       Number(mAllS[m][11]) > 0 ? Number(mAllS[m][11]) : 0   // L=燃費（4-1 と同じ）
+          fuel:       Number(mAllS[m][11]) > 0 ? Number(mAllS[m][11]) : 0,   // L=燃費（4-1 と同じ）
+          fuelAuto:   String(mFuelFontsS[m - 1][0] || '').toLowerCase() === '#1a9a50'   // 緑＝自動の燃費（4-1 と同じ）
         };
       }
     }
@@ -5109,7 +5319,7 @@ function syncSummaryForId_(targetId, ss) {
   // （待っている間に並び替え・再生成で行が動いても、待った後に読み直すので別の行に書かない）
   var sumInsLock = getSsLock_();
   try {
-    sumInsLock.waitLock(10000);
+    sumInsLock.waitLock(30000);
   } catch(e) {
     logError_('syncSumSheet_', 'ロック取得に失敗しました（タイムアウト）');
     try {
@@ -5174,7 +5384,7 @@ function syncSummaryForId_(targetId, ss) {
   var useOldPc_  = !!(pcFrom_ && g.date instanceof Date && g.date < pcFrom_);
   // 燃費は自車専属マスタのその車の燃費が最優先（4-1 と同じ）。適用開始日より前の行は自車専属マスタの適用開始日（4-2v）で前の燃費のまま
   var mFuelS_ = hasMaster && Number(pc.fuel) > 0 ? Number(pc.fuel) : 0;
-  if (mFuelS_) { fuel = mFuelS_; if (useOldPc_ && Number(keepFuel) > 0) fuel = Number(keepFuel); }
+  if (mFuelS_) { fuel = mFuelS_; if ((pc.fuelAuto ? useOldCfg_ : useOldPc_) && Number(keepFuel) > 0) fuel = Number(keepFuel); }   // 緑（自動）の燃費は設定の適用開始日（4-2s）、黒（客の燃費）は自車専属マスタの適用開始日（4-2v）で前の行を守る
   // 仮日数・給料・%は自車専属マスタにある車だけで使う。マスタに無い車の行は空にする（集計表に打たれた値も消す）
   var kari   = !hasMaster ? '' : (useOldPc_ ? keepKari   : pc.kari);
   var kyuryo = !hasMaster ? '' : (useOldPc_ ? keepKyuryo : pc.kyuryo);
@@ -5360,6 +5570,7 @@ function syncSummaryForId_(targetId, ss) {
   // 拘束時間13時間超え：AL列（col38, index37）をオレンジ（利益マイナスの赤と区別）
   if (typeof kosokuH_s === 'number' && kosokuH_s > 13) rowBgArr[37] = '#ff9800';
   sumSheet.getRange(sumRow, 1, 1, numBgCols).setBackgrounds([rowBgArr]);
+  try { setGreyWarnNotes_(sumSheet, sumRow, 1); } catch(gnE) { logError_('setGreyWarnNotes_ 4-2', gnE); }   // 灰色の警告セルにメモ（4-2z-2）
 
   applySumEditableBorders_(sumSheet, sumRow, 1);
 
@@ -6819,6 +7030,34 @@ function autoMark_(v) { return (v === '' || v === null || v === undefined) ? '�
 
 
 // ================================================================
+//  4-2z-2: 集計表の灰色の警告セルにメモで意味を出す（setGreyWarnNotes_）  【大B / 中4 / 小4-2z-2】
+//  集計表の支払い（AA）・経費合計（AB）・仮日数（AE）・給料（AF）が警告の灰色（#b0bec5）の時、セルにメモ（マウスを合わせると出る説明）を付ける
+//  ・メモが空のセルにだけ書く。灰色が消えたら、この処理が書いたメモ（同じ文章）だけ消す。手で書いたメモは消さない・変えない
+//  ・startRow から numRows 行だけを見る。再生成（4-1）・1行同期（4-2）・支払い再計算（4-4）が、灰色を塗った後に呼ぶ
+// ================================================================
+function setGreyWarnNotes_(sheet, startRow, numRows) {
+  if (!sheet || numRows < 1 || startRow < 2) return;
+  var GREY = '#b0bec5';
+  var T = {
+    27: '支払いの条件がありません。給料と仮日数、または%を入れるか、支払いを手で入れてください。',
+    28: '経費合計が空です。仮日数が空なので経費を計算できません。自車専属マスタの仮日数を入れてください。',
+    31: '仮日数が空です。給料が入っているので、仮日数を入れてください（支払い＝給料÷仮日数）。',
+    32: '給料が空です。仮日数が入っているので、給料を入れてください（%で払う時は%を入れてください）。'
+  };
+  var rng = sheet.getRange(startRow, 27, numRows, 6);
+  var bgs = rng.getBackgrounds(), nts = rng.getNotes(), changed = false;
+  [27, 28, 31, 32].forEach(function(c) {
+    var k = c - 27;
+    for (var i = 0; i < numRows; i++) {
+      if (bgs[i][k] === GREY && !nts[i][k]) { nts[i][k] = T[c]; changed = true; }
+      else if (bgs[i][k] !== GREY && nts[i][k] === T[c]) { nts[i][k] = ''; changed = true; }
+    }
+  });
+  if (changed) rng.setNotes(nts);
+}
+
+
+// ================================================================
 //  4-2z-1: 手で入れた値を数えて上書きを聞く（countSumHandEdited_ / askOverwriteHandEdited_）  【大B / 中4 / 小4-2z-1】
 //  countSumHandEdited_：集計表で、手で直した支払い・燃料代・経費合計（4-2z）のうち、自動の値が出るもの（控えの自動の値が「なし」でない）の数
 //    （燃料代・経費合計は自車専属マスタにある車の行だけ数える。上書きしても自動の値が出ない所は数えない）
@@ -7909,6 +8148,7 @@ function calculatePaymentAmount(companySsId, lockHeld) {
       }
     }
     sheet.getRange(2, 1, acVals.length, 40).setBackgrounds(acBgs);
+    try { setGreyWarnNotes_(sheet, 2, acVals.length); } catch(gnE) { logError_('setGreyWarnNotes_ 4-4', gnE); }   // 灰色の警告セルにメモ（4-2z-2）
     writeSumKeep_(ss, keepYk44_, false);   // 有休手当を控えに書く（4-2y）
   }
   } finally {
@@ -8602,6 +8842,7 @@ function getCarInfoByNumber(carNo, companySsId, auth) {
 //  5-2: 紐づけ番号をメールで送る（requestLinkCode）  【大A / 中5 / 小5-2】
 //  入力アドレスを自車専属マスタのK列と大文字・小文字を区別せずに照合し、登録があればそのアドレスに6桁の番号をメールで送る
 //  番号は10分間だけ有効（サーバーの一時保存に客SS・アドレスごとに置く）。同じアドレスへの再送は1分あける
+//  同じアドレスが複数行にあり名前が異なる場合は「アドレスが重複しています」エラーを返す（他人の記録が見える事故を防ぐ）
 // ================================================================
 function requestLinkCode(email, companySsId) {
   var ss     = companySsId ? getTargetSS_(companySsId) : SpreadsheetApp.getActiveSpreadsheet();
@@ -8610,9 +8851,15 @@ function requestLinkCode(email, companySsId) {
   var normEmail = String(email || '').trim().toLowerCase();
   if (!normEmail) return 'エラー：アドレスを入力してください';
   var rows = master.getDataRange().getValues();
-  var found = false;
-  for (var i = 1; i < rows.length; i++) { if (String(rows[i][10]).trim().toLowerCase() === normEmail) { found = true; break; } }
-  if (!found) return 'エラー：アドレス未登録';
+  var matchedNames = [];
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][10]).trim().toLowerCase() === normEmail) {
+      var n = String(rows[i][8]).trim();
+      if (matchedNames.indexOf(n) === -1) matchedNames.push(n);
+    }
+  }
+  if (matchedNames.length === 0) return 'エラー：アドレス未登録';
+  if (matchedNames.length > 1) return 'エラー：このアドレスは複数の乗務員に登録されています。事務所にお問い合わせください';
   var cache = CacheService.getScriptCache();
   var key   = 'lnk_' + ss.getId() + '_' + normEmail;
   if (cache.get(key + '_wait')) return 'エラー：番号は送信済みです。1分ほど待ってから送り直してください';
@@ -9265,6 +9512,7 @@ function clearTimeCell(id, routeIndex, col, companySsId, email) {
 //
 //  8-4-1: 端末から渡されたスマホの合言葉を 2-2d で確認してアドレスを得て、自車専属マスタを探し乗務員名を取得（大文字・小文字は区別しない。60秒キャッシュ）
 //          → 合言葉が無い時は空のデータを返す。合言葉が使えない時は止める
+//          → 同じメールで名前が違う複数行がある場合は { error: 'duplicate_email' } を返す（5-2 と同じ重複チェック）
 //  8-4-2: 運行シートを全件読み込み、指定年月・乗務員名で絞り込みID単位に集約
 //          → 同一IDの複数行（複数行程）は売上/高速を合算・時刻は先頭行優先
 //          → dateSort はJ列（初回行程登録時刻）のまま固定（積完時刻では更新しない）
@@ -9290,12 +9538,15 @@ function getListData(year, month, companySsId, email) {
   if (!myName) {
     var master = ss.getSheetByName('自車専属マスタ');
     var mAll   = master ? master.getDataRange().getValues() : [];
+    var matchedNamesL = [];
     for (var j = 1; j < mAll.length; j++) {
       if (String(mAll[j][10]).trim().toLowerCase() === savedEmail.toLowerCase()) {
-        myName = String(mAll[j][8]).trim();
-        break;
+        var mn = String(mAll[j][8]).trim();
+        if (mn && matchedNamesL.indexOf(mn) === -1) matchedNamesL.push(mn);
       }
     }
+    if (matchedNamesL.length > 1) return { error: 'duplicate_email' };
+    if (matchedNamesL.length === 1) myName = matchedNamesL[0];
     if (myName) { try { listCache.put(emailKey, myName, 60); } catch(e) {} }
   }
   if (!myName) return {rows:[], total:{days:0,sales:0,toll:0,pay:0}};
@@ -12087,7 +12338,7 @@ function getClientStubSource_() {
 //  12-3b: クライアントSSシート初期化共通処理（initClientSSSheets_）  【大B / 中12 / 小12-3b】
 //  createCompanySpreadsheet_（12-3）から呼ばれる。
 //  12-2z の一覧（getValidClientSheetNames_）にあるシートだけ残し、運行・自車専属マスタ・マスタ・設定などにデモ用のテストデータを書き込む。
-//  __COMPANY_SS__ マーカーを作り、自車専属マスタの運行状態の入力規則・行の色と自車専属運行を整える。
+//  __COMPANY_SS__ マーカーを作り、自車専属マスタの運行状態の入力規則・行の色（行の色を塗った後に期限セルの背景色を戻す＝1-7c-1）と自車専属運行を整える。
 //  ・運行・集計表・自車専属マスタ・自車専属運行・マスタ・設定の見出しは 4-2d（getSheetHeaderDef_）の定義をそのまま使う（ここに別の見出しを書かない。4-2・4-5も同じ）
 // ================================================================
 function initClientSSSheets_(ss, companyName) {
@@ -12217,6 +12468,8 @@ function initClientSSSheets_(ss, companyName) {
       else if (mStatus === '故障') { mRowRange.setBackground('#c8e6c9'); }
       else                         { mRowRange.setBackground(null); }
     }
+    try { paintMasterExpiryCells_(masterSheet); } catch (e_pe) {}   // 期限セルの色を戻す（1-7c-1）
+    try { applyMasterVehicleWarnings_(masterSheet); } catch (e_pw) {}   // 空白・支払条件不備のグレーを戻す（3-3a。期限の色を塗った後）
 
     // 自車専属運行を「運行」状態の行のみで再生成（refreshActiveVehiclesAuto_はgetActiveSpreadsheet依存のため直接実行）
     var aSheet = ss.getSheetByName('自車専属運行');
@@ -12650,7 +12903,8 @@ function clearUketorishoTimestamps() {
 // ================================================================
 //  16-2c: F5時の自社設定・シート並び順・合計(高速代)移行（ensureSheetsOnOpen）  【大B / 中16 / 小16-2c】
 //  スタブのonOpenから呼ばれる。15-4（自社設定）・4-2j（並び順）・4-1c（合計(高速代)移行）・P-4k（管理者シートの旧パスワード列の撤去）・
-//  一個前の写しが無いシートの写し作り（4-2k-3）・自車専属マスタの燃費の空と自動の値の入れ直し（1-1d-2。前の設計の値の見分けは開いた最初の1回）を実行する
+//  一個前の写しが無いシートの写し作り（4-2k-3）・自車専属マスタの燃費の空と自動の値の入れ直し（1-1d-2。前の設計の値の見分けは開いた最初の1回）・
+//  運行と集計表の時刻・金額がずれた行の入れ直し（1-4b）・ID列のあるシートのA列固定（1-4d）を実行する
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function ensureSheetsOnOpen() {
@@ -12662,6 +12916,9 @@ function ensureSheetsOnOpen() {
   try { removeLegacyAdminPasswordColumn_(ss); } catch(e) {}
   try { jrEnsureMirrors_(ss); } catch(e) {}   // 一個前の写しが無いシートの写しを作る（4-2k-3。①は 2-1）
   try { refreshMasterFuelColumn_(ss); } catch(e) {}   // 燃費の空の車に設定の燃費（緑）を入れる。客の燃費（黒）は変えない（1-1d-2）
+  try { healSummaryDriftOnOpen_(ss); } catch(e) {}   // 運行と集計表の時刻・金額がずれた行を集計表へ入れ直す（1-4b。①は 2-1）
+  try { ensureSheetFilters_(ss); } catch(e) {}   // 見出しのある全シートにフィルタ（1-4e。①は 2-1）
+  try { freezeIdColumn_(ss); } catch(e) {}   // ID列のあるシートのA列を固定（1-4d。①は 2-1）
 }
 
 
@@ -14430,6 +14687,7 @@ function processPendingCompanies_() {
 // ================================================================
 //  4-9a: 地名の順序解析（parseLocation_）  【大B / 中4 / 小4-9a】
 //  地名文字列の先頭の丸数字（①〜⑩）を解析して順序と地名を返す
+//  4-9a-1（splitPlaces_）：1つのセルに複数入れた地名を、空白・記号（文字と数字以外すべて）で区切って入れた順に分ける（距離計算 4-9c・4-9j が使う）。詰めて書いた地名は区切れないので1つの住所として探す
 // ================================================================
 function parseLocation_(str) {
   str = String(str || '').trim();
@@ -14438,6 +14696,10 @@ function parseLocation_(str) {
     return { order: circled.indexOf(str.charAt(0)) + 1, location: str.slice(1).trim() };
   }
   return { order: 0, location: str };
+}
+// 4-9a-1: 1つのセルに入った複数の地名を入れた順に分ける（splitPlaces_）。文字と数字以外（空白・全角空白・「・」「．」「、」「，」「,」「／」「＋」など、どんな記号も）は区切りとみなし、区切りで分かれた数だけ地名があると数える。詰めて書いた地名（区切りなし）は1つの住所として扱うので、区切って入れるのが決まり
+function splitPlaces_(str) {
+  return String(str || '').split(/[^\p{L}\p{N}]+/u).filter(function(x) { return x.trim(); });
 }
 
 // ================================================================
@@ -14460,24 +14722,35 @@ function buildRouteKeyFromPicksDrops_(picks, drops) {
 
 // ================================================================
 //  4-9c: 時刻順のルートキー生成（buildTimeOrderedRouteKey_）  【大B / 中4 / 小4-9c】
-//  運行シートデータから積完/降完の時刻順でルートキーを生成する（トリガー・手動ボタン用）
-//  そのIDの積地・降地のどれか1つでも時刻（積完・降完）が無ければ、回る順番が決まっていないので null を返す
+//  運行シートデータから、そのIDの回る順番のルートキーを作る（トリガー・手動ボタン用）
+//  ■ 決まり：運行シートの行が1つのID（積地・降地の1つのセルに地名が複数あってもよい）は、時刻なしで必ず計算する。回る順番は入れた順（積地→降地、セルの中は左から）
+//    ・同じIDの行が2つ以上ある時（別々の行に地名がある時）は、全地点（積地・降地）の積完・降完の時刻がそろって順番が決まった時だけ計算する。そろっていなければ null を返す（計算しない）
+//    ・時刻の順に回る（同じ時刻は入れた順）。続けて同じ地名になる所（同じ積地から2か所に降ろす時の2行目の積地など）は1つにまとめる
+//    ・地名の区切りは空白・記号（4-9a-1）。地名が1つも無ければ null を返す
 // ================================================================
 function buildTimeOrderedRouteKey_(unkouData, targetId) {
-  var events = [];
+  var rowCount = 0, entered = [], events = [], timesOk = true;
+  function addLoc(arr, loc) { if (loc && (!arr.length || arr[arr.length - 1] !== loc)) arr.push(loc); }
+  var seq = 0;
   for (var i = 1; i < unkouData.length; i++) {
     var r = unkouData[i];
     if (String(r[0] || '').trim() !== targetId) continue;
-    var pickTime = r[14]; // O列=積完時刻
-    var pickLoc  = parseLocation_(String(r[11] || '')).location;
-    if (pickLoc) { if (!(pickTime instanceof Date)) return null; events.push({ time: pickTime, loc: pickLoc }); }
-    var dropTime = r[17]; // R列=降完時刻
-    var dropLoc  = parseLocation_(String(r[12] || '')).location;
-    if (dropLoc) { if (!(dropTime instanceof Date)) return null; events.push({ time: dropTime, loc: dropLoc }); }
+    var pickParts = splitPlaces_(r[11]).map(function(x) { return parseLocation_(x).location; }).filter(function(x) { return x; });
+    var dropParts = splitPlaces_(r[12]).map(function(x) { return parseLocation_(x).location; }).filter(function(x) { return x; });
+    if (!pickParts.length && !dropParts.length) continue;
+    rowCount++;
+    pickParts.forEach(function(x) { addLoc(entered, x); events.push({ time: r[14], loc: x, seq: seq++ }); });   // O列=積完時刻
+    dropParts.forEach(function(x) { addLoc(entered, x); events.push({ time: r[17], loc: x, seq: seq++ }); });   // R列=降完時刻
+    if (pickParts.length && !(r[14] instanceof Date)) timesOk = false;
+    if (dropParts.length && !(r[17] instanceof Date)) timesOk = false;
   }
-  if (!events.length) return null;
-  events.sort(function(a, b) { return a.time - b.time; });
-  return events.map(function(e) { return e.loc; }).join('→');
+  if (!rowCount) return null;
+  if (rowCount === 1) return entered.join('→');   // 運行シートの行が1つ：時刻は要らず、入れた順（積地→降地、セルの中は左から）
+  if (!timesOk) return null;                      // IDが複数行：全地点の時刻がそろって順番が決まるまでは計算しない
+  events.sort(function(x, y) { return (x.time - y.time) || (x.seq - y.seq); });
+  var locs = [];
+  events.forEach(function(e) { addLoc(locs, e.loc); });
+  return locs.join('→');
 }
 
 // ================================================================
@@ -14659,10 +14932,12 @@ function applyDistanceOverwrite(ssId, id, km) {
 //  overwriteHand＝true（4-10 で「上書きする」を選んだ時だけ）は、黒字（手入力）の距離の行も計算して緑字で上書きする
 //  集計表のうち積地・降地があり、距離（W列）が空の行だけを一括処理して緑字で反映する（緑字の計算済み・黒字の手入力値は上書きしない）
 //  ・積地1か所・降地1か所：積地→降地のキーで距離マスタ照合 → 降完ありなら時刻順キーでも照合
-//  ・積地か降地が2か所以上（複数行程）：全地点の積完・降完時刻がそろって回る順番が決まった時だけ、時刻順キー（4-9c）で照合・計算する。そろっていなければ計算しない
+//  ・積地か降地が2か所以上：運行シートの行が1つのIDは、時刻なしで入れた順に計算する。行が2つ以上のIDは、全地点の積完・降完時刻がそろって回る順番が決まった時だけ、時刻順キー（4-9c）で照合・計算する。そろっていなければ計算しない
 //  ・マスタに無ければ住所の候補数を確認（0件=エラー・2件以上=住所確認待ちとして距離マスタに記録）してMaps APIで計算
 //  距離マスタでエラー・住所確認待ちのルートは計算し直さない。トリガー（4-9o・4-9p）・手動（4-10）共通。返り値：反映した件数
+//  計算できなかった行は、ID・理由（回る順番が決まらない・住所が見つからない・確認待ち・地図の計算失敗）を DIST_SKIPS_ に控え、手動（4-10）の完了画面が出す
 //  書き戻しは、計算した距離をIDごとに控え、1-1b の順番待ちの中で今の行を探し直して、そのIDの行のW列にだけ書く
+//  書く行は「値か文字色が変わった行」（手で入れた距離と計算が同じ数字でも、黒から緑に変わるので書く）
 // ================================================================
 function countHandDistance_(ss) {
   var sh = ss.getSheetByName('集計表');
@@ -14675,7 +14950,11 @@ function countHandDistance_(ss) {
   }
   return c;
 }
+var DIST_FAILS_ = {};   // 住所が見つからない・確認待ち・地図の計算失敗の行（ID→理由）。距離のセルを紫にしてメモで出す（4-9j-1）
+function distSkip_(id, msg, isAddr) { DIST_SKIPS_.push(id + '：' + msg); if (isAddr) DIST_FAILS_[id] = msg; }
+var DIST_SKIPS_ = [];   // 4-9j：距離を計算できなかった行の理由（ID：理由）。手動の距離計算（4-10）の完了画面が出す
 function calcDistanceForAllPending_(ss, overwriteHand) {
+  DIST_SKIPS_ = []; DIST_FAILS_ = {};
   var sumSh   = ss.getSheetByName('集計表');
   var unkouSh = ss.getSheetByName('運行');
   if (!sumSh || !unkouSh || sumSh.getLastRow() < 2) return 0;
@@ -14684,19 +14963,29 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
   var sumCols  = Math.max(sumSh.getLastColumn(), 37);
   var sumData  = sumSh.getRange(2, 1, numRows, sumCols).getValues();
   var sumFonts = sumSh.getRange(2, 1, numRows, sumCols).getFontColors();
-  var origDist = sumData.map(function(r) { return r[22]; });  // 書き戻す時に「変えた行」だけを見分けるための控え
+  var origDist = sumData.map(function(r) { return r[22]; });  // 書き戻す時に「変えた行」だけを見分けるための控え（値と文字色）
+  var origDistFont = sumFonts.map(function(r) { return String(r[22] || '').toLowerCase(); });
   var unkouData = unkouSh.getDataRange().getValues();
   var masterMap = loadDistanceMasterMap_(ss);
 
-  // エラー・確認待ちのルートキーを skipSet に収集（再試行しない）
-  var skipSet = {};
+  // 距離マスタの「住所確認待ち」行を削除（checkGeocode_で count>=2 を pending にしなくなったため再試行する）
   var dmSh = ss.getSheetByName('距離マスタ');
+  if (dmSh && dmSh.getLastRow() >= 2) {
+    var dmClean = dmSh.getRange(2, 1, dmSh.getLastRow() - 1, 3).getValues();
+    for (var ci = dmClean.length - 1; ci >= 0; ci--) {
+      if (String(dmClean[ci][2] || '').trim() === '住所確認待ち') {
+        dmSh.deleteRow(ci + 2);
+      }
+    }
+  }
+  // エラー行のみ skipSet に収集（再試行しない）
+  var skipSet = {};
   if (dmSh && dmSh.getLastRow() >= 2) {
     var dmFull = dmSh.getRange(2, 1, dmSh.getLastRow() - 1, 3).getValues();
     for (var si = 0; si < dmFull.length; si++) {
       var sk = String(dmFull[si][0] || '').trim();
       var sm = String(dmFull[si][2] || '').trim();
-      if (sk && (sm === 'エラー(住所不明等)' || sm === '住所確認待ち')) skipSet[sk] = true;
+      if (sk && sm === 'エラー(住所不明等)') skipSet[sk] = true;
     }
   }
 
@@ -14722,14 +15011,15 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
     var dropStr = String(sumData[i][12] || '').trim(); // M列=降地
     if (!pickStr || !dropStr) continue;
 
-    var pickArr   = pickStr.split('・').filter(function(s) { return s.trim(); });
-    var dropArr   = dropStr.split('・').filter(function(s) { return s.trim(); });
+    var pickArr   = splitPlaces_(pickStr);
+    var dropArr   = splitPlaces_(dropStr);
     var isMulti   = pickArr.length > 1 || dropArr.length > 1;
 
     // 複数行程は回る順番が決まった時（全地点の積完・降完時刻がそろった時・4-9c）だけ、その時刻順で計算する。決まっていなければ計算しない
     if (isMulti) {
       var multiKey = buildTimeOrderedRouteKey_(unkouData, id);
-      if (!multiKey || skipSet[multiKey]) continue;
+      if (!multiKey) { distSkip_(id, '回る順番が決まっていません（別々の行にある地名は、積完・降完の時刻が全部必要です）'); continue; }
+      if (skipSet[multiKey]) { distSkip_(id, '住所が見つからない・確認待ちのルートとして距離マスタに記録済み（' + multiKey + '）', true); continue; }
       if (masterMap[multiKey] !== undefined && masterMap[multiKey] > 0) {
         sumData[i][22]  = masterMap[multiKey];
         sumFonts[i][22] = GREEN;
@@ -14740,7 +15030,7 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
 
     // STEP1: 積地1か所・降地1か所は順番が1通りなので、積地→降地のキーでマスタ照合（時刻不要）
     var simpleKey = isMulti ? '' : buildRouteKeyFromPicksDrops_(pickArr, dropArr);
-    if (simpleKey && skipSet[simpleKey]) continue;  // エラー・確認待ちはスキップ
+    if (simpleKey && skipSet[simpleKey]) { distSkip_(id, '住所が見つからない・確認待ちのルートとして距離マスタに記録済み（' + simpleKey + '）', true); continue; }  // エラー・確認待ちはスキップ
     if (simpleKey && masterMap[simpleKey] !== undefined && masterMap[simpleKey] > 0) {
       sumData[i][22]  = masterMap[simpleKey];
       sumFonts[i][22] = GREEN;
@@ -14752,7 +15042,7 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
     var routeKey = isMulti ? multiKey : null;
     if (!isMulti && sumData[i][17]) {
       routeKey = buildTimeOrderedRouteKey_(unkouData, id);
-      if (routeKey && skipSet[routeKey]) continue;  // エラー・確認待ちはスキップ
+      if (routeKey && skipSet[routeKey]) { distSkip_(id, '住所が見つからない・確認待ちのルートとして距離マスタに記録済み（' + routeKey + '）', true); continue; }  // エラー・確認待ちはスキップ
       if (routeKey && masterMap[routeKey] !== undefined && masterMap[routeKey] > 0) {
         sumData[i][22]  = masterMap[routeKey];
         sumFonts[i][22] = GREEN;
@@ -14764,19 +15054,21 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
     // STEP3: Geocoding確認→問題なければMaps API計算
     var apiKey  = routeKey || simpleKey;
     var apiLocs = apiKey ? apiKey.split('→') : null;
-    if (!apiLocs || apiLocs.length < 2) continue;
-    if (skipSet[apiKey]) continue;
+    if (!apiLocs || apiLocs.length < 2) { distSkip_(id, '地名が2か所以上読み取れません（降完の時刻が無い等）'); continue; }
+    if (skipSet[apiKey]) { distSkip_(id, '住所が見つからない・確認待ちのルートとして距離マスタに記録済み（' + apiKey + '）', true); continue; }
 
     var geoStatus = checkGeocode_(apiLocs);
     apiCalls++;
     if (geoStatus === 'error') {
       errorRoutes.push({ key: apiKey, km: -1, method: 'エラー(住所不明等)' });
+      distSkip_(id, '住所が見つからない地名があります（' + apiKey + '）', true);
       skipSet[apiKey] = true;
       if (apiCalls % 10 === 0) Utilities.sleep(500);
       continue;
     }
     if (geoStatus === 'pending') {
       pendingRoutes.push({ key: apiKey, km: '', method: '住所確認待ち' });
+      distSkip_(id, '住所の確認待ちです（' + apiKey + '）', true);
       skipSet[apiKey] = true;
       if (apiCalls % 10 === 0) Utilities.sleep(500);
       continue;
@@ -14789,7 +15081,7 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
       masterMap[apiKey] = km;
       newRoutes.push({ key: apiKey, km: km, method: 'API' });
       processed++;
-    }
+    } else distSkip_(id, '地図の計算ができませんでした（' + apiKey + '）', true);
     apiCalls++;
     if (apiCalls % 10 === 0) Utilities.sleep(500);
   }
@@ -14800,7 +15092,7 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
     var newDistById = {};
     for (var nd = 0; nd < sumData.length; nd++) {
       var ndId = String(sumData[nd][0] || '').trim();
-      if (ndId && sumData[nd][22] !== origDist[nd]) newDistById[ndId] = { v: sumData[nd][22], f: sumFonts[nd][22] };
+      if (ndId && (sumData[nd][22] !== origDist[nd] || String(sumFonts[nd][22] || '').toLowerCase() !== origDistFont[nd])) newDistById[ndId] = { v: sumData[nd][22], f: sumFonts[nd][22] };
     }
     var pdLock = getSsLock_();
     var pdOk = false;
@@ -14825,6 +15117,7 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
       }
     }
   }
+  try { markDistanceFailCells_(sumSh, DIST_FAILS_); } catch(mfE) { logError_('markDistanceFailCells_', mfE); }   // 計算できなかった行の距離のセルを紫にしてメモ（4-9j-1）
   if (newRoutes.length)     appendDistanceMasterRows_(ss, newRoutes);
   if (errorRoutes.length)   { appendDistanceMasterRows_(ss, errorRoutes);  applyDistanceMasterErrorStyle_(ss); }
   if (pendingRoutes.length) appendDistanceMasterRows_(ss, pendingRoutes);
@@ -14832,8 +15125,41 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
 }
 
 // ================================================================
+//  4-9j-1: 距離を計算できなかった行の印（markDistanceFailCells_）  【大B / 中4 / 小4-9j-1】
+//  住所が見つからない・確認待ち・地図の計算失敗の行は、集計表の距離（W列）のセルを紫（#b39ddb）にして、メモで理由と直し方を出す
+//  ・距離のセルが空の行だけ。入っている距離は変えない。距離が入った行の紫と（この処理が書いた）メモは外す
+//  ・2か所以上の地名は、「・」「．」「、」「，」「,」「／」「＋」などで区切る（区切りなしで続けると1つの住所として探し、見つからない）
+//  1-1b の順番待ちの中で、IDの行を読み直してから書く
+// ================================================================
+function markDistanceFailCells_(sumSh, fails) {
+  if (!sumSh || sumSh.getLastRow() < 2) return;
+  var PUR = '#b39ddb', PREFIX = '距離を計算できませんでした：';
+  var lock = getSsLock_();
+  try { lock.waitLock(30000); } catch(e) { logError_('markDistanceFailCells_', 'ロック取得失敗'); return; }
+  try {
+    var n = sumSh.getLastRow() - 1;
+    var ids = sumSh.getRange(2, 1, n, 1).getValues();
+    var rng = sumSh.getRange(2, 23, n, 1);
+    var vals = rng.getValues(), bgs = rng.getBackgrounds(), nts = rng.getNotes(), changed = false;
+    for (var i = 0; i < n; i++) {
+      var id = String(ids[i][0] || '').trim();
+      var empty = vals[i][0] === '' || vals[i][0] === null;
+      if (id && fails[id] && empty) {
+        var note = PREFIX + fails[id] + '\n地名を直してください。2か所以上は「・」などで区切ってください。';
+        if (bgs[i][0] !== PUR || nts[i][0] !== note) { bgs[i][0] = PUR; nts[i][0] = note; changed = true; }
+      } else if (bgs[i][0] === PUR) {
+        bgs[i][0] = null; if (String(nts[i][0] || '').indexOf(PREFIX) === 0) nts[i][0] = ''; changed = true;
+      }
+    }
+    if (changed) { rng.setBackgrounds(bgs); rng.setNotes(nts); }
+  } finally { lock.releaseLock(); }
+}
+
+// ================================================================
 //  4-9k: 住所の候補数確認（checkGeocode_）  【大B / 中4 / 小4-9k】
-//  Geocoding APIで地名候補数を確認する（'ok'=全地名1件・'error'=0件あり・'pending'=2件以上あり）
+//  Geocoding APIで地名の存在を確認する（'ok'=1件以上あり・'error'=0件）
+//  ※ 候補が複数でも 'ok' にする（市区町村名はGeocodingで複数候補が返るのが普通で、
+//     Directions APIはアドレス文字列をそのまま渡せば正しく計算できるため）
 // ================================================================
 function checkGeocode_(locs) {
   var geocoder = Maps.newGeocoder().setRegion('JP');
@@ -14844,7 +15170,6 @@ function checkGeocode_(locs) {
       var res   = geocoder.geocode(loc);
       var count = (res && res.results) ? res.results.length : 0;
       if (count === 0) return 'error';
-      if (count >= 2) return 'pending';
     } catch(e) { return 'error'; }
   }
   return 'ok';
@@ -15061,7 +15386,11 @@ function calcDistanceForSS(ssId, scriptId) {
 
 // ================================================================
 //  4-10: 距離計算手動実行（calcDistanceManual）  【大C / 中4 / 小4-10】
-//  メニュー「距離計算（未計算分）」: 4-9j を実行して件数を表示する（距離が空の行が対象。複数行程は全地点の時刻がそろった行だけ）
+//  メニュー「距離計算（未計算分）」: 4-9j を実行して件数を表示する（距離が空の行が対象）。0件の時や計算できなかった行があれば、そのIDと理由を画面に出す
+//  ■ 回る順番の決まり（説明書・解説書にもこの文を書く）：
+//    ・同じIDが複数の行にある時は、積完・降完の時刻で距離を判定する（全地点の時刻がそろって順番が決まってから計算する）
+//    ・行が1つのIDは、時刻なしで入れた順に計算する（積地→降地、セルの中は左から）
+//    ・1つのセルに複数の地名を入れる時は、文字と数字以外（半角・全角の空白、「・」「、」「／」「＋」などの記号）で区切る。区切った数だけ地名があると数える。例：「和歌山市 泉南市」は2か所。詰めて書いた「堺市住之江区」は1つの住所として探す。「大阪市（北区）」のように記号で区切ると「大阪市」と「北区」の2か所になる
 //  手で入れた距離（黒字。countHandDistance_）があれば、最初に「上書きしますか？」を聞く（4-2z-1）。「はい」なら手で入れた距離の行も計算して上書きする
 //  countHandDistance_：集計表で、積地・降地があり、距離に黒字（緑以外）の値がある行の数
 //  スプレッドシートのメニュー・画面から（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
@@ -15073,7 +15402,7 @@ function calcDistanceManual() {
   var owD = askOverwriteHandEdited_(countHandDistance_(ss), '距離');
   if (owD === 'cancel') return;
   var cnt = calcDistanceForAllPending_(ss, owD === 'yes');
-  getUiOrWeb_().alert(cnt + '件の距離を計算・反映しました。\n\n※ 距離が空の行だけ計算します（入力済みの距離は変えません）。\n※ 積地・降地が複数の行は、全部の積完・降完時刻が入って回る順番が決まってから計算します。\n※ 住所が見つからない・候補が複数あるルートは距離マスタに記録し、計算しません。');
+  getUiOrWeb_().alert(cnt + '件の距離を計算・反映しました。\n\n※ 距離が空の行だけ計算します（入力済みの距離は変えません）。\n※ 1つのセルに複数の地名（・．、，/＋など区切り）は、入れた順に回って計算します。別々の行にある地名は、積完・降完の時刻が全部入ってから計算します。\n※ 住所が見つからない・候補が複数あるルートは距離マスタに記録し、計算しません。' + (DIST_SKIPS_.length ? '\n\n【計算できなかった行】\n' + DIST_SKIPS_.slice(0, 8).join('\n') + (DIST_SKIPS_.length > 8 ? '\n…ほか' + (DIST_SKIPS_.length - 8) + '件' : '') : ''));
 }
 
 // ================================================================
@@ -15331,7 +15660,7 @@ function updatePlApportionment_(ss) {
 //  ・配車板の会社名（C・Q列）を1列だけ編集 → TEL・FAXに手で入れた値（黒）があって探した値（3-5a）と違えば「上書きしますか？」画面（3-5b）を返す
 //  ・運行シートの積地・降地（L・M列）を編集 → 距離を新しいルートで入れ直し（緑。4-9i）、手で入れた距離が計算と違えば「上書きしますか？」画面（4-9h-1）を返す
 //  ・運行シートの日付〜降完（J〜R列）を編集 → 降完まで入った行の警告だけの保護を付け直す（1-7f）
-//  ・PL設定の編集 → 17-7a で按分を更新 ／ 運行シートの編集 → 集計表を同期（4件以上は4-1で再生成）、積地・降地なら距離も反映、帳票日時の正規化、行のバックアップ
+//  ・PL設定の編集 → 17-7a で按分を更新 ／ 運行シートの編集 → 集計表を同期（4件以上は4-1で再生成。同期できなかった時は _ErrorLog_ に残し、前に待たされた分も 1-4c で同期）、積地・降地なら距離も反映、帳票日時の正規化、行のバックアップ
 //  ・取込用シートの対応行の編集 → 取込辞書に追加 ／ 会社登録A・B列 → 12-4でフルセットアップ、F・G列 → 11-5で配布メール
 // ================================================================
 function dispatchInstalledEdit(e) {
@@ -15482,8 +15811,9 @@ function dispatchInstalledEdit(e) {
         }
       } else {
         for (var si_unk = 0; si_unk < syncIds_arr.length; si_unk++) {
-          try { syncSummaryForId_(syncIds_arr[si_unk], ss_unk); } catch(e_unk) {}
+          try { syncSummaryForId_(syncIds_arr[si_unk], ss_unk); } catch(e_unk) { logError_('運行編集の集計表同期', e_unk); }
         }
+        try { flushPendingSummary_(ss_unk); } catch(e_fp) {}   // 前に待たされた分もここで同期（1-4c）
       }
       // L列（積地）またはM列（降地）の場合は距離も即時反映
       if (col === 12 || col === 13) {
@@ -17308,6 +17638,7 @@ function importBulkRows(sheetType, mappedRows, companySsId, isLastChunk, allPaym
         sheet.getRange(_mStart, 1, _mInsertRows.length, _mInsertRows[0].length).setValues(_mInsertRows);
         sheet.getRange(_mStart, 12, _mInsertRows.length, 1).setFontColors(_mInsertRows.map(function(r) { return [r._fuelAuto ? '#1a9a50' : null]; }));   // 燃費の色（自動＝緑・データの燃費＝黒）
       }
+      try { applyMasterVehicleWarnings_(sheet); } catch (_mw) {}   // 取り込んだ車の支払条件不備のグレー（3-3a）
       return { ok: mappedRows.length };
     }
     // ── cust: 会社名でupsert（重複スキップ）──
@@ -21054,7 +21385,8 @@ function getOrCreateCompanyBackupFolder_(companyName) {
 
 // ================================================================
 //  4-12c: 毎日のバックアップ（runDailyBackup_）  【大B / 中4 / 小4-12c】
-//  毎日3時台の時間トリガーから呼ばれ、会社登録シートの各客SSを新規SS作成＋Sheet.copyTo方式で複製して会社別フォルダに保存する（スクリプトは複製しない）
+//  毎日3時台の時間トリガーから呼ばれ、①修正用SS・会社登録シートの各客SSを新規SS作成＋Sheet.copyTo方式で複製して会社別フォルダに保存する（スクリプトは複製しない）
+//  ①修正用SSは「修正用」フォルダに保存（会社登録の客とは別に毎日1ファイル保存）
 //  同日分が既にあれば削除してから再作成し、保持期間を超えた古いファイルを削除する
 // ================================================================
 function runDailyBackup_() {
@@ -21068,6 +21400,29 @@ function runDailyBackup_() {
   var lastRow = regSheet.getLastRow();
   var rows    = regSheet.getRange(2, 1, lastRow - 1, 6).getValues();
   var cutoff  = new Date(); cutoff.setDate(cutoff.getDate() - BACKUP_KEEP_DAYS_);
+
+  // ①修正用SSのバックアップ（会社登録シートの客とは別に毎日保存）
+  try {
+    var mFolder   = getOrCreateCompanyBackupFolder_('修正用');
+    var mFileName = today + '_修正用';
+    var mExist = mFolder.getFilesByName(mFileName);
+    while (mExist.hasNext()) mExist.next().setTrashed(true);
+    var mBkSs   = SpreadsheetApp.create(mFileName);
+    var mBkFile = DriveApp.getFileById(mBkSs.getId());
+    var mDef    = mBkSs.getSheets();
+    ss.getSheets().forEach(function(sh) {
+      var n = sh.getName();
+      if (n.indexOf(JR_MIRROR_PREFIX_) === 0 || n === JR_HIST_SHEET_) return;
+      try { sh.copyTo(mBkSs); } catch(ce) {}
+    });
+    mDef.forEach(function(ds) { try { mBkSs.deleteSheet(ds); } catch(de) {} });
+    mFolder.addFile(mBkFile);
+    DriveApp.getRootFolder().removeFile(mBkFile);
+    var mAll = mFolder.getFiles();
+    while (mAll.hasNext()) { var mf = mAll.next(); if (mf.getDateCreated() < cutoff) mf.setTrashed(true); }
+  } catch(me) {
+    Logger.log('Backup error [修正用]: ' + me.message);
+  }
 
   rows.forEach(function(row) {
     var companyName = String(row[0] || '').trim();
