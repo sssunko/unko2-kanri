@@ -187,6 +187,9 @@ function calcDistanceTrigger_() {
 function onStructureChange_(e)  { UnkouLib.dispatchStructureChange(e); }
 function setRecalcChoice(a,b)     { return UnkouLib.setRecalcChoice(a,b); }
 function executeStatusSync(a,b,c){ return UnkouLib.executeStatusSync(a,b,c); }
+function executeMasterFieldSync(a,b,c){ return UnkouLib.executeMasterFieldSync(a,b,c); }
+function finishUnkouOverride(a,b){ return UnkouLib.finishUnkouOverride(a,b); }
+function cancelUnkouOverride(a){ return UnkouLib.cancelUnkouOverride(a); }
 function applySettingChoice(a,b,c){ return UnkouLib.applySettingChoice(a,b,c); }
 function applyJohoContactOverwrite(a,b){ return UnkouLib.applyJohoContactOverwrite(a,b); }
 function syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }

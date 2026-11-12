@@ -67,11 +67,11 @@
 //   1-4e : ensureSheetFilters_(ss)
 //            見出しのある全シート（4-2d-1 の一覧）に、フィルタが無ければつける
 //            A列の見出しがIDで終わるシートのA列を固定（開いた時。①は 2-1、②③は 16-2c）
-//   1-5  : applyMoneyFormat_(sheet, startRow, numRows, sheetType)
+//   1-5  : applyMoneyFormat_(sheet, startRow, numRows, sheetType) / setNumberFormatIfDiff_(sheet, startRow, numRows, cols, fmt)
 //            金額列へのコンマ書式適用
 //   1-6  : applyDateTimeFormat_(sheet, startRow, numRows)
 //            時刻列へのM/d HH:mm書式適用
-//   1-7  : applyHolidayRowColors_(ss)
+//   1-7  : applyHolidayRowColors_(ss) / sameColors_(a, b) / unkouRowBg_(idV, pickV, curRow, lastCol) / applyUnkouRowColorsFor_(ss, sheet, rows, needExpiry, needCollide)
 //            有休・休み・配車漏れ・保護列の背景色設定
 //   1-7b : markIdCollisions_(ss)
 //            IDが重複している行のA列を赤色でマーク
@@ -149,6 +149,8 @@
 //            onEdit本体
 //   3-2  : onEditUnkou_(sheet, range, ss)
 //            運行シート編集時の処理
+//   3-2-9: detectUnkouOverride_(ss, sheet, range, e) / buildUnkouOverrideHtml_(ssId, list) / unkouPendLoad_(ss) / unkouPendSave_(ss, list) / unkouPendCheck_(ss) / unkouPendingDialog_(ss) / finishUnkouOverride(ssId, confirm) / cancelUnkouOverride(ssId)
+//            自車専属マスタにある車の行の B〜I列（車番も）を運行シートで変更した時の確認の画面（毎回必ず出す・押すまで何度でも出す・緑にしない）。変更したら、その行のそのマスだけ自車専属マスタの変更を反映しない（メモで印）
 //   3-2b : cleanMasterCarType()
 //            自車専属マスタ車種列の大文字・半角一括クレンジング
 //   3-2c : onEditPlSettings_(sheet, range)
@@ -163,6 +165,8 @@
 //            全車両を今月分に同期
 //   3-3d : executeStatusSync(rowsParam, choice, ssId)
 //            車両ステータス変更の同期実行
+//   3-3e : buildMasterFieldSyncHtml_(ssId, field, oldValue, newValue) / executeMasterFieldSync(choice, ssId)
+//            自車専属マスタの 区分・会社名・看板名・トン数・車種・車番・乗務員名・携帯番号 を直したら、本日以降・今月以降・全期間を聞いて、運行シートの同じ車の行の同じ項目を直す
 //   3-4  : onEditMasterCustomer_(sheet, range)
 //            マスタ（取引先）編集時の処理
 //   3-5  : onEditJoho_(sheet, range, ss)
@@ -226,15 +230,15 @@
 //   4-2k : dispatchStructureChange(e)
 //            シート構造変更の検知と復元（消された・列を消された・動かされたシートは一個前の写しで戻す 4-2k-6）
 //   4-2k-1: JR_ / jrGuardNames_()
-//            一個前の写しと戻る・進むの決まり（客が見る19シート・書いたマスだけ写す・20回まで・3秒以内はまとめる）
-//   4-2k-2: jrMark_(t, m) / jrSrc_(t) / jrDest_(d) / jrRecFor_(sh) / jrAddRect_(rec, r, c, nr, nc)
+//            一個前の写しと戻る・進むの決まり（客が見る19シート・書いたマスだけ写す・20回まで・人の入力1回＝戻る1回）
+//   4-2k-2: jrMark_(t, m) / jrEditToken_(e, kind, side) / jrSrc_(t) / jrDest_(d) / jrRecFor_(sh) / jrAddRect_(rec, r, c, nr, nc)
 //            書いたマスの記録（デプロイの時に build_journal.js が全部の書き込みに差し込む）
-//   4-2k-3: jrCommit_() / jrMakeMirror_(ss, sh, meta) / jrEnsureMirrors_(ss)
-//            処理の終わりに、書いたマスだけを写しと「戻る」の控えに写す・写しを作る
-//   4-2k-4: jrLoadMeta_(ss) / jrSaveMeta_(meta) / jrSaveBlock_(…) / jrPutFormulas_(meta, p, target, r, c) / jrFreeParts_(meta, parts) / jrPushStep_(meta, parts)
-//            「戻る」の控え（隠しシート _BK_戻る。式は文字で取っておき、戻す時に元の場所へ書き戻す）
-//   4-2k-5: undoLastChange() / redoLastChange() / jrUndoRedo_(ss, isUndo) / jrApplyPart_(ss, meta, p, sh)
-//            戻る・進む（メニュー。自動・手動に関係なく1回分ずつ）
+//   4-2k-3: jrCommit_() / jrDiffRects_(sh, mir, r, c, nr, nc) / jrCaptureEdit_(e) / jrCapDone_(e) / jrWaitCap_(ss) / jrCaptureEditMain_(e) / jrMakeMirror_(ss, sh, meta) / jrEnsureMirrors_(ss)
+//            処理の終わりに、変わった行だけを「戻る」の控えに取り、書いた所を写しに写す・人が入力した行は入力の最初に控えに取る（入力したマスの前の値は入力の知らせの値）・写しを作る
+//   4-2k-4: jrLock_(ss) / jrUnlock_(key) / jrLoadMeta_(ss) / jrSaveMeta_(meta) / jrSaveBlock_(…) / jrFindBlock_(meta, p) / jrPutFormulas_(meta, p, target, r, c, at) / jrFreeParts_(meta, parts) / jrEditEntry_(meta) / jrFindStep_(meta, ent) / jrPushStep_(meta, parts, ent)
+//            「戻る」の控え（隠しシート _BK_戻る。控えは札で探す・入力ごとの通し番号・SSごとの順番待ち（書き終えてから次へ渡す）・式は文字で取っておき、戻す時に元の場所へ書き戻す）
+//   4-2k-5: undoLastChange() / redoLastChange() / jrUndoRedo_(ss, isUndo) / jrApplyPart_(ss, meta, p, sh, at)
+//            戻る・進む（メニュー。自動・手動に関係なく1回分ずつ。記録した場所へそのまま戻す）
 //   4-2k-6: jrRestoreDeleted_(ss) / jrRestoreFromMirror_(ss, sh)
 //            写しから消す直前の状態に戻す（消されたシート・列を消された・動かされたシート）
 //   4-2l : setNoSheetGuard_()
@@ -271,8 +275,10 @@
 //            手で入れた値の数を数え、「上書きしますか？」を聞く（メニューから動かす自動処理で共用）
 //   4-2z-2: setGreyWarnNotes_(sheet, startRow, numRows)
 //            集計表の灰色の警告セル（支払い・経費合計・仮日数・給料）にメモで意味を出す
-//   4-3  : expandAndRefreshSheets()
-//            シート再生成（集計表を含む全シートを正しくする）
+//   4-2z-3: resetStrayGreenOnUnkou_(ss)
+//            運行シートで、自車専属マスタの車の行の緑のマス（区分〜看板名）を全部黒に戻す（シート再生成で動く）
+//   4-3  : expandAndRefreshSheets() / expandAndRefreshSheetsBody_(ss) / tmk_(label)
+//            シート再生成（集計表を含む全シートを正しくする。変わっていない所は設定し直さない・写し直さない。工程ごとの時間を完了画面に出す）
 //   4-3a : repairJohoSheet()
 //            配車板 列ズレ修復
 //   4-3b : refreshPlApportionColumn_(ss, sheet)
@@ -429,6 +435,8 @@
 //            運行一覧データ取得
 //   8-4b : clearListCache_(email, ssId)
 //            一覧データキャッシュ削除
+//   8-4c : driverMatchInfo_(ss, email, name) / driverRowMatches_(info, r)
+//            運行シートの行がアプリの人の行かを、名前・携帯番号・車番で見分ける（一覧・連絡事項・今日の行程・運行開始）
 //   8-5  : getEditData(id, companySsId, email)
 //            編集用データ取得
 //   8-6  : saveEditData(obj, companySsId, email)
@@ -690,7 +698,7 @@
 //            インストール型onEditトリガー
 //   14-2a: ensureRequiredSheets(masterSsId)
 //            必須シートの補完
-//   14-2b: dispatchInstalledEdit(e)
+//   14-2b: dispatchInstalledEdit(e) / dispatchInstalledEditMain_(e)
 //            インストール型トリガーのディスパッチャ
 //   14-2c: showHatchuDocDialog()
 //            発注書・指示書ダイアログ表示
@@ -1473,8 +1481,8 @@ function ensureSheetFilters_(ss) {
 
 
 // ================================================================
-//  1-5: 金額列へのコンマ書式適用（applyMoneyFormat_）  【大B / 中1 / 小1-5】
-//  指定シート・行範囲の金額列に #,##0（マイナスは赤）の書式をセットする
+//  1-5: 金額列へのコンマ書式適用（applyMoneyFormat_ / setNumberFormatIfDiff_）  【大B / 中1 / 小1-5】
+//  指定シート・行範囲の金額列に #,##0（マイナスは赤）の書式をセットする。既にその形の列は書き直さない（setNumberFormatIfDiff_）
 //  運行はS〜V列、集計表はS〜W・Y〜AC・AH・AI列
 // ================================================================
 function applyMoneyFormat_(sheet, startRow, numRows, sheetType) {
@@ -1483,15 +1491,28 @@ function applyMoneyFormat_(sheet, startRow, numRows, sheetType) {
   var cols = (sheetType === 'unkou')
     ? [19, 20, 21, 22]
     : [19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 34, 35]; // 23=距離(¥なし#,##0を上書き)
-  for (var i = 0; i < cols.length; i++) {
-    sheet.getRange(startRow, cols[i], numRows, 1).setNumberFormat(fmt);
-  }
+  setNumberFormatIfDiff_(sheet, startRow, numRows, cols, fmt);
+}
+// 表示の形（数字・日時の形）を、今の形と違う列だけ設定する（cols＝列番号の並び）。全部の列の今の形を1回で読み、その形になっていないマスがある列だけ書く
+// （既に合っている列まで毎回書き直すと、その分だけ時間がかかり、「戻る」の写しも増えるため。1-5・1-6・4-3 が使う）
+function setNumberFormatIfDiff_(sheet, startRow, numRows, cols, fmt) {
+  if (numRows <= 0) return;
+  var maxC = sheet.getMaxColumns();
+  cols = cols.filter(function(c) { return c >= 1 && c <= maxC; });
+  if (!cols.length) return;
+  var c1 = Math.min.apply(null, cols), c2 = Math.max.apply(null, cols);
+  var cur = sheet.getRange(startRow, c1, numRows, c2 - c1 + 1).getNumberFormats(), want = String(fmt).toLowerCase();
+  cols.forEach(function(c) {
+    var k = c - c1, ok = true;
+    for (var r = 0; r < cur.length; r++) { if (String(cur[r][k]).toLowerCase() !== want) { ok = false; break; } }
+    if (!ok) sheet.getRange(startRow, c, numRows, 1).setNumberFormat(fmt);
+  });
 }
 
 
 // ================================================================
 //  1-6: 時刻列へのM/d HH:mm書式適用（applyDateTimeFormat_）  【大B / 中1 / 小1-6】
-//  誘導・積完・休憩開始・休憩終了・降完（N〜R列=14〜18）に書式をセットする
+//  誘導・積完・休憩開始・休憩終了・降完（N〜R列=14〜18）に書式をセットする。既にその形の列は書き直さない（1-5 setNumberFormatIfDiff_）
 //  運行シートは点呼前完了・点呼後完了列、集計表は36・37列（点呼前後完了）にもセットする
 // ================================================================
 function applyDateTimeFormat_(sheet, startRow, numRows) {
@@ -1508,22 +1529,26 @@ function applyDateTimeFormat_(sheet, startRow, numRows) {
     if (bi >= 0) cols.push(bi + 1);
     if (ai >= 0) cols.push(ai + 1);
   }
-  for (var i = 0; i < cols.length; i++) {
-    if (cols[i] <= lastCol) sheet.getRange(startRow, cols[i], numRows, 1).setNumberFormat(fmt);
-  }
+  setNumberFormatIfDiff_(sheet, startRow, numRows, cols.filter(function(c) { return c <= lastCol; }), fmt);   // 今の形と違う列だけ設定（1-5）
 }
 
 
 // ================================================================
-//  1-7: 有休・休み・配車漏れ・保護列の背景色設定（applyHolidayRowColors_）  【大B / 中1 / 小1-7】
+//  1-7: 有休・休み・配車漏れ・保護列の背景色設定（applyHolidayRowColors_ / sameColors_ / unkouRowBg_ / applyUnkouRowColorsFor_）  【大B / 中1 / 小1-7】
+//  ■ 決まり：計算した色が今の色と全部同じ時は、書き直さない（sameColors_。書き直すとシート全体を書く時間と「戻る」の写しの時間がかかるため）
+//  ■ 決まり：applyHolidayRowColors_ はシート全体を見るので時間がかかる（数十秒）。乗務員アプリから動く処理では使わない。
+//    アプリからは、変更した行だけに色を付ける applyUnkouRowColorsFor_ を使う（8-6）。1行分の背景色の決まりは unkouRowBg_ の1か所で、両方が使う
 //  運行シート：積地(L列)に「有休」→行全体 #e0e0e0、「休み」→行全体 #9e9e9e
 //  　IDあり・積地空 → L列だけ #fff9c4（配車漏れ警告）、IDあり行のV・Y・Z列 → #eceff1（保護列）
 //  　最終行より下の残骸色を除去し、L1セルに凡例メモを書く
 //  集計表：有休・休みの行全体色、IDあり・積地空のL列黄色。自車専属マスタ：B1セルに凡例メモ
 //  最後に 1-7c（期限色）・1-7b（ID重複）を実行する
 //  運行シートは、抜けたマスの色（1-7e）と、降完まで入った行の警告だけの保護（1-7f）もここで付け直す
+//  ROW_COLORS_SKIP_ が true の間は何もしない（シート再生成 4-3 の途中。再生成では、最後の集計表の作り直し 4-1a の終わりに1回だけ動く）
 // ================================================================
+var ROW_COLORS_SKIP_ = false;   // true の間は 1-7 を動かさない（シート再生成 4-3 が、同じ色付けを3回動かさないために使う）
 function applyHolidayRowColors_(ss) {
+  if (ROW_COLORS_SKIP_) return;
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   var today = new Date(); today.setHours(0, 0, 0, 0);
 
@@ -1536,32 +1561,9 @@ function applyHolidayRowColors_(ss) {
     var vals    = sheet.getRange(2, 1, lr - 1, 12).getValues(); // A〜L列を読む（A=ID, L=積地）
     var curBgs  = sheet.getRange(2, 1, lr - 1, lastCol).getBackgrounds();
     var bgs2D   = vals.map(function(r, idx) {
-      var idV   = String(r[0] || '').trim();
-      var pickV = String(r[11] || ''); // L列=積地
-      if (pickV.indexOf('有休') !== -1) return new Array(lastCol).fill('#e0e0e0');
-      if (pickV.indexOf('休み') !== -1) return new Array(lastCol).fill('#9e9e9e');
-      // 通常行: 既存背景を保護し、有休/休み色・保護色・IDなし行の期限警告残骸をクリア
-      var rowArr = curBgs[idx].slice();
-      for (var ci = 0; ci < rowArr.length; ci++) {
-        var _c = rowArr[ci];
-        if (_c === '#e0e0e0' || _c === '#9e9e9e' || _c === '#eceff1') { rowArr[ci] = null; continue; }
-        // IDなし行の期限警告残骸（赤/青/緑/濃赤）を除去
-        if (!idV && (_c === '#ffcdd2' || _c === '#bbdefb' || _c === '#c8e6c9' || _c === '#ff1744')) rowArr[ci] = null;
-      }
-      if (pickV === '' && idV !== '') {
-        rowArr[11] = '#fff9c4'; // IDがあって積地空→常に黄色
-      } else if (pickV !== '' && rowArr[11] === '#fff9c4') {
-        rowArr[11] = null; // 積地入力あり→黄色解除
-      }
-      // 保護列（V=22, Y=25, Z=26）の保護色をIDあり行に自動復元（F5だけで直る）
-      if (idV !== '') {
-        if (lastCol >= 22) rowArr[21] = '#eceff1';
-        if (lastCol >= 25) rowArr[24] = '#eceff1';
-        if (lastCol >= 26) rowArr[25] = '#eceff1';
-      }
-      return rowArr;
+      return unkouRowBg_(String(r[0] || '').trim(), String(r[11] || ''), curBgs[idx], lastCol);   // 1行分の決まりは unkouRowBg_（下）
     });
-    sheet.getRange(2, 1, lr - 1, lastCol).setBackgrounds(bgs2D);
+    if (!sameColors_(bgs2D, curBgs)) sheet.getRange(2, 1, lr - 1, lastCol).setBackgrounds(bgs2D);   // 変わった時だけ書く
     // データ最終行より下に残った色（保護色・有休/休み色・期限色など）も開くたびに除去
     var maxR = sheet.getMaxRows();
     if (maxR > lr) {
@@ -1581,11 +1583,14 @@ function applyHolidayRowColors_(ss) {
     }
     sheet.getRange(1, 12).setNote('🟡 薄黄: 配車漏れ（IDあり積地空）');
   }
+  tmk_('色：運行の行');
 
   // 運行シートの抜けたマスに色（1-7e）と、降完まで入った行の大事な列に警告だけの保護（1-7f）
   if (sheet && sheet.getLastRow() >= 2) {
     try { applyUnkouGapColors_(sheet, 2, sheet.getLastRow() - 1); } catch(gcE) {}
+    tmk_('色：抜けたマス');
     try { refreshCompletedRowGuard_(ss); } catch(cgE) {}
+    tmk_('色：終わった行の保護');
   }
 
   // 集計表: 同様に行全体着色（警告グレー・保護色を維持）
@@ -1612,7 +1617,7 @@ function applyHolidayRowColors_(ss) {
       }
       return rowArr;
     });
-    sumSheet.getRange(2, 1, slr - 1, sLastCol).setBackgrounds(sbgs2D);
+    if (!sameColors_(sbgs2D, sCurBgs)) sumSheet.getRange(2, 1, slr - 1, sLastCol).setBackgrounds(sbgs2D);   // 変わった時だけ書く
   }
 
   // 自車専属マスタ: B列ヘッダーに行色の説明ノートを設定
@@ -1621,8 +1626,62 @@ function applyHolidayRowColors_(ss) {
     masterSheet.getRange(1, 2).setNote('🔴 淡い赤: 運行\n🟢 淡い緑: 故障\n🟡 薄黄: 待機');
   }
 
+  tmk_('色：集計表の行');
   applyExpiryWarningColors_(ss);
+  tmk_('色：期限');
   markIdCollisions_(ss);
+  tmk_('色：ID重複');
+}
+// 色の並び（2次元）が同じかを比べる（色なし null と白 #ffffff は同じとみなす。大文字小文字は区別しない）。同じなら書き直さないために使う（1-7・1-7c・1-7c-1）
+function sameColors_(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  var n = function(c) { return String(c || '#ffffff').toLowerCase(); };
+  for (var i = 0; i < a.length; i++) {
+    if (a[i].length !== b[i].length) return false;
+    for (var j = 0; j < a[i].length; j++) { if (n(a[i][j]) !== n(b[i][j])) return false; }
+  }
+  return true;
+}
+// 運行シートの1行分の背景色（1-7 の決まり）。idV＝ID、pickV＝積地（L列）、curRow＝今のその行の背景色、lastCol＝列の数。新しい背景色の並びを返す
+function unkouRowBg_(idV, pickV, curRow, lastCol) {
+  if (pickV.indexOf('有休') !== -1) return new Array(lastCol).fill('#e0e0e0');
+  if (pickV.indexOf('休み') !== -1) return new Array(lastCol).fill('#9e9e9e');
+  // 通常行: 既存背景を保護し、有休/休み色・保護色・IDなし行の期限警告残骸をクリア
+  var rowArr = curRow.slice();
+  for (var ci = 0; ci < rowArr.length; ci++) {
+    var _c = rowArr[ci];
+    if (_c === '#e0e0e0' || _c === '#9e9e9e' || _c === '#eceff1') { rowArr[ci] = null; continue; }
+    // IDなし行の期限警告残骸（赤/青/緑/濃赤）を除去
+    if (!idV && (_c === '#ffcdd2' || _c === '#bbdefb' || _c === '#c8e6c9' || _c === '#ff1744')) rowArr[ci] = null;
+  }
+  if (pickV === '' && idV !== '') {
+    rowArr[11] = '#fff9c4'; // IDがあって積地空→常に黄色
+  } else if (pickV !== '' && rowArr[11] === '#fff9c4') {
+    rowArr[11] = null; // 積地入力あり→黄色解除
+  }
+  // 保護列（V=22, Y=25, Z=26）の保護色をIDあり行に自動復元（F5だけで直る）
+  if (idV !== '') {
+    if (lastCol >= 22) rowArr[21] = '#eceff1';
+    if (lastCol >= 25) rowArr[24] = '#eceff1';
+    if (lastCol >= 26) rowArr[25] = '#eceff1';
+  }
+  return rowArr;
+}
+// 運行シートの、変更した行だけに色を付ける（rows＝行番号の並び）。行の背景色（unkouRowBg_）・抜けたマスの色（1-7e）をその行だけ付け、終わった行の保護（1-7f）を見直す
+// needExpiry＝true の時だけ期限の色（1-7c）、needCollide＝true の時だけID重複（1-7b）も動かす（どちらもシート全体を見るので、関係する項目を変更した時だけ）
+function applyUnkouRowColorsFor_(ss, sheet, rows, needExpiry, needCollide) {
+  if (!sheet || !rows || !rows.length) return;
+  var lastCol = Math.max(sheet.getLastColumn(), 12), lr = sheet.getLastRow();
+  rows.forEach(function(r) {
+    if (r < 2 || r > lr) return;
+    var v = sheet.getRange(r, 1, 1, 12).getValues()[0];
+    var rng = sheet.getRange(r, 1, 1, lastCol);
+    rng.setBackgrounds([unkouRowBg_(String(v[0] || '').trim(), String(v[11] || ''), rng.getBackgrounds()[0], lastCol)]);
+    try { applyUnkouGapColors_(sheet, r, 1); } catch (e) {}
+  });
+  try { refreshCompletedRowGuard_(ss); } catch (e2) {}
+  if (needExpiry) { try { applyExpiryWarningColors_(ss); } catch (e3) {} }
+  if (needCollide) { try { markIdCollisions_(ss); } catch (e4) {} }
 }
 // 1-7 の呼び出し口（スタブ・メニュー用）
 function applyHolidayRowColors() { requireSheetUi_(); applyHolidayRowColors_(); }
@@ -1691,7 +1750,7 @@ function markIdCollisions_(ss) {
 //  運行シートのA列（ID）を乗務員ごとの最も近い期限に応じて着色する。
 //  淡い赤=期限超過 / 淡い青=当日 / 淡い緑=7日以内
 //  有休・休み行(グレー)・ID衝突行(#ff1744)には上書きしない。区分（B列）が空の行・マスタに期限のない乗務員の行は期限色を外す（期限が1人も無い時も全行外す）。
-//  A1セルに色の凡例メモを書き、自車専属マスタの期限切れ日付を赤文字にする
+//  A1セルに色の凡例メモを書き、自車専属マスタの期限切れ日付を赤文字にする（文字色は、今と違う列だけ書く）
 //  開いた時と、自車専属マスタの乗務員名・期限4列を直した時（3-3）に動く
 // ================================================================
 function applyExpiryWarningColors_(ss) {
@@ -1776,6 +1835,7 @@ function applyExpiryWarningColors_(ss) {
   // 自車専属マスタの4期限列：期限切れ（今日より前）→赤文字 / それ以外→黒文字
   var mRows = mData.length;
   if (mRows > 0 && expiCols.length > 0) {
+    var curFonts_ = masterSheet.getRange(2, 1, mRows, masterSheet.getLastColumn()).getFontColors();   // 今の文字色（変わった列だけ書くため）
     for (var ci = 0; ci < expiCols.length; ci++) {
       var colFonts = [];
       for (var ri = 0; ri < mRows; ri++) {
@@ -1787,7 +1847,9 @@ function applyExpiryWarningColors_(ss) {
         }
         colFonts.push([color]);
       }
-      masterSheet.getRange(2, expiCols[ci] + 1, mRows, 1).setFontColors(colFonts);
+      var ec_ = expiCols[ci];
+      var fontSame_ = colFonts.every(function(f, fi) { return String(f[0]).toLowerCase() === String(curFonts_[fi][ec_] || '#000000').toLowerCase(); });
+      if (!fontSame_) masterSheet.getRange(2, ec_ + 1, mRows, 1).setFontColors(colFonts);
     }
   }
 }
@@ -1795,7 +1857,7 @@ function applyExpiryWarningColors_(ss) {
 //  1-7c-1: 自車専属マスタの期限セルの背景色（paintMasterExpiryCells_）  【大B / 中1 / 小1-7c-1】
 //  自車専属マスタの4期限列（免許証・安全教育・健康診断・適性診断）のセルごとに、そのセルの日付で背景色を付ける
 //  今日＝黄色 / 過ぎた＝薄い青 / 7日以内（明日〜7日後）＝オレンジ / それ以外・空＝その行の運行状態の色（運行＝薄赤・待機＝薄黄・故障＝薄緑・その他は色なし）
-//  文字色（期限切れ＝赤・それ以外＝黒）は 1-7c が付ける。行全体に運行状態の色を塗る処理（3-3・12-3b）の後にも呼んで、期限セルの色を戻す
+//  背景色は、今の色と違う列だけ書く（1-7 sameColors_）。文字色（期限切れ＝赤・それ以外＝黒）は 1-7c が付ける。行全体に運行状態の色を塗る処理（3-3・12-3b）の後にも呼んで、期限セルの色を戻す
 // ================================================================
 function paintMasterExpiryCells_(masterSheet) {
   if (!masterSheet || masterSheet.getLastRow() < 2) return;
@@ -1806,6 +1868,7 @@ function paintMasterExpiryCells_(masterSheet) {
   if (!cols.length) return;
   var n = masterSheet.getLastRow() - 1;
   var data = masterSheet.getRange(2, 1, n, lc).getValues();
+  var curBg_ = masterSheet.getRange(2, 1, n, lc).getBackgrounds();   // 今の背景色（変わった列だけ書くため）
   var today = new Date(); today.setHours(0, 0, 0, 0);
   cols.forEach(function(c) {
     var bgs = data.map(function(r) {
@@ -1817,7 +1880,7 @@ function paintMasterExpiryCells_(masterSheet) {
       var days = Math.round((d.getTime() - today.getTime()) / 86400000);
       return [days < 0 ? '#bbdefb' : days === 0 ? '#ffee58' : days <= 7 ? '#ffb74d' : base];
     });
-    masterSheet.getRange(2, c + 1, n, 1).setBackgrounds(bgs);
+    if (!sameColors_(bgs, curBg_.map(function(r) { return [r[c]]; }))) masterSheet.getRange(2, c + 1, n, 1).setBackgrounds(bgs);
   });
 }
 // 1-7c の呼び出し口（スタブ・メニュー用）
@@ -3173,6 +3236,8 @@ function showUploadSidebar() {
 function onEdit(e) {
   try {
     if (!isRegisteredSs_(e.source.getId()) || getLicenseStatus_(e.source.getId()).locked) return;   // コピー・停止・期限切れのSSでは動かさない（2-2f/2-2g）
+    jrEditToken_(e, null, 'S');   // この入力の札（同じ入力で動く 14-2b と同じ札。同じ通し番号＝「戻る」1回分にまとめるため。4-2k-2）
+    jrCaptureEdit_(e);   // 入力した行の、入力する前の中身を、最初に「戻る」の控えに取る（4-2k-3）
     var range     = e.range;
     var sheet     = range.getSheet();
     var sheetName = sheet.getName();
@@ -3319,6 +3384,7 @@ function onEdit(e) {
 //  3-2: 運行シート編集時の処理（onEditUnkou_）  【大B / 中3 / 小3-2】
 //  ・A列が空で他列にデータがあればV-XXXXのIDを自動生成
 //  ・J列（日付）：M/D入力は今年の日付に変換、時刻が00:00:00なら現在時刻を付加
+//  ・【3-2-9】自車専属マスタにある車の行の B〜I列（区分・会社名・トン数・車種・車番・乗務員名・携帯番号・看板名）を運行シートで変更すると、毎回必ず確認の画面が出る（14-2b から detectUnkouOverride_ を呼ぶ。ロックはかけない）。画面と決まりは 3-2-9 の見出しを見る
 //  ・F列（車番）：全角→半角に変換し、自車専属マスタからB〜I列（区分〜看板名）を自動補完（補完した値は緑の文字。4-2z の色の決まり）
 //  ・B〜M列・S列（売上）・W列（備考）を手で入れた・直したマスは黒の文字に戻す（自動補完・取込の補完・配車確定の転記の緑を外す）
 //    （車番の完全一致か数字部分の一致で探す。マスタの運行状態が故障・待機の車両は使わない。B〜I列に手入力があれば補完しない）
@@ -3957,7 +4023,7 @@ function onEditMasterVehicle_(sheet, range, ss) {
 // ================================================================
 //  3-3a: 自車専属マスタの空白・支払条件不備のグレー警告（applyMasterVehicleWarnings_）  【大B / 中3 / 小3-3a】
 //  車両IDのある行を見て、必要なセルが空ならグレー（#b0bec5）にして、メモで意味を出す
-//  ・空白のグレー：見出し「運行状態」から「担当管理者」までのセルのうち、「備考」と「高速を引く」（空欄＝引かない、が正しい入力）を除くセルが空（何も入っていない）ならグレー
+//  ・空白のグレー：見出し「運行状態」から「担当管理者」までのセルのうち、「備考」と「高速を引く」（空欄＝引かない、が正しい入力）と「PL設定按分（参照）」（運行以外の車は空が正しい自動の列）を除くセルが空（何も入っていない）ならグレー
 //    （0を入れたセルは入力済みなのでグレーにしない）
 //  ・支払条件のグレー（空白とは別の条件。値が入っていてもグレーになる）：仮日数が空または0 → 仮日数（N）をグレー／給料も%も空または0 → 給料（O）・%（P）をグレー
 //  ・グレーが消える時（入力した時）は、行の運行状態の色（運行＝赤・待機＝黄・故障＝緑）に戻す。グレー以外のセルの背景は触らない
@@ -3988,7 +4054,7 @@ function applyMasterVehicleWarnings_(sheet) {
     var kariN = Number(data[r][kari]) || 0, kyuN = Number(data[r][kyu]) || 0, pctN = Number(data[r][pct]) || 0;
     for (var c = (c0 >= 0 ? c0 : 0); c <= (c1 >= 0 ? c1 : -1); c++) {
       var h = hdr[c];
-      if (h === '備考' || h.indexOf('高速を引く') === 0) continue;
+      if (h === '備考' || h.indexOf('高速を引く') === 0 || h.indexOf('PL設定按分') === 0) continue;
       var v = data[r][c];
       var blank = v === '' || v === null || v === undefined;
       var payGrey = (c === kari && kariN === 0) || ((c === kyu || c === pct) && !kyuN && !pctN);
@@ -4737,6 +4803,7 @@ function generateSummary(ss, extraOld) {
 
 // ================================================================
 //  4-1a: 集計表再生成の本体（generateSummaryCore_）  【大B / 中4 / 小4-1a】
+//  ・書き直す前に中身を消すのは、入っている所（最後の行・列まで）だけ。見出し行の固定は、既に1行固定なら設定し直さない（何も書いていない所まで「戻る」の写しに取り直さないため。4-2k-2）
 //  4-1 の処理の流れ（①〜⑩）を実行する。ロックは呼び出し側で取得済みであること
 // ================================================================
 function generateSummaryCore_(ss, extraOld) {
@@ -5018,7 +5085,10 @@ function generateSummaryCore_(ss, extraOld) {
   // 集計表を再書き込み（値のみクリア・背景リセット、枠線・書式・ヘッダー色は保持）
   var prevLR_ = sumSheet.getLastRow();
   var prevLC_ = Math.max(sumSheet.getLastColumn(), 40);
-  sumSheet.clearContents();
+  tmk_('集計表：読み込みと計算');
+  // 中身を消すのは、入っている所（最後の行・最後の列まで）だけ。シート全体を消す呼び出しにしない（シート全体を「戻る」の写しに取り直して遅くなるため。結果は同じ）
+  var prevLCc_ = sumSheet.getLastColumn();
+  if (prevLR_ >= 1 && prevLCc_ >= 1) sumSheet.getRange(1, 1, prevLR_, prevLCc_).clearContent();
   if (prevLR_ >= 2) {
     sumSheet.getRange(2, 1, prevLR_ - 1, prevLC_).setBackground(null);
   }
@@ -5048,7 +5118,8 @@ function generateSummaryCore_(ss, extraOld) {
       }
       sumSheet.getRange(2, 26, outRows.length - 1, 3).setFontColors(amColors);
     }
-    sumSheet.setFrozenRows(1);
+    if (sumSheet.getFrozenRows() !== 1) sumSheet.setFrozenRows(1);   // 既に1行固定なら設定し直さない
+    tmk_('集計表：値を書く');
     // ヘッダー行の色を全40列に明示的に再設定（clearContentsで書式保持されるが新列は暗背景+黒文字で不可視になるため上書き）
     sumSheet.getRange(1, 1, 1, 40).setBackground('#37474f').setFontColor('#90a4ae').setFontWeight('bold');
     var _hdrEditCols = [23, 25, 27, 30, 35];
@@ -5917,6 +5988,7 @@ function refreshCompanyRegHeaderSnapshot_(sheet) {
 //  4-2e: ヘッダー行の復元と保護（restoreAndProtectHeaders_）  【大B / 中4 / 小4-2e】
 //  対象6シートの1行目を正規ヘッダー（4-2d）に書き戻し、ヘッダー行を保護する
 //  列が足りなければ追加する。運行シートの追加列（装備その他〜帳票備考）は固有色を復元
+//  見出し行の固定（1行）は、既に1行固定なら設定し直さない（設定し直すと、中身が同じでもシート全体を「戻る」の写しに取り直すため。4-2k-2）
 // ================================================================
 function restoreAndProtectHeaders_(ss) {
   var names = ['運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定'];
@@ -5943,14 +6015,23 @@ function restoreAndProtectHeaders_(ss) {
         if (ci >= 0) s.getRange(1, ci + 1).setBackground(dc.bg).setFontColor(dc.fg).setFontWeight('bold');
       });
     }
-    s.setFrozenRows(1);
+    if (s.getFrozenRows() !== 1) s.setFrozenRows(1);   // 既に1行固定なら設定し直さない（設定し直すと、中身が同じでもシート全体を「戻る」の写しに取り直して遅くなる。4-2k-2）
+    // 見出し行の保護：範囲・編集できる人が正しい保護が既にあれば、そのまま残す（消して作り直すと1枚ごとに時間がかかる）。違うものだけ消して作り直す
+    var protCols = Math.max(hdr.length, s.getLastColumn());
+    var protA1 = 'A1:' + (function(n) { var t = ''; while (n > 0) { var m = (n - 1) % 26; t = String.fromCharCode(65 + m) + t; n = Math.floor((n - 1) / 26); } return t; })(protCols) + '1';
+    var protKept = false;
     s.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p) {
-      if (p.getDescription() === 'ヘッダー行保護') p.remove();
+      if (p.getDescription() !== 'ヘッダー行保護') return;
+      var okP = false;
+      try { okP = !protKept && p.getRange().getA1Notation() === protA1 && p.getEditors().length <= 1 && !p.canDomainEdit(); } catch (pe) { okP = false; }
+      if (okP) protKept = true; else p.remove();
     });
-    var protRange = s.getRange(1, 1, 1, Math.max(hdr.length, s.getLastColumn()));
-    var prot = protRange.protect().setDescription('ヘッダー行保護');
-    prot.removeEditors(prot.getEditors());
-    if (prot.canDomainEdit()) prot.setDomainEdit(false);
+    if (!protKept) {
+      var protRange = s.getRange(1, 1, 1, protCols);
+      var prot = protRange.protect().setDescription('ヘッダー行保護');
+      prot.removeEditors(prot.getEditors());
+      if (prot.canDomainEdit()) prot.setDomainEdit(false);
+    }
   });
 }
 
@@ -6077,6 +6158,12 @@ function restoreSheetColumnOrder_(sheet, canonHdr, bkSheet) {
     sheet.getRange(1, 1, 1, canonHdr.length).setValues([canonHdr]);
     return;
   }
+  // 正規の見出しが先頭から同じ順に並んでいる（並びが正しい）時は、全データを読み直し・書き直しをしない（時間がかかる。数式も値に変わらない）。余った空の列の整理だけする
+  var hdr0 = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return String(h || '').trim(); });
+  if (canonHdr.every(function(n, i) { return hdr0[i] === n; })) {
+    if (sheet.getMaxColumns() > lastCol) sheet.deleteColumns(lastCol + 1, sheet.getMaxColumns() - lastCol);
+    return;
+  }
   var rows = Math.max(lastRow, 1);
   var allData = sheet.getRange(1, 1, rows, lastCol).getValues();
   var curHdrs = allData[0].map(function(h) { return String(h || '').trim(); });
@@ -6153,7 +6240,7 @@ function getSheetTabColors_() {
 }
 // ================================================================
 //  4-2j: シート並び順・タブ色の整列（arrangeSheetsOrder_）  【大B / 中4 / 小4-2j】
-//  4-2h の順にシートを並べ、4-2i のタブ色を設定する
+//  4-2h の順にシートを並べ、4-2i のタブ色を設定する。タブ色は今の色と違うシートだけ設定し、並びは合っていれば動かさない
 // ================================================================
 function arrangeSheetsOrder_(ss) {
   var isMaster = !ss.getSheetByName('__COMPANY_SS__') && !ss.getSheetByName('__TEMPLATE_SS__');
@@ -6162,8 +6249,15 @@ function arrangeSheetsOrder_(ss) {
   order.forEach(function(name) {
     var sh = ss.getSheetByName(name);
     if (!sh) return;
-    try { sh.setTabColor(colors[name] || null); } catch(e) {}
+    try {   // タブの色は、今の色と違う時だけ設定する（1枚ずつ設定し直すと時間がかかるため）
+      var wantTab = colors[name] || null, curTab = sh.getTabColor();
+      if (String(curTab || '').toLowerCase() !== String(wantTab || '').toLowerCase()) sh.setTabColor(wantTab);
+    } catch(e) {}
   });
+  // 今の並びが、あるべき並び（今あるシートだけ）と先頭から同じなら移動しない（1枚動かすごとに時間がかかるため）
+  var curNames = ss.getSheets().map(function(x) { return x.getName(); });
+  var wantNames = order.filter(function(n) { return curNames.indexOf(n) >= 0; });
+  if (curNames.slice(0, wantNames.length).join('\n') === wantNames.join('\n')) return;
   // 逆順で1番目に移動 → order[0]が最終的に1番目になる
   for (var i = order.length - 1; i >= 0; i--) {
     var sh = ss.getSheetByName(order[i]);
@@ -6192,7 +6286,7 @@ function dispatchStructureChange(e) {
     if (!isRegisteredSs_(e.source.getId()) || getLicenseStatus_(e.source.getId()).locked) return;   // コピー・停止・期限切れのSSでは動かさない（2-2f/2-2g）
     var ct = e.changeType;
     // 人の行・列の追加削除・書式の変更などは、開いているシート全体の書き込みとして記録する（4-2k-2。処理の終わりに写す 4-2k-3）
-    if (['INSERT_ROW', 'REMOVE_ROW', 'INSERT_COLUMN', 'REMOVE_COLUMN', 'FORMAT', 'OTHER'].indexOf(ct) >= 0) { try { jrMark_(e.source.getActiveSheet(), 'deleteRows'); } catch(jmErr) {} }
+    if (['INSERT_ROW', 'REMOVE_ROW', 'INSERT_COLUMN', 'REMOVE_COLUMN', 'FORMAT', 'OTHER'].indexOf(ct) >= 0) { try { jrEditToken_(e, 'C'); jrMark_(e.source.getActiveSheet(), 'deleteRows'); } catch(jmErr) {} }
     if (ct !== 'EDIT' && ct !== 'FORMAT') {
       try { restoreHeaderRowIfBroken_(e.source); } catch(hErr) { logError_('ヘッダー行復元(onChange)', hErr); }
       if (ct !== 'INSERT_ROW') {
@@ -6320,24 +6414,34 @@ function onStructureChange_(e) { dispatchStructureChange(e); }
 //  客が見るシート（4-2h の並び順の19シート）ごとに、隠しシート「_BK_写_シート名」に一個前の写し（中身・文字の色・背景色・表示の形・
 //  選択肢・メモ・列の幅まで全部）を持つ。①②③で同じ（①はシートを消すのが自由なので、消した時に戻すのだけ②③）
 //  ・書いたマスの記録：デプロイの時に build_journal.js が、シート・マスに書く呼び出し全部の受け手を jrMark_ で包む（4-2k-2）。
-//    人の入力は 14-6（dispatchInstalledEdit）の最初、人の行・列の追加削除や書式の変更は 4-2k の最初で記録する
+//    人の入力は 14-2b（dispatchInstalledEdit）の最初、人の行・列の追加削除や書式の変更は 4-2k の最初で記録する
 //  ・1回の処理（メニュー・アプリ・トリガー・画面からの呼び出し）が終わった時に、書いたマスだけを写す（4-2k-3）。シート全体は写さない
 //    （行・列の数が変わった時・シートが作り直された時だけ、シート全体を写す）。重くしないため、中身はプログラムに読み込まずスプレッドシートの中で写す
 //  ・写す前の写しの中身は「戻る」の控え（隠しシート「_BK_戻る」）に取っておく（4-2k-4）。戻れるのは20回まで、控えは2万行まで。古い分から消す
-//  ・3秒以内に続いた書き込みは1回分にまとめる（人の入力と、その入力で動く自動の処理を1回の「戻る」で戻すため）
-//  ・開いた時の処理（JR_NO_HIST_TOP_）は写しだけ新しくし、「戻る」の回数に数えない
+//    控えには、変えた場所（シート名・左上・大きさ）と札を記録し、戻す・進む時は札で控えを探して、記録した場所へそのまま写す（行番号では探さない＝ずれない）
+//  ・写し・控え・目次を読む・書く間は、そのSSの順番待ち（4-2k-4 jrLock_）に入る（シートの画面・乗務員アプリ・トリガーで同じ1つ）
+//  ■ 決まり：人の入力1回＝「戻る」1回分。入力ごとに通し番号を付ける（4-2k-4 jrEditEntry_。目次に持つ）。1回の入力で動く処理（入力の時の処理 3-1・14-2b、確認の画面の後の処理 3-2-9）の書き込みは、
+//    同じ「入力の札」（4-2k-2 jrEditToken_）から同じ通し番号になり、同じ1回分にまとめる。同じ入力かどうかは通し番号で見る（時間の近さでは見ない。何秒おきに入れても・処理が何秒遅れて動いても、別々の入力は必ず別の1回分、同じ入力は必ず同じ1回分）。
+//    入力の札が無い処理は「戻る」の控えを取らない
+//  ・「戻る」で戻した入力・もう控えが消えた入力の、後から届いた書き込み（同じ通し番号）は、控えに足さない（新しい1回分にもしない。「進む」の控えを消さないため）
+//  ■ 決まり：控えと目次を書いたら、書き終えてから（SpreadsheetApp.flush）次の処理に順番を渡す。書き終わる前に渡すと、次の処理が古い目次を読んで上書きし、1回分が消える・「進む」が消えるため（4-2k-4 jrUnlock_・jrLoadMeta_）
+//  ■ 決まり：「戻る」「進む」で戻す・進めるのは、人がシートの画面で手入力した分（と、その入力で一緒に動いた自動の書き込み）だけ（JR_HIST_TOP_）。
+//    メニューのシート再生成・集計表再生成・取込・乗務員アプリの書き込み・夜間の処理・開いた時の処理は、写しだけ新しくし、「戻る」の回数に数えない（戻る・進むで動かない）
 //  ・新しく書き込みがあったら「進む」の控えは消す（エクセルと同じ）
 //  ・シートが消された時（②③）・列を消された・動かされた時は、写しから消す直前と全く同じに戻す（4-2k-6・4-2k）
-//  ・メニューの「↩ 戻る」「↪ 進む」で、自動・手動に関係なく、書いた順に1回ずつ戻す・進める（4-2k-5）
+//  ・メニューの「↩ 戻る」「↪ 進む」で、人が手入力した順に1回ずつ戻す・進める（4-2k-5）
 // ================================================================
-var JR_ = { d: 0, top: '', off: 0, recs: {}, guard: null, src: null };
+var JR_ = { d: 0, top: '', off: 0, recs: {}, guard: null, src: null, tok: '', tokAt: 0, side: '', waitCap: false };   // tok・tokAt・side：この処理を動かした人の入力の札・この処理が始まった時刻・どちらの処理か（S＝3-1、I＝14-2b と確認の画面の後。4-2k-2 jrEditToken_。入力の通し番号を決めるため）
 var JR_MIRROR_PREFIX_ = '_BK_写_';
 var JR_HIST_SHEET_    = '_BK_戻る';
 var JR_MAX_STEPS_     = 20;
 var JR_MAX_HIST_ROWS_ = 20000;
-var JR_MERGE_MS_      = 3000;
-var JR_NO_HIST_TOP_   = ['onOpen', 'buildClientMenu', 'convertLegacyAdminDataUrls', 'applyHolidayRowColors', 'applyExpiryWarningColors',
-                         'ensureRequiredSheets', 'ensureSheetsOnOpen', 'backupAllSheets', 'showExpiryAlert'];
+var JR_STALE_MS_      = 20000;    // 片方の処理だけが記録したまま、これを過ぎた入力は「もう片方は来ない」とみなす（同じマス・同じ値の新しい入力が来た時に閉じる。4-2k-4 jrEditEntry_）
+var JR_PAIR_MS_       = 120000;   // 同じ入力のもう片方の処理（3-1 と 14-2b）を待つ時間。これより古い「片方だけの入力」には、もう片方として組にしない（ずっと前の、同じマス・同じ値の入力と取り違えないため）。1回分をまとめる・分けるのには使わない
+// 「戻る」の控えを取る処理（一番外側の関数の名前）＝人がシートの画面で入力・行や列を追加削除した時に動く処理と、その入力の確認の画面（3-2-9）のボタンだけ。
+// ここに無い処理（メニューのシート再生成・集計表再生成・取込・乗務員アプリ・夜間の処理・開いた時の処理など）は、写しだけ新しくして、「戻る」の回数に数えない
+var JR_HIST_TOP_      = ['onEdit', 'installedOnEdit_', 'dispatchInstalledEdit', 'onStructureChange_', 'dispatchStructureChange',
+                         'finishUnkouOverride', 'cancelUnkouOverride'];
 // シートで受けた時にシート全体を写す呼び出し（行・列の追加削除・並び替え・全体の消去・列の幅など）。appendRow は足した1行だけ
 var JR_SHEET_WHOLE_   = ['clear', 'clearContents', 'clearFormats', 'clearNotes', 'clearConditionalFormatRules', 'sort',
                          'insertRowAfter', 'insertRowBefore', 'insertRows', 'insertRowsAfter', 'insertRowsBefore',
@@ -6351,12 +6455,13 @@ var JR_RANGE_WHOLE_   = ['insertCells', 'deleteCells'];
 function jrGuardNames_() { return getExpectedSheetOrder_(false); }
 
 // ================================================================
-//  4-2k-2: 書いたマスの記録（jrMark_ / jrSrc_ / jrDest_ / jrRecFor_ / jrAddRect_）  【大B / 中4 / 小4-2k-2】
+//  4-2k-2: 書いたマスの記録（jrMark_ / jrEditToken_ / jrSrc_ / jrDest_ / jrRecFor_ / jrAddRect_）  【大B / 中4 / 小4-2k-2】
+//  ・jrEditToken_：人の入力の札（JR_.tok）・この処理が始まった時刻（JR_.tokAt）・どちらの処理か（JR_.side。S＝3-1、I＝14-2b）を入れる。入力の時の処理（3-1・14-2b）の最初と、行や列の追加削除（4-2k）・確認の画面の「元に戻す」（3-2-9）で呼ぶ。入力の通し番号は、この3つから 4-2k-4 jrEditEntry_ が決める
 //  build_journal.js がデプロイの時に差し込む。受け手をそのまま返すので、元の処理の動きは変わらない
 //  ・受け手がマスなら、そのシートの「書いた範囲」を広げる。シートなら JR_SHEET_WHOLE_ の時だけシート全体の印を付ける
 //  ・4-2k-1 の19シート以外・マスでもシートでもない受け手（配列の並び替えなど）・写しや戻るの処理の中（JR_.off）は記録しない
 //  ・copyTo は写す先が左上の1マスでも、写す元の大きさ分を記録する（jrSrc_ で元を覚え、jrDest_ で記録）
-//  ・記録はこの1回の処理の中だけ持つ（JR_.recs。SSごと・シートごとに、書いた範囲を1つの四角にまとめる）
+//  ・記録はこの1回の処理の中だけ持つ（JR_.recs。SSごと・シートごとに、書いた所ごとの四角の並び rects で持つ。重なる・隣り合う四角だけ1つにまとめ、離れた所は別々のまま。8個を超えたら1つにまとめる）
 // ================================================================
 function jrRecFor_(sh) {
   if (!JR_.guard) { JR_.guard = {}; jrGuardNames_().forEach(function(n) { JR_.guard[n] = 1; }); }
@@ -6364,13 +6469,29 @@ function jrRecFor_(sh) {
   if (!JR_.guard[name]) return null;
   var ss = sh.getParent();
   var key = ss.getId() + '\n' + name;
-  return JR_.recs[key] || (JR_.recs[key] = { ss: ss, name: name, whole: false, r1: 0, c1: 0, r2: 0, c2: 0 });
+  return JR_.recs[key] || (JR_.recs[key] = { ss: ss, name: name, whole: false, rects: [] });
 }
+// 書いた範囲を足す。重なる・隣り合う四角だけを1つにまとめ、離れた所は別々の四角のまま持つ（書いていない所まで写さないため）。四角が8個を超えたら全部を1つの四角にまとめる
 function jrAddRect_(rec, r, c, nr, nc) {
   if (rec.whole || nr < 1 || nc < 1) return;
-  var r2 = r + nr - 1, c2 = c + nc - 1;
-  if (!rec.r1) { rec.r1 = r; rec.c1 = c; rec.r2 = r2; rec.c2 = c2; return; }
-  rec.r1 = Math.min(rec.r1, r); rec.c1 = Math.min(rec.c1, c); rec.r2 = Math.max(rec.r2, r2); rec.c2 = Math.max(rec.c2, c2);
+  var list = rec.rects || (rec.rects = []);
+  var n = { r1: r, c1: c, r2: r + nr - 1, c2: c + nc - 1 }, merged = true;
+  while (merged) {
+    merged = false;
+    for (var i = 0; i < list.length; i++) {
+      var q = list[i];
+      if (n.r1 <= q.r2 + 1 && q.r1 <= n.r2 + 1 && n.c1 <= q.c2 + 1 && q.c1 <= n.c2 + 1) {
+        n = { r1: Math.min(n.r1, q.r1), c1: Math.min(n.c1, q.c1), r2: Math.max(n.r2, q.r2), c2: Math.max(n.c2, q.c2) };
+        list.splice(i, 1); merged = true; break;
+      }
+    }
+  }
+  list.push(n);
+  if (list.length > 8) {
+    var u = list[0];
+    for (var k = 1; k < list.length; k++) u = { r1: Math.min(u.r1, list[k].r1), c1: Math.min(u.c1, list[k].c1), r2: Math.max(u.r2, list[k].r2), c2: Math.max(u.c2, list[k].c2) };
+    rec.rects = [u];
+  }
 }
 function jrMark_(t, m) {
   if (JR_.off || !t) return t;
@@ -6389,6 +6510,21 @@ function jrMark_(t, m) {
   } catch(e) {}
   return t;
 }
+// 人の入力の札を作って JR_.tok・JR_.tokAt・JR_.side に入れる。同じ入力で動く2つの処理（3-1 と 14-2b）は同じ札になる（side は 3-1＝S、14-2b＝I）
+// 1マスの入力＝シート名・マス・前の値・入れた値、複数マス＝シート名・範囲、から作る。kind を渡した時（行や列の追加削除・確認の画面の「元に戻す」）は、毎回ちがう札（side は空）
+function jrEditToken_(e, kind, side) {
+  JR_.tokAt = Date.now();
+  JR_.tok = '';
+  JR_.side = '';
+  JR_.waitCap = (side === 'I');   // 14-2b の処理は、同じ入力の 3-1 の控えが済むのを待ってから写す（jrWaitCap_）
+  try {
+    if (kind) { JR_.tok = kind + JR_.tokAt + '_' + Math.floor(Math.random() * 1e6); return; }
+    var r = e.range, base = r.getSheet().getName() + '|' + r.getA1Notation();
+    if (r.getNumRows() === 1 && r.getNumColumns() === 1) base += '|' + String(e.oldValue === undefined ? '' : e.oldValue) + '|' + String(e.value === undefined ? '' : e.value);
+    JR_.tok = 'E' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, base, Utilities.Charset.UTF_8));
+    JR_.side = side === 'I' ? 'I' : 'S';
+  } catch (x) { JR_.tok = 'U' + JR_.tokAt + '_' + Math.floor(Math.random() * 1e6); JR_.side = ''; }
+}
 function jrSrc_(t) { JR_.src = t; return t; }
 function jrDest_(d) {
   if (JR_.off || !d) return d;
@@ -6403,31 +6539,45 @@ function jrDest_(d) {
 }
 
 // ================================================================
-//  4-2k-3: 処理の終わりに写す（jrCommit_ / jrMakeMirror_ / jrEnsureMirrors_）  【大B / 中4 / 小4-2k-3】
+//  4-2k-3: 処理の終わりに写す（jrCommit_ / jrDiffRects_ / jrCaptureEdit_ / jrMakeMirror_ / jrEnsureMirrors_）  【大B / 中4 / 小4-2k-3】
 //  1回の処理の一番外側の関数が終わった時に呼ばれる（build_journal.js が包む）。エラーで止まった時も呼ばれる
 //  ・シートごとに：写しが無い → シートを丸ごと写して写しを作る（初めての時。「戻る」の控えは無い）
 //    行・列の数が写しと違う・シートが作り直された（シートの番号が違う）・シート全体の印 → 写しの全体を「戻る」の控えに取り、写しを作り直す
-//    それ以外 → 書いた範囲だけ、写しの中身を「戻る」の控えに取り、シートの中身を写しに写す
-//  ・JR_NO_HIST_TOP_ の処理の時は「戻る」の控えを取らず、写しだけ新しくする
+//    それ以外 → 書いた所ごとに（4-2k-2 の四角の並び）、写しと中身が違う行だけ、写しの中身を「戻る」の控えに取り（jrDiffRects_）、シートの中身を写しに写す
+//  ■ 決まり：同じ入力（通し番号）の1回分か、それより新しい1回分に、もう控えてある所（最初に取った入力した行など）は、もう一度控えない（jrFindStep_ で1回分を探して比べる）。戻す時は最初の控えの中身に戻るので、同じ所の後の控えは要らない
+//  ■ 決まり：「戻る」の控えに取るのは、変わった所だけ（入力した行と、その入力で自動で変わった行）。書いた範囲を1つの大きな四角にして丸ごと取らない（戻る・進むが遅くなり、ほかの入力の分まで巻き込むため）
+//  ・人が入力した範囲は、入力の時の処理（3-1）の最初に、入力する前の中身を控えに取る（jrCaptureEdit_）。手入力の処理（3-1・14-2b）の終わりの写し（jrCommit_）は、控えには足さない。ほかの処理の写しが先に動いても、入力する前の中身を必ず取るため
+//    （入力したマスの前の値は、入力の知らせの値 e.oldValue で必ず正しくする。写しへは入力したマスだけ写す）
+//  ・戻した後・消えた後の入力の後追いの処理では、控えを取らない（写しだけ新しくする）
+//  ・14-2b の処理は、処理の終わりに写す前に、同じ入力の 3-1 の控えが済むのを待つ（最大3秒。jrWaitCap_。3-1 が済むと jrCapDone_ が数を足す）。写しが先に新しくなって、次の入力が1回分に入るのを防ぐ
+//  ・「戻る」の控えを取るのは JR_HIST_TOP_ の処理（人がシートの画面で入力した時に動く処理）の時だけ。ほかの処理の時は、写しだけ新しくする
 //  ・ここで写す・作る書き込みは記録しない（JR_.off）。失敗しても元の処理は止めない
+//  ・SSごとに、そのSSの順番待ち（4-2k-4 jrLock_）の中で写す
+//  ・写しにかかった時間（JR_.lastMs）と、シート全体を写したシートの名前と秒数（JR_.lastWhole）を覚える。シート再生成（4-3）は、完了画面を出す前にこの写しを済ませ、時間を画面に出す
 //  jrEnsureMirrors_：写しが無い19シートの写しを作る（開いた時 16-2c・2-1 から）
 // ================================================================
 function jrCommit_() {
   var keys = Object.keys(JR_.recs);
   if (!keys.length) return;
+  var jrT0_ = Date.now(), jrWhole_ = [];
   var recs = JR_.recs;
   JR_.recs = {};
-  var noHist = JR_NO_HIST_TOP_.indexOf(JR_.top) >= 0;
+  var noHist = JR_HIST_TOP_.indexOf(JR_.top) < 0 || !JR_.tok;   // 人の入力で動いた処理（入力の札がある時）だけ「戻る」の控えを取る
   JR_.off++;
-  var lock = null;
-  try { lock = LockService.getDocumentLock(); if (lock) lock.tryLock(20000); } catch(le) { lock = null; }
   try {
     var bySs = {};
     keys.forEach(function(k) { var r = recs[k]; var id = r.ss.getId(); (bySs[id] = bySs[id] || []).push(r); });
     Object.keys(bySs).forEach(function(id) {
+      var lk = '';
       try {
         var list = bySs[id], ss = list[0].ss;
+        if (!noHist) jrWaitCap_(ss);
+        lk = jrLock_(ss);
         var meta = jrLoadMeta_(ss), parts = [];
+        var ent = (noHist || JR_.side) ? null : jrEditEntry_(meta);   // この入力（通し番号）。手入力の処理（3-1・14-2b）の書き込みは控えない（手入力は jrCaptureEdit_ が入力の順に控える）
+        var stepNow = ent ? jrFindStep_(meta, ent) : null;   // この入力の1回分（「戻る」の控えにもうあれば）
+        var newer = stepNow ? meta.undo.slice(meta.undo.indexOf(stepNow)) : [];   // この入力の1回分と、それより新しい1回分
+        var keep = !!ent && (!ent.st || !!stepNow);   // 控えを取るのは、この入力の1回分がまだ無い時か、「戻る」の控えにある時だけ（戻した後・消えた後の後追いは取らない）
         list.forEach(function(rec) {
           try {
             var sh = ss.getSheetByName(rec.name);
@@ -6437,26 +6587,122 @@ function jrCommit_() {
             var whole = rec.whole || meta.src[rec.name] !== sh.getSheetId() ||
                         sh.getMaxRows() !== mir.getMaxRows() || sh.getMaxColumns() !== mir.getMaxColumns();
             if (whole) {
-              if (!noHist) parts.push(jrSaveBlock_(meta, mir, 1, 1, mir.getMaxRows(), mir.getMaxColumns(), rec.name, true));
+              var jrW0_ = Date.now();
+              if (keep) parts.push(jrSaveBlock_(meta, mir, 1, 1, mir.getMaxRows(), mir.getMaxColumns(), rec.name, true));
               jrMakeMirror_(ss, sh, meta);
+              jrWhole_.push(rec.name + Math.round((Date.now() - jrW0_) / 1000) + '秒');
               return;
             }
-            if (!rec.r1) return;
-            var r2 = Math.min(rec.r2, sh.getMaxRows()), c2 = Math.min(rec.c2, sh.getMaxColumns());
-            var nr = r2 - rec.r1 + 1, nc = c2 - rec.c1 + 1;
-            if (nr < 1 || nc < 1) return;
-            if (!noHist) parts.push(jrSaveBlock_(meta, mir, rec.r1, rec.c1, nr, nc, rec.name, false));
-            sh.getRange(rec.r1, rec.c1, nr, nc).copyTo(mir.getRange(rec.r1, rec.c1, nr, nc));
+            var maxR_ = sh.getMaxRows(), maxC_ = sh.getMaxColumns();
+            (rec.rects || []).forEach(function(q) {   // 書いた所ごとに
+              var nr = Math.min(q.r2, maxR_) - q.r1 + 1, nc = Math.min(q.c2, maxC_) - q.c1 + 1;
+              if (nr < 1 || nc < 1) return;
+              // 「戻る」の控えには、写しと中身が違う行だけを取る（変わっていない行は取らない）
+              // ただし、この入力の1回分か、それより新しい1回分にもう入っている所（最初に取った行の控えなど）は足さない（戻す時は先に取った控えの中身に戻るので、同じ所の後の控えは要らない。控えが少ないほど戻る・進むが速い）
+              if (keep) jrDiffRects_(sh, mir, q.r1, q.c1, nr, nc).forEach(function(d) {
+                var has = function(p) { return !p.w && p.s === rec.name && p.r <= d.r && p.c <= d.c && p.r + p.nr >= d.r + d.nr && p.c + p.nc >= d.c + d.nc; };
+                if (newer.some(function(st) { return st.p.some(has); }) || parts.some(has)) return;
+                parts.push(jrSaveBlock_(meta, mir, d.r, d.c, d.nr, d.nc, rec.name, false));
+              });
+              sh.getRange(q.r1, q.c1, nr, nc).copyTo(mir.getRange(q.r1, q.c1, nr, nc));
+            });
           } catch(re) { logError_('一個前の写し(' + rec.name + ')', re); }
         });
-        if (parts.length) jrPushStep_(meta, parts);
+        if (parts.length) jrPushStep_(meta, parts, ent);
         jrSaveMeta_(meta);
       } catch(se) { logError_('一個前の写し', se); }
+      finally { jrUnlock_(lk); }
     });
   } finally {
-    try { if (lock) lock.releaseLock(); } catch(ue) {}
     JR_.off--;
+    JR_.lastMs = Date.now() - jrT0_; JR_.lastWhole = jrWhole_;   // 写しにかかった時間と、シート全体を写したシート（4-3 の完了画面に出す）
   }
+}
+// 書いた範囲のうち、写しと中身が違う行のかたまりを返す（[{r, c, nr, nc}…]）。20行以下の範囲は比べずにそのまま返す。
+// 比べるのは 値・式・背景色・文字色・メモ。違う行のかたまりが10個を超えたら、最初から最後までを1つにして返す。違う行が無ければ空（控えを取らない）
+function jrDiffRects_(sh, mir, r, c, nr, nc) {
+  if (nr <= 20) return [{ r: r, c: c, nr: nr, nc: nc }];
+  var keyOf = function(rng) {
+    var v = rng.getValues(), f = rng.getFormulas(), bg = rng.getBackgrounds(), fc = rng.getFontColors(), nt = rng.getNotes(), out = [];
+    for (var i = 0; i < v.length; i++) out.push(JSON.stringify([v[i], f[i], bg[i], fc[i], nt[i]]));
+    return out;
+  };
+  var ka = keyOf(sh.getRange(r, c, nr, nc)), kb = keyOf(mir.getRange(r, c, nr, nc)), runs = [], i = 0;
+  while (i < nr) {
+    if (ka[i] === kb[i]) { i++; continue; }
+    var j = i;
+    while (j + 1 < nr && ka[j + 1] !== kb[j + 1]) j++;
+    runs.push({ r: r + i, c: c, nr: j - i + 1, nc: nc });
+    i = j + 1;
+  }
+  if (runs.length > 10) { var a0 = runs[0], z0 = runs[runs.length - 1]; return [{ r: a0.r, c: c, nr: z0.r + z0.nr - a0.r, nc: nc }]; }
+  return runs;
+}
+// 人が入力した範囲を、入力の時の処理（3-1）の最初に「戻る」の控えに取る（入力する前の中身。入力した範囲だけ）。
+// ■ 決まり：人が触った分は、入力が来た順に1つずつ控える（1つの入力＝1回分。入力の通し番号の順）。「戻る」「進む」は、必ずこの1回分ずつ動く。
+//   自動で変わった所（14-2b などの処理が書いた所）は控えない・戻さない（戻した後に、また自動で入れ直す）
+// ■ 決まり：1マスの入力で、入力したマスの「前の値」は、入力の知らせの値（e.oldValue）が正しい。写しのそのマスがもう入力した後の値になっている時
+//   （この処理が動く前に、ほかの処理が写しに写した時）でも、控えのそのマスは e.oldValue にする
+// ■ 決まり：取った後、写しへは入力した範囲だけを写す（同じ行に続けて入れた次の入力を、先に写しに入れてしまわないため）。ほかのマスは、処理の終わり（jrCommit_）に写す
+// この入力（通し番号）の1回分がもうある時（もう1つの処理が先に取った）は取らない。
+// 一度に200行を超える入力・写しが無い・行や列の数が写しと違う時は、ここでは取らず、処理の終わり（jrCommit_）に任せる
+function jrCaptureEdit_(e) {
+  if (JR_.off || !JR_.tok) return;
+  try { jrCaptureEditMain_(e); }
+  finally { jrCapDone_(e); }
+}
+// 入力の時の処理（3-1）の控えが済んだ数を、SSごとに1つ足す（キャッシュ。10分で消える）。14-2b の処理が待つ印（jrWaitCap_）
+function jrCapDone_(e) {
+  try {
+    var key = 'jrCap_' + e.source.getId(), c = CacheService.getScriptCache();
+    c.put(key, String((Number(c.get(key)) || 0) + 1), 600);
+  } catch (x) {}
+}
+// 14-2b の処理が、同じ入力の 3-1 の控えが済むのを待つ（最大3秒。済みの数を1つ引いて進む）。3-1 のほうが先に動くのが普通なので、たいてい待たない
+// ■ 決まり：14-2b の処理が先に写しを新しくすると、まだ控えていない次の入力の値が写しに入り、1回分に2つの入力が入る（戻る・進むで2個一気に動く）。これを防ぐための待ち
+function jrWaitCap_(ss) {
+  if (!JR_.waitCap) return;
+  try {
+    var key = 'jrCap_' + ss.getId(), c = CacheService.getScriptCache(), t0 = Date.now();
+    while (true) {
+      var n = Number(c.get(key)) || 0;
+      if (n > 0) { c.put(key, String(n - 1), 600); return; }
+      if (Date.now() - t0 > 3000) return;
+      Utilities.sleep(150);
+    }
+  } catch (x) {}
+}
+function jrCaptureEditMain_(e) {
+  var lk = '';
+  try {
+    var sh = e.range.getSheet(), name = sh.getName();
+    if (!JR_.guard) { JR_.guard = {}; jrGuardNames_().forEach(function(n) { JR_.guard[n] = 1; }); }
+    if (!JR_.guard[name]) return;
+    var r = e.range.getRow(), nr = e.range.getNumRows();
+    if (nr > 200) return;
+    var ss = sh.getParent(), mir = ss.getSheetByName(JR_MIRROR_PREFIX_ + name);
+    if (!mir) return;
+    var maxR = sh.getMaxRows(), nc = sh.getMaxColumns();
+    if (maxR !== mir.getMaxRows() || nc !== mir.getMaxColumns()) return;
+    JR_.off++;
+    try {
+      lk = jrLock_(ss);
+      var meta = jrLoadMeta_(ss);
+      if (meta.src[name] !== sh.getSheetId()) return;
+      var ent = jrEditEntry_(meta);
+      if (!ent || ent.st) { jrSaveMeta_(meta); return; }   // もう1つの処理が先に取った（通し番号の組だけ保存する）
+      var c0 = e.range.getColumn(), ncE = e.range.getNumColumns();
+      var p = jrSaveBlock_(meta, mir, r, c0, nr, ncE, name, false);   // 入力した範囲だけを控える（行の全部ではない）
+      if (nr === 1 && ncE === 1 && !p.f && (e.value !== undefined || e.oldValue !== undefined)) {   // 1マスの入力：前の値は入力の知らせの値が正しい
+        var oldV = e.oldValue === undefined ? '' : e.oldValue;
+        var at0 = jrFindBlock_(meta, p);
+        if (at0) meta.h.getRange(at0, 2).setValue(oldV);
+      }
+      e.range.copyTo(mir.getRange(r, c0, nr, ncE));
+      jrPushStep_(meta, [p], ent);
+      jrSaveMeta_(meta);
+    } finally { jrUnlock_(lk); JR_.off--; }
+  } catch (x) { try { logError_('入力した行の控え（4-2k-3）', x); } catch (x2) {} }
 }
 function jrMakeMirror_(ss, sh, meta) {
   var name = sh.getName();
@@ -6484,16 +6730,47 @@ function jrEnsureMirrors_(ss) {
 }
 
 // ================================================================
-//  4-2k-4: 「戻る」の控え（jrLoadMeta_ / jrSaveMeta_ / jrSaveBlock_ / jrPutFormulas_ / jrFreeParts_ / jrPushStep_）  【大B / 中4 / 小4-2k-4】
-//  隠しシート「_BK_戻る」に控えを持つ。A1＝目次（戻る・進むの一覧・写しの元のシート番号・次に書く行）、2行目から控えの中身を縦に積む
-//  ・1回分（step）＝ {t: 時刻, p: [控え…]}。控え（part）＝ {s: シート名, r/c: 左上, nr/nc: 大きさ, w: シート全体か, at: 控えの行,
+//  4-2k-4: 「戻る」の控え（jrLock_ / jrUnlock_ / jrLoadMeta_ / jrSaveMeta_ / jrSaveBlock_ / jrFindBlock_ / jrPutFormulas_ / jrFreeParts_ / jrEditEntry_ / jrFindStep_ / jrPushStep_）  【大B / 中4 / 小4-2k-4】
+//  隠しシート「_BK_戻る」に控えを持つ。A1＝目次（形の番号 v・戻る・進むの一覧・写しの元のシート番号・札の通し番号・入力の通し番号の記録 ed と最後の番号 en）、2行目から控えの中身を縦に積む
+//  ■ 決まり：控えは「札」で探す。行番号は覚えない（行番号を覚えると、ほかの控えを消した時にずれるため）
+//  ・1回分（step）＝ {t: 時刻, n: 入力の通し番号, k: 入力の札, p: [控え…]}。控え（part）＝ {s: シート名, r/c: 変えた場所の左上, nr/nc: 大きさ, w: シート全体か, k: 札,
 //    f: 式があるか, u: 使った行数}
+//  ・控えの中身は、一番下の空いた行の B列から右に写す。A列には、その控えが使う全部の行に同じ札（ほかと重ならない文字）を書く
+//  ・使う時（戻す・進む・消す）は、A列から札の行を探す（jrFindBlock_）。札の行が、使った行数ぶん続いている時だけ、その控えとして使う
 //  ・控えは左の列から写すので、式は指す先がずれて壊れる。そのため式があれば、式の文字（頭に §）をすぐ下に同じ大きさで取っておき、
 //    戻す時に元の場所へ式の文字のまま書き戻す（jrPutFormulas_。写しは元と同じ場所に写すのでずれない）
-//  ・控えを消す時は使った行（式の文字の分も）を消し、後ろの控えの行番号を詰める
-//  ・新しい1回分を足す：3秒以内なら前の1回分にまとめる → 「進む」の控えを全部消す → 20回・2万行を超えたら古い分から消す
+//  ・控えを消す時は、札の行を全部消す（式の文字の分も）。ほかの控えは札で探すので、消しても影響しない
+//  ■ 決まり：入力ごとに通し番号を付ける（jrEditEntry_）。同じ入力で動く2つの処理（3-1＝S、14-2b＝I）は、同じ札の記録を片方ずつ取って同じ通し番号になる。確認の画面の後の処理（3-2-9）は 14-2b の時刻を引き継ぐので同じ通し番号。
+//    同じマスに同じ値を何度入れても、入力ごとに別の通し番号（同じ側の処理は、同じ記録を二度取らない）。時間の近さでは見ない
+//  ・新しい書き込みを足す時（jrPushStep_）：同じ通し番号の1回分が「進む」の控えにある → 足さない（戻した入力の後追い）／「戻る」の控えにある → 「戻る」の一番新しい1回分に足す
+//    （後の入力がもうある時、前の1回分に足すと、新しい順に戻した時に後の入力の値がまた出るため）／
+//    どちらにも無く、まだ1回分を作っていない → 新しい1回分として足し、「進む」の控えを全部消す → 20回・2万行を超えたら古い分から消す／
+//    どちらにも無く、前に1回分を作った（もう消えた入力の後追い）→ 足さない
+//  ■ 決まり：順番を渡す前に書き終える（jrUnlock_ の SpreadsheetApp.flush）。古い目次を読んで上書きすると、1回分・「進む」が消えるため
+//  ・順番待ち（jrLock_ / jrUnlock_）：控えと目次を読む・書く間は、そのSSの順番待ちに入る。シートの画面・乗務員アプリ・トリガーのどこから動いても同じ1つの順番待ち
+//    （ライブラリのScriptLockを一瞬だけ使って、SSごとの印（キャッシュ jrLease_＋SSのID。180秒で消える）を付ける。ほかの客のSSは待たせない）。
+//    20秒待っても入れない時は、そのまま進める（札で探すので、重なっても別の控えを使うことは無い）
+//  ・前の形（通し番号の無い形。v が 3 でない）の控えが残っているSSは、最初に控えを空にしてやり直す（写しはそのまま）
 //  目次はSSの中に持つ（どのSSの処理か・①から③を直す時でも、そのSSの控えになる）
 // ================================================================
+function jrLock_(ss) {
+  try {
+    var key = 'jrLease_' + ss.getId(), cache = CacheService.getScriptCache(), t0 = Date.now();
+    while (Date.now() - t0 < 20000) {
+      var sl = LockService.getScriptLock();
+      if (sl.tryLock(3000)) {
+        try { if (!cache.get(key)) { cache.put(key, '1', 180); return key; } } finally { sl.releaseLock(); }
+      }
+      Utilities.sleep(250);
+    }
+  } catch(e) {}
+  return '';
+}
+function jrUnlock_(key) {
+  try { SpreadsheetApp.flush(); } catch(fe) {}   // 控えと目次を書き終えてから、次の処理に順番を渡す
+  if (!key) return;
+  try { CacheService.getScriptCache().remove(key); } catch(e) {}
+}
 function jrLoadMeta_(ss) {
   var h = ss.getSheetByName(JR_HIST_SHEET_);
   if (!h) {
@@ -6505,36 +6782,60 @@ function jrLoadMeta_(ss) {
   }
   var meta = null;
   try { meta = JSON.parse(String(h.getRange(1, 1).getValue() || '')); } catch(pe) {}
-  if (!meta || !meta.undo) meta = { undo: [], redo: [], src: {}, next: 2 };
+  if (!meta || !meta.undo || meta.v !== 3) {   // 前の形の控えは使わない（空にしてやり直す。写しの元のシート番号は引き継ぐ）
+    var src0 = (meta && meta.src) || {};
+    try { if (h.getMaxRows() > 2) h.deleteRows(3, h.getMaxRows() - 2); h.clear(); } catch(ce) {}
+    meta = { v: 3, undo: [], redo: [], src: src0, seq: 0, ed: [], en: 0 };
+  }
+  if (!meta.ed) meta.ed = [];
   meta.h = h;
+  meta.tags = null;
   return meta;
 }
 function jrSaveMeta_(meta) {
-  meta.h.getRange(1, 1).setValue(JSON.stringify({ undo: meta.undo, redo: meta.redo, src: meta.src, next: meta.next }));
+  meta.h.getRange(1, 1).setValue(JSON.stringify({ v: 3, undo: meta.undo, redo: meta.redo, src: meta.src, seq: meta.seq || 0, ed: meta.ed || [], en: meta.en || 0 }));
 }
 function jrSaveBlock_(meta, srcSheet, r, c, nr, nc, name, whole) {
-  var h = meta.h, at = meta.next;
-  if (h.getMaxRows() < at + nr - 1) h.insertRowsAfter(h.getMaxRows(), at + nr - 1 - h.getMaxRows());
-  if (h.getMaxColumns() < nc) h.insertColumnsAfter(h.getMaxColumns(), nc - h.getMaxColumns());
+  var h = meta.h, at = Math.max(h.getLastRow(), 1) + 1;
   var src = srcSheet.getRange(r, c, nr, nc);
-  src.copyTo(h.getRange(at, 1, nr, nc));
   // 式は写す場所がずれると指す先もずれて壊れるので、式の文字をそのまま（頭に § を付けた文字として）すぐ下に取っておく
   var fml = src.getFormulas(), has = false;
   var txt = fml.map(function(row) { return row.map(function(f) { if (f) { has = true; return '§' + f; } return ''; }); });
+  var used = has ? 2 * nr : nr;
+  if (h.getMaxRows() < at + used - 1) h.insertRowsAfter(h.getMaxRows(), at + used - 1 - h.getMaxRows());
+  if (h.getMaxColumns() < nc + 1) h.insertColumnsAfter(h.getMaxColumns(), nc + 1 - h.getMaxColumns());
+  // 札を先に書く（A列。この控えが使う全部の行）
+  meta.seq = (meta.seq || 0) + 1;
+  var k = 'k' + Date.now().toString(36) + '_' + meta.seq + '_' + Math.floor(Math.random() * 1e6);
+  var tags = [];
+  for (var i = 0; i < used; i++) tags.push([k]);
+  h.getRange(at, 1, used, 1).setValues(tags);
+  src.copyTo(h.getRange(at, 2, nr, nc));
   if (has) {
-    if (h.getMaxRows() < at + 2 * nr - 1) h.insertRowsAfter(h.getMaxRows(), at + 2 * nr - 1 - h.getMaxRows());
-    var tr = h.getRange(at + nr, 1, nr, nc);
+    var tr = h.getRange(at + nr, 2, nr, nc);
     tr.clear();
     tr.setNumberFormat('@').setValues(txt);
   }
-  var used = has ? 2 * nr : nr;
-  meta.next = at + used;
-  return { s: name, r: r, c: c, nr: nr, nc: nc, w: whole ? 1 : 0, at: at, f: has ? 1 : 0, u: used };
+  meta.tags = null;
+  return { s: name, r: r, c: c, nr: nr, nc: nc, w: whole ? 1 : 0, k: k, f: has ? 1 : 0, u: used };
 }
-// 取っておいた式の文字を、元の場所に書き戻す（縦に続く式はまとめて書く）
-function jrPutFormulas_(meta, p, target, r, c) {
+// 札から控えの最初の行を探す。札の行が使った行数ぶん続いていなければ 0（その控えは使わない）
+function jrFindBlock_(meta, p) {
+  if (!p || !p.k) return 0;
+  if (!meta.tags) {
+    var last = meta.h.getLastRow();
+    meta.tags = last >= 1 ? meta.h.getRange(1, 1, last, 1).getValues().map(function(row) { return String(row[0]); }) : [];
+  }
+  var idx = meta.tags.indexOf(p.k), used = p.u || p.nr;
+  if (idx < 1) return 0;
+  for (var i = 0; i < used; i++) { if (meta.tags[idx + i] !== p.k) return 0; }
+  if (meta.tags[idx + used] === p.k) return 0;
+  return idx + 1;
+}
+// 取っておいた式の文字を、元の場所に書き戻す（縦に続く式はまとめて書く）。at＝控えの最初の行（jrFindBlock_）
+function jrPutFormulas_(meta, p, target, r, c, at) {
   if (!p.f) return;
-  var txt = meta.h.getRange(p.at + p.nr, 1, p.nr, p.nc).getValues();
+  var txt = meta.h.getRange(at + p.nr, 2, p.nr, p.nc).getValues();
   for (var j = 0; j < p.nc; j++) {
     var i = 0;
     while (i < p.nr) {
@@ -6546,35 +6847,92 @@ function jrPutFormulas_(meta, p, target, r, c) {
     }
   }
 }
+// 控えを消す：札の行を、下から、続いている行ごとにまとめて消す
 function jrFreeParts_(meta, parts) {
-  parts.slice().sort(function(a, b) { return b.at - a.at; }).forEach(function(p) {
-    var used = p.u || p.nr;
-    try { meta.h.deleteRows(p.at, used); } catch(de) { return; }
-    meta.next -= used;
-    [meta.undo, meta.redo].forEach(function(stack) {
-      stack.forEach(function(st) { st.p.forEach(function(q) { if (q.at > p.at) q.at -= used; }); });
-    });
-  });
+  var keys = {}, any = false;
+  (parts || []).forEach(function(p) { if (p && p.k) { keys[p.k] = 1; any = true; } });
+  if (!any) return;
+  var last = meta.h.getLastRow();
+  if (last < 2) return;
+  var col = meta.h.getRange(1, 1, last, 1).getValues();
+  var end = 0;
+  for (var i = last; i >= 1; i--) {   // i＝行番号。1行目（目次）は消さない
+    var hit = i >= 2 && keys[String(col[i - 1][0])] === 1;
+    if (hit) { if (!end) end = i; continue; }
+    if (end) { try { meta.h.deleteRows(i + 1, end - i); } catch(de) {} end = 0; }
+  }
+  meta.tags = null;
 }
-function jrPushStep_(meta, parts) {
-  var now = Date.now(), last = meta.undo[meta.undo.length - 1];
-  if (last && now - last.t < JR_MERGE_MS_) { last.p = last.p.concat(parts); last.t = now; }
-  else meta.undo.push({ t: now, p: parts });
-  var redo = meta.redo;
+// この処理を動かした入力の「通し番号の記録」を返す（{k: 入力の札, n: 通し番号, S・I: その入力で動いた 3-1・14-2b の処理が始まった時刻, t: 記録した時刻, st: 1回分をもう作ったか}）。
+// ・同じ処理（札と side と時刻が同じ）の記録があれば、それ（同じ処理の2回目・確認の画面の後の処理）
+// ・無ければ、同じ札で、もう片方の処理だけが記録している記録（この側がもう取った記録より後で一番古いもの。JR_PAIR_MS_ より新しいもの）を、同じ入力として組にする
+//   （同じマスに同じ値を続けて入れた時も、処理は入力の順に動くので、1つ目同士・2つ目同士が組になる）
+// ・それも無ければ、新しい入力として次の通し番号を付ける。その時、同じ札で片方だけのまま JR_STALE_MS_ を過ぎた記録は閉じる。古い記録（「戻る」「進む」の控えに無く、10分より前）は消す
+// 札が無い時は null。目次（meta）を書き換えるので、呼んだ後は jrSaveMeta_ で保存する
+function jrEditEntry_(meta) {
+  var tok = JR_.tok || '', side = JR_.side || '', at = JR_.tokAt || 0, now = Date.now(), ed = meta.ed, i;
+  if (!tok) return null;
+  for (i = ed.length - 1; i >= 0; i--) { if (ed[i].k === tok && (!side || ed[i][side] === at)) return ed[i]; }
+  if (side) {
+    var from = 0, other = side === 'S' ? 'I' : 'S';
+    for (i = ed.length - 1; i >= 0; i--) { if (ed[i].k === tok && ed[i][side]) { from = i + 1; break; } }   // この側がもう取った記録より後だけを見る（処理は入力の順に動くので、前に残った片方だけの記録は取らない）
+    for (i = from; i < ed.length; i++) { if (ed[i].k === tok && !ed[i][side] && now - ed[i].t < JR_PAIR_MS_) { ed[i][side] = at; return ed[i]; } }
+    // 新しい入力として記録する前に、同じ札で片方だけのまま JR_STALE_MS_ を過ぎた記録を閉じる（もう片方は来ない。後から、同じマス・同じ値の別の入力と組にしないため）
+    ed.forEach(function(x) { if (x.k === tok && x[side] && !x[other] && now - x.t > JR_STALE_MS_) x[other] = -1; });
+  }
+  meta.en = (meta.en || 0) + 1;
+  var ent = { k: tok, n: meta.en, t: now, st: 0 };
+  if (side) ent[side] = at;
+  ed.push(ent);
+  var live = {};
+  meta.undo.concat(meta.redo).forEach(function(s) { live[s.n] = 1; });
+  meta.ed = ed.filter(function(x) { return x === ent || live[x.n] === 1 || now - x.t < 600000; });
+  if (meta.ed.length > 80) meta.ed = meta.ed.slice(meta.ed.length - 80);
+  return ent;
+}
+// その入力（通し番号）の1回分が「戻る」の控えにあれば返す（無ければ null）
+function jrFindStep_(meta, ent) {
+  if (!ent) return null;
+  for (var u = meta.undo.length - 1; u >= 0; u--) { if (meta.undo[u].n === ent.n) return meta.undo[u]; }
+  return null;
+}
+// 控え（parts）を、その入力（通し番号）の1回分に入れる。ent を渡さない時は、この処理の入力（jrEditEntry_）
+function jrPushStep_(meta, parts, ent) {
+  var now = Date.now();
+  ent = ent || jrEditEntry_(meta);
+  if (!ent) { jrFreeParts_(meta, parts); return; }
+  var same = function(st) { return st.n === ent.n; };   // 同じ1回の入力か（通し番号で見る）
+  // 「戻る」で戻した入力の、後から届いた書き込み：控えに足さない（写しは新しくなっている。「進む」の控えも消さない）
+  if (meta.redo.some(same)) { jrFreeParts_(meta, parts); return; }
+  // 同じ1回の入力の続き：「戻る」の控えの一番新しい1回分に足す（「進む」の控えは消さない）。
+  // ■ 決まり：その入力の1回分より新しい1回分（後の入力）がある時も、一番新しい1回分に足す。後から取った控えの中身には後の入力が入っているので、
+  //   前の1回分に足すと、後の入力を戻した後に前の入力を戻した時、後の入力の値がまた出てしまう。一番新しい1回分に足せば、新しい順に戻した時に必ず元の中身になる
+  for (var u = meta.undo.length - 1; u >= 0; u--) {
+    if (same(meta.undo[u])) { var top = meta.undo[meta.undo.length - 1]; top.p = top.p.concat(parts); top.t = now; return; }
+  }
+  // 1回分を前に作ったのに「戻る」にも「進む」にも無い＝もう消えた入力の後追い：足さない（新しい1回分にしない）
+  if (ent.st) { jrFreeParts_(meta, parts); return; }
+  ent.st = 1;
+  meta.undo.push({ t: now, n: ent.n, k: ent.k, p: parts });   // 新しい入力＝新しい1回分（通し番号の順に積む）
+  var dead = [];
+  meta.redo.forEach(function(st) { dead = dead.concat(st.p); });
   meta.redo = [];
-  redo.forEach(function(st) { jrFreeParts_(meta, st.p); });
-  while (meta.undo.length > JR_MAX_STEPS_ || (meta.next > JR_MAX_HIST_ROWS_ && meta.undo.length > 1)) {
+  if (dead.length) jrFreeParts_(meta, dead);
+  while (meta.undo.length > JR_MAX_STEPS_ || (meta.h.getLastRow() > JR_MAX_HIST_ROWS_ && meta.undo.length > 1)) {
     jrFreeParts_(meta, meta.undo.shift().p);
   }
 }
 
 // ================================================================
 //  4-2k-5: 戻る・進む（undoLastChange / redoLastChange / jrUndoRedo_ / jrApplyPart_）  【大C / 中4 / 小4-2k-5】
-//  メニューの「↩ 戻る」「↪ 進む」から呼ばれる（①は 2-1、②③は 2-1a のメニュー）。自動・手動に関係なく、書いた順に1回分ずつ戻す・進める
-//  ・戻す時：1回分の控えを後ろから順に、今の中身を「進む」の控えに取ってから、控えの中身をシートと写しの両方に写す
+//  メニューの「↩ 戻る」「↪ 進む」から呼ばれる（①は 2-1、②③は 2-1a のメニュー）。人がシートの画面で手入力した分を、入力した順に1回分ずつ戻す・進める（メニューの処理・アプリの書き込みは対象外。4-2k-1 JR_HIST_TOP_）
+//  ■ 決まり：戻る＝1回押すと1個前、2回押すと2個前（20回まで）。進むも同じ。戻す場所・大きさは、控えに記録した「変えた場所」（シート名・左上・大きさ）そのまま
+//  ・戻す時：1回分の控えを札で探し（4-2k-4）、後ろから順に、今の中身を「進む」の控えに取ってから、控えの中身をシートと写しの両方に写す
 //  ・シート全体の控えは、行・列の数も控えの時に合わせてから写す
 //  ・進む時はその逆（「戻る」の控えに取ってから進める）。使い終わった控えは消す
+//  ・札の行が見つからない1回分（控えが残っていない）は飛ばして、その前の1回分を戻す（押したら必ず1つ戻る・進む。エラーにしない）
 //  ・戻す・進む書き込みは記録しない（JR_.off）。何回戻れるかを知らせる
+//  ・控えを読む・書く間は、そのSSの順番待ち（jrLock_）に入る
 //  スプレッドシートのメニューから（管理画面からは P-5b・P-5g を通した時）だけ動く。URLから直接呼ばれたら止める（P-5f）
 // ================================================================
 function undoLastChange() {
@@ -6588,47 +6946,51 @@ function redoLastChange() {
 function jrUndoRedo_(ss, isUndo) {
   JR_.recs = {};
   JR_.off++;
-  var lock = null;
-  try { lock = LockService.getDocumentLock(); if (lock) lock.tryLock(20000); } catch(le) { lock = null; }
+  var lk = jrLock_(ss);
   try {
     var meta = jrLoadMeta_(ss);
     var from = isUndo ? meta.undo : meta.redo, to = isUndo ? meta.redo : meta.undo;
-    if (!from.length) { ss.toast(isUndo ? '戻せる操作がありません' : '進める操作がありません', isUndo ? '↩ 戻る' : '↪ 進む', 4); return; }
-    var st = from.pop(), back = [];
-    for (var i = st.p.length - 1; i >= 0; i--) {
-      var p = st.p[i], sh = ss.getSheetByName(p.s);
-      if (!sh) continue;
-      back.push(p.w ? jrSaveBlock_(meta, sh, 1, 1, sh.getMaxRows(), sh.getMaxColumns(), p.s, true)
-                    : jrSaveBlock_(meta, sh, p.r, p.c, p.nr, p.nc, p.s, false));
-      jrApplyPart_(ss, meta, p, sh);
+    var title = isUndo ? '↩ 戻る' : '↪ 進む', done = false;
+    while (from.length && !done) {
+      var st = from.pop(), back = [], ats = [];
+      for (var a = 0; a < st.p.length; a++) ats.push(jrFindBlock_(meta, st.p[a]));
+      for (var i = st.p.length - 1; i >= 0; i--) {
+        var p = st.p[i], sh = ss.getSheetByName(p.s);
+        if (!sh || !ats[i]) continue;
+        back.push(p.w ? jrSaveBlock_(meta, sh, 1, 1, sh.getMaxRows(), sh.getMaxColumns(), p.s, true)
+                      : jrSaveBlock_(meta, sh, p.r, p.c, p.nr, p.nc, p.s, false));
+        jrApplyPart_(ss, meta, p, sh, ats[i]);
+        done = true;
+      }
+      if (back.length) to.push({ t: Date.now(), n: st.n || 0, k: st.k || '', p: back });   // 入力の通し番号はそのまま引き継ぐ（後から届く同じ入力の書き込みを見分けるため）
+      jrFreeParts_(meta, st.p);
     }
-    to.push({ t: 0, p: back });   // 時刻0＝次の書き込みとまとめない
-    jrFreeParts_(meta, st.p);
     jrSaveMeta_(meta);
-    ss.toast((isUndo ? '1つ前に戻しました' : '1つ進めました') + '（あと 戻る' + meta.undo.length + '回・進む' + meta.redo.length + '回）',
-             isUndo ? '↩ 戻る' : '↪ 進む', 4);
+    if (!done) { ss.toast(isUndo ? '戻せる操作がありません' : '進める操作がありません', title, 4); return; }
+    ss.toast((isUndo ? '1つ前に戻しました' : '1つ進めました') + '（あと 戻る' + meta.undo.length + '回・進む' + meta.redo.length + '回）', title, 4);
   } finally {
-    try { if (lock) lock.releaseLock(); } catch(ue) {}
+    jrUnlock_(lk);
     JR_.off--;
   }
 }
-function jrApplyPart_(ss, meta, p, sh) {
-  var src = meta.h.getRange(p.at, 1, p.nr, p.nc);
+// at＝控えの最初の行（jrFindBlock_）。控えの中身は B列から
+function jrApplyPart_(ss, meta, p, sh, at) {
+  var src = meta.h.getRange(at, 2, p.nr, p.nc);
   if (p.w) {
     var cr = sh.getMaxRows(), cc = sh.getMaxColumns();
     if (cr < p.nr) sh.insertRowsAfter(cr, p.nr - cr); else if (cr > p.nr) sh.deleteRows(p.nr + 1, cr - p.nr);
     if (cc < p.nc) sh.insertColumnsAfter(cc, p.nc - cc); else if (cc > p.nc) sh.deleteColumns(p.nc + 1, cc - p.nc);
     src.copyTo(sh.getRange(1, 1, p.nr, p.nc));
-    jrPutFormulas_(meta, p, sh, 1, 1);
+    jrPutFormulas_(meta, p, sh, 1, 1, at);
     jrMakeMirror_(ss, sh, meta);
     return;
   }
   src.copyTo(sh.getRange(p.r, p.c, p.nr, p.nc));
-  jrPutFormulas_(meta, p, sh, p.r, p.c);
+  jrPutFormulas_(meta, p, sh, p.r, p.c, at);
   var mir = ss.getSheetByName(JR_MIRROR_PREFIX_ + p.s);
   if (mir && mir.getMaxRows() >= p.r + p.nr - 1 && mir.getMaxColumns() >= p.c + p.nc - 1) {
     src.copyTo(mir.getRange(p.r, p.c, p.nr, p.nc));
-    jrPutFormulas_(meta, p, mir, p.r, p.c);
+    jrPutFormulas_(meta, p, mir, p.r, p.c, at);
   } else jrMakeMirror_(ss, sh, meta);
 }
 
@@ -7096,6 +7458,12 @@ function askOverwriteHandEdited_(count, what, fromWhat) {
 // ================================================================
 //  4-3: シート再生成（expandAndRefreshSheets）  【大B / 中4 / 小4-3】
 //  メニューの「シート再生成」から呼び出す。集計表を含む全シートを正しい状態にする（集計表再生成は集計表だけ）
+//  ・色付けの後に、運行シートで、自車専属マスタの車の行の緑のマス（区分〜看板名）を全部黒に戻す（4-2z-3）
+//  ・工程ごとの時間を計り（tmk_。1-7・4-1a の中にも印がある）、2秒以上かかった工程を完了画面に出す（遅い所を見つけるため）
+//  ・集計表の作り直しの後、完了画面を出す前に「戻る」の写し（4-2k-3）を済ませる。完了画面に、列と見出し・整備・色付け・色付けの後・集計表の作り直し・「戻る」の写しの秒数と、シート全体を写したシート名を出す
+//  ・■ 決まり：同じ処理を2回動かさない。色付け（1-7。行の色・抜けたマス・終わった行の保護・期限・ID重複）は、最後の集計表の作り直し（4-1a）の終わりに1回だけ動かす（ROW_COLORS_SKIP_ で途中の分を止める）
+//  ・■ 決まり：変わっていない所は、読み直さない・書き直さない・写し直さない。見出し行の固定・列の幅・行の高さは、既に正しければ設定し直さない（設定し直すと、中身が同じでもシート全体を「戻る」の写しに取り直して遅くなる。配車板・自社設定 15-4・見出し 4-2e・集計表 4-1a・自車専属運行 4-5）
+//  ・列の並び（4-2e・restoreSheetColumnOrder_）・見出し行の保護（restoreAndProtectHeaders_）・シートの並び順（arrangeSheetsOrder_）は、既に正しい時は書き直さず・作り直さず・動かさない（時間がかかるため。正しくない所だけ直す）
 //  ・自車専属マスタに仮日数/給料/%列がなければ追加
 //  ・自車専属マスタに15経費列がなければ追加（按分計算用）
 //  ・自車専属運行シートをマスタから再生成（15列対応）
@@ -7115,10 +7483,21 @@ function expandAndRefreshSheets() {
   var ow43_ = askOverwriteHandEdited_(countSumHandEdited_(ss), '支払い・燃料代・経費合計（集計表）');
   if (ow43_ === 'cancel') return;
   HAND_OVERWRITE_ = (ow43_ === 'yes');
-  try { expandAndRefreshSheetsBody_(ss); } finally { HAND_OVERWRITE_ = false; }
+  try { expandAndRefreshSheetsBody_(ss); } finally { HAND_OVERWRITE_ = false; ROW_COLORS_SKIP_ = false; TMK_ = null; }
+}
+// 工程ごとの時間を計る（4-3 の完了画面に、時間のかかった工程を出すため）。TMK_ がある間だけ、前の印からの時間を名前付きで覚える
+var TMK_ = null;
+function tmk_(label) {
+  if (!TMK_) return;
+  var now = Date.now();
+  TMK_.list.push([label, now - TMK_.t]);
+  TMK_.t = now;
 }
 // 4-3 の本体（上書きの確認の後に動く）
 function expandAndRefreshSheetsBody_(ss) {
+  TMK_ = { t: Date.now(), list: [] };
+  ROW_COLORS_SKIP_ = true;   // 色付け（1-7）は、最後の集計表の作り直しの終わりに1回だけ動かす（途中の2回は止める。結果は同じ）
+  var tm0_ = Date.now(), tmH_ = 0, tmS_ = 0;   // 所要時間の計測（完了画面に出す。どの工程が遅いかを見つけるため）
   // ヘッダー修復の前に列順・データを正規位置へ復元（並び替え・削除後のズレを解消）
   ['運行','集計表','自車専属マスタ','自車専属運行','マスタ','設定'].forEach(function(sname) {
     var s = ss.getSheetByName(sname);
@@ -7127,7 +7506,10 @@ function expandAndRefreshSheetsBody_(ss) {
     if (!canon) return;
     restoreSheetColumnOrder_(s, canon, ss.getSheetByName('_BK_' + sname));
   });
+  tmk_('列の並び');
   restoreAndProtectHeaders_(ss);
+  tmk_('見出しと保護');
+  var tmA_ = Date.now() - tm0_;   // 列の並び・見出し
   var sheetsToUpdate = ['自車専属マスタ', '自車専属運行'];
   var colsToAdd = ['仮日数', '給料', '％'];
 
@@ -7253,7 +7635,9 @@ function expandAndRefreshSheetsBody_(ss) {
   }
 
   // 自車専属マスタの燃費を設定シートから一括再計算（一括貼り付け後にシート再生成でも確実に反映。1-1d-2）
+  tmk_('自車専属マスタの列');
   refreshMasterFuelColumn_(ss);
+  tmk_('燃費の列');
 
   // 運行シートに点呼前完了・点呼後完了列を追加（なければ末尾に追加）―早期に実行してタイムアウトを回避
   var unkouInspSheet = ss.getSheetByName('運行');
@@ -7338,13 +7722,15 @@ function expandAndRefreshSheetsBody_(ss) {
     }
   }
 
+  tmk_('点呼・帳票の列');
   refreshActiveVehiclesAuto_();
+  tmk_('自車専属運行');
 
   var unkouForFmt = ss.getSheetByName('運行');
   if (unkouForFmt && unkouForFmt.getLastRow() >= 2) {
     applyMoneyFormat_(unkouForFmt, 2, unkouForFmt.getLastRow() - 1, 'unkou');
     applyDateTimeFormat_(unkouForFmt, 2, unkouForFmt.getLastRow() - 1);
-    unkouForFmt.getRange(2, 10, unkouForFmt.getLastRow() - 1, 1).setNumberFormat('yyyy/MM/dd');
+    setNumberFormatIfDiff_(unkouForFmt, 2, unkouForFmt.getLastRow() - 1, [10], 'yyyy/MM/dd');
   }
   var sumForFmt = ss.getSheetByName('集計表');
   if (sumForFmt && sumForFmt.getLastRow() >= 2) {
@@ -7352,10 +7738,13 @@ function expandAndRefreshSheetsBody_(ss) {
     applyDateTimeFormat_(sumForFmt, 2, sumForFmt.getLastRow() - 1);
   }
 
+  tmk_('金額・日時の形');
   applySheetColors_(ss);
+  tmk_('シートの色');
 
   // 設定シートに業務前点検・業務後点検データがなければデフォルトを挿入
   ensureSettingItems_(ss);
+  tmk_('点検項目');
 
   // 自車専属マスタ B列（運行状態）に 運行・故障・待機 のドロップダウンを設定
   if (masterSheet && masterSheet.getMaxRows() > 1) {
@@ -7410,7 +7799,9 @@ function expandAndRefreshSheetsBody_(ss) {
     }
   }
 
+  tmk_('自車専属マスタの形');
   ensureCompanySettingSheet_(ss);
+  tmk_('自社設定');
   // テストシートは修正用SS（__COMPANY_SS__・__TEMPLATE_SS__ なし）のみ
   if (!ss.getSheetByName('__COMPANY_SS__') && !ss.getSheetByName('__TEMPLATE_SS__')) {
     ensureTestMasterSheet_(ss);
@@ -7468,7 +7859,7 @@ function expandAndRefreshSheetsBody_(ss) {
 
     // ヘッダー行を常に最新定義で上書き（列追加や名称変更に対応するため毎回書き直す）
     johoSheet.getRange(1, 1, 1, JOHO_COLS).setValues([johoHdr]);
-    johoSheet.setFrozenRows(1);
+    if (johoSheet.getFrozenRows() !== 1) johoSheet.setFrozenRows(1);   // 既に1行固定なら設定し直さない
 
     // ── 旧構造からの自動移行（O列ヘッダーが旧名のシートのみ実行） ──
     // 旧構造: N=チェック(bool), O=進捗(確定等), P=会社名... AA=貨物ID, AB=車両ID
@@ -7515,15 +7906,11 @@ function expandAndRefreshSheetsBody_(ss) {
       .setBackground('#e65100').setFontColor('#ffffff').setFontWeight('bold');
 
     // 列幅
-    johoSheet.setColumnWidth(1,  50);  // A: チェック(貨物)
-    johoSheet.setColumnWidth(2,  70);  // B: 進捗(貨物)
-    johoSheet.setColumnWidth(14, 80);  // N: 貨物登録ID
-    johoSheet.setColumnWidth(15, 50);  // O: チェック(車両)
-    johoSheet.setColumnWidth(16, 70);  // P: 進捗(車両)
-    johoSheet.setColumnWidth(6,  90);  // F: 日付
-    johoSheet.setColumnWidth(7, 120);  // G: 品名
-    johoSheet.setColumnWidth(20, 90);  // T: 日付(車両)
-    johoSheet.setColumnWidth(29, 80);  // AC: 車両登録ID
+    // A:チェック(貨物) B:進捗(貨物) N:貨物登録ID O:チェック(車両) P:進捗(車両) F:日付 G:品名 T:日付(車両) AC:車両登録ID
+    // 既にその幅の列は設定し直さない（設定し直すと、中身が同じでもシート全体を「戻る」の写しに取り直して遅くなる）
+    [[1, 50], [2, 70], [14, 80], [15, 50], [16, 70], [6, 90], [7, 120], [20, 90], [29, 80]].forEach(function(cw) {
+      if (johoSheet.getColumnWidth(cw[0]) !== cw[1]) johoSheet.setColumnWidth(cw[0], cw[1]);
+    });
 
     // ── データ行バリデーション（2〜501行） ─────────────────────────────
     var dataRows = 500;
@@ -7552,8 +7939,15 @@ function expandAndRefreshSheetsBody_(ss) {
     }
   })();
 
+  tmk_('配車板');
+  var tmH0_ = Date.now();
+  var tmB_ = tmH0_ - tm0_ - tmA_;   // 列・書式・配車板などの整備
   applyHolidayRowColors_();
+  try { resetStrayGreenOnUnkou_(ss); } catch (rgE) { logError_('resetStrayGreenOnUnkou_', rgE); }   // 間違って緑になったマスを黒に戻す（4-2z-3）
+  tmk_('緑を黒に');
+  tmH_ = Date.now() - tmH0_;
   refreshJohoColors_(ss);
+  tmk_('配車板の色');
   try { restoreMemoSheet_(ss); } catch(mErr) {}   // メモが無ければ控え（_BK_メモ）の最新の中身で戻す（4-2r）
   ['指示先履歴', '指示先ID別'].forEach(function(hname) {
     var hsh = ss.getSheetByName(hname);
@@ -7583,16 +7977,33 @@ function expandAndRefreshSheetsBody_(ss) {
     });
     if (chg) ns.getRange(2, 1, nData.length, nLastCol).setValues(nData);
   });
+  tmk_('メモ・トン数と車種の正規化');
   initImportDictionary_(ss);
+  tmk_('取込辞書');
   // テスト用シート（運行客テスト・ダミー運行）は①修正用SS（__COMPANY_SS__・__TEMPLATE_SS__ なし）だけに作る（②③には作らない。4-2h の①の並び）
   if (!ss.getSheetByName('__COMPANY_SS__') && !ss.getSheetByName('__TEMPLATE_SS__')) {
     createImportTestSheetUnkou();
     createDummyUnkouSheet_();
   }
+  tmk_('テスト用シート');
   arrangeSheetsOrder_(ss);
+  tmk_('シートの並び順');
   try { updatePlApportionment_(ss); } catch(e) {}  // AG列（PL設定按分）の値と背景色を全行更新（17-7a）
-  var regenSumOk = generateSummary(ss);  // 集計表も作り直す（4-1）。利益など値で書く列もここで計算し直す
-  getUiOrWeb_().alert(regenSumOk ? 'シート再生成が完了しました。' : 'シート再生成が完了しました。（集計表は別の処理中のため作り直せませんでした。もう一度押してください）');
+  tmk_('PL按分');
+  var tmS0_ = Date.now();
+  var tmC_ = tmS0_ - tmH0_ - tmH_;   // 色付けの後〜集計表の前（配車板の色・正規化・取込辞書・並び順など）
+  ROW_COLORS_SKIP_ = false;
+  var regenSumOk = generateSummary(ss);  // 集計表も作り直す（4-1）。利益など値で書く列もここで計算し直す。終わりに色付け（1-7）も動く
+  if (!regenSumOk) { try { applyHolidayRowColors_(ss); } catch (rcE) {} }   // 集計表を作り直せなかった時は、色付けだけ動かす
+  tmk_('集計表：残り');
+  tmS_ = Date.now() - tmS0_;
+  JR_.lastMs = 0; JR_.lastWhole = [];
+  try { jrCommit_(); } catch (jcE) {}   // 「戻る」の写し（4-2k-3）を、完了画面を出す前に済ませる（画面が出た後に長く待たせない）
+  var tmMsg_ = '\n（所要時間：全体 ' + Math.round((Date.now() - tm0_) / 1000) + '秒／列と見出し ' + Math.round(tmA_ / 1000) + '秒／整備 ' + Math.round(tmB_ / 1000) + '秒／色付け ' + Math.round(tmH_ / 1000) + '秒／色付けの後 ' + Math.round(tmC_ / 1000) + '秒／集計表の作り直し ' + Math.round(tmS_ / 1000) + '秒／「戻る」の写し ' + Math.round((JR_.lastMs || 0) / 1000) + '秒' + ((JR_.lastWhole || []).length ? '：' + JR_.lastWhole.join('・') : '') + '）';
+  var tmList_ = TMK_.list.filter(function(x) { return x[1] >= 2000; }).sort(function(a, b) { return b[1] - a[1]; }).map(function(x) { return x[0] + ' ' + Math.round(x[1] / 1000) + '秒'; });
+  TMK_ = null;
+  if (tmList_.length) tmMsg_ += '\n（2秒以上かかった工程：' + tmList_.join('／') + '）';
+  getUiOrWeb_().alert((regenSumOk ? 'シート再生成が完了しました。' : 'シート再生成が完了しました。（集計表は別の処理中のため作り直せませんでした。もう一度押してください）') + tmMsg_);
 }
 
 
@@ -8159,6 +8570,7 @@ function calculatePaymentAmount(companySsId, lockHeld) {
 
 // ================================================================
 //  4-5: 自車専属運行シート更新（refreshActiveVehicles / refreshActiveVehiclesAuto_）  【大B / 中4 / 小4-5】
+//  ・今の中身が、作る中身（見出し＋運行状態が「運行」の車）と全く同じ時は、消さない・書かない（シート全体を「戻る」の写しに取り直さないため。4-2k-2）
 //  自車専属マスタの運行状態=「運行」の行のみを抽出し
 //  自車専属運行シートに16列（A〜P列、仮日数/給料/%含む）で書き出す
 //  本体 refreshActiveVehiclesAuto_ は自車専属マスタ編集時（3-3）とシート再生成（4-3）から呼ばれる
@@ -8187,10 +8599,18 @@ function refreshActiveVehiclesAuto_(ss) {
       ]);
     }
   }
+  // 今の中身が、作る中身と全く同じなら、消さない・書かない（シート全体を「戻る」の写しに取り直さない）
+  var curLR_ = activeSheet.getLastRow(), curLC_ = activeSheet.getLastColumn(), same_ = false;
+  if (curLR_ === outRows.length && curLC_ === 16 && activeSheet.getFrozenRows() === 1) {
+    var curVals_ = activeSheet.getRange(1, 1, curLR_, 16).getValues();
+    var key_ = function(v) { return (v instanceof Date) ? 'D' + v.getTime() : typeof v + ':' + String(v); };
+    same_ = curVals_.every(function(r, ri) { return r.every(function(v, ci) { return key_(v) === key_(outRows[ri][ci]); }); });
+  }
+  if (same_) return;
   activeSheet.clear();
   if (outRows.length > 0) {
     activeSheet.getRange(1, 1, outRows.length, 16).setValues(outRows);
-    activeSheet.setFrozenRows(1);
+    if (activeSheet.getFrozenRows() !== 1) activeSheet.setFrozenRows(1);
   }
 }
 
@@ -9023,6 +9443,7 @@ function getTodayRoutes(email, companySsId) {
     }
   }
   if (!name) return [];
+  var dInfoT = driverMatchInfo_(ss, savedEmail, name);   // その人のマスタの行（8-4c）
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return [];
   var all   = sheet.getDataRange().getValues();
@@ -9034,7 +9455,7 @@ function getTodayRoutes(email, companySsId) {
     if (!r[9]) continue;
     var dv = new Date(r[9]);
     if (dv.getFullYear()!==y || dv.getMonth()!==m || dv.getDate()!==d) continue;
-    if (String(r[6]).trim()!==name) continue;
+    if (!driverRowMatches_(dInfoT, r)) continue;
     if (r[17]) continue;
     var pickV = (r[11] instanceof Date) ? '' : String(r[11] || '');
     var dropV = (r[12] instanceof Date) ? '' : String(r[12] || '');
@@ -9126,6 +9547,7 @@ function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, emai
     // 今日の未割当プレースホルダーを探す（同ドライバー・同日・積地空）
     // LockService取得済みのため読み取り後の書き込みが排他保証される
     var allRows  = sheet.getDataRange().getValues();
+    var dmInfoP  = driverMatchInfo_(ss, savedEmail, info.name);   // その人のマスタの行（8-4c）
     var phRowNum = -1; // プレースホルダーの1-indexed行番号
     var sameId   = null;
     for (var k = 1; k < allRows.length; k++) {
@@ -9135,7 +9557,7 @@ function createParentRows(picks, drops, dateStr, overrideInfo, companySsId, emai
       var rDate = rv[9]; // col10(J列=日付) 0-indexed
       if (!(rDate instanceof Date)) continue;
       if (rDate.getFullYear() !== nowY || rDate.getMonth() !== nowM || rDate.getDate() !== nowD) continue;
-      if (String(rv[6] || '').trim() !== info.name) continue; // 乗務員名で絞り込み
+      if (!driverRowMatches_(dmInfoP, rv)) continue; // 乗務員名・携帯番号・車番で絞り込み（8-4c）
       if (String(rv[11] || '').trim() === '') {               // 積地空 = 未割当プレースホルダー
         phRowNum = k + 1; // 1-indexed
         sameId   = rid;
@@ -9507,13 +9929,66 @@ function clearTimeCell(id, routeIndex, col, companySsId, email) {
 
 
 // ================================================================
+//  8-4c: 乗務員の行の見分け方（driverMatchInfo_ / driverRowMatches_）  【大A / 中8 / 小8-4c】
+//  アプリを使うのは、自車専属マスタにいる人（自社・専属）だけ。端末の人（メールアドレス）から自車専属マスタの行を決め、運行シートの行がその人のものかを、名前だけでなく携帯番号・車番でも見分ける
+//  ・driverMatchInfo_(ss, email, name)：その人のマスタの行（メールアドレスと名前が合う行）の 携帯番号・車番、同じ名前のほかのマスタの人の 携帯番号・車番、マスタにある全部の車番 を返す（60秒キャッシュ）。マスタの行が見つからない時は「名前だけで見分ける」印（loose）を付けて返す
+//  ・driverRowMatches_(info, r)：運行シートの1行 r がその人の行か。次の順で決める
+//    ① 名前が違えば違う人
+//    ② 行の携帯番号がその人のマスタの番号と同じなら、その人の行（別の車に乗った日でも、運行シートの携帯番号がその人の番号なので拾える）
+//    ③ 同じ名前の人がマスタに1人だけの時：携帯番号が空なら その人の行。携帯番号があって違う時は、車番がその人の車番かマスタにある車（自社の車）なら その人の行（携帯番号を変えた後の古い行を拾う）。どちらでもなければ別の人（協力会社の同じ名前など）なので拾わない
+//    ④ 同じ名前の人がマスタに複数いる時：行の携帯番号がほかの同じ名前の人の番号なら、その人の行ではない。そうでなければ、車番がその人のマスタの車番と同じ時だけ、その人の行。どれにも当たらない行は、誰の一覧にも出さない
+//  ・使う所：一覧（8-4）・連絡事項（10-1）・今日の行程（7-1）・運行開始で使う未配車の行を探す所（7-2）
+// ================================================================
+function driverMatchInfo_(ss, email, name) {
+  var key = 'dmi_' + ss.getId() + '_' + String(email || '').toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + name;
+  var sc = CacheService.getScriptCache();
+  try { var c = sc.get(key); if (c) return JSON.parse(c); } catch (e) {}
+  var half = function(t) { return String(t === null || t === undefined ? '' : t).trim().replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }); };
+  var digits = function(t) { return String(t === null || t === undefined ? '' : t).replace(/[^0-9０-９]/g, '').replace(/[０-９]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }); };
+  var info = { name: name, phone: '', car: '', same: [], cars: {}, loose: true };
+  var master = ss.getSheetByName('自車専属マスタ');
+  if (master && master.getLastRow() >= 2) {
+    var m = master.getDataRange().getValues(), mine = -1;
+    for (var j = 1; j < m.length; j++) {
+      var car = half(m[j][7]);
+      if (car) info.cars[car] = true;
+      if (mine < 0 && String(m[j][10] || '').trim().toLowerCase() === String(email || '').trim().toLowerCase() && String(m[j][8] || '').trim() === name) mine = j;
+    }
+    if (mine >= 0) {
+      info.loose = false;
+      info.phone = digits(m[mine][9]); info.car = half(m[mine][7]);
+      for (var k = 1; k < m.length; k++) {
+        if (k !== mine && String(m[k][8] || '').trim() === name) info.same.push({ phone: digits(m[k][9]), car: half(m[k][7]) });
+      }
+    }
+  }
+  try { sc.put(key, JSON.stringify(info), 60); } catch (e2) {}
+  return info;
+}
+function driverRowMatches_(info, r) {
+  var rn = String(r[6] === null || r[6] === undefined ? '' : r[6]).trim();
+  if (!info || rn !== info.name) return false;
+  if (info.loose) return true;   // マスタの行が見つからない時は、今までどおり名前だけで見分ける
+  var ph = String(r[7] === null || r[7] === undefined ? '' : r[7]).replace(/[^0-9０-９]/g, '').replace(/[０-９]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); });
+  var car = String(r[5] === null || r[5] === undefined ? '' : r[5]).trim().replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); });
+  if (ph && ph === info.phone) return true;
+  if (!info.same.length) {
+    if (!ph) return true;
+    return !!(car && (car === info.car || info.cars[car]));
+  }
+  if (ph && info.same.some(function(x) { return x.phone && x.phone === ph; })) return false;
+  return !!(car && car === info.car);
+}
+
+
+// ================================================================
 //  8-4: 運行一覧データ取得（getListData）  【大A / 中8 / 小8-4】
 //  端末アプリの「一覧」画面に表示するデータを月単位で返す関数
 //
 //  8-4-1: 端末から渡されたスマホの合言葉を 2-2d で確認してアドレスを得て、自車専属マスタを探し乗務員名を取得（大文字・小文字は区別しない。60秒キャッシュ）
 //          → 合言葉が無い時は空のデータを返す。合言葉が使えない時は止める
 //          → 同じメールで名前が違う複数行がある場合は { error: 'duplicate_email' } を返す（5-2 と同じ重複チェック）
-//  8-4-2: 運行シートを全件読み込み、指定年月・乗務員名で絞り込みID単位に集約
+//  8-4-2: 運行シートを全件読み込み、指定年月・その人の行（名前・携帯番号・車番で見分ける。8-4c）で絞り込みID単位に集約
 //          → 同一IDの複数行（複数行程）は売上/高速を合算・時刻は先頭行優先
 //          → dateSort はJ列（初回行程登録時刻）のまま固定（積完時刻では更新しない）
 //  8-4-3: X列(24)のデータURLを3段階フォールバックで取得
@@ -9589,6 +10064,7 @@ function getListData(year, month, companySsId, email) {
 
   // 運行シートを走査して指定年月・自分の行だけ抽出、ID単位にデータ集約
   var idMap = {}, idOrder = [];
+  var dInfoL = driverMatchInfo_(ss, savedEmail, myName);   // その人のマスタの行（8-4c）
   for (var i = 1; i < all.length; i++) {
     var r  = all[i];
     if (!r[9]) continue;
@@ -9596,7 +10072,7 @@ function getListData(year, month, companySsId, email) {
     if (isNaN(dv.getTime())) continue;
     var dvYear = dv.getFullYear(), dvMonth = dv.getMonth()+1, dvDate = dv.getDate();
     if (dvYear !== year || dvMonth !== month) continue;
-    if (String(r[6]).trim() !== myName) continue;
+    if (!driverRowMatches_(dInfoL, r)) continue;
     var id = String(r[0]||'').trim();
     if (!id) continue;
 
@@ -9843,7 +10319,9 @@ function getEditData(id, companySsId, email) {
 //  ・売上/高速・点呼前後は同一IDに複数行ある場合、先頭行のみ書き込み、2行目以降の請求・実費高速は空にする（重複防止）
 //  ・車両情報（区分〜看板名）・日付・連絡(端末)は同一IDの全行に書く
 //  ・origId と id が違う時はIDを変更する（運行シートの全行と集計表のA列）。その他手当は集計表AI列に直接書く
-//  ・書き込み後に集計表を同期（4-2）し、色付け（1-7）と一覧キャッシュ削除（8-4b）を行う。1-1b（SS単位ロック）で排他制御
+//  ・書き込み後に集計表を同期（4-2）し、変更した行だけ色を付け（1-7 applyUnkouRowColorsFor_）、一覧キャッシュ削除（8-4b）を行う。1-1b（SS単位ロック）で排他制御
+//  ■ 決まり：シート全体の色付け（1-7 applyHolidayRowColors_）はここでは動かさない（数十秒かかり、アプリの保存が遅くなるため）。
+//    期限の色（1-7c）は区分・乗務員名・積地を変更した時だけ、ID重複（1-7b）はID・車番・日付を変更した時だけ動かす
 // ================================================================
 function saveEditData(obj, companySsId, email) {
   email = validateDriverEmail_(email, companySsId);
@@ -9866,9 +10344,15 @@ function saveEditData(obj, companySsId, email) {
   var inspBColIdx = uHdr0.indexOf('点呼前完了');
   var inspAColIdx = uHdr0.indexOf('点呼後完了');
   var written = false;
+  var rowsTouched_ = [], needExpiry_ = false, needCollide_ = idChanged;   // 色を付け直す行と、期限の色・ID重複を見直すか（1-7 applyUnkouRowColorsFor_）
+  var diff_ = function(nv, ov) { return nv !== undefined && String(nv === null ? '' : nv).trim() !== String(ov === null || ov === undefined ? '' : ov).trim(); };
   for (var i = 1; i < all.length; i++) {
     if (String(all[i][0]||'').trim() !== String(searchId).trim()) continue;
     var r = i + 1;
+    rowsTouched_.push(r);
+    if (diff_(obj.kubun, all[i][1]) || diff_(obj.name, all[i][6]) || (!written && diff_(obj.pick, all[i][11]))) needExpiry_ = true;   // 区分・乗務員名・積地（有休/休み）を変更＝期限の色を見直す
+    if (diff_(obj.car, all[i][5])) needCollide_ = true;   // 車番を変更＝ID重複を見直す
+    if (obj.date && !(all[i][9] instanceof Date && Utilities.formatDate(all[i][9], 'Asia/Tokyo', 'yyyy-MM-dd') === String(obj.date))) needCollide_ = true;   // 日付を変更＝ID重複を見直す
 
     // IDが変更された場合はA列を更新
     if (idChanged) sheet.getRange(r, 1).setValue(obj.id);
@@ -9955,7 +10439,8 @@ function saveEditData(obj, companySsId, email) {
     }
   }
   delaySyncSummary_(obj.id, ss);
-  try { applyHolidayRowColors_(ss); } catch(e) {}
+  // 色は変更した行だけ付ける（シート全体の色付け 1-7 は数十秒かかるので、アプリからは動かさない）
+  try { SpreadsheetApp.flush(); applyUnkouRowColorsFor_(ss, sheet, rowsTouched_, needExpiry_, needCollide_); } catch(e) {}
   clearListCache_(email, ss.getId());
   } finally {
     lock.releaseLock();
@@ -10647,6 +11132,7 @@ function getMyNotices(companySsId, email) {
     if (String(mAll[j][10]).trim().toLowerCase() === String(savedEmail).trim().toLowerCase()) { myName = String(mAll[j][8]).trim(); break; }
   }
   if (!myName) return [];
+  var dInfoN = driverMatchInfo_(ss, savedEmail, myName);   // その人のマスタの行（8-4c）
   var readKey  = 'readNotices_' + ss.getId() + '_' + savedEmail;
   var readList = JSON.parse(PropertiesService.getScriptProperties().getProperty(readKey) || '[]');
   var sheet    = ss.getSheetByName('運行');
@@ -10658,7 +11144,7 @@ function getMyNotices(companySsId, email) {
   var out = [], seen = {};
   for (var i = 1; i < all.length; i++) {
     var r = all[i];
-    if (String(r[6]).trim() !== myName) continue;
+    if (!driverRowMatches_(dInfoN, r)) continue;
     var id = String(r[0]||'').trim();
     if (!id || seen[id]) continue;
     seen[id] = true;
@@ -12329,7 +12815,7 @@ function deleteSheetRow(sheetName, rowIndex, companySsId, token) {
 // ================================================================
 function getClientStubSource_() {
   // === AUTO_GENERATED_STUB_START（手動編集禁止：build_stub.js が生成） ===
-  return "// 客SS・テンプレートSS用スタブ（実装はライブラリ UnkouLib にある）\n// ②客用SS・③各客SS 共通。メニュー定義はライブラリ（buildClientMenu）に集約済み。\n// スタブは公開関数の転送のみ担当。反映ボタンは①修正用SSのみ。\nfunction onOpen(e) {\n  // サイレント自動トリガー再構築（FULL権限時のみ有効・LIMITED時はtry-catchで自動スキップ）\n  try {\n    var _ss0 = SpreadsheetApp.getActiveSpreadsheet();\n    var _sf = ['installedOnEdit_','onStructureChange_','checkMasterExpiries','onOpen','checkExpiryDates','calcDistanceTrigger_'];\n    ScriptApp.getUserTriggers(_ss0).forEach(function(t) {\n      if (_sf.indexOf(t.getHandlerFunction()) !== -1) { try { ScriptApp.deleteTrigger(t); } catch(ex) {} }\n    });\n    ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss0).onEdit().create();\n    ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss0).onChange().create();\n    ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n  } catch(_ex0) {}\n  // 初回のみ初期設定ポップアップ（②③同じ。目印シート __COMPANY_SS__ か __TEMPLATE_SS__ があれば客SSと判定）\n  //  ・初期設定済みの印は2か所：スクリプトの保存場所（SETUP_DONE）と、SSの中の目印シートD1（「初期設定済み」）。どちらかがあれば初期設定済み\n  //    （スクリプトの保存場所はスクリプトが入れ替わると消えるため、SSの中にも残す。片方だけある時はもう片方を書き戻す）\n  //  ・どちらも無い時だけ、全シートを隠して案内を出し「初期設定（必須）」だけのメニューにする\n  try {\n    var _sdp = PropertiesService.getDocumentProperties();\n    var _sdSs = SpreadsheetApp.getActiveSpreadsheet();\n    var _sdMk = _sdSs.getSheetByName('__COMPANY_SS__') || _sdSs.getSheetByName('__TEMPLATE_SS__');\n    if (_sdMk) {\n      var _sdDone = !!_sdp.getProperty('SETUP_DONE');\n      var _sdMark = String(_sdMk.getRange(1, 4).getValue() || '').indexOf('初期設定済み') === 0;\n      if (!_sdDone && !_sdMark) {\n        try { UnkouLib.applySetupLock(_sdSs); } catch(_ale) {}\n        UnkouLib.showFirstSetupPopup();\n        try { SpreadsheetApp.getUi().createMenu('⚙️ 設定メニュー').addItem('🔧 初期設定（必須）', 'installTriggers').addToUi(); } catch(_me) {}\n        return;\n      }\n      if (!_sdDone) { try { _sdp.setProperty('SETUP_DONE', '1'); } catch(_rse) {} }\n      if (!_sdMark) { try { _sdMk.getRange(1, 4).setValue('初期設定済み'); } catch(_rme) {} }\n    }\n  } catch(_se) {}\n  // 通常パス（LIMITED では上記は無害スキップ済み）。メニュー作成で失敗しても、下の処理は止めない\n  try { UnkouLib.buildClientMenu(); } catch(_bmce) {}\n  try { UnkouLib.convertLegacyAdminDataUrls(); } catch(e) {}\n  try { UnkouLib.applyHolidayRowColors(); } catch(e) {}\n  try {\n    var _hideSs = SpreadsheetApp.getActiveSpreadsheet();\n    ['指示先履歴', '指示先ID別', '__COMPANY_SS__', '__TEMPLATE_SS__'].forEach(function(n) {\n      var sh = _hideSs.getSheetByName(n);\n      if (sh && !sh.isSheetHidden()) sh.hideSheet();\n    });\n  } catch(e) {}\n  try {\n    var _epDp = PropertiesService.getDocumentProperties();\n    var _epTs = Number(_epDp.getProperty('EXPIRY_POPUP_TS') || 0);\n    if (Date.now() - _epTs >= 30000) {\n      _epDp.setProperty('EXPIRY_POPUP_TS', String(Date.now()));\n      UnkouLib.showExpiryAlert();\n    }\n  } catch(_epEx) {}\n  try { UnkouLib.applyExpiryWarningColors(); } catch(e) {}\n  try {\n    var _enSs = SpreadsheetApp.getActiveSpreadsheet();\n    var _enSh = _enSs.getSheetByName('__COMPANY_SS__') || _enSs.getSheetByName('__TEMPLATE_SS__');   // ②③同じ\n    var _enId = _enSh ? String(_enSh.getRange(1, 2).getValue() || '') : '';\n    if (_enId) UnkouLib.ensureRequiredSheets(_enId);\n  } catch(e) {}\n  try { UnkouLib.ensureSheetsOnOpen(); } catch(e) {}\n  try {\n    var _bkProps = PropertiesService.getDocumentProperties();\n    var _bkLast  = Number(_bkProps.getProperty('LAST_BACKUP_TS') || 0);\n    if (Date.now() - _bkLast > 24 * 60 * 60 * 1000) {\n      UnkouLib.backupAllSheets();\n      _bkProps.setProperty('LAST_BACKUP_TS', String(Date.now()));\n    }\n  } catch(e) {}\n  try {\n    var _ss2 = SpreadsheetApp.getActiveSpreadsheet();\n    var _errSh = _ss2.getSheetByName('_ErrorLog_');\n    if (_errSh) {\n      var _a1 = String(_errSh.getRange(1, 1).getValue());\n      if (_a1.indexOf('⚠️ 要確認') === 0) {\n        SpreadsheetApp.getUi().alert(_a1);\n        _errSh.getRange(1, 1).setValue('日時');\n      }\n    }\n  } catch(e) {}\n}\n\nfunction doGet(e)            { return UnkouLib.doGet(e); }\nfunction doPost(e)           { return UnkouLib.doPost(e); }\nfunction onEdit(e)           { return UnkouLib.onEdit(e); }\nfunction installedOnEdit_(e) {\n  var _FLAG = 'ZOMBIE_CLEANED_V792';\n  var _dp = PropertiesService.getDocumentProperties();\n  if (!_dp.getProperty(_FLAG)) {\n    var _lck = LockService.getDocumentLock();\n    if (!_lck.tryLock(3000)) return;\n    try {\n      if (!_dp.getProperty(_FLAG)) {\n        var _ss1 = e.source;\n        ScriptApp.getUserTriggers(_ss1).forEach(function(t) { try { ScriptApp.deleteTrigger(t); } catch(ex) {} });\n        ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss1).onEdit().create();\n        ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss1).onChange().create();\n        ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n        _dp.setProperty(_FLAG, '1');\n      }\n    } finally { _lck.releaseLock(); }\n  }\n  var r = UnkouLib.dispatchInstalledEdit(e);\n  if (r && r.html) {\n    SpreadsheetApp.getUi().showModalDialog(\n      HtmlService.createHtmlOutput(r.html).setWidth(r.width || 300).setHeight(r.height || 290),\n      r.title || ''\n    );\n  }\n}\n\n// ── 画面表示 ──────────────────────────────────────────────────────────\nfunction showSidebar()            { return UnkouLib.showSidebar(); }\nfunction showUploadSidebar()      { return UnkouLib.showUploadSidebar(); }\n// ライブラリ経由だとライブラリのonOpen()（①メニュー）が実行されるためローカル実装\nfunction reloadMenu() { UnkouLib.buildClientMenu(); SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3); }\n\n// ── 月次処理 ──────────────────────────────────────────────────────────\nfunction generateCurrentMonth()   { return UnkouLib.generateCurrentMonth(); }\nfunction generateNextMonth()      { return UnkouLib.generateNextMonth(); }\nfunction archiveOldMonth()        { return UnkouLib.archiveOldMonth(); }\n\n// ── シート管理 ────────────────────────────────────────────────────────\nfunction generateSummary()        { return UnkouLib.generateSummary(); }\nfunction calcDistanceManual()              { return UnkouLib.calcDistanceManual(); }\nfunction resolveAmbiguousAddresses()      { return UnkouLib.resolveAmbiguousAddresses(); }\nfunction receiveAddressChoice(s)          { return UnkouLib.receiveAddressChoice(s); }\nfunction skipAddressRoute(a)              { return UnkouLib.skipAddressRoute(a); }\nfunction applyDistanceOverwrite(a,b,c)     { return UnkouLib.applyDistanceOverwrite(a,b,c); }\nfunction initDistanceMasterMajorCities()  { return UnkouLib.initDistanceMasterMajorCities(); }\nfunction expandAndRefreshSheets() { return UnkouLib.expandAndRefreshSheets(); }\nfunction restoreHeaders()         { return UnkouLib.restoreHeaders(); }\nfunction autoFillExpense()        { return UnkouLib.autoFillExpense(); }\nfunction sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }\nfunction fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }\nfunction showManualLink()         { return UnkouLib.showManualLink(); }\nfunction createSupportSheet()     { return UnkouLib.createSupportSheet(); }\nfunction setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }\nfunction showExportDialog()             { return UnkouLib.showExportDialog(); }\nfunction exportSheetAsCsvBase64(a,b,c)    { return UnkouLib.exportSheetAsCsvBase64(a,b,c); }\nfunction exportSelectedSheetsAsExcel(a,b,c) { return UnkouLib.exportSelectedSheetsAsExcel(a,b,c); }\nfunction exportPlBundle(a,b,c)              { return UnkouLib.exportPlBundle(a,b,c); }\n// ───────────────────────────────────────────────────────────────────\n// 【トリガーの仕組み・恒久メモ（必読）】installTriggers（＝メニュー「🔧 初期設定」）\n//  ・運行→集計表の同期・状態変更ポップアップ・夜間距離計算は installedOnEdit_/onStructureChange_/\n//    calcDistanceTrigger_ の3本の「インストール型トリガー」で動く。この3本が無いと③は①と同じ動きにならない。\n//  ・登録できるのは「full権限で実行された時」だけ。③で一度この初期設定を押す（＝認可＋3本登録）必要がある。\n//  ・【重要】①から各③へ反映やWebアプリ/scripts.run経由で自動登録するのはGASの認可の壁で不可（403）。代行できない。\n//  ・一度登録すれば保持される。反映（スタブ更新）ではトリガーは消えない＝再登録不要。\n//  ・新規③は作成時に自動登録できないため、ログイン設定後に「🔧 初期設定」を1回押す運用（これだけで①と同一になる）。\n//  ・installTriggersはライブラリ経由だとScriptAppが①を向くためローカル実装。ssId_指定時はopenByIdで取得。\n//  ・終わったら初期設定済みの印を2か所（SETUP_DONE と目印シートD1「初期設定済み」）に書き、その場で全部の機能のメニューを出す。\n//  ・このスタブを直す時は、必ずこのファイル（stub_for_clientSS/コード.js）を直す。コード.js の 12-3c-5 はデプロイの時にこのファイルから作り直される。\n// ───────────────────────────────────────────────────────────────────\nfunction installTriggers(ssId_) {\n  var ss = ssId_ ? SpreadsheetApp.openById(ssId_) : SpreadsheetApp.getActiveSpreadsheet();\n  // 全バインドスクリプト横断で全インストール済みトリガーを強制削除してから3本だけ再登録\n  ScriptApp.getUserTriggers(ss).forEach(function(t) {\n    try { ScriptApp.deleteTrigger(t); } catch(e) {}\n  });\n  ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();\n  ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();\n  ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n  try { UnkouLib.generateSummary(ss); } catch(e) {}\n  try { UnkouLib.releaseSetupLock(ss); } catch(_rle) {}\n  // 初期設定済みの印を2か所に書く（スクリプトの保存場所と、SSの中の目印シートD1。onOpen はどちらかがあれば初期設定済み）\n  try { PropertiesService.getDocumentProperties().setProperty('SETUP_DONE', '1'); } catch(e) {}\n  try {\n    var _imk = ss.getSheetByName('__COMPANY_SS__') || ss.getSheetByName('__TEMPLATE_SS__');\n    if (_imk) _imk.getRange(1, 4).setValue('初期設定済み');\n  } catch(e) {}\n  // 押した直後に全部の機能のメニュー「メニュー」を出す（開き直さなくても使える。「⚙️ 設定メニュー」は次に開いた時に消える）\n  if (!ssId_) {\n    try { UnkouLib.buildClientMenu(); } catch(e) {}\n    ss.toast('初期設定が完了しました。上の「メニュー」から全部の機能が使えます', '✓', 8);\n  }\n}\n\n// 夜間の距離計算：このSSのIDと、このスタブのスクリプトID（ライブラリ側で登録済みのものと照合）を渡す\nfunction calcDistanceTrigger_() {\n  try {\n    UnkouLib.calcDistanceForSS(SpreadsheetApp.getActiveSpreadsheet().getId(), ScriptApp.getScriptId());\n  } catch(e) {}\n}\nfunction onStructureChange_(e)  { UnkouLib.dispatchStructureChange(e); }\nfunction setRecalcChoice(a,b)     { return UnkouLib.setRecalcChoice(a,b); }\nfunction executeStatusSync(a,b,c){ return UnkouLib.executeStatusSync(a,b,c); }\nfunction applySettingChoice(a,b,c){ return UnkouLib.applySettingChoice(a,b,c); }\nfunction applyJohoContactOverwrite(a,b){ return UnkouLib.applyJohoContactOverwrite(a,b); }\nfunction syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }\n\n// ── CSVインポート ─────────────────────────────────────────────────────\nfunction showCsvImportDialogUnkou()      { return UnkouLib.showCsvImportDialogUnkou(); }\nfunction showCsvImportDialogMaster()     { return UnkouLib.showCsvImportDialogMaster(); }\nfunction showCsvImportDialogCust()       { return UnkouLib.showCsvImportDialogCust(); }\nfunction createPasteImportSheetUnkou()  { return UnkouLib.createPasteImportSheetUnkou(); }\nfunction createPasteImportSheetMaster() { return UnkouLib.createPasteImportSheetMaster(); }\nfunction createPasteImportSheetCust()   { return UnkouLib.createPasteImportSheetCust(); }\nfunction executePasteImportUnkou()      { return UnkouLib.executePasteImportUnkou(); }\nfunction executePasteImportMaster()     { return UnkouLib.executePasteImportMaster(); }\nfunction executePasteImportCust()       { return UnkouLib.executePasteImportCust(); }\nfunction executePasteImport()            { return UnkouLib.executePasteImport(); }\nfunction confirmPasteImport()            { return UnkouLib.confirmPasteImport(); }\nfunction showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }\nfunction prepareEtcImport(a,b,c,d)         { return UnkouLib.prepareEtcImport(a,b,c,d); }\nfunction executeEtcImport(a,b,c,d,e)       { return UnkouLib.executeEtcImport(a,b,c,d,e); }\nfunction getImportDictionary(a,b,c)        { return UnkouLib.getImportDictionary(a,b,c); }\nfunction importBulkRows(a,b,c,d,e,f,g,h)   { return UnkouLib.importBulkRows(a,b,c,d,e,f,g,h); }\nfunction saveImportAliases(a,b,c,d)        { return UnkouLib.saveImportAliases(a,b,c,d); }\n\n// ── 帳票・送信 ────────────────────────────────────────────────────────\nfunction showHatchuDocDialog()           { return UnkouLib.showHatchuDocDialog(); }\nfunction showShabanDocDialog()           { return UnkouLib.showShabanDocDialog(); }\nfunction showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(); }\nfunction generateUketorishoSheet(a)      { return UnkouLib.generateUketorishoSheet(a); }\nfunction sendDocumentEmail(a,b,c,d)        { return UnkouLib.sendDocumentEmail(a,b,c,d); }\nfunction markDocumentIssued(a,b,c,d)       { return UnkouLib.markDocumentIssued(a,b,c,d); }\nfunction getShijisakiHistory(a,b,c)        { return UnkouLib.getShijisakiHistory(a,b,c); }\nfunction saveShijisakiHistory(a,b,c,d)     { return UnkouLib.saveShijisakiHistory(a,b,c,d); }\nfunction getShijisakiByRowId(a,b,c)           { return UnkouLib.getShijisakiByRowId(a,b,c); }\nfunction saveShijisakiByRowId(a,b,c,d,e)     { return UnkouLib.saveShijisakiByRowId(a,b,c,d,e); }\nfunction deleteShijisakiHistory(a,b,c,d,e,f,g){ return UnkouLib.deleteShijisakiHistory(a,b,c,d,e,f,g); }\nfunction getKyoryokuHistory(a,b,c)            { return UnkouLib.getKyoryokuHistory(a,b,c); }\nfunction saveKyoryokuHistory(a,b,c,d)         { return UnkouLib.saveKyoryokuHistory(a,b,c,d); }\nfunction showPlDialog()                  { return UnkouLib.showPlDialog(); }\nfunction getPlFilterOptions(a,b)            { return UnkouLib.getPlFilterOptions(a,b); }\nfunction generatePl(a,b,c)                   { return UnkouLib.generatePl(a,b,c); }\nfunction exportPlJournalCsv()            { return UnkouLib.exportPlJournalCsv(); }\nfunction initFixedCostMaster()           { return UnkouLib.initFixedCostMaster(); }\n\n// ── 請求書・支払確認書 ────────────────────────────────────────────────\nfunction showInvoiceDialog()             { return UnkouLib.showInvoiceDialog(); }\nfunction generateInvoiceSheet(a,b,c,d)   { return UnkouLib.generateInvoiceSheet(a,b,c,d); }\nfunction generateInvoiceBatch(a,b,c,d)       { return UnkouLib.generateInvoiceBatch(a,b,c,d); }\nfunction sendInvoiceFaxBatch(a)              { return UnkouLib.sendInvoiceFaxBatch(a); }\nfunction clearUketorishoTimestamps()         { return UnkouLib.clearUketorishoTimestamps(); }\nfunction prepareUketorishoForPrint()         { return UnkouLib.prepareUketorishoForPrint(); }\nfunction ensureSheetsOnOpen()                { return UnkouLib.ensureSheetsOnOpen(); }\nfunction showPaymentDialog()             { return UnkouLib.showPaymentDialog(); }\nfunction generatePaymentSheet(a,b,c,d,e) { return UnkouLib.generatePaymentSheet(a,b,c,d,e); }\n\n// ── 情報シート・配車確定 ──────────────────────────────────────────────\nfunction matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispatch(); }\nfunction cancelDispatch()               { return UnkouLib.cancelDispatch(); }\nfunction repairJohoSheet()              { return UnkouLib.repairJohoSheet(); }\nfunction generateAuditSheet()           { return UnkouLib.generateAuditSheet(); }\n// 古いインストール済みトリガー経由の発火（引数あり）は即return（多重ポップアップ封じ）\nfunction checkMasterExpiries(e)         { return; }  // デコイ：ゾンビトリガー空振り\nfunction showDispatchDashboard()        { return UnkouLib.showDispatchDashboard(); }\nfunction getDispatchDashboardData(a,b)     { return UnkouLib.getDispatchDashboardData(a,b); }\n\n// ── アプリ連携（端末↔SS） ────────────────────────────────────────────\nfunction storeCompanySsId(a)              { return UnkouLib.storeCompanySsId(a); }\nfunction getInitialData(a,b)              { return UnkouLib.getInitialData(a,b); }\nfunction requestLinkCode(a,b)             { return UnkouLib.requestLinkCode(a,b); }\nfunction confirmLinkCode(a,b,c)           { return UnkouLib.confirmLinkCode(a,b,c); }\nfunction unlinkAddress(a,b)               { return UnkouLib.unlinkAddress(a,b); }\nfunction saveRunState(a,b,c)              { return UnkouLib.saveRunState(a,b,c); }\nfunction loadRunState(a,b)                { return UnkouLib.loadRunState(a,b); }\nfunction clearRunState(a,b)               { return UnkouLib.clearRunState(a,b); }\nfunction getTodayRoutes(a,b)              { return UnkouLib.getTodayRoutes(a,b); }\nfunction createParentRows(a,b,c,d,e,f)   { return UnkouLib.createParentRows(a,b,c,d,e,f); }\nfunction setPickComplete(a,b,c,d)           { return UnkouLib.setPickComplete(a,b,c,d); }\nfunction setRest(a,b,c,d,e)                { return UnkouLib.setRest(a,b,c,d,e); }\nfunction setDropComplete(a,b,c,d)           { return UnkouLib.setDropComplete(a,b,c,d); }\nfunction updateRouteData(a,b,c,d,e)       { return UnkouLib.updateRouteData(a,b,c,d,e); }\nfunction deleteRunRows(a,b,c)             { return UnkouLib.deleteRunRows(a,b,c); }\nfunction clearTimeCell(a,b,c,d,e)         { return UnkouLib.clearTimeCell(a,b,c,d,e); }\nfunction getListData(a,b,c,d)             { return UnkouLib.getListData(a,b,c,d); }\nfunction getEditData(a,b,c)               { return UnkouLib.getEditData(a,b,c); }\nfunction saveEditData(a,b,c)              { return UnkouLib.saveEditData(a,b,c); }\nfunction appendTerminalFile(a,b,c,d,e,f) { return UnkouLib.appendTerminalFile(a,b,c,d,e,f); }\nfunction deleteRunById(a,b,c)             { return UnkouLib.deleteRunById(a,b,c); }\nfunction saveNotice(a,b,c,d)             { return UnkouLib.saveNotice(a,b,c,d); }\nfunction uploadFileToRow(a,b,c,d)         { return UnkouLib.uploadFileToRow(a,b,c,d); }\nfunction saveTerminalNotice(a,b,c,d)      { return UnkouLib.saveTerminalNotice(a,b,c,d); }\nfunction uploadTerminalFile(a,b,c,d)      { return UnkouLib.uploadTerminalFile(a,b,c,d); }\nfunction getMyNotices(a,b)               { return UnkouLib.getMyNotices(a,b); }\nfunction getRoutesById(a,b,c)             { return UnkouLib.getRoutesById(a,b,c); }\nfunction getNoticeByRow(a,b,c)            { return UnkouLib.getNoticeByRow(a,b,c); }\nfunction markAsRead(a,b,c)                { return UnkouLib.markAsRead(a,b,c); }\nfunction getReadNotices(a,b)             { return UnkouLib.getReadNotices(a,b); }\nfunction agreeContract(a,b,c,d,e)        { return UnkouLib.agreeContract(a,b,c,d,e); }\nfunction getLoginPageInfo(a)            { return UnkouLib.getLoginPageInfo(a); }\nfunction webSetupLogin(a,b,c,d,e)       { return UnkouLib.webSetupLogin(a,b,c,d,e); }\nfunction webLogin(a,b,c,d)              { return UnkouLib.webLogin(a,b,c,d); }\nfunction checkWebLogin(a,b)             { return UnkouLib.checkWebLogin(a,b); }\nfunction submitSignup(a)                { return UnkouLib.submitSignup(a); }\nfunction requestSignupCode(a)           { return UnkouLib.requestSignupCode(a); }\nfunction recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }\nfunction clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }\nfunction getCarInfoByNumber(a,b,c)       { return UnkouLib.getCarInfoByNumber(a,b,c); }\nfunction deleteTerminalFile(a,b,c,d)     { return UnkouLib.deleteTerminalFile(a,b,c,d); }\nfunction replaceTerminalFile(a,b,c,d,e,f,g){ return UnkouLib.replaceTerminalFile(a,b,c,d,e,f,g); }\nfunction appendTerminalFileAdmin(a,b,c,d,e,f){ return UnkouLib.appendTerminalFileAdmin(a,b,c,d,e,f); }\nfunction saveTermNoticeByDriver(a,b,c,d) { return UnkouLib.saveTermNoticeByDriver(a,b,c,d); }\nfunction appendAdminFileById(a,b,c,d,e,f){ return UnkouLib.appendAdminFileById(a,b,c,d,e,f); }\nfunction deleteAdminFileById(a,b,c,d)    { return UnkouLib.deleteAdminFileById(a,b,c,d); }\nfunction replaceAdminFileById(a,b,c,d,e,f,g){ return UnkouLib.replaceAdminFileById(a,b,c,d,e,f,g); }\n\n// ── 管理画面（親アプリ）────────────────────────────────────────────────\nfunction getParentSheets(a,b)          { return UnkouLib.getParentSheets(a,b); }\nfunction getSheetTableData(a,b,c)      { return UnkouLib.getSheetTableData(a,b,c); }\nfunction saveSheetRowData(a,b,c,d,e)   { return UnkouLib.saveSheetRowData(a,b,c,d,e); }\nfunction appendSheetRow(a,b,c,d)       { return UnkouLib.appendSheetRow(a,b,c,d); }\nfunction deleteSheetRow(a,b,c,d)       { return UnkouLib.deleteSheetRow(a,b,c,d); }\nfunction afterSaveJoho(a,b,c,d)        { return UnkouLib.afterSaveJoho(a,b,c,d); }\nfunction afterSaveJohoFull(a,b,c)      { return UnkouLib.afterSaveJohoFull(a,b,c); }\nfunction appendJohoRow(a,b,c)          { return UnkouLib.appendJohoRow(a,b,c); }\nfunction lookupCompanyContact(a,b,c,d) { return UnkouLib.lookupCompanyContact(a,b,c,d); }\nfunction matchAndConfirmDispatchFromApp(a,b,c) { return UnkouLib.matchAndConfirmDispatchFromApp(a,b,c); }\nfunction linkAdminEmail(a,b,c,d)       { return UnkouLib.linkAdminEmail(a,b,c,d); }\nfunction getLinkedAdminEmail(a,b)      { return UnkouLib.getLinkedAdminEmail(a,b); }\nfunction logoutAdmin(a,b)              { return UnkouLib.logoutAdmin(a,b); }\nfunction runParentSystemAction(a,b,c,d)  { return UnkouLib.runParentSystemAction(a,b,c,d); }\nfunction createToolTicket(a,b)         { return UnkouLib.createToolTicket(a,b); }\nfunction renderTool(a,b,c,d)           { return UnkouLib.renderTool(a,b,c,d); }\nfunction removeAllProtections()        { return UnkouLib.removeAllProtections(); }\n\n// ── バックアップ・復旧 ────────────────────────────────────────────────\nfunction openRestoreDialog()           { return UnkouLib.openRestoreDialog(); }\nfunction executeRestore(a,b)           { return UnkouLib.executeRestore(a,b); }\n\n// ── 戻る・進む（メニュー。一個前の写しと「戻る」の控えはライブラリ 4-2k-1〜4-2k-6）──────────\nfunction undoLastChange()              { return UnkouLib.undoLastChange(); }\nfunction redoLastChange()              { return UnkouLib.redoLastChange(); }\n\n// ── 保守ユーティリティ（ローカル実装：ScriptApp・SpreadsheetApp は呼び出し元SS文脈で動かす必要あり）────\nfunction cleanupStaleTriggers() {\n  var ss       = SpreadsheetApp.getActiveSpreadsheet();\n  var staleFns = ['checkMasterExpiries', 'onOpen', 'checkExpiryDates'];\n  var removed  = 0;\n  ScriptApp.getUserTriggers(ss).forEach(function(t) {\n    if (staleFns.indexOf(t.getHandlerFunction()) !== -1) {\n      try { ScriptApp.deleteTrigger(t); removed++; } catch(e) {}\n    }\n  });\n  ['指示先履歴', '指示先ID別'].forEach(function(name) {\n    var sh = ss.getSheetByName(name);\n    if (sh && !sh.isSheetHidden()) { try { sh.hideSheet(); } catch(e) {} }\n  });\n  SpreadsheetApp.getUi().alert(\n    '✅ クリーンアップ完了\\n\\n' +\n    '・削除したトリガー：' + removed + '件\\n' +\n    '・システムシート（指示先履歴・指示先ID別）を非表示にしました'\n  );\n}\n";
+  return "// 客SS・テンプレートSS用スタブ（実装はライブラリ UnkouLib にある）\n// ②客用SS・③各客SS 共通。メニュー定義はライブラリ（buildClientMenu）に集約済み。\n// スタブは公開関数の転送のみ担当。反映ボタンは①修正用SSのみ。\nfunction onOpen(e) {\n  // サイレント自動トリガー再構築（FULL権限時のみ有効・LIMITED時はtry-catchで自動スキップ）\n  try {\n    var _ss0 = SpreadsheetApp.getActiveSpreadsheet();\n    var _sf = ['installedOnEdit_','onStructureChange_','checkMasterExpiries','onOpen','checkExpiryDates','calcDistanceTrigger_'];\n    ScriptApp.getUserTriggers(_ss0).forEach(function(t) {\n      if (_sf.indexOf(t.getHandlerFunction()) !== -1) { try { ScriptApp.deleteTrigger(t); } catch(ex) {} }\n    });\n    ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss0).onEdit().create();\n    ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss0).onChange().create();\n    ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n  } catch(_ex0) {}\n  // 初回のみ初期設定ポップアップ（②③同じ。目印シート __COMPANY_SS__ か __TEMPLATE_SS__ があれば客SSと判定）\n  //  ・初期設定済みの印は2か所：スクリプトの保存場所（SETUP_DONE）と、SSの中の目印シートD1（「初期設定済み」）。どちらかがあれば初期設定済み\n  //    （スクリプトの保存場所はスクリプトが入れ替わると消えるため、SSの中にも残す。片方だけある時はもう片方を書き戻す）\n  //  ・どちらも無い時だけ、全シートを隠して案内を出し「初期設定（必須）」だけのメニューにする\n  try {\n    var _sdp = PropertiesService.getDocumentProperties();\n    var _sdSs = SpreadsheetApp.getActiveSpreadsheet();\n    var _sdMk = _sdSs.getSheetByName('__COMPANY_SS__') || _sdSs.getSheetByName('__TEMPLATE_SS__');\n    if (_sdMk) {\n      var _sdDone = !!_sdp.getProperty('SETUP_DONE');\n      var _sdMark = String(_sdMk.getRange(1, 4).getValue() || '').indexOf('初期設定済み') === 0;\n      if (!_sdDone && !_sdMark) {\n        try { UnkouLib.applySetupLock(_sdSs); } catch(_ale) {}\n        UnkouLib.showFirstSetupPopup();\n        try { SpreadsheetApp.getUi().createMenu('⚙️ 設定メニュー').addItem('🔧 初期設定（必須）', 'installTriggers').addToUi(); } catch(_me) {}\n        return;\n      }\n      if (!_sdDone) { try { _sdp.setProperty('SETUP_DONE', '1'); } catch(_rse) {} }\n      if (!_sdMark) { try { _sdMk.getRange(1, 4).setValue('初期設定済み'); } catch(_rme) {} }\n    }\n  } catch(_se) {}\n  // 通常パス（LIMITED では上記は無害スキップ済み）。メニュー作成で失敗しても、下の処理は止めない\n  try { UnkouLib.buildClientMenu(); } catch(_bmce) {}\n  try { UnkouLib.convertLegacyAdminDataUrls(); } catch(e) {}\n  try { UnkouLib.applyHolidayRowColors(); } catch(e) {}\n  try {\n    var _hideSs = SpreadsheetApp.getActiveSpreadsheet();\n    ['指示先履歴', '指示先ID別', '__COMPANY_SS__', '__TEMPLATE_SS__'].forEach(function(n) {\n      var sh = _hideSs.getSheetByName(n);\n      if (sh && !sh.isSheetHidden()) sh.hideSheet();\n    });\n  } catch(e) {}\n  try {\n    var _epDp = PropertiesService.getDocumentProperties();\n    var _epTs = Number(_epDp.getProperty('EXPIRY_POPUP_TS') || 0);\n    if (Date.now() - _epTs >= 30000) {\n      _epDp.setProperty('EXPIRY_POPUP_TS', String(Date.now()));\n      UnkouLib.showExpiryAlert();\n    }\n  } catch(_epEx) {}\n  try { UnkouLib.applyExpiryWarningColors(); } catch(e) {}\n  try {\n    var _enSs = SpreadsheetApp.getActiveSpreadsheet();\n    var _enSh = _enSs.getSheetByName('__COMPANY_SS__') || _enSs.getSheetByName('__TEMPLATE_SS__');   // ②③同じ\n    var _enId = _enSh ? String(_enSh.getRange(1, 2).getValue() || '') : '';\n    if (_enId) UnkouLib.ensureRequiredSheets(_enId);\n  } catch(e) {}\n  try { UnkouLib.ensureSheetsOnOpen(); } catch(e) {}\n  try {\n    var _bkProps = PropertiesService.getDocumentProperties();\n    var _bkLast  = Number(_bkProps.getProperty('LAST_BACKUP_TS') || 0);\n    if (Date.now() - _bkLast > 24 * 60 * 60 * 1000) {\n      UnkouLib.backupAllSheets();\n      _bkProps.setProperty('LAST_BACKUP_TS', String(Date.now()));\n    }\n  } catch(e) {}\n  try {\n    var _ss2 = SpreadsheetApp.getActiveSpreadsheet();\n    var _errSh = _ss2.getSheetByName('_ErrorLog_');\n    if (_errSh) {\n      var _a1 = String(_errSh.getRange(1, 1).getValue());\n      if (_a1.indexOf('⚠️ 要確認') === 0) {\n        SpreadsheetApp.getUi().alert(_a1);\n        _errSh.getRange(1, 1).setValue('日時');\n      }\n    }\n  } catch(e) {}\n}\n\nfunction doGet(e)            { return UnkouLib.doGet(e); }\nfunction doPost(e)           { return UnkouLib.doPost(e); }\nfunction onEdit(e)           { return UnkouLib.onEdit(e); }\nfunction installedOnEdit_(e) {\n  var _FLAG = 'ZOMBIE_CLEANED_V792';\n  var _dp = PropertiesService.getDocumentProperties();\n  if (!_dp.getProperty(_FLAG)) {\n    var _lck = LockService.getDocumentLock();\n    if (!_lck.tryLock(3000)) return;\n    try {\n      if (!_dp.getProperty(_FLAG)) {\n        var _ss1 = e.source;\n        ScriptApp.getUserTriggers(_ss1).forEach(function(t) { try { ScriptApp.deleteTrigger(t); } catch(ex) {} });\n        ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(_ss1).onEdit().create();\n        ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(_ss1).onChange().create();\n        ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n        _dp.setProperty(_FLAG, '1');\n      }\n    } finally { _lck.releaseLock(); }\n  }\n  var r = UnkouLib.dispatchInstalledEdit(e);\n  if (r && r.html) {\n    SpreadsheetApp.getUi().showModalDialog(\n      HtmlService.createHtmlOutput(r.html).setWidth(r.width || 300).setHeight(r.height || 290),\n      r.title || ''\n    );\n  }\n}\n\n// ── 画面表示 ──────────────────────────────────────────────────────────\nfunction showSidebar()            { return UnkouLib.showSidebar(); }\nfunction showUploadSidebar()      { return UnkouLib.showUploadSidebar(); }\n// ライブラリ経由だとライブラリのonOpen()（①メニュー）が実行されるためローカル実装\nfunction reloadMenu() { UnkouLib.buildClientMenu(); SpreadsheetApp.getActiveSpreadsheet().toast('メニューを再生成しました', '🔄', 3); }\n\n// ── 月次処理 ──────────────────────────────────────────────────────────\nfunction generateCurrentMonth()   { return UnkouLib.generateCurrentMonth(); }\nfunction generateNextMonth()      { return UnkouLib.generateNextMonth(); }\nfunction archiveOldMonth()        { return UnkouLib.archiveOldMonth(); }\n\n// ── シート管理 ────────────────────────────────────────────────────────\nfunction generateSummary()        { return UnkouLib.generateSummary(); }\nfunction calcDistanceManual()              { return UnkouLib.calcDistanceManual(); }\nfunction resolveAmbiguousAddresses()      { return UnkouLib.resolveAmbiguousAddresses(); }\nfunction receiveAddressChoice(s)          { return UnkouLib.receiveAddressChoice(s); }\nfunction skipAddressRoute(a)              { return UnkouLib.skipAddressRoute(a); }\nfunction applyDistanceOverwrite(a,b,c)     { return UnkouLib.applyDistanceOverwrite(a,b,c); }\nfunction initDistanceMasterMajorCities()  { return UnkouLib.initDistanceMasterMajorCities(); }\nfunction expandAndRefreshSheets() { return UnkouLib.expandAndRefreshSheets(); }\nfunction restoreHeaders()         { return UnkouLib.restoreHeaders(); }\nfunction autoFillExpense()        { return UnkouLib.autoFillExpense(); }\nfunction sortBothSheetsByDate()   { return UnkouLib.sortBothSheetsByDate(); }\nfunction fillMissingIdsAndCars()  { return UnkouLib.fillMissingIdsAndCars(); }\nfunction showManualLink()         { return UnkouLib.showManualLink(); }\nfunction createSupportSheet()     { return UnkouLib.createSupportSheet(); }\nfunction setupSheetProtection()   { return UnkouLib.setupSheetProtection(); }\nfunction showExportDialog()             { return UnkouLib.showExportDialog(); }\nfunction exportSheetAsCsvBase64(a,b,c)    { return UnkouLib.exportSheetAsCsvBase64(a,b,c); }\nfunction exportSelectedSheetsAsExcel(a,b,c) { return UnkouLib.exportSelectedSheetsAsExcel(a,b,c); }\nfunction exportPlBundle(a,b,c)              { return UnkouLib.exportPlBundle(a,b,c); }\n// ───────────────────────────────────────────────────────────────────\n// 【トリガーの仕組み・恒久メモ（必読）】installTriggers（＝メニュー「🔧 初期設定」）\n//  ・運行→集計表の同期・状態変更ポップアップ・夜間距離計算は installedOnEdit_/onStructureChange_/\n//    calcDistanceTrigger_ の3本の「インストール型トリガー」で動く。この3本が無いと③は①と同じ動きにならない。\n//  ・登録できるのは「full権限で実行された時」だけ。③で一度この初期設定を押す（＝認可＋3本登録）必要がある。\n//  ・【重要】①から各③へ反映やWebアプリ/scripts.run経由で自動登録するのはGASの認可の壁で不可（403）。代行できない。\n//  ・一度登録すれば保持される。反映（スタブ更新）ではトリガーは消えない＝再登録不要。\n//  ・新規③は作成時に自動登録できないため、ログイン設定後に「🔧 初期設定」を1回押す運用（これだけで①と同一になる）。\n//  ・installTriggersはライブラリ経由だとScriptAppが①を向くためローカル実装。ssId_指定時はopenByIdで取得。\n//  ・終わったら初期設定済みの印を2か所（SETUP_DONE と目印シートD1「初期設定済み」）に書き、その場で全部の機能のメニューを出す。\n//  ・このスタブを直す時は、必ずこのファイル（stub_for_clientSS/コード.js）を直す。コード.js の 12-3c-5 はデプロイの時にこのファイルから作り直される。\n// ───────────────────────────────────────────────────────────────────\nfunction installTriggers(ssId_) {\n  var ss = ssId_ ? SpreadsheetApp.openById(ssId_) : SpreadsheetApp.getActiveSpreadsheet();\n  // 全バインドスクリプト横断で全インストール済みトリガーを強制削除してから3本だけ再登録\n  ScriptApp.getUserTriggers(ss).forEach(function(t) {\n    try { ScriptApp.deleteTrigger(t); } catch(e) {}\n  });\n  ScriptApp.newTrigger('installedOnEdit_').forSpreadsheet(ss).onEdit().create();\n  ScriptApp.newTrigger('onStructureChange_').forSpreadsheet(ss).onChange().create();\n  ScriptApp.newTrigger('calcDistanceTrigger_').timeBased().atHour(0).everyDays(1).create();\n  try { UnkouLib.generateSummary(ss); } catch(e) {}\n  try { UnkouLib.releaseSetupLock(ss); } catch(_rle) {}\n  // 初期設定済みの印を2か所に書く（スクリプトの保存場所と、SSの中の目印シートD1。onOpen はどちらかがあれば初期設定済み）\n  try { PropertiesService.getDocumentProperties().setProperty('SETUP_DONE', '1'); } catch(e) {}\n  try {\n    var _imk = ss.getSheetByName('__COMPANY_SS__') || ss.getSheetByName('__TEMPLATE_SS__');\n    if (_imk) _imk.getRange(1, 4).setValue('初期設定済み');\n  } catch(e) {}\n  // 押した直後に全部の機能のメニュー「メニュー」を出す（開き直さなくても使える。「⚙️ 設定メニュー」は次に開いた時に消える）\n  if (!ssId_) {\n    try { UnkouLib.buildClientMenu(); } catch(e) {}\n    ss.toast('初期設定が完了しました。上の「メニュー」から全部の機能が使えます', '✓', 8);\n  }\n}\n\n// 夜間の距離計算：このSSのIDと、このスタブのスクリプトID（ライブラリ側で登録済みのものと照合）を渡す\nfunction calcDistanceTrigger_() {\n  try {\n    UnkouLib.calcDistanceForSS(SpreadsheetApp.getActiveSpreadsheet().getId(), ScriptApp.getScriptId());\n  } catch(e) {}\n}\nfunction onStructureChange_(e)  { UnkouLib.dispatchStructureChange(e); }\nfunction setRecalcChoice(a,b)     { return UnkouLib.setRecalcChoice(a,b); }\nfunction executeStatusSync(a,b,c){ return UnkouLib.executeStatusSync(a,b,c); }\nfunction executeMasterFieldSync(a,b,c){ return UnkouLib.executeMasterFieldSync(a,b,c); }\nfunction finishUnkouOverride(a,b){ return UnkouLib.finishUnkouOverride(a,b); }\nfunction cancelUnkouOverride(a){ return UnkouLib.cancelUnkouOverride(a); }\nfunction applySettingChoice(a,b,c){ return UnkouLib.applySettingChoice(a,b,c); }\nfunction applyJohoContactOverwrite(a,b){ return UnkouLib.applyJohoContactOverwrite(a,b); }\nfunction syncToAllClientSS()      { return UnkouLib.syncToAllClientSS(); }\n\n// ── CSVインポート ─────────────────────────────────────────────────────\nfunction showCsvImportDialogUnkou()      { return UnkouLib.showCsvImportDialogUnkou(); }\nfunction showCsvImportDialogMaster()     { return UnkouLib.showCsvImportDialogMaster(); }\nfunction showCsvImportDialogCust()       { return UnkouLib.showCsvImportDialogCust(); }\nfunction createPasteImportSheetUnkou()  { return UnkouLib.createPasteImportSheetUnkou(); }\nfunction createPasteImportSheetMaster() { return UnkouLib.createPasteImportSheetMaster(); }\nfunction createPasteImportSheetCust()   { return UnkouLib.createPasteImportSheetCust(); }\nfunction executePasteImportUnkou()      { return UnkouLib.executePasteImportUnkou(); }\nfunction executePasteImportMaster()     { return UnkouLib.executePasteImportMaster(); }\nfunction executePasteImportCust()       { return UnkouLib.executePasteImportCust(); }\nfunction executePasteImport()            { return UnkouLib.executePasteImport(); }\nfunction confirmPasteImport()            { return UnkouLib.confirmPasteImport(); }\nfunction showEtcImportDialog()           { return UnkouLib.showEtcImportDialog(); }\nfunction prepareEtcImport(a,b,c,d)         { return UnkouLib.prepareEtcImport(a,b,c,d); }\nfunction executeEtcImport(a,b,c,d,e)       { return UnkouLib.executeEtcImport(a,b,c,d,e); }\nfunction getImportDictionary(a,b,c)        { return UnkouLib.getImportDictionary(a,b,c); }\nfunction importBulkRows(a,b,c,d,e,f,g,h)   { return UnkouLib.importBulkRows(a,b,c,d,e,f,g,h); }\nfunction saveImportAliases(a,b,c,d)        { return UnkouLib.saveImportAliases(a,b,c,d); }\n\n// ── 帳票・送信 ────────────────────────────────────────────────────────\nfunction showHatchuDocDialog()           { return UnkouLib.showHatchuDocDialog(); }\nfunction showShabanDocDialog()           { return UnkouLib.showShabanDocDialog(); }\nfunction showUketorishoDialog()          { return UnkouLib.showUketorishoDialog(); }\nfunction generateUketorishoSheet(a)      { return UnkouLib.generateUketorishoSheet(a); }\nfunction sendDocumentEmail(a,b,c,d)        { return UnkouLib.sendDocumentEmail(a,b,c,d); }\nfunction markDocumentIssued(a,b,c,d)       { return UnkouLib.markDocumentIssued(a,b,c,d); }\nfunction getShijisakiHistory(a,b,c)        { return UnkouLib.getShijisakiHistory(a,b,c); }\nfunction saveShijisakiHistory(a,b,c,d)     { return UnkouLib.saveShijisakiHistory(a,b,c,d); }\nfunction getShijisakiByRowId(a,b,c)           { return UnkouLib.getShijisakiByRowId(a,b,c); }\nfunction saveShijisakiByRowId(a,b,c,d,e)     { return UnkouLib.saveShijisakiByRowId(a,b,c,d,e); }\nfunction deleteShijisakiHistory(a,b,c,d,e,f,g){ return UnkouLib.deleteShijisakiHistory(a,b,c,d,e,f,g); }\nfunction getKyoryokuHistory(a,b,c)            { return UnkouLib.getKyoryokuHistory(a,b,c); }\nfunction saveKyoryokuHistory(a,b,c,d)         { return UnkouLib.saveKyoryokuHistory(a,b,c,d); }\nfunction showPlDialog()                  { return UnkouLib.showPlDialog(); }\nfunction getPlFilterOptions(a,b)            { return UnkouLib.getPlFilterOptions(a,b); }\nfunction generatePl(a,b,c)                   { return UnkouLib.generatePl(a,b,c); }\nfunction exportPlJournalCsv()            { return UnkouLib.exportPlJournalCsv(); }\nfunction initFixedCostMaster()           { return UnkouLib.initFixedCostMaster(); }\n\n// ── 請求書・支払確認書 ────────────────────────────────────────────────\nfunction showInvoiceDialog()             { return UnkouLib.showInvoiceDialog(); }\nfunction generateInvoiceSheet(a,b,c,d)   { return UnkouLib.generateInvoiceSheet(a,b,c,d); }\nfunction generateInvoiceBatch(a,b,c,d)       { return UnkouLib.generateInvoiceBatch(a,b,c,d); }\nfunction sendInvoiceFaxBatch(a)              { return UnkouLib.sendInvoiceFaxBatch(a); }\nfunction clearUketorishoTimestamps()         { return UnkouLib.clearUketorishoTimestamps(); }\nfunction prepareUketorishoForPrint()         { return UnkouLib.prepareUketorishoForPrint(); }\nfunction ensureSheetsOnOpen()                { return UnkouLib.ensureSheetsOnOpen(); }\nfunction showPaymentDialog()             { return UnkouLib.showPaymentDialog(); }\nfunction generatePaymentSheet(a,b,c,d,e) { return UnkouLib.generatePaymentSheet(a,b,c,d,e); }\n\n// ── 情報シート・配車確定 ──────────────────────────────────────────────\nfunction matchAndConfirmDispatch()       { return UnkouLib.matchAndConfirmDispatch(); }\nfunction cancelDispatch()               { return UnkouLib.cancelDispatch(); }\nfunction repairJohoSheet()              { return UnkouLib.repairJohoSheet(); }\nfunction generateAuditSheet()           { return UnkouLib.generateAuditSheet(); }\n// 古いインストール済みトリガー経由の発火（引数あり）は即return（多重ポップアップ封じ）\nfunction checkMasterExpiries(e)         { return; }  // デコイ：ゾンビトリガー空振り\nfunction showDispatchDashboard()        { return UnkouLib.showDispatchDashboard(); }\nfunction getDispatchDashboardData(a,b)     { return UnkouLib.getDispatchDashboardData(a,b); }\n\n// ── アプリ連携（端末↔SS） ────────────────────────────────────────────\nfunction storeCompanySsId(a)              { return UnkouLib.storeCompanySsId(a); }\nfunction getInitialData(a,b)              { return UnkouLib.getInitialData(a,b); }\nfunction requestLinkCode(a,b)             { return UnkouLib.requestLinkCode(a,b); }\nfunction confirmLinkCode(a,b,c)           { return UnkouLib.confirmLinkCode(a,b,c); }\nfunction unlinkAddress(a,b)               { return UnkouLib.unlinkAddress(a,b); }\nfunction saveRunState(a,b,c)              { return UnkouLib.saveRunState(a,b,c); }\nfunction loadRunState(a,b)                { return UnkouLib.loadRunState(a,b); }\nfunction clearRunState(a,b)               { return UnkouLib.clearRunState(a,b); }\nfunction getTodayRoutes(a,b)              { return UnkouLib.getTodayRoutes(a,b); }\nfunction createParentRows(a,b,c,d,e,f)   { return UnkouLib.createParentRows(a,b,c,d,e,f); }\nfunction setPickComplete(a,b,c,d)           { return UnkouLib.setPickComplete(a,b,c,d); }\nfunction setRest(a,b,c,d,e)                { return UnkouLib.setRest(a,b,c,d,e); }\nfunction setDropComplete(a,b,c,d)           { return UnkouLib.setDropComplete(a,b,c,d); }\nfunction updateRouteData(a,b,c,d,e)       { return UnkouLib.updateRouteData(a,b,c,d,e); }\nfunction deleteRunRows(a,b,c)             { return UnkouLib.deleteRunRows(a,b,c); }\nfunction clearTimeCell(a,b,c,d,e)         { return UnkouLib.clearTimeCell(a,b,c,d,e); }\nfunction getListData(a,b,c,d)             { return UnkouLib.getListData(a,b,c,d); }\nfunction getEditData(a,b,c)               { return UnkouLib.getEditData(a,b,c); }\nfunction saveEditData(a,b,c)              { return UnkouLib.saveEditData(a,b,c); }\nfunction appendTerminalFile(a,b,c,d,e,f) { return UnkouLib.appendTerminalFile(a,b,c,d,e,f); }\nfunction deleteRunById(a,b,c)             { return UnkouLib.deleteRunById(a,b,c); }\nfunction saveNotice(a,b,c,d)             { return UnkouLib.saveNotice(a,b,c,d); }\nfunction uploadFileToRow(a,b,c,d)         { return UnkouLib.uploadFileToRow(a,b,c,d); }\nfunction saveTerminalNotice(a,b,c,d)      { return UnkouLib.saveTerminalNotice(a,b,c,d); }\nfunction uploadTerminalFile(a,b,c,d)      { return UnkouLib.uploadTerminalFile(a,b,c,d); }\nfunction getMyNotices(a,b)               { return UnkouLib.getMyNotices(a,b); }\nfunction getRoutesById(a,b,c)             { return UnkouLib.getRoutesById(a,b,c); }\nfunction getNoticeByRow(a,b,c)            { return UnkouLib.getNoticeByRow(a,b,c); }\nfunction markAsRead(a,b,c)                { return UnkouLib.markAsRead(a,b,c); }\nfunction getReadNotices(a,b)             { return UnkouLib.getReadNotices(a,b); }\nfunction agreeContract(a,b,c,d,e)        { return UnkouLib.agreeContract(a,b,c,d,e); }\nfunction getLoginPageInfo(a)            { return UnkouLib.getLoginPageInfo(a); }\nfunction webSetupLogin(a,b,c,d,e)       { return UnkouLib.webSetupLogin(a,b,c,d,e); }\nfunction webLogin(a,b,c,d)              { return UnkouLib.webLogin(a,b,c,d); }\nfunction checkWebLogin(a,b)             { return UnkouLib.checkWebLogin(a,b); }\nfunction submitSignup(a)                { return UnkouLib.submitSignup(a); }\nfunction requestSignupCode(a)           { return UnkouLib.requestSignupCode(a); }\nfunction recordAction(a,b,c,d,e,f)       { return UnkouLib.recordAction(a,b,c,d,e,f); }\nfunction clearInspTime(a,b,c,d)          { return UnkouLib.clearInspTime(a,b,c,d); }\nfunction getCarInfoByNumber(a,b,c)       { return UnkouLib.getCarInfoByNumber(a,b,c); }\nfunction deleteTerminalFile(a,b,c,d)     { return UnkouLib.deleteTerminalFile(a,b,c,d); }\nfunction replaceTerminalFile(a,b,c,d,e,f,g){ return UnkouLib.replaceTerminalFile(a,b,c,d,e,f,g); }\nfunction appendTerminalFileAdmin(a,b,c,d,e,f){ return UnkouLib.appendTerminalFileAdmin(a,b,c,d,e,f); }\nfunction saveTermNoticeByDriver(a,b,c,d) { return UnkouLib.saveTermNoticeByDriver(a,b,c,d); }\nfunction appendAdminFileById(a,b,c,d,e,f){ return UnkouLib.appendAdminFileById(a,b,c,d,e,f); }\nfunction deleteAdminFileById(a,b,c,d)    { return UnkouLib.deleteAdminFileById(a,b,c,d); }\nfunction replaceAdminFileById(a,b,c,d,e,f,g){ return UnkouLib.replaceAdminFileById(a,b,c,d,e,f,g); }\n\n// ── 管理画面（親アプリ）────────────────────────────────────────────────\nfunction getParentSheets(a,b)          { return UnkouLib.getParentSheets(a,b); }\nfunction getSheetTableData(a,b,c)      { return UnkouLib.getSheetTableData(a,b,c); }\nfunction saveSheetRowData(a,b,c,d,e)   { return UnkouLib.saveSheetRowData(a,b,c,d,e); }\nfunction appendSheetRow(a,b,c,d)       { return UnkouLib.appendSheetRow(a,b,c,d); }\nfunction deleteSheetRow(a,b,c,d)       { return UnkouLib.deleteSheetRow(a,b,c,d); }\nfunction afterSaveJoho(a,b,c,d)        { return UnkouLib.afterSaveJoho(a,b,c,d); }\nfunction afterSaveJohoFull(a,b,c)      { return UnkouLib.afterSaveJohoFull(a,b,c); }\nfunction appendJohoRow(a,b,c)          { return UnkouLib.appendJohoRow(a,b,c); }\nfunction lookupCompanyContact(a,b,c,d) { return UnkouLib.lookupCompanyContact(a,b,c,d); }\nfunction matchAndConfirmDispatchFromApp(a,b,c) { return UnkouLib.matchAndConfirmDispatchFromApp(a,b,c); }\nfunction linkAdminEmail(a,b,c,d)       { return UnkouLib.linkAdminEmail(a,b,c,d); }\nfunction getLinkedAdminEmail(a,b)      { return UnkouLib.getLinkedAdminEmail(a,b); }\nfunction logoutAdmin(a,b)              { return UnkouLib.logoutAdmin(a,b); }\nfunction runParentSystemAction(a,b,c,d)  { return UnkouLib.runParentSystemAction(a,b,c,d); }\nfunction createToolTicket(a,b)         { return UnkouLib.createToolTicket(a,b); }\nfunction renderTool(a,b,c,d)           { return UnkouLib.renderTool(a,b,c,d); }\nfunction removeAllProtections()        { return UnkouLib.removeAllProtections(); }\n\n// ── バックアップ・復旧 ────────────────────────────────────────────────\nfunction openRestoreDialog()           { return UnkouLib.openRestoreDialog(); }\nfunction executeRestore(a,b)           { return UnkouLib.executeRestore(a,b); }\n\n// ── 戻る・進む（メニュー。一個前の写しと「戻る」の控えはライブラリ 4-2k-1〜4-2k-6）──────────\nfunction undoLastChange()              { return UnkouLib.undoLastChange(); }\nfunction redoLastChange()              { return UnkouLib.redoLastChange(); }\n\n// ── 保守ユーティリティ（ローカル実装：ScriptApp・SpreadsheetApp は呼び出し元SS文脈で動かす必要あり）────\nfunction cleanupStaleTriggers() {\n  var ss       = SpreadsheetApp.getActiveSpreadsheet();\n  var staleFns = ['checkMasterExpiries', 'onOpen', 'checkExpiryDates'];\n  var removed  = 0;\n  ScriptApp.getUserTriggers(ss).forEach(function(t) {\n    if (staleFns.indexOf(t.getHandlerFunction()) !== -1) {\n      try { ScriptApp.deleteTrigger(t); removed++; } catch(e) {}\n    }\n  });\n  ['指示先履歴', '指示先ID別'].forEach(function(name) {\n    var sh = ss.getSheetByName(name);\n    if (sh && !sh.isSheetHidden()) { try { sh.hideSheet(); } catch(e) {} }\n  });\n  SpreadsheetApp.getUi().alert(\n    '✅ クリーンアップ完了\\n\\n' +\n    '・削除したトリガー：' + removed + '件\\n' +\n    '・システムシート（指示先履歴・指示先ID別）を非表示にしました'\n  );\n}\n";
   // === AUTO_GENERATED_STUB_END ===
 }
 
@@ -14935,6 +15421,7 @@ function applyDistanceOverwrite(ssId, id, km) {
 //  ・積地か降地が2か所以上：運行シートの行が1つのIDは、時刻なしで入れた順に計算する。行が2つ以上のIDは、全地点の積完・降完時刻がそろって回る順番が決まった時だけ、時刻順キー（4-9c）で照合・計算する。そろっていなければ計算しない
 //  ・マスタに無ければ住所の候補数を確認（0件=エラー・2件以上=住所確認待ちとして距離マスタに記録）してMaps APIで計算
 //  距離マスタでエラー・住所確認待ちのルートは計算し直さない。トリガー（4-9o・4-9p）・手動（4-10）共通。返り値：反映した件数
+//  実行時間の上限（6分）に近づいたら（4分30秒）、そこまでの分を反映して止め、完了画面に知らせる（残りは再実行で計算）
 //  計算できなかった行は、ID・理由（回る順番が決まらない・住所が見つからない・確認待ち・地図の計算失敗）を DIST_SKIPS_ に控え、手動（4-10）の完了画面が出す
 //  書き戻しは、計算した距離をIDごとに控え、1-1b の順番待ちの中で今の行を探し直して、そのIDの行のW列にだけ書く
 //  書く行は「値か文字色が変わった行」（手で入れた距離と計算が同じ数字でも、黒から緑に変わるので書く）
@@ -14950,11 +15437,12 @@ function countHandDistance_(ss) {
   }
   return c;
 }
+var DIST_WAITS_ = {};   // 同じIDが複数行で、積完・降完の時刻がそろわず回る順番が決まらない行（ID→理由）。距離のセルにメモだけ出す（4-9j-1）
 var DIST_FAILS_ = {};   // 住所が見つからない・確認待ち・地図の計算失敗の行（ID→理由）。距離のセルを紫にしてメモで出す（4-9j-1）
 function distSkip_(id, msg, isAddr) { DIST_SKIPS_.push(id + '：' + msg); if (isAddr) DIST_FAILS_[id] = msg; }
 var DIST_SKIPS_ = [];   // 4-9j：距離を計算できなかった行の理由（ID：理由）。手動の距離計算（4-10）の完了画面が出す
 function calcDistanceForAllPending_(ss, overwriteHand) {
-  DIST_SKIPS_ = []; DIST_FAILS_ = {};
+  DIST_SKIPS_ = []; DIST_FAILS_ = {}; DIST_WAITS_ = {};
   var sumSh   = ss.getSheetByName('集計表');
   var unkouSh = ss.getSheetByName('運行');
   if (!sumSh || !unkouSh || sumSh.getLastRow() < 2) return 0;
@@ -14995,8 +15483,10 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
   var pendingRoutes = [];  // 候補2件以上：住所確認待ち
   var processed     = 0;
   var apiCalls      = 0;
+  var t0Dist        = Date.now();   // 実行時間の上限（6分）に近づいたら、そこまでの分を反映して止める
 
   for (var i = 0; i < sumData.length; i++) {
+    if (Date.now() - t0Dist > 270000) { DIST_SKIPS_.push('時間切れ：実行時間の上限に近づいたため、ここで止めました。計算できた分は反映済みです。もう一度距離計算を実行すると、残りを計算します'); break; }
     var id = String(sumData[i][0] || '').trim();
     if (!id) continue;
 
@@ -15018,7 +15508,7 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
     // 複数行程は回る順番が決まった時（全地点の積完・降完時刻がそろった時・4-9c）だけ、その時刻順で計算する。決まっていなければ計算しない
     if (isMulti) {
       var multiKey = buildTimeOrderedRouteKey_(unkouData, id);
-      if (!multiKey) { distSkip_(id, '回る順番が決まっていません（別々の行にある地名は、積完・降完の時刻が全部必要です）'); continue; }
+      if (!multiKey) { var waitMsg = '回る順番が決まっていません（別々の行にある地名は、積完・降完の時刻が全部必要です）'; distSkip_(id, waitMsg); DIST_WAITS_[id] = waitMsg; continue; }
       if (skipSet[multiKey]) { distSkip_(id, '住所が見つからない・確認待ちのルートとして距離マスタに記録済み（' + multiKey + '）', true); continue; }
       if (masterMap[multiKey] !== undefined && masterMap[multiKey] > 0) {
         sumData[i][22]  = masterMap[multiKey];
@@ -15051,38 +15541,33 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
       }
     }
 
-    // STEP3: Geocoding確認→問題なければMaps API計算
+    // STEP3: Maps API で計算（計算できなかった時だけ Geocoding で住所を確認して理由を分ける）
     var apiKey  = routeKey || simpleKey;
     var apiLocs = apiKey ? apiKey.split('→') : null;
     if (!apiLocs || apiLocs.length < 2) { distSkip_(id, '地名が2か所以上読み取れません（降完の時刻が無い等）'); continue; }
     if (skipSet[apiKey]) { distSkip_(id, '住所が見つからない・確認待ちのルートとして距離マスタに記録済み（' + apiKey + '）', true); continue; }
 
-    var geoStatus = checkGeocode_(apiLocs);
-    apiCalls++;
-    if (geoStatus === 'error') {
-      errorRoutes.push({ key: apiKey, km: -1, method: 'エラー(住所不明等)' });
-      distSkip_(id, '住所が見つからない地名があります（' + apiKey + '）', true);
-      skipSet[apiKey] = true;
-      if (apiCalls % 10 === 0) Utilities.sleep(500);
-      continue;
-    }
-    if (geoStatus === 'pending') {
-      pendingRoutes.push({ key: apiKey, km: '', method: '住所確認待ち' });
-      distSkip_(id, '住所の確認待ちです（' + apiKey + '）', true);
-      skipSet[apiKey] = true;
-      if (apiCalls % 10 === 0) Utilities.sleep(500);
-      continue;
-    }
-
+    // まず地図で計算する（1回の問い合わせ）。計算できなかった時だけ、住所があるかを調べて理由を分ける（前は全部の行で先に住所を調べていて遅かった）
     var km = calcDistanceMapsApi_(apiLocs);
+    apiCalls++;
     if (km !== null) {
       sumData[i][22]    = km;
       sumFonts[i][22]   = GREEN;
       masterMap[apiKey] = km;
       newRoutes.push({ key: apiKey, km: km, method: 'API' });
       processed++;
-    } else distSkip_(id, '地図の計算ができませんでした（' + apiKey + '）', true);
-    apiCalls++;
+    } else {
+      var geoStatus = checkGeocode_(apiLocs);
+      if (geoStatus === 'error') {
+        errorRoutes.push({ key: apiKey, km: -1, method: 'エラー(住所不明等)' });
+        distSkip_(id, '住所が見つからない地名があります（' + apiKey + '）', true);
+        skipSet[apiKey] = true;
+      } else if (geoStatus === 'pending') {
+        pendingRoutes.push({ key: apiKey, km: '', method: '住所確認待ち' });
+        distSkip_(id, '住所の確認待ちです（' + apiKey + '）', true);
+        skipSet[apiKey] = true;
+      } else distSkip_(id, '地図の計算ができませんでした（' + apiKey + '）', true);
+    }
     if (apiCalls % 10 === 0) Utilities.sleep(500);
   }
 
@@ -15117,7 +15602,7 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
       }
     }
   }
-  try { markDistanceFailCells_(sumSh, DIST_FAILS_); } catch(mfE) { logError_('markDistanceFailCells_', mfE); }   // 計算できなかった行の距離のセルを紫にしてメモ（4-9j-1）
+  try { markDistanceFailCells_(sumSh, DIST_FAILS_, DIST_WAITS_); } catch(mfE) { logError_('markDistanceFailCells_', mfE); }   // 計算できなかった行の距離のセルを紫にしてメモ（4-9j-1）
   if (newRoutes.length)     appendDistanceMasterRows_(ss, newRoutes);
   if (errorRoutes.length)   { appendDistanceMasterRows_(ss, errorRoutes);  applyDistanceMasterErrorStyle_(ss); }
   if (pendingRoutes.length) appendDistanceMasterRows_(ss, pendingRoutes);
@@ -15128,12 +15613,14 @@ function calcDistanceForAllPending_(ss, overwriteHand) {
 //  4-9j-1: 距離を計算できなかった行の印（markDistanceFailCells_）  【大B / 中4 / 小4-9j-1】
 //  住所が見つからない・確認待ち・地図の計算失敗の行は、集計表の距離（W列）のセルを紫（#b39ddb）にして、メモで理由と直し方を出す
 //  ・距離のセルが空の行だけ。入っている距離は変えない。距離が入った行の紫と（この処理が書いた）メモは外す
+//  ・同じIDが複数の行にあって、積完・降完の時刻がそろわず計算できない行は、色は付けず、メモだけ出す（「全部の行の積完・降完の時刻が入ると、距離を計算します」）
 //  ・2か所以上の地名は、「・」「．」「、」「，」「,」「／」「＋」などで区切る（区切りなしで続けると1つの住所として探し、見つからない）
 //  1-1b の順番待ちの中で、IDの行を読み直してから書く
 // ================================================================
-function markDistanceFailCells_(sumSh, fails) {
+function markDistanceFailCells_(sumSh, fails, waits) {
   if (!sumSh || sumSh.getLastRow() < 2) return;
-  var PUR = '#b39ddb', PREFIX = '距離を計算できませんでした：';
+  waits = waits || {};
+  var PUR = '#b39ddb', PREFIX = '距離を計算できませんでした：', WPREFIX = '距離は未計算です：';
   var lock = getSsLock_();
   try { lock.waitLock(30000); } catch(e) { logError_('markDistanceFailCells_', 'ロック取得失敗'); return; }
   try {
@@ -15144,11 +15631,17 @@ function markDistanceFailCells_(sumSh, fails) {
     for (var i = 0; i < n; i++) {
       var id = String(ids[i][0] || '').trim();
       var empty = vals[i][0] === '' || vals[i][0] === null;
+      var curNote = String(nts[i][0] || '');
       if (id && fails[id] && empty) {
         var note = PREFIX + fails[id] + '\n地名を直してください。2か所以上は「・」などで区切ってください。';
         if (bgs[i][0] !== PUR || nts[i][0] !== note) { bgs[i][0] = PUR; nts[i][0] = note; changed = true; }
-      } else if (bgs[i][0] === PUR) {
-        bgs[i][0] = null; if (String(nts[i][0] || '').indexOf(PREFIX) === 0) nts[i][0] = ''; changed = true;
+      } else if (id && waits[id] && empty) {
+        var wnote = WPREFIX + '同じIDが複数の行にあるので、積完・降完の時刻で回る順番を決めます。\n全部の行の積完・降完の時刻が入ると、距離を計算します。';
+        if (bgs[i][0] === PUR) { bgs[i][0] = null; changed = true; }
+        if (nts[i][0] !== wnote && (!curNote || curNote.indexOf(PREFIX) === 0 || curNote.indexOf(WPREFIX) === 0)) { nts[i][0] = wnote; changed = true; }
+      } else {
+        if (bgs[i][0] === PUR) { bgs[i][0] = null; changed = true; }
+        if (curNote.indexOf(PREFIX) === 0 || curNote.indexOf(WPREFIX) === 0) { nts[i][0] = ''; changed = true; }
       }
     }
     if (changed) { rng.setBackgrounds(bgs); rng.setNotes(nts); }
@@ -15401,6 +15894,7 @@ function calcDistanceManual() {
   // 手で入れた距離（黒字）があれば「上書きしますか？」を聞く（4-2z-1・4-2z の上書きの確認の決まり）
   var owD = askOverwriteHandEdited_(countHandDistance_(ss), '距離');
   if (owD === 'cancel') return;
+  try { ss.toast('距離を計算しています。件数が多いと数分かかります。', '距離計算', 30); } catch (tE) {}
   var cnt = calcDistanceForAllPending_(ss, owD === 'yes');
   getUiOrWeb_().alert(cnt + '件の距離を計算・反映しました。\n\n※ 距離が空の行だけ計算します（入力済みの距離は変えません）。\n※ 1つのセルに複数の地名（・．、，/＋など区切り）は、入れた順に回って計算します。別々の行にある地名は、積完・降完の時刻が全部入ってから計算します。\n※ 住所が見つからない・候補が複数あるルートは距離マスタに記録し、計算しません。' + (DIST_SKIPS_.length ? '\n\n【計算できなかった行】\n' + DIST_SKIPS_.slice(0, 8).join('\n') + (DIST_SKIPS_.length > 8 ? '\n…ほか' + (DIST_SKIPS_.length - 8) + '件' : '') : ''));
 }
@@ -15648,24 +16142,33 @@ function updatePlApportionment_(ss) {
 }
 
 // ================================================================
-//  14-2b: インストール型トリガーのディスパッチャ（dispatchInstalledEdit）  【大B / 中14 / 小14-2b】
+//  14-2b: インストール型トリガーのディスパッチャ（dispatchInstalledEdit / dispatchInstalledEditMain_）  【大B / 中14 / 小14-2b】
+//  dispatchInstalledEdit＝入口。中身（dispatchInstalledEditMain_）を動かし、返す画面が無い時は、運行シートの確認（3-2-9）で押していない分（未決）があれば、その確認の画面をもう一度返す（どのシートの入力でも）
 //  installedOnEdit_ から分離した公開関数。②③スタブからも呼べる（アンダースコアなし）
 //  UI表示（showModalDialog）はスタブ側で行うため、ポップアップ案件は htmlなどを返す
 //  非UI案件は直接処理してnullを返す。コピーしたSS・停止/期限切れのSSでは何もしない（2-2f/2-2g）
 //  ・最初に、人が入力したマスを記録する（4-2k-2。この処理の終わりに、自動で書いたマスと一緒に一個前の写しと「戻る」の控えへ 4-2k-3）
 //  ・見出し行（1行目）の編集 → 正規見出しに戻す ／ 自車専属マスタB列（運行状態）→ 適用日を聞くダイアログを返す
+//  ・自車専属マスタの 区分・会社名・看板名・トン数・車種・車番・乗務員名・携帯番号 を1マス直した → 運行シートの同じ項目もそろえるため「本日以降・今月以降・全期間」を聞く画面を返す（3-3e）
 //  ・設定シートのA〜D列（トン数・基準燃費・有休設定・有休金額）の編集 → 設定の適用開始日（4-2s）にいったん本日を入れ、「いつから適用しますか」画面（4-2t）を返す
 //  ・自車専属マスタの燃費・仮日数〜経費の編集 → マスタの適用開始日（4-2v）にいったん本日を入れ、「いつから適用しますか」画面（4-2t・kind＝master）を返す
 //    （設定・自車専属マスタで画面を返す時も、編集した行の控え（4-2n）は先に取る）
 //  ・配車板の会社名（C・Q列）を1列だけ編集 → TEL・FAXに手で入れた値（黒）があって探した値（3-5a）と違えば「上書きしますか？」画面（3-5b）を返す
 //  ・運行シートの積地・降地（L・M列）を編集 → 距離を新しいルートで入れ直し（緑。4-9i）、手で入れた距離が計算と違えば「上書きしますか？」画面（4-9h-1）を返す
+//  ・運行シートの 区分・会社名・トン数・車種・車番・乗務員名・携帯番号・看板名（B〜I列）を、自車専属マスタにある車の行で変更する → 毎回必ず「自車専属マスタのデータです。この行だけ変更が反映されなくなります。変更しても大丈夫ですか？」の画面（3-2-9）
 //  ・運行シートの日付〜降完（J〜R列）を編集 → 降完まで入った行の警告だけの保護を付け直す（1-7f）
 //  ・PL設定の編集 → 17-7a で按分を更新 ／ 運行シートの編集 → 集計表を同期（4件以上は4-1で再生成。同期できなかった時は _ErrorLog_ に残し、前に待たされた分も 1-4c で同期）、積地・降地なら距離も反映、帳票日時の正規化、行のバックアップ
 //  ・取込用シートの対応行の編集 → 取込辞書に追加 ／ 会社登録A・B列 → 12-4でフルセットアップ、F・G列 → 11-5で配布メール
 // ================================================================
 function dispatchInstalledEdit(e) {
+  var res = dispatchInstalledEditMain_(e);
+  if (res) return res;
+  try { return unkouPendingDialog_(e.source); } catch (upE) { return null; }   // 押していない確認（3-2-9）が残っていれば、もう一度出す
+}
+function dispatchInstalledEditMain_(e) {
   try {
     if (!isRegisteredSs_(e.source.getId()) || getLicenseStatus_(e.source.getId()).locked) return null;   // コピー・停止・期限切れのSSでは動かさない（2-2f/2-2g）
+    jrEditToken_(e, null, 'I');   // この入力の札（同じ入力で動く 3-1 と同じ札。同じ通し番号＝「戻る」1回分にまとめるため。4-2k-2）
     try { jrMark_(e.range, 'setValues'); } catch(jmErr) {}   // 人が入力したマスを記録する（4-2k-2。処理の終わりに写しと「戻る」の控えへ 4-2k-3）
     var range     = e.range;
     var sheet     = range.getSheet();
@@ -15738,6 +16241,27 @@ function dispatchInstalledEdit(e) {
       return { html: htmlStr, title: 'いつから適用しますか？', width: 300, height: 290 };
     }
 
+    // 自車専属マスタの 区分・会社名・看板名・トン数・車種・車番・乗務員名・携帯番号 を1マス直した：運行シートの同じ項目もそろえるため、いつからの分を直すかを聞く（3-3e）
+    if (sheetName === '自車専属マスタ' && row >= 2 && range.getNumRows() === 1 && range.getNumColumns() === 1) {
+      var drHdr_ = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) { return String(h || '').trim(); });
+      var drField = drHdr_[col - 1];
+      var drOld = (e.oldValue === undefined || e.oldValue === null) ? '' : String(e.oldValue).trim();
+      var drNew = (e.value === undefined || e.value === null) ? String(range.getValue() === null ? '' : range.getValue()).trim() : String(e.value).trim();
+      // 貼り付けなどで直す前の値（oldValue）が来ない時は、前の状態の控え（_BK_自車専属マスタ。4-2n）の同じ行・同じ項目を直す前の値とする
+      if (!drOld && drField) {
+        try {
+          var drCanon = getSheetHeaderDef_('自車専属マスタ') || [], drCi = drCanon.indexOf(drField);
+          var drBk = e.source.getSheetByName('_BK_自車専属マスタ');
+          if (drCi >= 0 && drBk && drBk.getLastRow() >= row) drOld = String(drBk.getRange(row, drCi + 1).getValue() || '').trim();
+        } catch (drE) {}
+      }
+      if (['区分', '会社名', '看板名', 'トン数', '車種', '車番', '乗務員名', '携帯番号'].indexOf(drField) >= 0 && drOld && drNew && drOld !== drNew) {
+        PropertiesService.getScriptProperties().setProperty('masterFieldSync_' + e.source.getId(), JSON.stringify({ row: row, field: drField, oldValue: drOld }));
+        try { backupSheetRow_(e.source, sheetName, row); } catch (bkD_) {}   // 編集した行の控え（4-2n）は画面を返す前に取る（次に直す時の「直す前の値」になる）
+        return { html: buildMasterFieldSyncHtml_(e.source.getId(), drField, drOld, drNew), title: '運行シートも変更しますか？', width: 320, height: 330 };
+      }
+    }
+
     // 設定シートの点検項目（E列より右）の編集：今の項目を覚え、全部消えたら覚えた項目に戻す（4-2a）
     if (sheetName === '設定' && row >= 2 && col + range.getNumColumns() - 1 >= 5) {
       try { ensureSettingItems_(e.source); } catch (siErr_) {}
@@ -15789,6 +16313,12 @@ function dispatchInstalledEdit(e) {
     // 運行シート編集：集計表をインストール型onEditトリガー（installedOnEdit_・入力ごとに実行）内でsync
     if (sheetName === '運行' && row >= 2) {
       var ss_unk = e.source;
+      var ovrHtml_ = null;
+      try { ovrHtml_ = detectUnkouOverride_(ss_unk, sheet, range, e); } catch (ovE) { logError_('運行シートの変更確認（3-2-9）', ovE); }   // 自車専属マスタにある車の行の内容を変更した時の確認（3-2-9）
+      if (ovrHtml_) {   // 画面を先に出す（「戻る」の写し・行の控え・集計表の同期は、画面が開いてから finishUnkouOverride が行う）
+        JR_.recs = {};   // ここでは「戻る」の写しを取らない（取ると画面が遅れる）。写しは finishUnkouOverride が取る
+        return { html: ovrHtml_, title: '変更しても大丈夫ですか？', width: 340, height: 310 };
+      }
       var allData_unk = sheet.getDataRange().getValues();
       // 編集された行のIDを収集
       var syncIds_set = {}, syncIds_arr = [];
@@ -19000,6 +19530,7 @@ function ensureTestMasterSheet_(ss) {
 
 // ================================================================
 //  15-4: 自社設定シートの項目補完（ensureCompanySettingSheet_）  【大B / 中15 / 小15-4】
+//  列の幅（A＝190・B＝340）・行の高さ（28）は、既にその大きさなら設定し直さない（シート全体を「戻る」の写しに取り直さないため）
 //  自社設定シートがなければ作成し、足りない項目名を追加する（インターネットFAX宛先：請求書の一括送信 16-6e で使う。例 {FAX}@ifax.example.jp。空なら1社ずつ自社のFAX機で送る）
 //  B列が全て空の場合のみダミーデータを自動入力する
 // ================================================================
@@ -19025,9 +19556,12 @@ function ensureCompanySettingSheet_(ss) {
     .setBackground('#cfd8dc').setFontWeight('bold').setFontSize(11).setVerticalAlignment('middle');
   sheet.getRange(1, 1, numRows, 2)
     .setBorder(true, true, true, true, true, true, '#78909c', SpreadsheetApp.BorderStyle.SOLID);
-  sheet.setColumnWidth(1, 190);
-  sheet.setColumnWidth(2, 340);
-  sheet.setRowHeights(1, numRows, 28);
+  // 列の幅・行の高さは、既にその大きさなら設定し直さない（設定し直すと、中身が同じでもシート全体を「戻る」の写しに取り直して遅くなる）
+  if (sheet.getColumnWidth(1) !== 190) sheet.setColumnWidth(1, 190);
+  if (sheet.getColumnWidth(2) !== 340) sheet.setColumnWidth(2, 340);
+  var rowHOk_ = true;
+  for (var rh_ = 1; rh_ <= numRows; rh_++) { if (sheet.getRowHeight(rh_) !== 28) { rowHOk_ = false; break; } }
+  if (!rowHOk_) sheet.setRowHeights(1, numRows, 28);
   // B列が全て空の場合のみダミーデータを自動入力
   var bVals = sheet.getRange(1,2,numRows,1).getValues();
   var allEmpty = bVals.every(function(r){ return !String(r[0]||'').trim(); });
@@ -20726,6 +21260,423 @@ function executeStatusSync(rowsParam, choice, ssId) {
 
 
 // ================================================================
+//  3-2-9: 運行シートで自車専属マスタの車の行を変更した時の確認（detectUnkouOverride_ / buildUnkouOverrideHtml_ / unkouPendLoad_ / unkouPendSave_ / unkouPendCheck_ / unkouPendingDialog_ / finishUnkouOverride / cancelUnkouOverride）  【大A / 中3 / 小3-2-9】
+//  ■ 決まり：自車専属マスタにある車の運行シートの行で、区分（B）・会社名（C）・トン数（D）・車種（E）・車番（F）・乗務員名（G）・携帯番号（H）・看板名（I）のどれかを変更したら、毎回必ず確認の画面を出す。
+//    例外は無い（車番も・何行まとめて変更しても・前に変更したマスをもう一度変更しても・自車専属マスタに同じ車番が2行以上あっても・登録のない乗務員の携帯番号でも出す）。値が変わっていない時だけ出さない
+//    ロックはかけない（その日だけ代わりの乗務員が乗る等で、変更する必要があるため）
+//    「これは自車専属マスタにあるデータです。変更すると、この行だけ、自車専属マスタの変更が反映されなくなります。変更しても大丈夫ですか？」［変更する］［元に戻す］
+//  ■ 決まり：［変更する］か［元に戻す］を押すまで、その変更は「未決」として覚えておく（unkouOverride_＋SSのID。長い時は分けて保存 unkouPendSave_）。
+//    画面を×で閉じても未決のまま残り、次にどのシートのどのマスを入力した時にも、同じ画面をもう一度出す（14-2b の最後で unkouPendingDialog_）。押すまで何度でも出る
+//    未決のうち、もう変更する前の値に戻っているマス・行が動いてIDが違うマスは、もう無い変更として一覧から外す（「戻る」で戻した時など。unkouPendCheck_）
+//  ■ 速さの決まり：確認の画面を返すまでに、シートへの書き込みはしない（読むだけ）。保存先への書き込みは1回（未決と、画面の後の処理に渡す印を一緒に。unkouPendSave_）。
+//    メモ・「戻る」の写し・行の控え・集計表の同期は、全部、画面が開いた後に finishUnkouOverride が行う（乗務員名を変更した時の携帯番号そろえだけは、画面の前に書く）
+//  ・自車専属マスタにある車の行かどうかは、変更する前の車番で見る（車番を変更した時は、前の車番がマスタの車なら出す）。
+//    車番がマスタの車でない行（前に車番を変更した行・車番が空の行など）でも、乗務員名（今の名前か、変更する前の名前）が自車専属マスタの乗務員なら、マスタの車の行として扱い、確認を出す。
+//    車番も乗務員名も変更済みでマスタと合わない行でも、その行の 区分〜看板名 のどこかに「この行だけ変更済み」のメモがあれば（＝前にこの確認で変更した行）、マスタの車の行として扱い、確認を出す
+//  ■ 対象の決まり（まとめ）：マスタの車の行 ＝ ①変更する前の車番がマスタの車 ②乗務員名（今・前）がマスタの乗務員 ③行に「この行だけ変更済み」のメモがある のどれか。
+//    その行の 区分・会社名・トン数・車種・車番・乗務員名・携帯番号・看板名 の8項目は、1マスの入力・消す・貼り付け・複数マスまとめて、のどの入れ方でも確認を出す
+//    運行シートの車番が省略形（数字だけなど）の時は、車番の数字部分が同じマスタの車が1台だけなら、その車として扱う（3-2 の補完と同じ探し方）
+//  ・変更する前の値：1マスを打ち込んだ時はシートから来る値。貼り付けなどで来ない時は、一個前の写し（_BK_写_運行。4-2k）→ 行の控え（_BK_運行。4-2n）の同じ行（IDが同じ時だけ）の値。
+//    どちらにも無い時は自車専属マスタの値（車番は「分からない」として扱い、元に戻すでは値を変えずメモだけ外す）
+//  ・変更する（finishUnkouOverride の第2引数 true）：変更した値が残り、未決を消す。変更したマスにはメモ「この行だけ変更済み（自車専属マスタの変更は反映されません）」が付く（画面を早く出すため、画面が開いた後に finishUnkouOverride が付ける）。
+//    以後、自車専属マスタを変更しても（3-3e）、メモのあるマスは変わらない
+//  ・元に戻す（cancelUnkouOverride）：変更する前の値に戻し、メモを外し、未決を消す（前に［変更する］を押してあったマスをもう一度変更して元に戻した時は、メモを残す）
+//  ・乗務員名を変更した時は、携帯番号もそろえる：マスタに登録されている人の名前なら、その人のマスタの番号。登録のない人（外部の人など）なら空（手で入れる）。携帯番号を一緒に変更した時はそれを使う
+//  ・比べる時は、トン数は 4t の形、車種は半角の大文字、車番は半角にそろえる（3-2 の整えと同じ）
+//  ・確認の画面は、すぐ出す（14-2b は「戻る」の写し（4-2k-3）も集計表の同期も待たずに画面を返す）。変更した行について、「戻る」の写し・行の控え・集計表の同期は、画面が開いた後に finishUnkouOverride（第2引数なし）が行う。
+//    この写しは、画面を出した入力の札（unkouOvrMark_ に覚えておく。4-2k-2）を使って、同じ入力の写し（3-2 が先に取る分）と同じ1回分にまとめる（「戻る」1回で入力ごと戻る）。
+//    押していない確認をもう一度出した時（入力の札なし）の同期の書き込みは、「戻る」の控えに取らない。元に戻した時は cancelUnkouOverride が同期する
+//  ・携帯番号が空になる時（登録のない人）は、携帯番号のマスをグレーにする（1-7e と同じ。入れるとグレーが消える）
+//  ■ 色の決まり：この確認にかかわるマスは、絶対に緑にしない。変更した値・そろえた携帯番号・元に戻した値は、全部黒（手入力。3-2）
+//  ・finishUnkouOverride・cancelUnkouOverride：スプレッドシートの画面からだけ動く（P-5f）。cancelUnkouOverride は 1-1b の順番待ちの中で戻す
+// ================================================================
+var UNKOU_OVR_NOTE_ = 'この行だけ変更済み（自車専属マスタの変更は反映されません）';
+var UNKOU_OVR_COLS_ = { 2: '区分', 3: '会社名', 4: 'トン数', 5: '車種', 6: '車番', 7: '乗務員名', 8: '携帯番号', 9: '看板名' };
+function detectUnkouOverride_(ss, sheet, range, e) {
+  var row = range.getRow(), col = range.getColumn(), nR = range.getNumRows(), nC = range.getNumColumns();
+  var cols = [2, 3, 4, 5, 6, 7, 8, 9].filter(function(c) { return c >= col && c <= col + nC - 1; });
+  if (!cols.length || row < 2) return null;
+  var master = ss.getSheetByName('自車専属マスタ');
+  if (!master || master.getLastRow() < 2) return null;
+  var mData = master.getDataRange().getValues();
+  var half = function(t) { return String(t === null || t === undefined ? '' : t).trim().replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }); };
+  var tr = function(t) { return String(t === null || t === undefined ? '' : t).trim(); };
+  var byCar = {}, dup = {}, byName = {}, byDigit = {}, dupDigit = {};
+  for (var m = 1; m < mData.length; m++) {
+    var mc = half(mData[m][7]);
+    if (mc) { if (byCar[mc]) dup[mc] = true; else byCar[mc] = mData[m]; }
+    var md = (mc.match(/\d+/g) || []).join('');
+    if (md) { if (byDigit[md]) dupDigit[md] = true; else byDigit[md] = mData[m]; }
+    var mn = tr(mData[m][8]);
+    if (mn && !byName[mn]) byName[mn] = mData[m];
+  }
+  var norm = function(c, v) { var t = tr(v); if (c === 4) return normalizeTons_(t); if (c === 5) return half(t).toUpperCase(); if (c === 6) return half(t); return t; };
+  var mIdx = { 2: 2, 3: 3, 4: 5, 5: 6, 6: 7, 7: 8, 8: 9, 9: 4 };   // 運行シートの列 → マスタの列
+  var single = nR === 1 && nC === 1;
+  var vals = sheet.getRange(row, 1, nR, 9).getValues();
+  var nts = sheet.getRange(row, 2, nR, 8).getNotes();
+  // 変更する前の値：1マスの入力はシートから来る値。来ない時は、一個前の写し → 行の控え の同じ行（IDが同じ時だけ）
+  var prevOf = function(name) {
+    try {
+      var sh = ss.getSheetByName(name);
+      if (!sh || sh.getMaxRows() < row + nR - 1 || sh.getMaxColumns() < 9) return null;
+      return sh.getRange(row, 1, nR, 9).getValues();
+    } catch (pe) { return null; }
+  };
+  var mir = null, bk = null, loaded = false;
+  var oldOf = function(i, c) {
+    if (single && e && e.oldValue !== undefined && e.oldValue !== null) return e.oldValue;
+    if (!loaded) { loaded = true; mir = prevOf(JR_MIRROR_PREFIX_ + '運行'); bk = prevOf('_BK_運行'); }
+    var id = tr(vals[i][0]), cur = vals[i][c - 1];
+    var mv = (id && mir && tr(mir[i][0]) === id) ? mir[i][c - 1] : undefined;
+    var bv = (id && bk && tr(bk[i][0]) === id) ? bk[i][c - 1] : undefined;
+    // 写しが今の値と同じ時は、同じ入力の写し（3-2）が先に済んでいることがあるので、行の控えの値を使う
+    if (mv !== undefined && norm(c, mv) !== norm(c, cur)) return mv;
+    if (bv !== undefined) return bv;
+    return undefined;
+  };
+  var changes = [];
+  for (var i = 0; i < nR; i++) {
+    var rd = vals[i], r = row + i, rid = tr(rd[0]);
+    var car = half(rd[5]);
+    if (cols.indexOf(6) >= 0) { var oc = oldOf(i, 6); if (oc !== undefined) car = half(oc); }   // 車番を変更した時は、前の車番で見る
+    var mr = car ? byCar[car] : null;
+    if (!mr && car) {   // 車番が省略形（101 など）の行：3-2 の補完と同じく数字部分で探す（マスタに1台だけの時）
+      var cd = (car.match(/\d+/g) || []).join('');
+      if (cd && byDigit[cd] && !dupDigit[cd]) { mr = byDigit[cd]; car = half(mr[7]); }
+    }
+    var drv = tr(rd[6]) ? byName[tr(rd[6])] : null;
+    var byCarHit = !!mr;
+    if (byCarHit && dup[car]) mr = null;   // 同じ車番がマスタに2行以上：どの行か決められないので、マスタの値は使わない（確認は出す）
+    if (!byCarHit) {   // 車番がマスタの車でない行（車番を前に変更した行など）：乗務員名（今の名前・変更する前の名前）がマスタの乗務員なら、マスタの車の行として扱う
+      var nmRow = drv;
+      if (!nmRow && cols.indexOf(7) >= 0) { var on = oldOf(i, 7); if (on !== undefined && tr(on)) nmRow = byName[tr(on)] || null; }
+      if (!nmRow) {   // 車番も乗務員名もマスタにない行：前に確認の画面で変更した行（「この行だけ変更済み」のメモがどこかにある）なら、マスタの車の行として扱う
+        var notedRow = nts[i].some(function(t) { return String(t || '').indexOf(UNKOU_OVR_NOTE_) >= 0; });
+        if (!notedRow) continue;   // 自車専属マスタにない車の行
+      } else mr = nmRow;
+    }
+    var rc = [];
+    cols.forEach(function(c) {
+      var old = oldOf(i, c);
+      if (old === undefined && c !== 6) old = (c === 8) ? (drv ? drv[9] : undefined) : (mr ? mr[mIdx[c]] : undefined);
+      if (old !== undefined && norm(c, old) === norm(c, rd[c - 1])) return;   // 値が変わっていない
+      rc.push({ row: r, col: c, old: old === undefined ? null : old, id: rid });
+    });
+    if (!rc.length) continue;
+    if (rc.some(function(x) { return x.col === 7; }) && cols.indexOf(8) < 0) {   // 乗務員名を変更した時は携帯番号もそろえる（黒）
+      var newPh = drv ? drv[9] : '';
+      if (tr(rd[7]) !== tr(newPh)) {
+        var pc = sheet.getRange(r, 8);
+        pc.setValue(newPh);
+        pc.setFontColor(null);
+        if (!newPh) pc.setBackground('#b0bec5');   // 携帯番号が空：グレー（1-7e と同じ）
+        rc.push({ row: r, col: 8, old: rd[7], id: rid });
+      }
+    }
+    rc.forEach(function(x) {
+      if (String(nts[i][x.col - 2] || '').indexOf(UNKOU_OVR_NOTE_) >= 0) x.had = 1;   // 前に変更済みのマス（メモはもうある。元に戻してもメモは残す）
+      changes.push(x);
+    });
+  }
+  if (!changes.length) return null;
+  var list = unkouPendCheck_(ss);   // 前の未決（まだ押していない分）に足す。同じマスは前の「変更する前の値」を残す
+  changes.forEach(function(x) {
+    if (!list.some(function(y) { return y.row === x.row && y.col === x.col; })) list.push(x);
+  });
+  unkouPendSave_(ss, list, { r: row, nr: nR, tok: JR_.tok, at: JR_.tokAt });   // 未決と、画面の後の処理に渡す印（入力した行・入力の札）を、1回の書き込みで保存
+  return buildUnkouOverrideHtml_(ss.getId(), list);
+}
+function buildUnkouOverrideHtml_(ssId, list) {
+  var esc = function(t) { return String(t === null || t === undefined ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+  list = list || [];
+  var items = list.slice(0, 4).map(function(c) { return esc(c.row) + '行目の' + esc(UNKOU_OVR_COLS_[c.col] || ''); }).join('、');
+  if (list.length > 4) items += ' ほか' + (list.length - 4) + '件';
+  return '<style>body{font-family:sans-serif;padding:16px;text-align:center;margin:0;overflow:hidden}p{margin:0 0 12px;font-size:13px;line-height:1.6}.t{font-weight:bold}.s{font-size:11px;color:#666}' +
+    'button{display:block;width:100%;padding:11px 8px;margin:7px 0;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#fff}button:hover:not(:disabled){background:#f0f0f0}button:disabled{opacity:.5;cursor:default}</style>' +
+    (items ? '<p class="t">' + items + '</p>' : '') +
+    '<p>これは自車専属マスタにあるデータです。<br>変更すると、この行だけ、自車専属マスタの変更が反映されなくなります。<br>変更しても大丈夫ですか？</p>' +
+    '<button onclick="ok()">変更する</button>' +
+    '<button onclick="back()">元に戻す</button>' +
+    '<p class="s">どちらかを押すまで、この画面は何度でも出ます。</p>' +
+    '<script>var S="' + ssId + '";google.script.run.finishUnkouOverride(S);' +
+    'function lock(b){document.querySelectorAll("button").forEach(function(x){x.disabled=b;});}' +
+    'function done(){google.script.host.close();}function fail(e){alert("エラー: "+(e.message||e));lock(false);}' +
+    'function ok(){lock(true);google.script.run.withSuccessHandler(done).withFailureHandler(fail).finishUnkouOverride(S,true);}' +
+    'function back(){lock(true);google.script.run.withSuccessHandler(done).withFailureHandler(fail).cancelUnkouOverride(S);}<\/script>';
+}
+// 未決の一覧を読む・書く（長い時は unkouOverride_＋SSのID＋_番号 に分けて保存し、本体には「#分けた数」を入れる）
+var UNKOU_PEND_HEAD_ = {};   // 読んだ時の本体の中身（同じ処理の中で、保存の時にもう一度読まないため）
+function unkouPendLoad_(ss) {
+  var props = PropertiesService.getScriptProperties(), key = 'unkouOverride_' + ss.getId();
+  var head = props.getProperty(key);
+  UNKOU_PEND_HEAD_[ss.getId()] = head || '';
+  if (!head) return [];
+  try {
+    var m = /^#(\d+)$/.exec(head), json = head;
+    if (m) { json = ''; for (var i = 1; i <= Number(m[1]); i++) json += props.getProperty(key + '_' + i) || ''; }
+    var list = JSON.parse(json);
+    return Array.isArray(list) ? list : [];
+  } catch (e) { return []; }
+}
+// mark を渡した時は、画面の後の処理に渡す印（unkouOvrMark_＋SSのID）も同じ1回の書き込みで保存する
+function unkouPendSave_(ss, list, mark) {
+  var id = ss.getId(), props = PropertiesService.getScriptProperties(), key = 'unkouOverride_' + id;
+  var head = (id in UNKOU_PEND_HEAD_) ? UNKOU_PEND_HEAD_[id] : (props.getProperty(key) || '');
+  var m = head ? /^#(\d+)$/.exec(head) : null;
+  if (m) { for (var d = 1; d <= Number(m[1]); d++) props.deleteProperty(key + '_' + d); }
+  var set = {}, newHead = '';
+  if (mark) set['unkouOvrMark_' + id] = JSON.stringify(mark);
+  if (list && list.length) {
+    var json = JSON.stringify(list), size = 2500;
+    if (json.length <= size) newHead = json;
+    else {
+      var n = Math.ceil(json.length / size);
+      for (var i = 0; i < n; i++) set[key + '_' + (i + 1)] = json.substr(i * size, size);
+      newHead = '#' + n;
+    }
+    set[key] = newHead;
+  } else if (head) props.deleteProperty(key);
+  if (Object.keys(set).length) props.setProperties(set);
+  UNKOU_PEND_HEAD_[id] = newHead;
+}
+// 未決の一覧から、もう無い変更（もう変更する前の値に戻っているマス・行が動いてIDが違うマス）を外して返す。外した時は保存し直す
+function unkouPendCheck_(ss) {
+  var list = unkouPendLoad_(ss);
+  if (!list.length) return list;
+  var sheet = ss.getSheetByName('運行'), keep = [];
+  if (sheet) {
+    var lo = 0, hi = 0;
+    list.forEach(function(c) { if (!lo || c.row < lo) lo = c.row; if (c.row > hi) hi = c.row; });
+    lo = Math.max(lo, 2); hi = Math.min(hi, sheet.getMaxRows());
+    if (hi >= lo) {
+      var vals = sheet.getRange(lo, 1, hi - lo + 1, 9).getValues();
+      var t = function(v) { return String(v === null || v === undefined ? '' : v).trim(); };
+      list.forEach(function(c) {
+        if (c.row < lo || c.row > hi || !UNKOU_OVR_COLS_[c.col]) return;
+        var rv = vals[c.row - lo];
+        if (c.id && t(rv[0]) !== c.id) return;   // 行が動いた
+        if (c.old !== null && c.old !== undefined && t(rv[c.col - 1]) === t(c.old)) return;   // もう変更する前の値に戻っている（「戻る」で戻した時など）
+        keep.push(c);
+      });
+    }
+  }
+  if (keep.length !== list.length) unkouPendSave_(ss, keep);
+  return keep;
+}
+// 未決が残っていれば、確認の画面をもう一度返す（14-2b の最後から。無ければ null）
+function unkouPendingDialog_(ss) {
+  if (!PropertiesService.getScriptProperties().getProperty('unkouOverride_' + ss.getId())) return null;
+  var list = unkouPendCheck_(ss);
+  if (!list.length) return null;
+  return { html: buildUnkouOverrideHtml_(ss.getId(), list), title: '変更しても大丈夫ですか？', width: 340, height: 310 };
+}
+// 第2引数なし＝画面が開いた後に動く：変更した行の控え（4-2n）を取り、その運行の集計表の行を同期する（画面を早く出すため、ここに分けた）
+// 第2引数 true＝［変更する］を押した時：未決を消す
+function finishUnkouOverride(ssId, confirm) {
+  requireSheetUi_();
+  var ss = getTargetSS_(ssId);
+  if (confirm === true) { unkouPendSave_(ss, []); return; }
+  var list = unkouPendLoad_(ss);
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet || !list.length) return;
+  try {   // 画面を出す前に省いた「戻る」の写し（4-2k-3）を、変更した行について取る（この関数が終わる時に取られる。同じ入力の写しと同じ1回分にまとめる）
+    var omKey = 'unkouOvrMark_' + ss.getId(), omRaw = PropertiesService.getScriptProperties().getProperty(omKey);
+    if (omRaw) { var om = JSON.parse(omRaw); JR_.tok = om.tok || ''; JR_.tokAt = om.at || 0; JR_.side = 'I'; jrMark_(sheet.getRange(om.r, 1, om.nr, 9), 'setValues'); PropertiesService.getScriptProperties().deleteProperty(omKey); }
+  } catch (omE2) {}
+  try {   // 変更したマスにメモを付ける（画面を早く出すため、画面が開いた後のここで付ける）。行が動いたマス・もう変更する前の値に戻っているマスには付けない
+    list.forEach(function(c) {
+      if (c.had) return;
+      var cell = sheet.getRange(c.row, c.col);
+      if (c.id && String(sheet.getRange(c.row, 1).getValue() || '').trim() !== c.id) return;
+      if (c.old !== null && c.old !== undefined && String(cell.getValue()).trim() === String(c.old).trim()) return;
+      var n = String(cell.getNote() || '');
+      if (n.indexOf(UNKOU_OVR_NOTE_) < 0) cell.setNote(n ? n + '\n' + UNKOU_OVR_NOTE_ : UNKOU_OVR_NOTE_);
+    });
+  } catch (ntE) { logError_('finishUnkouOverride メモ', ntE); }
+  var rows = {}, ids = {};
+  list.forEach(function(c) { rows[c.row] = true; });
+  Object.keys(rows).forEach(function(r) {
+    var id = String(sheet.getRange(Number(r), 1).getValue() || '').trim();
+    if (id) ids[id] = true;
+    try { backupSheetRow_(ss, '運行', Number(r)); } catch (e2) {}
+  });
+  var idList = Object.keys(ids);
+  if (idList.length > 3) { try { generateSummary(ss); } catch (e3) { logError_('finishUnkouOverride 集計表作り直し', e3); } }
+  else idList.forEach(function(id) { try { syncSummaryForId_(id, ss); } catch (e4) { logError_('finishUnkouOverride 集計表同期', e4); } });
+  try { flushPendingSummary_(ss); } catch (e5) {}
+}
+function cancelUnkouOverride(ssId) {
+  requireSheetUi_();
+  var ss = getTargetSS_(ssId);
+  var list = unkouPendCheck_(ss);
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet || !list.length) { unkouPendSave_(ss, []); return; }
+  jrEditToken_(null, 'X');   // 「元に戻す」は、人が押した1回分として「戻る」の控えに取る（4-2k-2）
+  var ids = {};
+  runInSsLock_(function() {
+    list.forEach(function(c) {
+      var cell = sheet.getRange(c.row, c.col);
+      if (c.old !== null && c.old !== undefined) cell.setValue(c.old);   // 変更する前の値が分からないマスは、値を変えずメモだけ外す
+      var n = String(cell.getNote() || '');
+      if (!c.had && n.indexOf(UNKOU_OVR_NOTE_) >= 0) cell.setNote(n.split('\n' + UNKOU_OVR_NOTE_).join('').split(UNKOU_OVR_NOTE_).join('').trim());
+      cell.setFontColor(null);   // 元に戻した値も黒（緑にしない）
+      if (c.id) ids[c.id] = true;
+    });
+  });
+  unkouPendSave_(ss, []);
+  Object.keys(ids).forEach(function(id) { try { delaySyncSummary_(id, ss); } catch (e2) { logError_('cancelUnkouOverride 集計表同期', e2); } });
+}
+
+
+// ================================================================
+//  3-3e: 自車専属マスタの項目の変更を運行シートへ反映（buildMasterFieldSyncHtml_ / executeMasterFieldSync）  【大A / 中3 / 小3-3e】
+//  ■ 決まり：自車専属マスタの 区分・会社名・看板名・トン数・車種・車番・乗務員名・携帯番号（運行シートのB〜I列と同じ項目）を1マス直したら、
+//    運行シートの同じ車の行の、同じ項目を新しい値に直す。範囲は人が選ぶ（本日以降＝今日の日付から／今月以降＝今月1日から／全期間）。範囲は運行シートの日付（J列）で決める
+//  ・画面：14-2b が出す。「本日以降・今月以降・全期間・運行シートは変更しない」の4つ。押した範囲で、すぐ運行シートを直し、「○件直しました」を出す（直す行が0件の時は「直す行がありませんでした（車番○・名前○・直す前の値○）」）。
+//    「運行シートは変更しない」なら何も直さない。ほかの確認画面は出さない（範囲を選ぶのが、直してよいという選択）
+//    直す前の値は、入力した時にシートから来る値を使う。貼り付けなどで来ない時は、前の状態の控え（_BK_自車専属マスタ。4-2n）の同じ行・同じ項目を使う
+//  ・直す対象：マスタの車番が1行だけ（同じ車番の行がほかに無い。車番を直した時は、元の車番の行が無くなった）なら、運行シートの 車番（F）が同じ（車番を直した時は元の車番）の行すべて。運行シートの名前などがマスタとずれていても、そろえられる。
+//    ただし、運行シートで「この行だけ変更済み」のメモ（3-2-9）が付いたマス（手入力で変更した分）は、まず直さずに件数を数える。範囲の行を直した後に「手入力して変更した行が○件あります。自車専属マスタの値に変更しますか？」を出し、［変更する］なら手入力分もマスタの値に直してメモを外す（executeMasterFieldSync の第3引数 true）、［そのまま］なら手入力のまま残す。携帯番号は、名前がマスタの乗務員と違う行（代わりの乗務員の行）は直さない
+//    同じ車番がマスタに2行以上ある時（1台を何人かで使う）は、運行シートの 車番（F）・乗務員名（G）・直した項目が、マスタの「直す前」と同じ行だけ（車番を直した時は 元の車番 ＋ 今の乗務員名、乗務員名を直した時は 今の車番 ＋ 元の乗務員名、それ以外の項目は 今の車番 ＋ 今の乗務員名 ＋ 元の値）。ほかの車・ほかの人の行は変えない。終わった行（降完あり）も範囲に入れば直す。入っていた値が手で入れたものでも直す
+//  ・比べる時は、トン数は 4t の形、車種は半角の大文字、車番は半角にそろえて比べる（入力した時と同じ形。3-2）。変更したマスの文字は黒にする（緑だったマスも黒。絶対に緑にしない）。背景の色は変えない
+//  ・直したら、その運行のIDの集計表の行も同期する（20件まで1件ずつ 4-2。それより多ければ集計表を作り直す 4-1）
+//  ・直したマスタの行・項目・直す前の値は、14-2b が画面を出す時に保存した値（masterFieldSync_ + SSのID）を使い、新しい値はマスタの今の値を読む
+//  ・executeMasterFieldSync：スプレッドシートの画面からだけ動く（P-5f）。1-1b の順番待ちの中で行を読み直して書く。返り値：直した件数・探した条件
+// ================================================================
+function buildMasterFieldSyncHtml_(ssId, field, oldValue, newValue) {
+  var esc = function(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+  var now = new Date(), tz = Session.getScriptTimeZone();
+  var todayStr = Utilities.formatDate(now, tz, 'yyyy/MM/dd');
+  var firstStr = Utilities.formatDate(new Date(now.getFullYear(), now.getMonth(), 1), tz, 'yyyy/MM/dd');
+  return '<style>body{font-family:sans-serif;padding:16px;text-align:center;margin:0;overflow:hidden}p{margin:0 0 14px;font-size:13px;line-height:1.5}small{color:#888;font-size:11px}' +
+    'button{display:block;width:100%;padding:11px 8px;margin:7px 0;font-size:13px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#fff}button:hover:not(:disabled){background:#f0f0f0}button:disabled{opacity:.5;cursor:default}.cancel{color:#999}</style>' +
+    '<div id="main"><p>自車専属マスタの「' + esc(field) + '」を<br>「' + esc(oldValue) + '」から「' + esc(newValue) + '」に変えました。<br>運行シートの「' + esc(field) + '」も、いつからの分を直しますか？<br><small>（運行シートの日付で決めます）</small></p>' +
+    '<button onclick="pre(\'today\')">本日以降（' + todayStr + '〜）</button>' +
+    '<button onclick="pre(\'month\')">今月以降（' + firstStr + '〜）</button>' +
+    '<button onclick="pre(\'all\')">全期間（制限なし）</button>' +
+    '<button class="cancel" onclick="google.script.host.close()">運行シートは変更しない</button></div>' +
+    '<script>var _ssId="' + ssId + '";' +
+    'function lock(on){document.querySelectorAll("button").forEach(function(b){b.disabled=on;});}' +
+    'function show(h){document.getElementById("main").innerHTML=h;}' +
+    'var _v="";function hand(){lock(true);google.script.run.withSuccessHandler(function(r){show("<p>"+r.done+" 件変更しました。</p><button onclick=\\"google.script.host.close()\\">閉じる</button>");}).withFailureHandler(function(e){alert("エラー: "+(e.message||e));lock(false);}).executeMasterFieldSync(_v,_ssId,true);}' +
+    'function pre(v){_v=v;lock(true);google.script.run.withSuccessHandler(function(r){' +
+    ' if(r.held){show("<p>"+(r.done?r.done+" 件変更しました。<br>":"")+"運行シートで手入力して変更した行が "+r.held+" 件あります。<br>自車専属マスタの値に変更しますか？</p><button onclick=\\"hand()\\">変更する</button><button onclick=\\"google.script.host.close()\\">そのまま</button>");return;}' +
+    ' if(!r.done){show("<p>運行シートに、変更する行がありませんでした。<br><small>車番「"+r.car+"」・名前「"+r.name+"」・直す前の値「"+r.old+"」の行（範囲内）</small></p><button onclick=\\"google.script.host.close()\\">閉じる</button>");return;}' +
+    ' show("<p>"+r.done+" 件変更しました。</p><button onclick=\\"google.script.host.close()\\">閉じる</button>");' +
+    '}).withFailureHandler(function(e){alert("エラー: "+(e.message||e));lock(false);}).executeMasterFieldSync(v,_ssId);}' +
+    '<\/script>';
+}
+// 直す対象の準備（preview と execute で共通）。画面から来た範囲（choice）で、運行シートの対象の行を探す関数 pick を返す
+function masterFieldSyncPlan_(choice, ssId) {
+  if (choice !== 'today' && choice !== 'month' && choice !== 'all') return null;
+  var ss = getTargetSS_(ssId);
+  var props = PropertiesService.getScriptProperties(), key = 'masterFieldSync_' + ss.getId();
+  var job = null;
+  try { job = JSON.parse(props.getProperty(key) || 'null'); } catch (e) { job = null; }
+  var master = ss.getSheetByName('自車専属マスタ'), sheet = ss.getSheetByName('運行');
+  if (!job || !job.field || !master || !sheet || sheet.getLastRow() < 2) return null;
+  var mHdr = master.getRange(1, 1, 1, master.getLastColumn()).getValues()[0].map(function(h) { return String(h || '').trim(); });
+  var uHdr = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(h) { return String(h || '').trim(); });
+  var mc = function(n) { return mHdr.indexOf(n) + 1; }, uc = function(n) { return uHdr.indexOf(n) + 1; };
+  var uField = uc(job.field), carU = uc('車番'), nameU = uc('乗務員名'), dateU = uc('日付');
+  if (!uField || !carU || !nameU || !dateU || !mc(job.field) || !mc('車番') || !mc('乗務員名')) return null;
+  var toHalf = function(t) { return String(t).replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }); };
+  var norm = function(field, v) {
+    var t = String(v === null || v === undefined ? '' : v).trim();
+    if (field === 'トン数') return normalizeTons_(t);
+    if (field === '車種') return toHalf(t).toUpperCase();
+    if (field === '車番') return toHalf(t);
+    return t;
+  };
+  var mRow = master.getRange(job.row, 1, 1, master.getLastColumn()).getValues()[0];
+  var newVal = norm(job.field, mRow[mc(job.field) - 1]);   // マスタの今の値（入力した時の整え済み）
+  var oldVal = norm(job.field, job.oldValue);
+  var curCar = norm('車番', mRow[mc('車番') - 1]), curName = String(mRow[mc('乗務員名') - 1] || '').trim();
+  var matchCar  = job.field === '車番'     ? oldVal : curCar;
+  var matchName = job.field === '乗務員名' ? oldVal : curName;
+  // 車番が1台に1行（マスタで同じ車番の行がほかに無い）なら、運行シートの行は車番だけで探す（運行シートの名前などがマスタとずれていても、そろえられる）
+  var carCount = 0;
+  if (master.getLastRow() >= 2) {
+    master.getRange(2, mc('車番'), master.getLastRow() - 1, 1).getValues().forEach(function(r) {
+      var cc = norm('車番', r[0]);
+      if (job.field === '車番' ? cc === oldVal : cc === curCar) carCount++;
+    });
+  }
+  var byCar = job.field === '車番' ? carCount === 0 : carCount === 1;
+  var now = new Date();
+  var from = choice === 'today' ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
+           : choice === 'month' ? new Date(now.getFullYear(), now.getMonth(), 1) : new Date(2000, 0, 1);
+  var GREEN = '#1a9a50';
+  var heldCount = 0;
+  var pick = function(includeHand) {
+    heldCount = 0;
+    var n = sheet.getLastRow() - 1;
+    var v = sheet.getRange(2, 1, n, Math.max(uField, carU, nameU, dateU)).getValues();
+    var fc = sheet.getRange(2, uField, n, 1).getFontColors();
+    var nt = sheet.getRange(2, uField, n, 1).getNotes();   // 「この行だけ変更済み」のメモ（3-2-9）
+    var hits = [];
+    for (var i = 0; i < n; i++) {
+      if (norm('車番', v[i][carU - 1]) !== matchCar) continue;
+      var noted = String(nt[i][0] || '').indexOf(UNKOU_OVR_NOTE_) >= 0;   // この行だけ変更済みのマス（3-2-9）
+      if (byCar) {   // 車番だけで探す時
+        if (norm(job.field, v[i][uField - 1]) === newVal) continue;   // すでに新しい値の行は数えない
+        var gNm = String(v[i][nameU - 1] || '').trim();
+        // 携帯番号：代わりの乗務員（別の人の名前）の行は、その人の番号なので直さない
+        if (job.field === '携帯番号' && gNm !== curName) continue;
+      }
+      else { if (String(v[i][nameU - 1] || '').trim() !== matchName) continue; if (norm(job.field, v[i][uField - 1]) !== oldVal) continue; }
+      var d = v[i][dateU - 1];
+      if (choice !== 'all' && !(d instanceof Date && d >= from)) continue;
+      if (noted && !includeHand) { heldCount++; continue; }   // 手入力で変更したマスは、まず変更せず数えておく（あとで人に聞く）
+      hits.push({ idx: i, id: String(v[i][0] || '').trim(), hand: String(fc[i][0] || '').toLowerCase() !== GREEN });
+    }
+    return hits;
+  };
+  return { ss: ss, props: props, key: key, sheet: sheet, uField: uField, newVal: newVal, oldVal: oldVal, matchCar: matchCar, matchName: matchName, pick: pick, held: function() { return heldCount; }, GREEN: GREEN, valid: !!newVal && newVal !== oldVal };
+}
+// 直して、{ done: 直した件数, car, name, old } を返す（0件の時は探した条件を画面に出すため）
+function executeMasterFieldSync(choice, ssId, includeHand) {
+  requireSheetUi_();
+  var p = masterFieldSyncPlan_(choice, ssId);
+  if (!p || !p.valid) return { done: 0, held: 0, car: '', name: '', old: '' };
+  var ids = {}, done = 0, held = 0;
+  runInSsLock_(function() {
+    var hits = p.pick(!!includeHand);   // 順番待ちの後、今の行を読み直す
+    held = p.held();
+    if (!hits.length) return;
+    var rng = p.sheet.getRange(2, p.uField, p.sheet.getLastRow() - 1, 1);
+    var vv = rng.getValues();
+    hits.forEach(function(h) {
+      vv[h.idx][0] = p.newVal;   // 背景の色は変えない。文字は黒にする（下）
+      if (h.id) ids[h.id] = true;
+      done++;
+    });
+    rng.setValues(vv);
+    var fcs = rng.getFontColors();   // 自車専属マスタの値に変更したマスは、絶対に緑にしない（黒）
+    hits.forEach(function(h) { fcs[h.idx][0] = null; });
+    rng.setFontColors(fcs);
+    if (includeHand) {   // 手入力分を変更したマスは、「この行だけ変更済み」のメモを外す
+      var ntRng = p.sheet.getRange(2, p.uField, p.sheet.getLastRow() - 1, 1), nts = ntRng.getNotes();
+      hits.forEach(function(h) {
+        var t = String(nts[h.idx][0] || '');
+        if (t.indexOf(UNKOU_OVR_NOTE_) >= 0) nts[h.idx][0] = t.split('\n' + UNKOU_OVR_NOTE_).join('').split(UNKOU_OVR_NOTE_).join('').trim();
+      });
+      ntRng.setNotes(nts);
+    }
+  });
+  var res = { done: done, held: includeHand ? 0 : held, car: p.matchCar, name: p.matchName, old: p.oldVal };
+  if (!res.held) p.props.deleteProperty(p.key);   // 手入力分を人に聞く間は、直した項目の控えを残す
+  var idList = Object.keys(ids);
+  if (!idList.length) return res;
+  SpreadsheetApp.flush();
+  if (idList.length <= 20) idList.forEach(function(id) { try { syncSummaryForId_(id, p.ss); } catch (e) { logError_('executeMasterFieldSync 集計表同期', e); } });
+  else { try { generateSummary(p.ss); } catch (e) { logError_('executeMasterFieldSync 集計表作り直し', e); } }
+  return res;
+}
+
+
+// ================================================================
 // ■ グループ13追記：ETC利用明細 CSV読込
 // ================================================================
 
@@ -21077,9 +22028,53 @@ function collectExpiryWarnings_(ss) {
 
 
 // ================================================================
+//  4-2z-3: 運行シートで、自車専属マスタの車の行の緑のマスを黒に戻す（resetStrayGreenOnUnkou_）  【大B / 中4 / 小4-2z-3】
+//  シート再生成（4-3）の色付けの後に動く。運行シートの 区分・会社名・トン数・車種・乗務員名・携帯番号・看板名（B〜I。車番Fは除く）の緑の文字を見る。ほかの色・値は触らない
+//  ■ 決まり：自車専属マスタにある車の行（車番がマスタの車。省略形は数字部分が同じ車が1台だけの時）の 区分〜看板名 は、絶対に緑にしない。緑のマスは全部黒に戻す
+//    （自車専属マスタと運行シートの間の値は、手で変更した値・マスタから反映した値・確認の画面で元に戻した値のどれも黒。3-2-9・3-3e）
+//  ・自車専属マスタにない車の行：乗務員名（G）・携帯番号（H）が緑なのに、同じ行の会社名（C）が緑でない時だけ、その2つを黒に戻す（ほかの自動の緑はそのまま）
+// ================================================================
+function resetStrayGreenOnUnkou_(ss) {
+  var sheet = ss.getSheetByName('運行');
+  if (!sheet || sheet.getLastRow() < 2) return;
+  var n = sheet.getLastRow() - 1;
+  var rng = sheet.getRange(2, 2, n, 8);   // B〜I
+  var fc = rng.getFontColors(), vals = rng.getValues(), changed = false, G = '#1a9a50';
+  var half = function(t) { return String(t === null || t === undefined ? '' : t).trim().replace(/[０-９Ａ-Ｚａ-ｚ]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); }); };
+  var byCar = {}, byDigit = {}, dupDigit = {};
+  var master = ss.getSheetByName('自車専属マスタ');
+  var mData = (master && master.getLastRow() >= 2) ? master.getDataRange().getValues() : [];
+  for (var m = 1; m < mData.length; m++) {
+    var mc = half(mData[m][7]);
+    if (mc) byCar[mc] = true;
+    var md = (mc.match(/\d+/g) || []).join('');
+    if (md) { if (byDigit[md]) dupDigit[md] = true; else byDigit[md] = true; }
+  }
+  var cols = [0, 1, 2, 3, 5, 6, 7];   // B・C・D・E・G・H・I（B〜I の中の位置）
+  for (var i = 0; i < n; i++) {
+    var green = {}, cnt = 0;
+    cols.forEach(function(k) { if (String(fc[i][k] || '').toLowerCase() === G) { green[k] = true; cnt++; } });
+    if (!cnt) continue;
+    var car = half(vals[i][4]), isMaster = !!(car && byCar[car]);
+    if (!isMaster && car) {   // 省略形（101 など）：数字部分が同じマスタの車が1台だけ
+      var cd = (car.match(/\d+/g) || []).join('');
+      if (cd && byDigit[cd] && !dupDigit[cd]) isMaster = true;
+    }
+    if (isMaster) {   // 自車専属マスタにある車の行：緑を全部黒に戻す
+      cols.forEach(function(k) { if (green[k]) { fc[i][k] = null; changed = true; } });
+    } else if (!green[1]) {   // マスタにない車の行：会社名が緑でないのに、乗務員名・携帯番号だけ緑
+      [5, 6].forEach(function(k) { if (green[k]) { fc[i][k] = null; changed = true; } });
+    }
+  }
+  if (changed) rng.setFontColors(fc);
+}
+
+
+// ================================================================
 //  1-7e: 運行シートの抜けたマスに色（applyUnkouGapColors_）  【大B / 中1 / 小1-7e】
 //  ■ 決まり：IDのある行（有休・休みの行は除く）で、
 //    ・日付（J）・車番（F）・乗務員名（G）・降地（M）が空のマス＝薄黄 #fff9c4（積地（L）が空の時の黄色と同じ。積地は 1-7 が付ける）
+//    ・携帯番号（H）が空のマス＝グレー #b0bec5（入れるとグレーが消える。自車専属マスタの空白のグレーと同じ決まり）
 //    ・時刻の抜け＝オレンジ #ff6d00：点呼前完了→誘導→積完→休憩開始→休憩終了→降完→点呼後完了 の順で、後ろの時刻があるのに空のマス
 //      （集計表の順序エラーの色と同じ。消して抜けた時もここで色が付く）
 //    値が入った・抜けが無くなったマスは、この2色だけを外す（ほかの色は変えない）
@@ -21111,6 +22106,10 @@ function applyUnkouGapColors_(sheet, startRow, numRows) {
       if (want && b[c - 1] !== YEL) { b[c - 1] = YEL; changed = true; }
       else if (!want && b[c - 1] === YEL) { b[c - 1] = null; changed = true; }
     });
+    // 携帯番号（H）が空のマス＝グレー #b0bec5（自車専属マスタの空白と同じ決まり）。入れるとグレーが消える
+    var wantGry = hasId && isEmpty(v[7]);
+    if (wantGry && b[7] !== '#b0bec5') { b[7] = '#b0bec5'; changed = true; }
+    else if (!wantGry && b[7] === '#b0bec5') { b[7] = null; changed = true; }
     for (var t = 0; t < timeCols.length; t++) {
       var c = timeCols[t];
       var later = false;
@@ -21130,6 +22129,8 @@ function applyUnkouGapColors_(sheet, startRow, numRows) {
 //    スプレッドシートの「警告だけの保護」を付ける。人が触ろうとすると、変わる前に「この範囲を編集しようとしています」と出て、
 //    OKで変更・キャンセルで何も変わらない（間違って消すのを防ぐ）。売上・支払い・備考などは警告しない（後から直すことが多いため）
 //  ・説明が「完了行の警告」の保護だけを付け直す（ほかの保護＝端末列保護などは触らない）。スクリプトの書き込みは止まらない
+//  ・付ける時は、今ある保護と付けたい範囲を比べ、違う所だけ消す・付ける（合っている保護はそのまま。全部消して付け直すと、保護を作るたびに時間がかかり、開いた時・再生成・降完を押した時が遅くなるため）
+//  ・付けたい保護の一覧と、シートにある保護の数が、前に付け終えた時（cgSig_＋SSのID に覚える）と同じなら、何もしない（保護を1つずつ調べない）。行が動いた・保護を足した・消した時は、一覧か数が変わるので調べ直す
 //  ・行が動く（並び替え・行の追加削除）と保護の位置がずれるので、1-7（開いた時など）・1-8（並び替えの後）・7-6（降完を押した後）・
 //    14-2b（日付・降完を編集した後）で付け直す
 // ================================================================
@@ -21137,26 +22138,48 @@ var COMPLETED_GUARD_DESC_ = '完了行の警告';
 function refreshCompletedRowGuard_(ss) {
   var sheet = ss.getSheetByName('運行');
   if (!sheet) return;
-  sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p) {
-    if (p.getDescription() === COMPLETED_GUARD_DESC_) { try { p.remove(); } catch(e) {} }
-  });
+  // 付けたい保護の範囲（A1表記）を作る
+  var want = [];
   var lr = sheet.getLastRow();
-  if (lr < 2) return;
-  var hdr = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var groups = [[6, 2], [10, 1], [12, 7]];   // [始まりの列, 列の数]：F〜G・J・L〜R
-  ['点呼前完了', '点呼後完了'].forEach(function(n) { var c = hdr.indexOf(n) + 1; if (c > 0) groups.push([c, 1]); });
-  var done = sheet.getRange(2, 1, lr - 1, 18).getValues().map(function(r) { return String(r[0] || '').trim() !== '' && r[17] !== '' && r[17] !== null; });
-  // 降完まで入った行が続く所ごとに保護を付ける
-  var i = 0;
-  while (i < done.length) {
-    if (!done[i]) { i++; continue; }
-    var j = i;
-    while (j + 1 < done.length && done[j + 1]) j++;
-    for (var g = 0; g < groups.length; g++) {
-      try { sheet.getRange(i + 2, groups[g][0], j - i + 1, groups[g][1]).protect().setDescription(COMPLETED_GUARD_DESC_).setWarningOnly(true); } catch(e) {}
+  if (lr >= 2) {
+    var hdr = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var groups = [[6, 2], [10, 1], [12, 7]];   // [始まりの列, 列の数]：F〜G・J・L〜R
+    ['点呼前完了', '点呼後完了'].forEach(function(n) { var c = hdr.indexOf(n) + 1; if (c > 0) groups.push([c, 1]); });
+    var done = sheet.getRange(2, 1, lr - 1, 18).getValues().map(function(r) { return String(r[0] || '').trim() !== '' && r[17] !== '' && r[17] !== null; });
+    var colL = function(n) { var t = ''; while (n > 0) { var m = (n - 1) % 26; t = String.fromCharCode(65 + m) + t; n = Math.floor((n - 1) / 26); } return t; };
+    var i = 0;
+    while (i < done.length) {   // 降完まで入った行が続く所ごとに保護を付ける
+      if (!done[i]) { i++; continue; }
+      var j = i;
+      while (j + 1 < done.length && done[j + 1]) j++;
+      for (var g = 0; g < groups.length; g++) {
+        var c1 = groups[g][0], c2 = groups[g][0] + groups[g][1] - 1;
+        want.push(colL(c1) + (i + 2) + ':' + colL(c2) + (j + 2));
+      }
+      i = j + 1;
     }
-    i = j + 1;
   }
+  // 付けたい保護の一覧と、シートにある保護の数が、前に付け終えた時と同じなら何もしない（保護を1つずつ調べると、数が多い時に十数秒かかるため）
+  var sigProps = PropertiesService.getScriptProperties(), sigKey = 'cgSig_' + ss.getId();
+  var prots = sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE);
+  var wantSig = want.length + '|' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, want.join(',')));
+  if (sigProps.getProperty(sigKey) === prots.length + '|' + wantSig) return;
+  // 今ある「完了行の警告」の保護と比べ、違う所だけ消す・付ける（同じ範囲の保護はそのまま。全部消して付け直さない）
+  var wantSet = {};
+  want.forEach(function(x) { wantSet[x] = true; });
+  var have = {};
+  prots.forEach(function(p) {
+    if (p.getDescription() !== COMPLETED_GUARD_DESC_) return;
+    var a1 = '';
+    try { a1 = p.getRange().getA1Notation(); } catch(e) {}
+    if (a1 && wantSet[a1] && !have[a1]) { have[a1] = true; return; }   // 付けたい範囲に合っている保護は残す
+    try { p.remove(); } catch(e) {}   // 要らなくなった保護・同じ範囲の重複を消す
+  });
+  want.forEach(function(x) {
+    if (have[x]) return;
+    try { sheet.getRange(x).protect().setDescription(COMPLETED_GUARD_DESC_).setWarningOnly(true); } catch(e) {}
+  });
+  try { sigProps.setProperty(sigKey, sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).length + '|' + wantSig); } catch(e) {}   // 付け終えた時の印
 }
 
 
