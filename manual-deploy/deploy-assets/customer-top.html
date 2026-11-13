@@ -160,16 +160,96 @@
         .president-wrap { text-align: center; margin: 32px 0 10px; }
         .president-wrap img { width: 100%; max-width: 560px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
         @media (max-width: 640px) {
-            .vs-table thead th, .vs-table tbody td { padding: 10px 12px; font-size: 0.83rem; }
+            .vs-table { table-layout: fixed; }
+            .vs-table thead th, .vs-table tbody td { padding: 10px 8px; font-size: 0.8rem; }
+            .vs-table thead th.th-item { width: 22%; }
+            .vs-table thead th.th-excel { width: 36%; }
+            .vs-table thead th.th-sys { width: 42%; }
         }
         .site-footer { border-top: 1px solid rgba(255,255,255,0.06); padding: 24px; text-align: center; }
         .site-footer .footer-links { margin-bottom: 10px; }
         .site-footer a { color: #64748b; text-decoration: none; margin: 0 8px; font-size: 0.82rem; }
         .site-footer a:hover { color: #94a3b8; }
         .site-footer .footer-copy { color: #475569; font-size: 0.82rem; }
+            /* ▼ スマホで読める形（文字の途中で切らない・金色の文字を背景に溶かさない） */
+        body { word-break: keep-all; overflow-wrap: anywhere; line-break: strict; }
+        h1, h2, h3, .hero-catch, .vision-strong { text-wrap: balance; }
+        .text-gold { -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+        .text-gold .ib { -webkit-text-fill-color: #facc15; color: #facc15; }
+        @media (max-width: 640px) {
+            .container { padding: 12px; }
+            .hero { padding: 36px 12px 40px; }
+            .hero-catch { font-size: 1rem; padding: 8px 14px; }
+            .hero h1 { font-size: 1.85rem; }
+            .hero-text-box { padding: 18px 12px; }
+            .pain-box, .benefit-box { padding: 16px 12px; }
+            .pain-list li, .benefit-list li { font-size: 1.02rem; padding-left: 26px; }
+            .pain-question { font-size: 1.1rem; }
+            .benefit-lead { font-size: 1.2rem; }
+            .vision-box p { font-size: 1.02rem; }
+            .vision-strong { font-size: 1.25rem !important; }
+            .index { padding: 20px 12px; margin: 30px auto; }
+            .section-title { font-size: 1.6rem; margin: 50px 0 28px; }
+            .premium-detail { padding: 30px 14px 22px; }
+            .badge { left: 14px; font-size: 1rem; padding: 5px 18px; }
+            .premium-detail h3 { font-size: 1.4rem; }
+            .premium-detail p, .detail p { font-size: 1.02rem; }
+            .detail { padding: 22px 14px; }
+            .detail h3 { font-size: 1.25rem; }
+            .note-text { font-size: 11px; }
+        }
+            /* ▼ 上のメニュー（全ページ共通） */
+        body { padding-top: 52px; }
+        .topnav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(15,23,42,.96); border-bottom: 1px solid rgba(212,175,55,.3); display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 16px; height: 52px; font-family: 'Noto Sans JP', sans-serif; }
+        .topnav .tn-logo { color: #d4af37; font-weight: 900; text-decoration: none; font-size: .95rem; white-space: nowrap; }
+        .topnav .tn-links { display: flex; gap: 4px; align-items: center; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+        .topnav .tn-links::-webkit-scrollbar { display: none; }
+        .topnav .tn-links a { color: #cbd5e1; text-decoration: none; font-size: .9rem; font-weight: 700; padding: 8px 10px; border-radius: 8px; }
+        .topnav .tn-links a:hover { color: #facc15; }
+        .topnav .tn-links a.tn-cta { background: #facc15; color: #111; }
+        @media (max-width: 640px) { .topnav { padding: 0 6px; } .topnav .tn-logo { display: none; } .topnav .tn-links { width: 100%; justify-content: space-between; } .topnav .tn-links a { font-size: .8rem; padding: 8px 6px; } }
+        /* ▼ トップの整理（できること／タップで開く） */
+        .can-box { margin: 0 0 24px; text-align: center; }
+        .can-title { font-size: 1.9rem; font-weight: 900; margin: 0 0 18px; color: #fff; }
+        .can-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; text-align: left; }
+        .can-item { background: rgba(30,41,59,.9); border: 1px solid rgba(250,204,21,.35); border-radius: 12px; padding: 16px 18px; font-size: 1.1rem; font-weight: 800; color: #f8fafc; line-height: 1.6; }
+        .can-item span { display: block; font-size: 1.6rem; margin-bottom: 4px; }
+        .can-cta { text-align: center; margin: 22px 0 8px; }
+        .can-cta .btn { padding: 14px 34px; font-size: 1.15rem; }
+        .can-cta p { margin: 10px 0 0; font-size: .9rem; color: #94a3b8; }
+        details.more { margin: 18px 0; background: rgba(30,41,59,.6); border: 1px solid #334155; border-radius: 12px; }
+        details.more > summary { cursor: pointer; padding: 16px 18px; font-weight: 900; font-size: 1.05rem; color: #facc15; list-style: none; }
+        details.more > summary::-webkit-details-marker { display: none; }
+        details.more > summary::after { content: '＋ タップで開く'; float: right; font-size: .85rem; color: #94a3b8; font-weight: 700; }
+        details.more[open] > summary::after { content: '－ 閉じる'; }
+        details.more > .hero-text-box { border-top: 0; box-shadow: none; background: transparent; }
+        details.vs-more { margin: 40px 0; }
+        details.vs-more .vs-section { background: transparent; padding: 20px 8px 30px; }
+        .feat-hint { text-align: center; color: #94a3b8; margin: -20px 0 24px; font-size: .95rem; }
+        .acc { padding: 0 !important; margin-bottom: 12px !important; }
+        .acc > h3 { cursor: pointer; position: relative; margin: 0 !important; padding: 18px 48px 18px 20px !important; border-bottom: 0 !important; font-size: 1.2rem !important; line-height: 1.5; }
+        .acc > h3::after { content: '＋'; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); color: #facc15; font-size: 1.4rem; font-weight: 900; }
+        .acc.open > h3::after { content: '－'; }
+        .acc > .acc-body { display: none; padding: 0 20px 22px; }
+        .acc.open > .acc-body { display: block; }
+        .acc.premium-detail { margin-top: 28px !important; }
+        .acc.premium-detail > h3 { padding-top: 34px !important; }
+        @media (max-width: 640px) { .cta { padding: 50px 14px; } .cta h2 { font-size: 1.6rem; } .cta p { font-size: 1rem; } }
+        @media (max-width: 640px) { .can-title { font-size: 1.5rem; } .can-item { font-size: 1rem; padding: 14px; } .acc > h3 { font-size: 1.05rem !important; padding: 16px 40px 16px 14px !important; } .acc > .acc-body { padding: 0 14px 18px; } details.more > summary { padding: 14px; font-size: 1rem; } details.more > summary::after { display: block; float: none; margin-top: 2px; } }
     </style>
 </head>
 <body>
+<div class="topnav">
+    <a class="tn-logo" href="customer-top.html">Smart Simple System</a>
+    <div class="tn-links">
+        <a href="customer-top.html" style="color:#facc15">トップ</a>
+        <a href="customer-top.html#features">機能</a>
+        <a href="article1.html">導入事例</a>
+        <a href="article2.html">Q&amp;A</a>
+        <a href="lp.html">料金</a>
+        <a class="tn-cta" href="demo.html" target="_blank" rel="noopener">お試しデモ</a>
+    </div>
+</div>
 
 <div class="hero">
     <div class="hero-inner">
@@ -183,6 +263,24 @@
             <img src="images/img-hero-office.png" alt="運送会社の事務所でアプリとスプレッドシートを使って運行管理している画面">
         </div>
 
+        <div class="can-box">
+            <h2 class="can-title">こんなことが、できます</h2>
+            <div class="can-grid">
+                <div class="can-item"><span>📊</span>1行程ごとに、売上・燃料代・支払い・利益が自動で出る</div>
+                <div class="can-item"><span>📱</span>スマホのボタンを押すだけで、時刻が事務所のシートに入る</div>
+                <div class="can-item"><span>📝</span>点呼・乗務の記録と、監査用の表が自動でできる</div>
+                <div class="can-item"><span>🗺️</span>地名を入れるだけで、距離をGoogleの地図から自動計算</div>
+                <div class="can-item"><span>🧾</span>請求書・支払確認書・損益（PL）表を、ボタンで作れる</div>
+                <div class="can-item"><span>🔔</span>免許・健康診断などの期限を、開いた時に自動でお知らせ</div>
+            </div>
+            <div class="can-cta">
+                <a href="demo.html" target="_blank" rel="noopener" class="btn">▶︎ デモを触ってみる（登録・ログイン不要）</a>
+                <p>メールも会社名も入れずに、その場で体験できます。</p>
+            </div>
+        </div>
+
+        <details class="more">
+            <summary>なぜ作ったのか・導入すると何が変わるのか</summary>
         <div class="hero-text-box">
             <div class="pain-box">
                 <ul class="pain-list">
@@ -214,127 +312,14 @@
                 <p class="vision-strong"><span class="text-gold"><span class="ib">これを機にワンランクアップして、</span><span class="ib">この苦境を共に乗り越えましょう！</span></span></p>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- ▼ Excel vs システム比較 -->
-<div class="vs-section reveal">
-    <h2 class="vs-title">「Excelで十分」と思っていませんか？</h2>
-    <p class="vs-subtitle">同じ作業を、毎日・毎月・何年も繰り返すコストを計算したことがありますか？</p>
-    <div class="vs-wrap">
-        <table class="vs-table">
-            <thead>
-                <tr>
-                    <th class="th-item">比較項目</th>
-                    <th class="th-excel">❌ 今のExcel・手書き</th>
-                    <th class="th-sys">✅ Smart Simple System</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td class="td-item">日報入力</td>
-                    <td class="td-excel">紙に手書き→夕方に事務所で打ち直し。1日30〜60分の虚無</td>
-                    <td class="td-sys">ドライバーがスマホで打刻した瞬間に事務所へ自動反映。転記ゼロ</td>
-                </tr>
-                <tr>
-                    <td class="td-item">監査書類</td>
-                    <td class="td-excel">月末に事務員が徹夜で帳尻合わせ。ミスが怖くて毎回ヒヤヒヤ</td>
-                    <td class="td-sys">点呼ボタンを押すだけで、点呼・乗務の記録（集計表）が自動で完成。さらにメニューの「監査用表生成」で、拘束時間・休憩の確認表も月ごとに作成</td>
-                </tr>
-                <tr>
-                    <td class="td-item">損益管理</td>
-                    <td class="td-excel">「この荷主、本当に儲かってるの？」が感覚任せ。交渉材料なし</td>
-                    <td class="td-sys">1行程ごとに経費・利益を自動算出。赤字運行をピンポイント特定</td>
-                </tr>
-                <tr>
-                    <td class="td-item">配車ミス</td>
-                    <td class="td-excel">休みのドライバーに配車、車両の重複、積地の空白を見落とす</td>
-                    <td class="td-sys">休み→グレーアウト、空白→色付きアラート。一目で全ミスを発見</td>
-                </tr>
-                <tr>
-                    <td class="td-item">距離計算</td>
-                    <td class="td-excel">毎回Googleマップで調べてメモ。1行程につき2〜3分のロス</td>
-                    <td class="td-sys">地名を入力するだけで、Googleの地図で走行距離を自動計算して記載。夜間にも未計算分を自動で計算</td>
-                </tr>
-                <tr>
-                    <td class="td-item">ETC照合</td>
-                    <td class="td-excel">明細書と日報を目で見比べる苦行。月末に数時間かかる</td>
-                    <td class="td-sys">ETC明細CSVを読み込ませるだけ。車番と利用日時を運行の時刻に突き合わせて、実費高速に自動反映</td>
-                </tr>
-                <tr>
-                    <td class="td-item">月末処理</td>
-                    <td class="td-excel">翌月ファイルのコピー、旧データの整理、数式の引き直し……</td>
-                    <td class="td-sys">メニューの「翌月分生成」1つで、前月のアーカイブと翌月分の生成まで自動</td>
-                </tr>
-                <tr>
-                    <td class="td-item">ドライバー報告</td>
-                    <td class="td-excel">「着きました」「出ます」の電話・LINEが1日中飛び交う</td>
-                    <td class="td-sys">アプリのボタン1つで事務所のステータスに即反映。電話ゼロへ</td>
-                </tr>
-                <tr>
-                    <td class="td-item">複数人での同時操作</td>
-                    <td class="td-excel">Excelは共有が難しく、同時編集でファイルが壊れるリスクあり</td>
-                    <td class="td-sys">本社・支店・外出先から同時にアクセス可能。ドライバーの打刻が重なっても順番に処理され重複しない</td>
-                </tr>
-                <tr>
-                    <td class="td-item">給料・歩合の計算</td>
-                    <td class="td-excel">乗務員ごとの日割り・歩合を電卓と手作業で計算。月末に数字が合わない</td>
-                    <td class="td-sys">乗務員ごとに「給料」か「歩合（%）」を決めておくだけ。支払いと利益が1行程ごとに自動で出る</td>
-                </tr>
-                <tr>
-                    <td class="td-item">高速代の請求と実費</td>
-                    <td class="td-excel">請求した高速代と実際にかかった高速代の差を、月末にまとめて確認</td>
-                    <td class="td-sys">請求と実費の差額が運行シートに自動で出る。荷主に請求できなかった分が一目でわかる</td>
-                </tr>
-                <tr>
-                    <td class="td-item">免許・健康診断の期限</td>
-                    <td class="td-excel">一人ずつ台帳を見て確認。期限切れに気づくのが遅れる</td>
-                    <td class="td-sys">免許証・安全教育・健康診断・適性診断の期限が近づくと、開いた時に自動でお知らせ＆色で表示</td>
-                </tr>
-                <tr>
-                    <td class="td-item">今のデータの移行</td>
-                    <td class="td-excel">新しいシステムごとに、手入力でデータを打ち直し</td>
-                    <td class="td-sys">今お使いのExcel・CSVのデータを貼り付けて取り込み。列の対応も自動で設定</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    <p class="vs-bottom">Excelとの差は「便利さ」ではありません。<br><strong>毎月何十時間もの人件費と、見えていない赤字運行の差です。</strong></p>
-    <div class="vs-img-wrap">
-        <img src="images/img-compare.png" alt="Excel管理とシステム管理のBefore/After比較">
+        </details>
     </div>
 </div>
 
 <div class="container">
 
-    <div class="index reveal">
-        <h2>▼ システムに搭載された「全23」の現場特化機能</h2>
-        <div class="index-grid">
-            <a href="#f1" class="premium-link">👑 ① 1行程ごとの損益管理</a>
-            <a href="#f2" class="premium-link">👑 ② 点呼記録・監査用の表の自動生成</a>
-            <a href="#f3" class="premium-link">👑 ③ SS×アプリ完全連動</a>
-            <a href="#f4" class="premium-link">👑 ④ 事後修正できるUI</a>
-            <a href="#f5">⑤ 稼がない事務の自動化</a>
-            <a href="#f6">⑥ 配車漏れ・ミス防止</a>
-            <a href="#f7">⑦ 月またぎをボタンで</a>
-            <a href="#f8">⑧ 距離計算は地図におまかせ</a>
-            <a href="#f9">⑨ 就業時間内だけの時刻管理</a>
-            <a href="#f10">⑩ 運行報告の自動化</a>
-            <a href="#f11">⑪ 車番連絡ワンクリック</a>
-            <a href="#f12">⑫ 受領書の「耳」出力</a>
-            <a href="#f13">⑬ ETC明細データの連携</a>
-            <a href="#f14">⑭ 請求・会計ソフト連携</a>
-            <a href="#f15">⑮ 高速代の請求と実費の差額管理</a>
-            <a href="#f16">⑯ 給料・歩合の自動計算</a>
-            <a href="#f17">⑰ 資格期限のお知らせ</a>
-            <a href="#f18">⑱ Excel・CSVの取り込み</a>
-            <a href="#f19">⑲ 発注書・指示書の作成</a>
-            <a href="#f20">⑳ 「戻る」「進む」ボタン</a>
-            <a href="#f21">㉑ 支払確認書・損益（PL）表</a>
-            <a href="#f22">㉒ 写真・書類の取込</a>
-            <a href="#f23">㉓ 自動バックアップ・自動復元</a>
-        </div>
-    </div>
+    <h2 id="features" class="section-title text-gold">▼ システムに搭載された「全23」の現場特化機能</h2>
+    <p class="feat-hint">見たい機能をタップすると、くわしい説明が開きます。</p>
 
     <h2 class="section-title text-gold reveal">当システムだけの「4つの最強の武器」</h2>
 
@@ -389,7 +374,7 @@
     <div style="text-align: center;"><h2 class="section-title standard-title reveal">現場の「面倒」を全滅させる全機能</h2></div>
 
     <div id="f5" class="detail reveal">
-        <h3>⑤ 「稼がない事務」を自動化し、本業に時間を使う</h3>
+        <h3>⑤ 毎日の事務作業を自動化し、本業に時間を使う</h3>
         <p><span class="ib">ドライバーがスマホに入力した瞬間に、事務所のシートへ自動反映。</span><span class="ib">夕方に紙を回収して打ち直す「虚無の時間」が完全になくなります。</span></p>
         <p><span class="ib">空いた時間を配車や営業などの本業に割くことで、</span><span class="ib">自然と売上拡大に繋がる体制を作ります。</span></p>
         <div class="flow-imgs">
@@ -595,6 +580,96 @@
         <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
+    <details class="more vs-more">
+        <summary>Excelとの比較を見る（日々の作業・月末・ミスの違い）</summary>
+<div class="vs-section">
+    <h2 class="vs-title">「Excelで十分」と思っていませんか？</h2>
+    <p class="vs-subtitle">同じ作業を、毎日・毎月・何年も繰り返すコストを計算したことがありますか？</p>
+    <div class="vs-wrap">
+        <table class="vs-table">
+            <thead>
+                <tr>
+                    <th class="th-item">比較項目</th>
+                    <th class="th-excel">❌ 今のExcel・手書き</th>
+                    <th class="th-sys">✅ Smart Simple System</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="td-item">日報入力</td>
+                    <td class="td-excel">紙に手書き→夕方に事務所で打ち直し。1日30〜60分の虚無</td>
+                    <td class="td-sys">ドライバーがスマホで打刻した瞬間に事務所へ自動反映。転記ゼロ</td>
+                </tr>
+                <tr>
+                    <td class="td-item">監査書類</td>
+                    <td class="td-excel">月末に事務員が徹夜で帳尻合わせ。ミスが怖くて毎回ヒヤヒヤ</td>
+                    <td class="td-sys">点呼ボタンを押すだけで、点呼・乗務の記録（集計表）が自動で完成。さらにメニューの「監査用表生成」で、拘束時間・休憩の確認表も月ごとに作成</td>
+                </tr>
+                <tr>
+                    <td class="td-item">損益管理</td>
+                    <td class="td-excel">「この荷主、本当に儲かってるの？」が感覚任せ。交渉材料なし</td>
+                    <td class="td-sys">1行程ごとに経費・利益を自動算出。赤字運行をピンポイント特定</td>
+                </tr>
+                <tr>
+                    <td class="td-item">配車ミス</td>
+                    <td class="td-excel">休みのドライバーに配車、車両の重複、積地の空白を見落とす</td>
+                    <td class="td-sys">休み→グレーアウト、空白→色付きアラート。一目で全ミスを発見</td>
+                </tr>
+                <tr>
+                    <td class="td-item">距離計算</td>
+                    <td class="td-excel">毎回Googleマップで調べてメモ。1行程につき2〜3分のロス</td>
+                    <td class="td-sys">地名を入力するだけで、Googleの地図で走行距離を自動計算して記載。夜間にも未計算分を自動で計算</td>
+                </tr>
+                <tr>
+                    <td class="td-item">ETC照合</td>
+                    <td class="td-excel">明細書と日報を目で見比べる苦行。月末に数時間かかる</td>
+                    <td class="td-sys">ETC明細CSVを読み込ませるだけ。車番と利用日時を運行の時刻に突き合わせて、実費高速に自動反映</td>
+                </tr>
+                <tr>
+                    <td class="td-item">月末処理</td>
+                    <td class="td-excel">翌月ファイルのコピー、旧データの整理、数式の引き直し……</td>
+                    <td class="td-sys">メニューの「翌月分生成」1つで、前月のアーカイブと翌月分の生成まで自動</td>
+                </tr>
+                <tr>
+                    <td class="td-item">ドライバー報告</td>
+                    <td class="td-excel">「着きました」「出ます」の電話・LINEが1日中飛び交う</td>
+                    <td class="td-sys">アプリのボタン1つで事務所のステータスに即反映。電話ゼロへ</td>
+                </tr>
+                <tr>
+                    <td class="td-item">複数人での同時操作</td>
+                    <td class="td-excel">Excelは共有が難しく、同時編集でファイルが壊れるリスクあり</td>
+                    <td class="td-sys">本社・支店・外出先から同時にアクセス可能。ドライバーの打刻が重なっても順番に処理され重複しない</td>
+                </tr>
+                <tr>
+                    <td class="td-item">給料・歩合の計算</td>
+                    <td class="td-excel">乗務員ごとの日割り・歩合を電卓と手作業で計算。月末に数字が合わない</td>
+                    <td class="td-sys">乗務員ごとに「給料」か「歩合（%）」を決めておくだけ。支払いと利益が1行程ごとに自動で出る</td>
+                </tr>
+                <tr>
+                    <td class="td-item">高速代の請求と実費</td>
+                    <td class="td-excel">請求した高速代と実際にかかった高速代の差を、月末にまとめて確認</td>
+                    <td class="td-sys">請求と実費の差額が運行シートに自動で出る。荷主に請求できなかった分が一目でわかる</td>
+                </tr>
+                <tr>
+                    <td class="td-item">免許・健康診断の期限</td>
+                    <td class="td-excel">一人ずつ台帳を見て確認。期限切れに気づくのが遅れる</td>
+                    <td class="td-sys">免許証・安全教育・健康診断・適性診断の期限が近づくと、開いた時に自動でお知らせ＆色で表示</td>
+                </tr>
+                <tr>
+                    <td class="td-item">今のデータの移行</td>
+                    <td class="td-excel">新しいシステムごとに、手入力でデータを打ち直し</td>
+                    <td class="td-sys">今お使いのExcel・CSVのデータを貼り付けて取り込み。列の対応も自動で設定</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p class="vs-bottom">Excelとの差は「便利さ」ではありません。<br><strong>毎月何十時間もの人件費と、見えていない赤字運行の差です。</strong></p>
+    <div class="vs-img-wrap">
+        <img src="images/img-compare.png" alt="Excel管理とシステム管理のBefore/After比較">
+    </div>
+</div>
+    </details>
+
     <div id="cta-section" class="cta reveal">
         <h2>
             <span class="ib">まずはご自身の目で、</span>
@@ -615,7 +690,7 @@
     <p class="footer-links">
         <a href="customer-top.html">トップ</a>
         <a href="article1.html">導入事例</a>
-        <a href="article2.html">FAQ</a>
+        <a href="article2.html">Q&amp;A</a>
         <a href="lp.html">料金</a>
         <a href="terms.html">利用規約</a>
         <a href="privacy.html">プライバシーポリシー</a>
@@ -641,5 +716,59 @@
     reveal(); 
 </script>
 
+<script>
+    // 文字の途中で改行されないよう、文節の切れ目に改行位置（wbr）を入れる（読み込み時に1回だけ。見た目の文字は変えない）
+    (function () {
+        if (!window.Intl || !Intl.Segmenter) return;
+        var seg = new Intl.Segmenter('ja', { granularity: 'word' });
+        var SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, INPUT: 1, NOSCRIPT: 1, WBR: 1 };
+        function chunks(t) {
+            var out = [], cur = '', it = seg.segment(t)[Symbol.iterator](), r;
+            while (!(r = it.next()).done) {
+                var s = r.value.segment;
+                if (cur === '') { cur = s; continue; }
+                if (/^[\u3041-\u309F]+$/.test(s) || (/[\u4E00-\u9FFF\u3005]$/.test(cur) && /^[\u4E00-\u9FFF\u3005]/.test(s)) || (/[\u30A0-\u30FF]$/.test(cur) && /^[\u30A0-\u30FF]/.test(s)) || /^[、。，．」』）】！？!?,.・ー…)%％\s]/.test(s) || /[「『（【(]$/.test(cur) || /\s$/.test(cur)) cur += s;
+                else { out.push(cur); cur = s; }
+            }
+            if (cur) out.push(cur);
+            return out;
+        }
+        var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null), nodes = [], n;
+        while ((n = w.nextNode())) {
+            if (n.nodeValue.length < 4 || !/[^\x00-\x7F]/.test(n.nodeValue)) continue;
+            if (n.parentNode && SKIP[n.parentNode.nodeName]) continue;
+            nodes.push(n);
+        }
+        nodes.forEach(function (t) {
+            var parts = chunks(t.nodeValue);
+            if (parts.length < 2) return;
+            var f = document.createDocumentFragment();
+            parts.forEach(function (p, i) { if (i) f.appendChild(document.createElement('wbr')); f.appendChild(document.createTextNode(p)); });
+            t.parentNode.replaceChild(f, t);
+        });
+    })();
+</script>
+<script>
+    // 機能の見出しをタップすると、説明が開く（開いたまま・閉じたままは自由。JSが動かない時は、全部開いたまま）
+    (function () {
+        var items = document.querySelectorAll('.premium-detail, .detail');
+        Array.prototype.forEach.call(items, function (box) {
+            var h = box.querySelector('h3'); if (!h) return;
+            var body = document.createElement('div'); body.className = 'acc-body';
+            var n = h.nextSibling;
+            while (n) { var nx = n.nextSibling; body.appendChild(n); n = nx; }
+            box.appendChild(body); box.classList.add('acc');
+            h.setAttribute('role', 'button'); h.setAttribute('tabindex', '0');
+            function tg() { box.classList.toggle('open'); }
+            h.addEventListener('click', tg);
+            h.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tg(); } });
+        });
+        function openHash() {
+            var id = (location.hash || '').slice(1), t = id && document.getElementById(id);
+            if (t && t.classList.contains('acc')) { t.classList.add('open'); setTimeout(function () { t.scrollIntoView(); }, 50); }
+        }
+        window.addEventListener('hashchange', openHash); openHash();
+    })();
+</script>
 </body>
 </html>

@@ -39,7 +39,9 @@
   .note { font-size:.78rem; color:var(--sub); }
   .center { text-align:center; }
   .stage { display:grid; grid-template-columns:400px minmax(0,1fr); gap:18px; align-items:start; }
-  @media (max-width:1000px) { .stage { grid-template-columns:1fr; } }
+  .stage > div { min-width:0; }
+  @media (max-width:1000px) { .stage { grid-template-columns:minmax(0,1fr); } }
+  @media (max-width:640px) { main { padding:10px; } .lead { padding:12px; } .app-list { padding:8px; border-width:4px; } .lcard { padding:12px; } .phone { border-width:4px; padding:12px 10px 14px; } .ym { font-size:17px; } .nav-btn { padding:10px 12px; } .bb { font-size:17px; padding:18px; } }
 
   /* ── ①スマホのアプリ画面（本番と同じ見た目） ── */
   .phone { max-width:400px; margin:0 auto; background:#121212; color:#fff; border-radius:22px; padding:14px 12px 16px; border:6px solid #2b2b2b; box-shadow:0 10px 30px rgba(0,0,0,.25); min-height:520px; }
@@ -97,11 +99,11 @@
   .ob { padding:10px 14px; border-radius:20px; font-size:13px; font-weight:700; color:#fff; min-height:44px; border:0; cursor:pointer; white-space:nowrap; }
   .ob.y { background:#ffd600; color:#000; animation:glow 1.5s infinite; } .ob.bl { background:#1565c0; } .ob.tl { background:#00897b; } .ob.pu { background:#6a1b9a; } .ob.rd { background:#c62828; }
   @keyframes glow { 0% { box-shadow:0 0 4px #ffd600; } 50% { box-shadow:0 0 16px #ffd600, 0 0 30px #ffab00; } 100% { box-shadow:0 0 4px #ffd600; } }
-  .bb { display:block; width:100%; padding:24px; border-radius:15px; color:#fff; font-size:20px; font-weight:bold; margin-top:12px; box-shadow:0 4px 12px rgba(0,0,0,.4); border:0; cursor:pointer; }
   .totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-top:12px; }
   .tot { background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px; text-align:center; }
   .tot .k { font-size:.74rem; color:var(--sub); } .tot .v { font-size:1.2rem; font-weight:800; }
   .tot.profit { background:#ecfdf5; border-color:#a7f3d0; } .tot.profit.neg { background:#fef2f2; border-color:#fecaca; } .tot.profit.neg .v { color:#b91c1c; }
+  .bb { display:block; width:100%; padding:24px; border-radius:15px; color:#fff; font-size:20px; font-weight:bold; margin-top:12px; box-shadow:0 4px 12px rgba(0,0,0,.4); border:0; cursor:pointer; }
 
   /* ── ②スプレッドシート（本番そっくりの表） ── */
   .gs { background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden; box-shadow:0 4px 18px rgba(0,0,0,.08); min-width:0; }
@@ -138,7 +140,7 @@
   .tab.on { background:#fff; color:#0b57d0; font-weight:700; border-bottom:3px solid #0b57d0; }
   .hint { background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:8px; padding:6px 10px; font-size:.82rem; margin:8px 0; }
   .only { display:flex; flex-wrap:wrap; gap:8px; }
-  .only button { background:#f1f5f9; color:#94a3b8; border:1px dashed #cbd5e1; border-radius:8px; padding:6px 10px; font:inherit; font-size:.8rem; cursor:pointer; }
+  .only span { background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:.92rem; font-weight:700; }
   .back { display:inline-block; background:#1a56db; color:#fff; padding:10px 22px; border-radius:10px; text-decoration:none; font-weight:700; }
   .link { background:none; border:0; color:#1a56db; text-decoration:underline; cursor:pointer; font:inherit; font-size:.85rem; }
   #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#111827; color:#fff; padding:10px 18px; border-radius:10px; font-size:.9rem; opacity:0; pointer-events:none; transition:opacity .2s; z-index:50; max-width:90vw; text-align:center; }
@@ -202,7 +204,7 @@
           <button class="ap-btn ap-home" type="button" id="backBtn">行程入力にもどる</button>
         </div>
       </div>
-      <p class="note center" style="margin-top:8px">積地・降地を入れて「誘導へ進む」を押し、大きなボタンを押していってください。押すたびに、右のシートが光って、時刻が入ります。</p>
+      <p class="note center" style="margin-top:8px">積地・降地を入れて「誘導へ進む」を押し、大きなボタンを押していってください。押すたびに、シートが光って、時刻が入ります。</p>
     </div>
 
     <div>
@@ -231,9 +233,8 @@
   <div class="totals" id="totals"></div>
   <p class="note">利益＝売上＋合計高速−（燃料代＋支払い＋経費＋有休手当＋その他手当）。燃料代＝距離÷燃費×ガソリン代、合計高速＝請求−実費、支払いは、乗務員ごとの歩合（％）で計算します（本番の集計表と同じ決まり）。売上を入れた行だけ、利益が出ます。<br>※表示される利益は、おおよその金額です。</p>
 
-  <div class="sec">④ 本番版でできること</div>
+  <div class="sec">④ 本番版では、こんなこともできます</div>
   <div class="only" id="onlyList"></div>
-  <p class="note">上の機能は「本番版のみ」です。このデモは、スマホのボタンから、時刻と利益が自動で出るまでです。</p>
 
   <p class="center" style="margin:26px 0 8px"><button class="link" type="button" id="resetAll">デモを最初の状態に戻す</button></p>
   <p class="center"><a class="back" href="customer-top.html">ホームページに戻る</a></p>
@@ -466,7 +467,7 @@
     CITIES.forEach(function (c) { var o = el('option'); o.value = c; $('cities').appendChild(o); });
     $('aDate').value = isoOf(new Date()); fillCar();
     ['データ読み込み（CSV）', '請求書の作成・一括送信', '配車ダッシュボード', '監査用表の生成', 'ETC明細の取り込み', '損益（PL）表', '発注書・指示書', '車番連絡', '受領書の耳', '月次処理'].forEach(function (nm) {
-      var b = el('button', '', nm); b.type = 'button'; b.addEventListener('click', function () { only(nm); }); $('onlyList').appendChild(b);
+      $('onlyList').appendChild(el('span', '', nm));
     });
     var menu = ['📖 説明書を開く', '↩ 戻る', '↪ 進む', '🏠 毎日の配車業務', '📥 データ読み込み（CSV）', '📨 帳票・送信メニュー', '📒 経理・出力', '📊 PL管理', '🗓 月次処理', '⚙️ システム設定・保守', '🔄 バックアップ・復旧'];
     $('menuBtn').addEventListener('click', function (e) {
