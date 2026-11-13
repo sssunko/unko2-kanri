@@ -6286,7 +6286,7 @@ function dispatchStructureChange(e) {
     if (!isRegisteredSs_(e.source.getId()) || getLicenseStatus_(e.source.getId()).locked) return;   // コピー・停止・期限切れのSSでは動かさない（2-2f/2-2g）
     var ct = e.changeType;
     // 人の行・列の追加削除・書式の変更などは、開いているシート全体の書き込みとして記録する（4-2k-2。処理の終わりに写す 4-2k-3）
-    if (['INSERT_ROW', 'REMOVE_ROW', 'INSERT_COLUMN', 'REMOVE_COLUMN', 'FORMAT', 'OTHER'].indexOf(ct) >= 0) { try { jrEditToken_(e, 'C'); jrMark_(e.source.getActiveSheet(), 'deleteRows'); } catch(jmErr) {} }
+    if (['INSERT_ROW', 'REMOVE_ROW', 'INSERT_COLUMN', 'REMOVE_COLUMN', 'FORMAT', 'OTHER'].indexOf(ct) >= 0) { try { jrEditToken_(e, (ct === 'FORMAT' || ct === 'OTHER') ? 'F' : 'C'); jrMark_(e.source.getActiveSheet(), 'deleteRows'); } catch(jmErr) {} }   // 行・列の追加削除＝C（「戻る」の1回分になる）／書式の変更など＝F（写しだけ新しくし、「戻る」の1回分にしない。手入力の後に動いて、空の1回分が増えるため）
     if (ct !== 'EDIT' && ct !== 'FORMAT') {
       try { restoreHeaderRowIfBroken_(e.source); } catch(hErr) { logError_('ヘッダー行復元(onChange)', hErr); }
       if (ct !== 'INSERT_ROW') {
@@ -6545,8 +6545,9 @@ function jrDest_(d) {
 //    行・列の数が写しと違う・シートが作り直された（シートの番号が違う）・シート全体の印 → 写しの全体を「戻る」の控えに取り、写しを作り直す
 //    それ以外 → 書いた所ごとに（4-2k-2 の四角の並び）、写しと中身が違う行だけ、写しの中身を「戻る」の控えに取り（jrDiffRects_）、シートの中身を写しに写す
 //  ■ 決まり：同じ入力（通し番号）の1回分か、それより新しい1回分に、もう控えてある所（最初に取った入力した行など）は、もう一度控えない（jrFindStep_ で1回分を探して比べる）。戻す時は最初の控えの中身に戻るので、同じ所の後の控えは要らない
+//  ■ 決まり：書式の変更・その他の変更の通知（onChange の FORMAT・OTHER。札が F で始まる）は写しだけ新しくし、「戻る」の1回分にしない（手入力の後に動いて、何も戻らない1回分が増えるため）
 //  ■ 決まり：「戻る」の控えに取るのは、変わった所だけ（入力した行と、その入力で自動で変わった行）。書いた範囲を1つの大きな四角にして丸ごと取らない（戻る・進むが遅くなり、ほかの入力の分まで巻き込むため）
-//  ・人が入力した範囲は、入力の時の処理（3-1）の最初に、入力する前の中身を控えに取る（jrCaptureEdit_）。手入力の処理（3-1・14-2b）の終わりの写し（jrCommit_）は、控えには足さない。ほかの処理の写しが先に動いても、入力する前の中身を必ず取るため
+//  ・人が入力した範囲は、入力の時の処理（3-1）の最初に、入力する前の中身を控えに取る（jrCaptureEdit_）。手入力の処理（3-1・14-2b）の終わりの写し（jrCommit_）は、その入力で自動で変わったマスだけを、同じ入力の1回分に足す（jrDiffCells_）。ほかの処理の写しが先に動いても、入力する前の中身を必ず取るため
 //    （入力したマスの前の値は、入力の知らせの値 e.oldValue で必ず正しくする。写しへは入力したマスだけ写す）
 //  ・戻した後・消えた後の入力の後追いの処理では、控えを取らない（写しだけ新しくする）
 //  ・14-2b の処理は、処理の終わりに写す前に、同じ入力の 3-1 の控えが済むのを待つ（最大3秒。jrWaitCap_。3-1 が済むと jrCapDone_ が数を足す）。写しが先に新しくなって、次の入力が1回分に入るのを防ぐ
@@ -6562,7 +6563,7 @@ function jrCommit_() {
   var jrT0_ = Date.now(), jrWhole_ = [];
   var recs = JR_.recs;
   JR_.recs = {};
-  var noHist = JR_HIST_TOP_.indexOf(JR_.top) < 0 || !JR_.tok;   // 人の入力で動いた処理（入力の札がある時）だけ「戻る」の控えを取る
+  var noHist = JR_HIST_TOP_.indexOf(JR_.top) < 0 || !JR_.tok || String(JR_.tok).charAt(0) === 'F';   // 人の入力で動いた処理（入力の札がある時）だけ「戻る」の控えを取る
   JR_.off++;
   try {
     var bySs = {};
@@ -6574,9 +6575,9 @@ function jrCommit_() {
         if (!noHist) jrWaitCap_(ss);
         lk = jrLock_(ss);
         var meta = jrLoadMeta_(ss), parts = [];
-        var ent = (noHist || JR_.side) ? null : jrEditEntry_(meta);   // この入力（通し番号）。手入力の処理（3-1・14-2b）の書き込みは控えない（手入力は jrCaptureEdit_ が入力の順に控える）
+        var ent = noHist ? null : jrEditEntry_(meta);   // この入力（通し番号）
         var stepNow = ent ? jrFindStep_(meta, ent) : null;   // この入力の1回分（「戻る」の控えにもうあれば）
-        var newer = stepNow ? meta.undo.slice(meta.undo.indexOf(stepNow)) : [];   // この入力の1回分と、それより新しい1回分
+        var newer = stepNow ? [stepNow] : [];   // この入力の1回分（自動の書き込みはこの1回分に足す）
         var keep = !!ent && (!ent.st || !!stepNow);   // 控えを取るのは、この入力の1回分がまだ無い時か、「戻る」の控えにある時だけ（戻した後・消えた後の後追いは取らない）
         list.forEach(function(rec) {
           try {
@@ -6599,7 +6600,7 @@ function jrCommit_() {
               if (nr < 1 || nc < 1) return;
               // 「戻る」の控えには、写しと中身が違う行だけを取る（変わっていない行は取らない）
               // ただし、この入力の1回分か、それより新しい1回分にもう入っている所（最初に取った行の控えなど）は足さない（戻す時は先に取った控えの中身に戻るので、同じ所の後の控えは要らない。控えが少ないほど戻る・進むが速い）
-              if (keep) jrDiffRects_(sh, mir, q.r1, q.c1, nr, nc).forEach(function(d) {
+              if (keep) jrDiffCells_(sh, mir, q.r1, q.c1, nr, nc).forEach(function(d) {
                 var has = function(p) { return !p.w && p.s === rec.name && p.r <= d.r && p.c <= d.c && p.r + p.nr >= d.r + d.nr && p.c + p.nc >= d.c + d.nc; };
                 if (newer.some(function(st) { return st.p.some(has); }) || parts.some(has)) return;
                 parts.push(jrSaveBlock_(meta, mir, d.r, d.c, d.nr, d.nc, rec.name, false));
@@ -6617,6 +6618,27 @@ function jrCommit_() {
     JR_.off--;
     JR_.lastMs = Date.now() - jrT0_; JR_.lastWhole = jrWhole_;   // 写しにかかった時間と、シート全体を写したシート（4-3 の完了画面に出す）
   }
+}
+// 書いた範囲のうち、写しと中身が違うマスを、行ごとに続いたかたまりにして返す（[{r, c, nr:1, nc}…]）。手入力で動いた自動の値の控え用。
+// 比べるのは 値・式・文字の色・背景色。20行を超える範囲は jrDiffRects_（行ごと）。違うマスのかたまりが12個を超えたら範囲全体を1つで返す。違うマスが無ければ空
+function jrDiffCells_(sh, mir, r, c, nr, nc) {
+  if (nr > 20) return jrDiffRects_(sh, mir, r, c, nr, nc);
+  var A = sh.getRange(r, c, nr, nc), B = mir.getRange(r, c, nr, nc);
+  var va = A.getValues(), vb = B.getValues(), fa = A.getFormulas(), fb = B.getFormulas(), ca = A.getFontColors(), cb = B.getFontColors(), ba = A.getBackgrounds(), bb = B.getBackgrounds();
+  var diff = function(i, j) { return String(va[i][j]) !== String(vb[i][j]) || fa[i][j] !== fb[i][j] || ca[i][j] !== cb[i][j] || ba[i][j] !== bb[i][j]; };
+  var out = [];
+  for (var i = 0; i < nr; i++) {
+    var j = 0;
+    while (j < nc) {
+      if (!diff(i, j)) { j++; continue; }
+      var k = j;
+      while (k + 1 < nc && diff(i, k + 1)) k++;
+      out.push({ r: r + i, c: c + j, nr: 1, nc: k - j + 1 });
+      j = k + 1;
+    }
+  }
+  if (out.length > 12) return [{ r: r, c: c, nr: nr, nc: nc }];
+  return out;
 }
 // 書いた範囲のうち、写しと中身が違う行のかたまりを返す（[{r, c, nr, nc}…]）。20行以下の範囲は比べずにそのまま返す。
 // 比べるのは 値・式・背景色・文字色・メモ。違う行のかたまりが10個を超えたら、最初から最後までを1つにして返す。違う行が無ければ空（控えを取らない）
@@ -6640,12 +6662,12 @@ function jrDiffRects_(sh, mir, r, c, nr, nc) {
 }
 // 人が入力した範囲を、入力の時の処理（3-1）の最初に「戻る」の控えに取る（入力する前の中身。入力した範囲だけ）。
 // ■ 決まり：人が触った分は、入力が来た順に1つずつ控える（1つの入力＝1回分。入力の通し番号の順）。「戻る」「進む」は、必ずこの1回分ずつ動く。
-//   自動で変わった所（14-2b などの処理が書いた所）は控えない・戻さない（戻した後に、また自動で入れ直す）
+//   その入力で動いた自動の値（3-1・14-2b の処理が書いた所）も、その入力の1回分に入れる（処理の終わりに、写しと違うマスだけ jrDiffCells_ で足す）。手入力の控えは1回分の先頭（戻す時は最後に戻る）
 // ■ 決まり：1マスの入力で、入力したマスの「前の値」は、入力の知らせの値（e.oldValue）が正しい。写しのそのマスがもう入力した後の値になっている時
 //   （この処理が動く前に、ほかの処理が写しに写した時）でも、控えのそのマスは e.oldValue にする
 // ■ 決まり：取った後、写しへは入力した範囲だけを写す（同じ行に続けて入れた次の入力を、先に写しに入れてしまわないため）。ほかのマスは、処理の終わり（jrCommit_）に写す
 // この入力（通し番号）の1回分がもうある時（もう1つの処理が先に取った）は取らない。
-// 一度に200行を超える入力・写しが無い・行や列の数が写しと違う時は、ここでは取らず、処理の終わり（jrCommit_）に任せる
+// 写しが無い・行や列の数が写しと違う時は、ここでは取らず、処理の終わり（jrCommit_）に任せる（行数の上限は無い。貼り付けも戻せる）
 function jrCaptureEdit_(e) {
   if (JR_.off || !JR_.tok) return;
   try { jrCaptureEditMain_(e); }
@@ -6679,7 +6701,6 @@ function jrCaptureEditMain_(e) {
     if (!JR_.guard) { JR_.guard = {}; jrGuardNames_().forEach(function(n) { JR_.guard[n] = 1; }); }
     if (!JR_.guard[name]) return;
     var r = e.range.getRow(), nr = e.range.getNumRows();
-    if (nr > 200) return;
     var ss = sh.getParent(), mir = ss.getSheetByName(JR_MIRROR_PREFIX_ + name);
     if (!mir) return;
     var maxR = sh.getMaxRows(), nc = sh.getMaxColumns();
@@ -6690,7 +6711,12 @@ function jrCaptureEditMain_(e) {
       var meta = jrLoadMeta_(ss);
       if (meta.src[name] !== sh.getSheetId()) return;
       var ent = jrEditEntry_(meta);
-      if (!ent || ent.st) { jrSaveMeta_(meta); return; }   // もう1つの処理が先に取った（通し番号の組だけ保存する）
+      var stepE = null;   // この入力の1回分が、自動の書き込みだけで先にできている時
+      if (ent && ent.st) {
+        for (var ue = 0; ue < meta.undo.length; ue++) { if (meta.undo[ue].n === ent.n) stepE = meta.undo[ue]; }
+        if (!stepE || stepE.p.some(function(q) { return q.h; })) { jrSaveMeta_(meta); return; }   // もう取ってある・戻した後の入力
+      }
+      if (!ent) { jrSaveMeta_(meta); return; }
       var c0 = e.range.getColumn(), ncE = e.range.getNumColumns();
       var p = jrSaveBlock_(meta, mir, r, c0, nr, ncE, name, false);   // 入力した範囲だけを控える（行の全部ではない）
       if (nr === 1 && ncE === 1 && !p.f && (e.value !== undefined || e.oldValue !== undefined)) {   // 1マスの入力：前の値は入力の知らせの値が正しい
@@ -6699,7 +6725,8 @@ function jrCaptureEditMain_(e) {
         if (at0) meta.h.getRange(at0, 2).setValue(oldV);
       }
       e.range.copyTo(mir.getRange(r, c0, nr, ncE));
-      jrPushStep_(meta, [p], ent);
+      p.h = 1;   // 手入力の控え
+      if (stepE) stepE.p.unshift(p); else jrPushStep_(meta, [p], ent);
       jrSaveMeta_(meta);
     } finally { jrUnlock_(lk); JR_.off--; }
   } catch (x) { try { logError_('入力した行の控え（4-2k-3）', x); } catch (x2) {} }
@@ -6887,7 +6914,7 @@ function jrEditEntry_(meta) {
   var live = {};
   meta.undo.concat(meta.redo).forEach(function(s) { live[s.n] = 1; });
   meta.ed = ed.filter(function(x) { return x === ent || live[x.n] === 1 || now - x.t < 600000; });
-  if (meta.ed.length > 80) meta.ed = meta.ed.slice(meta.ed.length - 80);
+  if (meta.ed.length > 80) { var cut = meta.ed.length - 60; meta.ed = meta.ed.filter(function(x, ix) { return ix >= cut || live[x.n] === 1; }); }   // 多すぎる時は古い記録から消す（「戻る」「進む」の1回分に付いている記録は残す）
   return ent;
 }
 // その入力（通し番号）の1回分が「戻る」の控えにあれば返す（無ければ null）
@@ -6908,7 +6935,7 @@ function jrPushStep_(meta, parts, ent) {
   // ■ 決まり：その入力の1回分より新しい1回分（後の入力）がある時も、一番新しい1回分に足す。後から取った控えの中身には後の入力が入っているので、
   //   前の1回分に足すと、後の入力を戻した後に前の入力を戻した時、後の入力の値がまた出てしまう。一番新しい1回分に足せば、新しい順に戻した時に必ず元の中身になる
   for (var u = meta.undo.length - 1; u >= 0; u--) {
-    if (same(meta.undo[u])) { var top = meta.undo[meta.undo.length - 1]; top.p = top.p.concat(parts); top.t = now; return; }
+    if (same(meta.undo[u])) { meta.undo[u].p = meta.undo[u].p.concat(parts); meta.undo[u].t = now; return; }
   }
   // 1回分を前に作ったのに「戻る」にも「進む」にも無い＝もう消えた入力の後追い：足さない（新しい1回分にしない）
   if (ent.st) { jrFreeParts_(meta, parts); return; }

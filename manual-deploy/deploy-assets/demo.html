@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>お試しデモ | Smart Simple System</title>
+<meta name="description" content="ログイン・登録なしで、スマホのボタンを押すだけで、シートに時刻・距離・燃料代・利益まで自動で入る様子を、ブラウザの中だけで体験できるデモです。">
+<!--
+  お試しデモ（ブラウザの中だけで動く）
+  ■ 決まり：このページは、GAS・スプレッドシート・外部への通信を一切使わない。入力内容はどこにも送らず、保存もしない（閉じたら消える）
+  ■ 決まり：本番の仕組み（①のコード）はこのページに入れない。画面の見た目と計算式だけを、このページの中で作っている
+  ■ 決まり：計算式は本番の集計表と同じ。本番の計算式を変えたら、下の calc() も同じに直す（CLAUDE.md 13）
+      燃料代＝距離÷燃費×ガソリン代（四捨五入）／合計高速＝請求−実費／支払い（歩合）＝売上×％÷100（「高速を引く」が〇の車は（売上＋合計高速）×％÷100。四捨五入）
+      利益＝売上＋合計高速−（燃料代＋支払い＋経費＋有休手当＋その他手当）
+  ■ 決まり：見せたいのは「スマホのボタンを押すだけで、シートに自動で入る」こと。時刻（誘導・積完・休憩・降完）・距離・燃料代・支払い・利益は、手で入れない
+  ■ 決まり：経費は自動で出る値なので、手で入れる欄は作らない（見本の行にだけ入っている）
+  ■ 決まり：売上・請求高速・実費高速は、事務所のシート（②）と、アプリの運行一覧（③）のどちらから入れても、同じ値が両方に出る（1つの値を共有している）
+  ■ 決まり：新しく入れた行には、売上・高速代・経費・時刻を最初から入れない
+  ■ 決まり：スマホ画面は、行程入力の画面と、誘導の画面の2つ。誘導の画面は、1つの大きなボタンだけが、押すたびに 誘導→積完→休憩開始→休憩終了→降完 と変わる
+  ■ 決まり：運行一覧（③）は、本番のアプリ（index.html の運行一覧）と同じ作り。月の切り替え・絞り込み・支払／稼働／売上／高速の集計・同じ列と色・日付の新しい順・同じ操作ボタン。「運行開始」は、その行の誘導画面を開く
+  ■ 決まり：誘導画面のボタンの色は本番と同じ（誘導＝青緑 #00838f／積完＝緑 #2e7d32／休憩開始＝橙 #e65100／休憩終了＝紫 #6a1b9a／降完＝赤 #c62828）
+-->
+<style>
+  :root { --ink:#1f2937; --sub:#64748b; --line:#d0d7de; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; font-family:"Hiragino Sans","Yu Gothic","Meiryo","Noto Sans JP",sans-serif; background:#eef1f6; color:var(--ink); line-height:1.6; }
+  .top { background:#0f172a; color:#fff; padding:12px 16px; }
+  .top .in { max-width:1400px; margin:0 auto; display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+  .top a { color:#93c5fd; text-decoration:none; font-size:.9rem; }
+  .top h1 { margin:0; font-size:1.05rem; }
+  .badge { display:inline-block; background:#fef9c3; color:#854d0e; border:1px solid #fde047; border-radius:999px; padding:2px 12px; font-size:.8rem; font-weight:700; }
+  main { max-width:1400px; margin:0 auto; padding:16px; }
+  .lead { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:16px; }
+  .lead h2 { margin:0 0 6px; font-size:1.1rem; }
+  .lead p { margin:4px 0; color:var(--sub); font-size:.92rem; }
+  .sec { font-weight:800; margin:18px 0 8px; font-size:1rem; }
+  .sec small { font-weight:400; color:var(--sub); margin-left:6px; }
+  .note { font-size:.78rem; color:var(--sub); }
+  .center { text-align:center; }
+  .stage { display:grid; grid-template-columns:400px minmax(0,1fr); gap:18px; align-items:start; }
+  @media (max-width:1000px) { .stage { grid-template-columns:1fr; } }
+
+  /* ── ①スマホのアプリ画面（本番と同じ見た目） ── */
+  .phone { max-width:400px; margin:0 auto; background:#121212; color:#fff; border-radius:22px; padding:14px 12px 16px; border:6px solid #2b2b2b; box-shadow:0 10px 30px rgba(0,0,0,.25); min-height:520px; }
+  .ap-title { text-align:center; color:#c084fc; font-weight:800; font-size:1.05rem; margin:2px 0 10px; }
+  .ap-h { font-weight:800; margin:6px 2px; }
+  .ap-card { background:#1e1e1e; border-radius:10px; padding:10px 12px; margin-bottom:10px; }
+  .ap-card label { display:block; font-size:.68rem; color:#9ca3af; margin:6px 0 2px; }
+  .ap-card.first label { margin-top:0; }
+  .ap-card .g2 { display:grid; grid-template-columns:1fr 1fr; gap:0 10px; }
+  .ap-acc { display:flex; justify-content:space-between; align-items:center; cursor:pointer; color:#d1d5db; font-size:.74rem; font-weight:700; }
+  .ap-acc b { color:#a78bfa; }
+  .ap-in { width:100%; background:#2b2b2b; border:1px solid #3a3a3a; border-radius:8px; color:#fff; padding:8px 10px; font:inherit; font-size:.9rem; color-scheme:dark; }
+  .ap-in[readonly] { color:#e5e7eb; }
+  .ap-line { border:0; border-top:1px solid #333; margin:10px 0; }
+  .ap-trip { display:flex; align-items:center; gap:8px; margin:4px 0 8px; font-weight:800; }
+  .ap-del { background:#d32f2f; color:#fff; border:0; border-radius:999px; font-size:.7rem; padding:4px 12px; font-weight:700; cursor:pointer; }
+  .ap-btn { display:block; width:100%; border:0; border-radius:14px; color:#fff; font:inherit; font-weight:800; padding:15px; margin-top:10px; cursor:pointer; }
+  .ap-add { background:#6a1b9a; } .ap-go { background:#006064; } .ap-home { background:#37474f; }
+  .ap-btn:hover:not(:disabled) { filter:brightness(1.15); }
+  .go-route { background:#1e1e1e; border-radius:10px; padding:10px 12px; margin:6px 0 10px; font-size:.9rem; }
+  .go-route small { color:#9ca3af; display:block; }
+  .go-log { min-height:96px; font-size:.82rem; color:#9ca3af; margin:0 4px 6px; }
+  .go-log div { padding:2px 0; } .go-log b { color:#34d399; margin-right:6px; }
+  .go-main { font-size:20px; padding:24px; border-radius:15px; box-shadow:0 4px 12px rgba(0,0,0,.4); margin-top:6px; }
+  .go-main[data-step="g"] { background:#00838f; } .go-main[data-step="l"] { background:#2e7d32; } .go-main[data-step="bs"] { background:#e65100; } .go-main[data-step="be"] { background:#6a1b9a; } .go-main[data-step="d"] { background:#c62828; }
+  .go-main:disabled { background:#2a3a3d; color:#9fb1b4; cursor:default; }
+  .sec-t { font-size:20px; font-weight:900; margin:10px 0; color:#fff; }
+
+  /* ── ③アプリの「運行一覧」（本番のアプリと同じ色・並び・ボタン） ── */
+  .app-list { background:#121212; color:#e0e0e0; border-radius:14px; border:6px solid #2b2b2b; box-shadow:0 10px 30px rgba(0,0,0,.2); padding:12px; font-family:"Helvetica Neue",Arial,sans-serif; }
+  .lcard { background:#1e1e1e; border-radius:15px; padding:16px; margin-bottom:12px; box-shadow:0 4px 15px rgba(0,0,0,.5); }
+  .lhead { display:flex; align-items:center; justify-content:space-between; }
+  .ym { font-size:20px; font-weight:900; color:#fff; text-align:center; flex:1; }
+  .nav-btn { padding:12px 20px; border-radius:25px; font-size:14px; font-weight:900; color:#fff; background:#37474f; min-height:44px; border:0; cursor:pointer; }
+  .lcard h3 { margin:0; font-size:17px; color:#bb86fc; cursor:pointer; }
+  .sm-pay { background:linear-gradient(135deg,#0d2010,#162716); border-radius:12px; padding:8px 12px; margin-bottom:6px; border:1px solid #2d5a2d; display:flex; align-items:center; gap:8px; }
+  .sm-pay .l { flex:1; } .sm-pay .l div { display:flex; justify-content:space-between; align-items:baseline; }
+  .sm-pay .r { flex:1; text-align:right; } .sm-pay .sep { width:1px; align-self:stretch; background:rgba(255,255,255,.1); }
+  .sm-grid { display:grid; grid-template-columns:1.1fr 1fr 1fr; gap:6px; }
+  .sm-grid > div { border-radius:10px; padding:7px 8px; text-align:center; }
+  .al-wrap { overflow:auto; max-height:460px; }
+  table.al { border-collapse:collapse; font-size:13px; white-space:nowrap; width:100%; }
+  table.al th { padding:10px 6px; color:#bb86fc; font-weight:900; text-align:left; border-bottom:2px solid #444; background:#2a2a2a; position:sticky; top:0; z-index:10; border-right:1px solid #2a2a2a; }
+  table.al th .sf { font-size:11px; color:#555; }
+  table.al td { padding:8px; border-bottom:1px solid #333; border-right:1px solid #2a2a2a; vertical-align:middle; }
+  table.al td.in { padding:4px 6px; }
+  table.al td.sid { text-align:center; position:sticky; left:0; background:#1e1e1e; font-size:10px; color:#666; z-index:1; }
+  table.al td.ng { color:#555; } table.al td.ex { color:#ef9a9a; font-weight:700; }
+  table.al tr.cur td { background-color:#17241b; }
+  table.al input { background:transparent; color:#fff; border:none; width:100%; padding:2px 4px; font-size:13px; font-family:inherit; }
+  table.al input.tb { background:#2c2c2c; border:1px solid #444; border-radius:8px; padding:11px 8px; min-width:74px; }
+  table.al input.mn { text-align:right; width:70px; }
+  table.al input:focus { outline:none; background:rgba(187,134,252,.1); border-radius:4px; }
+  .ops { display:flex; gap:4px; }
+  .ob { padding:10px 14px; border-radius:20px; font-size:13px; font-weight:700; color:#fff; min-height:44px; border:0; cursor:pointer; white-space:nowrap; }
+  .ob.y { background:#ffd600; color:#000; animation:glow 1.5s infinite; } .ob.bl { background:#1565c0; } .ob.tl { background:#00897b; } .ob.pu { background:#6a1b9a; } .ob.rd { background:#c62828; }
+  @keyframes glow { 0% { box-shadow:0 0 4px #ffd600; } 50% { box-shadow:0 0 16px #ffd600, 0 0 30px #ffab00; } 100% { box-shadow:0 0 4px #ffd600; } }
+  .bb { display:block; width:100%; padding:24px; border-radius:15px; color:#fff; font-size:20px; font-weight:bold; margin-top:12px; box-shadow:0 4px 12px rgba(0,0,0,.4); border:0; cursor:pointer; }
+  .totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-top:12px; }
+  .tot { background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px; text-align:center; }
+  .tot .k { font-size:.74rem; color:var(--sub); } .tot .v { font-size:1.2rem; font-weight:800; }
+  .tot.profit { background:#ecfdf5; border-color:#a7f3d0; } .tot.profit.neg { background:#fef2f2; border-color:#fecaca; } .tot.profit.neg .v { color:#b91c1c; }
+
+  /* ── ②スプレッドシート（本番そっくりの表） ── */
+  .gs { background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden; box-shadow:0 4px 18px rgba(0,0,0,.08); min-width:0; }
+  .gs-menu { display:flex; gap:14px; padding:6px 12px; background:#f9fbfd; border-bottom:1px solid var(--line); font-size:.82rem; color:#444; position:relative; flex-wrap:wrap; align-items:center; }
+  .gs-menu span { opacity:.75; }
+  .gs-menu button { font:inherit; font-size:.82rem; background:#e8f0fe; border:1px solid #c7d7fb; color:#174ea6; border-radius:6px; padding:2px 10px; cursor:pointer; font-weight:700; }
+  .dd { position:absolute; left:auto; top:34px; z-index:20; background:#fff; border:1px solid #c7ccd1; border-radius:8px; box-shadow:0 6px 24px rgba(0,0,0,.2); min-width:260px; padding:6px 0; }
+  .dd div { padding:6px 16px; font-size:.85rem; cursor:pointer; color:#374151; }
+  .dd div:hover { background:#f1f3f4; }
+  .dd div i { float:right; font-style:normal; color:#94a3b8; font-size:.72rem; }
+  .gs-body { overflow:auto; max-height:520px; }
+  table.sheet { border-collapse:collapse; font-family:Arial,"Hiragino Sans","Yu Gothic",sans-serif; font-size:13px; min-width:100%; }
+  table.sheet th, table.sheet td { border:1px solid #dadce0; padding:3px 8px; white-space:nowrap; height:26px; word-break:keep-all; }
+  table.sheet .cl { background:#f1f3f4; color:#5f6368; text-align:center; font-weight:400; font-size:11px; position:sticky; top:0; z-index:3; }
+  table.sheet .rn { background:#f1f3f4; color:#5f6368; text-align:center; font-size:11px; min-width:34px; position:sticky; left:0; z-index:2; }
+  table.sheet thead tr.hd th { background:#f8f9fa; color:#202124; font-weight:700; text-align:left; position:sticky; top:24px; z-index:3; }
+  table.sheet thead tr.hd th.auto { background:#2e7d32; color:#fff; }
+  table.sheet th .fl { color:#80868b; font-size:10px; margin-left:10px; }
+  table.sheet thead tr.hd th.auto .fl { color:#c8e6c9; }
+  table.sheet td.id { background:#f8cfd3; }
+  table.sheet td.num { text-align:right; }
+  table.sheet td.auto { background:#f3faf3; color:#1b7f2b; }
+  table.sheet tr.neg td { background:#ffebee; }
+  table.sheet tr.neg td.id { background:#f4b8bf; }
+  table.sheet tr.cur td { box-shadow:inset 0 0 0 9999px rgba(250,204,21,.18); }
+  table.sheet td.profit { font-weight:700; }
+  table.sheet td input { width:76px; border:0; border-bottom:2px solid #f59e0b; background:#fffbeb; text-align:right; font:inherit; padding:1px 3px; }
+  table.sheet td input.t { width:54px; text-align:center; color:#1b7f2b; font-weight:700; }
+  table.sheet td input.d { color:#1b7f2b; }
+  table.sheet td input:focus { outline:2px solid #1a73e8; }
+  .gs-tabs { display:flex; align-items:flex-end; gap:2px; padding:4px 8px 0; background:#f1f3f4; border-top:1px solid var(--line); overflow-x:auto; }
+  .tab { font-size:.8rem; padding:6px 14px; color:#5f6368; white-space:nowrap; border-radius:6px 6px 0 0; background:transparent; border:0; font-family:inherit; cursor:pointer; }
+  .tab.off { color:#9aa0a6; }
+  .tab.on { background:#fff; color:#0b57d0; font-weight:700; border-bottom:3px solid #0b57d0; }
+  .hint { background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:8px; padding:6px 10px; font-size:.82rem; margin:8px 0; }
+  .only { display:flex; flex-wrap:wrap; gap:8px; }
+  .only button { background:#f1f5f9; color:#94a3b8; border:1px dashed #cbd5e1; border-radius:8px; padding:6px 10px; font:inherit; font-size:.8rem; cursor:pointer; }
+  .back { display:inline-block; background:#1a56db; color:#fff; padding:10px 22px; border-radius:10px; text-decoration:none; font-weight:700; }
+  .link { background:none; border:0; color:#1a56db; text-decoration:underline; cursor:pointer; font:inherit; font-size:.85rem; }
+  #toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:#111827; color:#fff; padding:10px 18px; border-radius:10px; font-size:.9rem; opacity:0; pointer-events:none; transition:opacity .2s; z-index:50; max-width:90vw; text-align:center; }
+  #toast.on { opacity:1; }
+  .hidden { display:none !important; }
+  /* 押した時に、入った所が光る */
+  @keyframes fl { 0% { box-shadow:0 0 0 3px #facc15, 0 0 16px 5px #facc15; } 100% { box-shadow:0 0 0 0 rgba(250,204,21,0); } }
+  .flash { animation:fl 1.8s ease-out; }
+  @keyframes fltd { 0% { background-color:#fde68a; } 100% { background-color:transparent; } }
+  tr.newrow td { animation:fltd 1.8s ease-out; }
+</style>
+</head>
+<body>
+<div class="top"><div class="in"><div><h1>Smart Simple System　お試しデモ</h1></div><div><span class="badge">実際の画面イメージです</span> <a href="customer-top.html">← ホームページに戻る</a></div></div></div>
+<main>
+  <div class="lead">
+    <h2>スマホのボタンを押すだけで、シートに自動で入るのを体験</h2>
+    <p>登録・ログインは要りません。① スマホで積地・降地を入れて「誘導へ進む」を押し、大きなボタンを押していくと、② 事務所のスプレッドシートと、③ アプリの運行一覧に、押した時刻が自動で入ります。</p>
+    <p>距離・燃料代・支払い・利益も、手で入れなくても自動で出ます。入れるのは売上と高速代だけです（② でも ③ でも、どちらからでも入れられます）。</p>
+    <p>入力した内容は、このページの中だけで動きます。どこにも送らず、保存もしません。閉じると消えます。</p>
+  </div>
+
+  <div class="stage">
+    <div>
+      <div class="sec" style="margin-top:0">① 乗務員のスマホ画面<small>（実際の画面イメージです）</small></div>
+      <div class="phone">
+        <div id="scrIn">
+          <div class="ap-title">行程入力</div>
+          <div class="ap-h">行程入力</div>
+          <div class="ap-card first"><label>日付</label><input class="ap-in" id="aDate" type="date"></div>
+          <div class="ap-card">
+            <div class="ap-acc" id="carHead"><span>車両・乗務員情報（当日変更可）</span><b id="carArrow">▶</b></div>
+            <div id="carBody" class="hidden">
+              <label>車（デモ用に2台から選べます）</label>
+              <select class="ap-in" id="aCar"></select>
+              <div class="g2">
+                <div><label>トン数</label><input class="ap-in" id="aTon" readonly></div>
+                <div><label>車種</label><input class="ap-in" id="aType" readonly></div>
+                <div><label>看板名</label><input class="ap-in" id="aSign" readonly></div>
+                <div><label>車番</label><input class="ap-in" id="aNo" readonly></div>
+                <div><label>乗務員名</label><input class="ap-in" id="aName" readonly></div>
+                <div><label>携帯番号</label><input class="ap-in" id="aTel" readonly></div>
+              </div>
+            </div>
+          </div>
+          <hr class="ap-line">
+          <div class="ap-trip">行程 1 <button class="ap-del" type="button" data-only="行程の削除">削除</button></div>
+          <input class="ap-in" id="aFrom" list="cities" placeholder="積地を入力" maxlength="20" autocomplete="off" style="margin-bottom:8px">
+          <input class="ap-in" id="aTo" list="cities" placeholder="降地を入力" maxlength="20" autocomplete="off">
+          <datalist id="cities"></datalist>
+          <button class="ap-btn ap-add" type="button" data-only="行程の追加">＋ 行程を追加</button>
+          <button class="ap-btn ap-go" type="button" id="goBtn">誘導へ進む</button>
+          <button class="ap-btn ap-home" type="button" data-only="ホーム画面">ホーム</button>
+        </div>
+        <div id="scrGo" class="hidden">
+          <div class="ap-title" id="goTitle">誘導（選択）</div>
+          <div class="sec-t" id="goSec">誘導</div>
+          <div class="go-route" id="goRoute"></div>
+          <div class="go-log" id="goLog"></div>
+          <button class="ap-btn go-main" type="button" id="stBtn">誘導</button>
+          <button class="ap-btn ap-home" type="button" id="backBtn">行程入力にもどる</button>
+        </div>
+      </div>
+      <p class="note center" style="margin-top:8px">積地・降地を入れて「誘導へ進む」を押し、大きなボタンを押していってください。押すたびに、右のシートが光って、時刻が入ります。</p>
+    </div>
+
+    <div>
+      <div class="sec" style="margin-top:0">② 事務所のスプレッドシート<small>（実際の画面イメージです）</small></div>
+      <div class="gs">
+        <div class="gs-menu"><span>ファイル</span><span>編集</span><span>表示</span><span>挿入</span><span>表示形式</span><span>データ</span><span>ツール</span><span>拡張機能</span><span>ヘルプ</span>
+          <button type="button" id="menuBtn">メニュー ▾</button></div>
+        <div class="gs-body" id="gsBody"></div>
+        <div class="gs-tabs" id="tabs"></div>
+      </div>
+      <div class="hint">緑の字は、自動で入った値です（時刻・距離・燃料代・支払い・利益など）。黄色の下線のマスは、書き換えられます。書き換えると、集計表と、下のアプリの一覧にも、すぐ出ます。数字は、デモ用の見本です。</div>
+      <p class="note">距離は、本番では地名から Google の地図で自動計算されます。このデモでは、主な都市の間だけ、目安の距離が入ります。</p>
+    </div>
+  </div>
+
+  <div class="sec">③ アプリの「運行一覧」<small>（実際の画面イメージです。「運行開始」を押すと、その行の誘導画面が開きます）</small></div>
+  <div class="app-list">
+    <div class="ap-title" style="font-size:1.1rem">運行一覧</div>
+    <div class="lcard"><div class="lhead"><button class="nav-btn" type="button" data-only="月の切り替え">◀ 前月</button><div class="ym" id="alYM"></div><button class="nav-btn" type="button" data-only="月の切り替え">次月 ▶</button></div></div>
+    <div class="lcard"><h3 data-only="絞り込み">絞り込み ▼</h3></div>
+    <div class="lcard" id="summaryCard"></div>
+    <div class="al-wrap" id="alBody"></div>
+    <button class="bb" type="button" style="background:#6d3200" data-only="新規行程追加（別日登録）">＋ 新規行程追加（別日登録）</button>
+    <button class="bb" type="button" style="background:#37474f;margin-top:8px" data-only="ホーム画面">ホーム</button>
+  </div>
+  <div class="totals" id="totals"></div>
+  <p class="note">利益＝売上＋合計高速−（燃料代＋支払い＋経費＋有休手当＋その他手当）。燃料代＝距離÷燃費×ガソリン代、合計高速＝請求−実費、支払いは、乗務員ごとの歩合（％）で計算します（本番の集計表と同じ決まり）。売上を入れた行だけ、利益が出ます。<br>※表示される利益は、おおよその金額です。</p>
+
+  <div class="sec">④ 本番版でできること</div>
+  <div class="only" id="onlyList"></div>
+  <p class="note">上の機能は「本番版のみ」です。このデモは、スマホのボタンから、時刻と利益が自動で出るまでです。</p>
+
+  <p class="center" style="margin:26px 0 8px"><button class="link" type="button" id="resetAll">デモを最初の状態に戻す</button></p>
+  <p class="center"><a class="back" href="customer-top.html">ホームページに戻る</a></p>
+  <p class="note center">これは実際の画面イメージです。本番の動きとは、一部異なります。</p>
+</main>
+<div id="toast"></div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  // ── 見本データ（テスト運送の車・乗務員・運行3行） ──
+  var GAS_PRICE = 130, TOLL_MARK = '〇';
+  var CARS = [
+    { no: '品川100あ1234', name: '山田太郎', ton: '4t', type: '平車', sign: 'テスト運送(株)', tel: '090-0000-0000', fuel: 4.5, pct: 30, toll: TOLL_MARK },
+    { no: '品川100い5678', name: '鈴木花子', ton: '4t', type: '平車', sign: 'テスト運送(株)', tel: '090-1111-1111', fuel: 5.0, pct: 25, toll: '' }
+  ];
+  var DIST = { '大阪市|堺市': 15, '大阪市|京都市': 50, '大阪市|神戸市': 35, '大阪市|名古屋市': 190, '大阪市|浜松市': 260, '堺市|京都市': 65, '堺市|神戸市': 50, '堺市|名古屋市': 205, '堺市|浜松市': 275, '京都市|神戸市': 75, '京都市|名古屋市': 140, '京都市|浜松市': 210, '神戸市|名古屋市': 225, '神戸市|浜松市': 295, '名古屋市|浜松市': 115 };
+  var CITIES = ['大阪市', '堺市', '京都市', '神戸市', '名古屋市', '浜松市'];
+  var STEPS = ['g', 'l', 'bs', 'be', 'd'], STEP_NAME = { g: '誘導', l: '積完', bs: '休憩開始', be: '休憩終了', d: '降完' };
+  function dist(a, b) { if (a === b) return 10; return DIST[a + '|' + b] != null ? DIST[a + '|' + b] : (DIST[b + '|' + a] != null ? DIST[b + '|' + a] : ''); }
+  function p2(n) { return ('0' + n).slice(-2); }
+  function ymd(d) { return d.getFullYear() + '/' + p2(d.getMonth() + 1) + '/' + p2(d.getDate()); }
+  function isoOf(d) { return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
+  var rows = [], seq = 2800, cur = -1, tab = '運行', screen = 'in', flash = { cell: '', row: -1 };
+  function sample() {
+    var t = new Date(), d = function (n) { var x = new Date(t); x.setDate(x.getDate() - n); return ymd(x); };
+    rows = [
+      { id: 'V-2801', car: 0, date: d(3), shipper: 'テスト商事', from: '大阪市', to: '名古屋市', t: { g: '06:30', l: '07:40', bs: '11:50', be: '12:35', d: '14:20' }, sales: 50000, tollB: 1000, tollA: 1000, dist: 190, exp: 5000 },
+      { id: 'V-2802', car: 1, date: d(2), shipper: 'テスト食品', from: '堺市', to: '京都市', t: { g: '08:00', l: '08:50', bs: '11:30', be: '12:15', d: '13:10' }, sales: 38000, tollB: 1500, tollA: 1000, dist: 65, exp: 2000 },
+      { id: 'V-2803', car: 0, date: d(1), shipper: 'テスト商事', from: '京都市', to: '神戸市', t: { g: '07:10', l: '08:00', bs: '10:30', be: '11:00', d: '12:20' }, sales: 42000, tollB: 0, tollA: 0, dist: 75, exp: 0 }
+    ];
+    seq = 2803; cur = -1; screen = 'in';
+  }
+  // ── 計算（本番の集計表と同じ決まり。ここを直したら CLAUDE.md 13 のとおり本番とそろえる） ──
+  function round(x) { return Math.floor(x + 0.5); }   // 本番の Math.round と同じ（マイナスの半端も同じ）
+  function n(v) { return v === '' || v == null ? 0 : Number(v); }
+  function calc(r) {
+    var c = CARS[r.car], toll = n(r.tollB) - n(r.tollA), has = r.sales !== '';
+    var fuel = (r.dist === '' || r.dist == null) ? '' : round(r.dist / c.fuel * GAS_PRICE);
+    var pay = has ? round((n(r.sales) + (c.toll === TOLL_MARK ? toll : 0)) * (c.pct / 100)) : '';
+    var profit = has ? n(r.sales) + toll - ((fuel === '' ? 0 : fuel) + pay + n(r.exp) + 0 + 0) : '';
+    return { toll: toll, fuel: fuel, pay: pay, profit: profit, car: c };
+  }
+  function yen(v) { return v === '' || v == null ? '' : Number(v).toLocaleString('ja-JP'); }
+  function toast(t) { var e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(function () { e.classList.remove('on'); }, 2200); }
+  function only(name) { toast('「' + name + '」は本番版のみです'); }
+  function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+
+  // ── 同じ値を、②のシートと③のアプリの一覧の、どちらからでも入れられる（1つの値を共有） ──
+  function amountInput(i, key, cls) {
+    var inp = el('input', cls); inp.value = rows[i][key] === '' ? '' : String(rows[i][key]);
+    inp.setAttribute('inputmode', 'numeric'); inp.setAttribute('data-bind', i + '|' + key); inp.setAttribute('aria-label', key);
+    inp.addEventListener('input', function () {
+      var s = inp.value.replace(/[^0-9]/g, '').slice(0, 7);
+      if (inp.value !== s) inp.value = s;
+      rows[i][key] = s === '' ? '' : Number(s);
+      renderAll();
+    });
+    return inp;
+  }
+  function timeInput(i, key, cls) {
+    var inp = el('input', cls); inp.value = rows[i].t[key]; inp.setAttribute('data-bind', i + '|t' + key); inp.setAttribute('placeholder', '--:--'); inp.setAttribute('aria-label', STEP_NAME[key]);
+    inp.addEventListener('input', function () { var s = inp.value.replace(/[^0-9:：]/g, '').replace('：', ':').slice(0, 5); if (inp.value !== s) inp.value = s; rows[i].t[key] = s; renderOthers(inp); });
+    inp.addEventListener('change', function () {
+      var m = /^([01]?\d|2[0-3]):?([0-5]\d)$/.exec(inp.value.trim());
+      if (inp.value.trim() === '') rows[i].t[key] = ''; else if (m) rows[i].t[key] = p2(Number(m[1])) + ':' + m[2]; else { rows[i].t[key] = ''; toast('時刻は 09:30 のように入れてください'); }
+      renderAll();
+    });
+    return inp;
+  }
+  function renderOthers(from) {   // 時刻を打っている途中は、打っているマスは触らず、同じ時刻の別の表示だけ入れ替える
+    Array.prototype.forEach.call(document.querySelectorAll('[data-bind="' + from.getAttribute('data-bind') + '"]'), function (o) { if (o !== from) o.value = from.value; });
+  }
+
+  // ── ②シートの描画 ──
+  var LET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  var UNKOU_H = ['ID', '日付', '車番', '乗務員名', '荷主', '積地', '降地', '誘導', '積完', '休憩開始', '休憩終了', '降完', '売上', '請求(高速)', '実費(高速)', '距離'];
+  var UNKOU_AUTO = { 7: 1, 8: 1, 9: 1, 10: 1, 11: 1, 15: 1 };
+  var SHU_H = ['ID', '日付', '荷主', '車番', '乗務員名', '売上', '請求(高速)', '実費(高速)', '合計(高速)', '距離', '燃費', 'ガソリン代', '燃料代', '支払い', '経費合計', '有休手当', 'その他手当', '利益'];
+  var SHU_AUTO = { 8: 1, 9: 1, 10: 1, 11: 1, 12: 1, 13: 1, 14: 1, 17: 1 };
+  function td(txt, cls) { return el('td', cls || '', txt); }
+  function build(head, body, autoSet) {
+    var t = el('table', 'sheet'), th = el('thead'), r1 = el('tr'), r2 = el('tr', 'hd');
+    r1.appendChild(el('th', 'cl', '')); r2.appendChild(el('th', 'rn', '1'));
+    head.forEach(function (h, i) {
+      r1.appendChild(el('th', 'cl', LET.charAt(i % 26)));
+      var c = el('th', autoSet[i] ? 'auto' : '', h); c.setAttribute('data-col', String(i)); c.appendChild(el('span', 'fl', '▾')); r2.appendChild(c);
+    });
+    th.appendChild(r1); th.appendChild(r2); t.appendChild(th);
+    var tb = el('tbody');
+    body.forEach(function (cells, i) {
+      var k = calc(rows[i]);
+      var tr = el('tr', (k.profit !== '' && k.profit < 0 ? 'neg ' : '') + (i === cur ? 'cur' : '') + (i === flash.row ? ' newrow' : ''));
+      tr.appendChild(el('td', 'rn', String(i + 2)));
+      cells.forEach(function (c) { tr.appendChild(c); });
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); return t;
+  }
+  function drawUnkou() {
+    var body = rows.map(function (r, i) {
+      var c = CARS[r.car];
+      var cells = [td(r.id, 'id'), td(r.date), td(c.no), td(c.name), td(r.shipper), td(r.from), td(r.to)];
+      STEPS.forEach(function (s) { var x = el('td', 'num'); x.appendChild(timeInput(i, s, 't')); cells.push(x); });
+      ['sales', 'tollB', 'tollA'].forEach(function (k) { var x = el('td', 'num'); x.appendChild(amountInput(i, k)); cells.push(x); });
+      var xd = el('td', 'num'); xd.appendChild(amountInput(i, 'dist', 'd')); cells.push(xd);
+      return cells;
+    });
+    return build(UNKOU_H, body, UNKOU_AUTO);
+  }
+  function drawShu() {
+    var body = rows.map(function (r) {
+      var k = calc(r), c = k.car;
+      return [td(r.id, 'id'), td(r.date), td(r.shipper), td(c.no), td(c.name), td(yen(r.sales), 'num'), td(yen(r.tollB), 'num'), td(yen(r.tollA), 'num'), td(yen(k.toll), 'num auto'), td(yen(r.dist), 'num auto'), td(String(c.fuel), 'num auto'), td(String(GAS_PRICE), 'num auto'), td(yen(k.fuel), 'num auto'), td(yen(k.pay), 'num auto'), td(yen(r.exp), 'num auto'), td('0', 'num auto'), td('0', 'num auto'), td(yen(k.profit), 'num auto profit')];
+    });
+    return build(SHU_H, body, SHU_AUTO);
+  }
+  function drawTabs() {
+    var box = $('tabs'); box.textContent = '';
+    ['配車板', '自社設定', '距離マスタ', 'PL設定', '管理者', '運行', '受領書_耳', 'メモ', '集計表', '自車専属マスタ', 'マスタ', '設定'].forEach(function (nm) {
+      var live = nm === '運行' || nm === '集計表';
+      var b = el('button', 'tab' + (live ? '' : ' off') + (tab === nm ? ' on' : ''), nm); b.type = 'button';
+      b.addEventListener('click', function () { if (live) { tab = nm; drawTabs(); renderAll(); } else only(nm + 'シート'); });
+      box.appendChild(b);
+    });
+  }
+
+  // ── ③アプリの「運行一覧」（本番と同じ列・日付の新しい順） ──
+  var LIST_H = ['日付', '車番', '積地', '降地', '誘導', '積完', '休開', '休終', '降完', '売上', '請求高速', '実費高速', '高速計', '支払', '経費合計', '有休手当', 'その他手当', '点呼前', '点呼後', '操作'];
+  function dash(v) { return v === '' || v == null || v === 0 ? '—' : yen(v); }
+  function drawSummary() {
+    var pay = 0, sales = 0, toll = 0, days = {};
+    rows.forEach(function (r) { var k = calc(r); pay += k.pay === '' ? 0 : k.pay; sales += n(r.sales); toll += k.toll; days[r.date] = 1; });
+    var nd = Object.keys(days).length, d0 = new Date(), f = function (v) { return '¥' + Math.round(v).toLocaleString('ja-JP'); };
+    $('alYM').textContent = d0.getFullYear() + '年 ' + (d0.getMonth() + 1) + '月';
+    $('summaryCard').innerHTML = '<div class="sm-pay"><div class="l"><div><span style="font-size:13px;font-weight:600;color:#aaa">支払</span><span style="font-size:15px;font-weight:800;color:#ddd">' + f(pay) + '</span></div></div><div class="sep"></div><div class="r"><div style="font-size:13px;font-weight:700;color:#4caf50;margin-bottom:2px">支払合計</div><div style="font-size:22px;font-weight:900;color:#66bb6a;line-height:1">' + f(pay) + '</div></div></div>' +
+      '<div class="sm-grid"><div style="background:#1c1428;border:1px solid #2a2040"><div style="font-size:12px;font-weight:700;color:#9c6fda;margin-bottom:2px">稼働</div><div style="font-size:22px;font-weight:900;color:#bb86fc;line-height:1">' + nd + '<span style="font-size:13px;color:#7c5cbf;font-weight:600">日</span></div></div>' +
+      '<div style="background:#101a28;border:1px solid #1e2f40"><div style="font-size:12px;font-weight:700;color:#5b9bd5;margin-bottom:2px">売上</div><div style="font-size:15px;font-weight:800;color:#64b5f6">' + f(sales) + '</div></div>' +
+      '<div style="background:#111e16;border:1px solid #1e3524"><div style="font-size:12px;font-weight:700;color:#5aaa72;margin-bottom:2px">高速</div><div style="font-size:15px;font-weight:800;color:#81c784">' + f(toll) + '</div></div></div>';
+  }
+  function drawList() {
+    drawSummary();
+    var t = el('table', 'al'), th = el('thead'), hr = el('tr');
+    hr.appendChild(el('th', '', ''));
+    LIST_H.forEach(function (h, i) { var c = el('th', '', h); if (i < 19) c.appendChild(el('span', 'sf', ' ▼')); hr.appendChild(c); });
+    th.appendChild(hr); t.appendChild(th);
+    var tb = el('tbody');
+    for (var i = rows.length - 1; i >= 0; i--) {
+      (function (i) {
+        var r = rows[i], k = calc(r), tr = el('tr', (i === cur ? 'cur' : '') + (i === flash.row ? ' newrow' : ''));
+        tr.appendChild(td(r.id, 'sid')); tr.appendChild(td(r.date)); tr.appendChild(td(k.car.no)); tr.appendChild(td(r.from)); tr.appendChild(td(r.to));
+        STEPS.forEach(function (s) { var x = el('td', 'in'); x.appendChild(timeInput(i, s, 'tb')); tr.appendChild(x); });
+        ['sales', 'tollB', 'tollA'].forEach(function (a) { var x = el('td', 'in'); x.appendChild(amountInput(i, a, 'mn')); tr.appendChild(x); });
+        tr.appendChild(td(yen(k.toll))); tr.appendChild(td(k.pay === '' ? '0' : yen(k.pay)));
+        tr.appendChild(td(r.exp > 0 ? yen(r.exp) : '—', r.exp > 0 ? 'ex' : 'ng')); tr.appendChild(td('—', 'ng')); tr.appendChild(td('—', 'ng'));
+        [0, 1].forEach(function () { var x = el('td', 'in'); var b = el('input', 'tb'); b.readOnly = true; b.setAttribute('aria-label', '点呼'); x.appendChild(b); tr.appendChild(x); });
+        var op = el('td'), box = el('div', 'ops');
+        [['運行開始', 'y'], ['連絡', 'bl'], ['データ', 'tl'], ['編集', 'pu'], ['削除', 'rd']].forEach(function (a) {
+          var b = el('button', 'ob ' + a[1], a[0]); b.type = 'button';
+          b.addEventListener('click', function () { if (a[0] === '運行開始') startRow(i); else only(a[0]); });
+          box.appendChild(b);
+        });
+        op.appendChild(box); tr.appendChild(op); tb.appendChild(tr);
+      })(i);
+    }
+    t.appendChild(tb);
+    var box2 = $('alBody'); box2.textContent = ''; box2.appendChild(t);
+  }
+  function drawTotals() {
+    var box = $('totals'); box.textContent = '';
+    var s = { sales: 0, toll: 0, fuel: 0, pay: 0, exp: 0, profit: 0 }, cnt = 0;
+    rows.forEach(function (r) { var k = calc(r); if (r.sales === '') return; cnt++; s.sales += n(r.sales); s.toll += k.toll; s.fuel += k.fuel === '' ? 0 : k.fuel; s.pay += k.pay; s.exp += n(r.exp); s.profit += k.profit; });
+    var last = rows[cur >= 0 ? cur : rows.length - 1], lk = calc(last);
+    var list = [['売上の合計', s.sales + '円'], ['合計高速（請求−実費）', s.toll + '円'], ['燃料代の合計', s.fuel + '円'], ['支払いの合計', s.pay + '円'], ['経費の合計', s.exp + '円'], ['利益の合計（売上を入れた' + cnt + '件）', s.profit + '円'], [last.id + ' の利益', lk.profit === '' ? '売上を入れると出ます' : lk.profit + '円']];
+    list.forEach(function (x, i) {
+      var neg = x[1].charAt(0) === '-' && i >= 5;
+      var d = el('div', 'tot' + (i >= 5 ? ' profit' + (neg ? ' neg' : '') : ''));
+      d.appendChild(el('div', 'k', x[0]));
+      var v = /円$/.test(x[1]) ? Number(x[1].slice(0, -1)).toLocaleString('ja-JP') + '円' : x[1];
+      d.appendChild(el('div', 'v', v)); box.appendChild(d);
+    });
+  }
+  // ── ①スマホの「誘導」画面：大きなボタン1つが、押すたびに 誘導→積完→休憩開始→休憩終了→降完 と変わる ──
+  function nextStep(r) { var nx = -1; STEPS.forEach(function (s, i) { if (nx < 0 && r.t[s] === '') nx = i; }); return nx; }
+  function drawPhone() {
+    $('scrIn').classList.toggle('hidden', screen !== 'in');
+    $('scrGo').classList.toggle('hidden', screen !== 'go' || cur < 0);
+    if (screen !== 'go' || cur < 0) return;
+    var r = rows[cur], nx = nextStep(r), b = $('stBtn');
+    $('goRoute').textContent = '';
+    $('goRoute').appendChild(el('small', '', r.id + '　' + CARS[r.car].no + '（' + CARS[r.car].name + '）'));
+    $('goRoute').appendChild(document.createTextNode('行程1：' + r.from + ' → ' + r.to));
+    var lg = $('goLog'); lg.textContent = '';
+    STEPS.forEach(function (s) { if (r.t[s]) { var d = el('div'); d.appendChild(el('b', '', '✓')); d.appendChild(document.createTextNode(STEP_NAME[s] + '　' + r.t[s])); lg.appendChild(d); } });
+    var SEC = { g: ['誘導（選択）', '誘導'], l: ['積完（選択）', '積完（選択式）'], bs: ['休憩開始', '休憩開始'], be: ['休憩終了', '休憩終了'], d: ['降完（選択）', '降完（選択式）'] };
+    if (nx < 0) { b.textContent = '運行完了'; b.disabled = true; b.removeAttribute('data-step'); $('goTitle').textContent = '運行完了'; $('goSec').textContent = '運行完了'; }
+    else {
+      var sk = STEPS[nx];
+      b.textContent = sk === 'g' ? '行程1：' + r.from + ' を誘導' : sk === 'l' ? '行程1：' + r.from + ' を積完' : sk === 'd' ? '行程1：' + r.to + ' を降完' : STEP_NAME[sk];
+      b.disabled = false; b.setAttribute('data-step', sk); $('goTitle').textContent = SEC[sk][0]; $('goSec').textContent = SEC[sk][1];
+    }
+  }
+  function renderAll() {
+    // 入力中のマスを壊さないよう、打っているマスの位置を覚えておいて、描画し直したあとに戻す
+    var a = document.activeElement, key = a && a.getAttribute && a.getAttribute('data-bind'), pos = a && a.selectionStart;
+    var gb = $('gsBody'), keepL = gb.scrollLeft, keepT = gb.scrollTop, ab = $('alBody'), keepL2 = ab.scrollLeft, keepT2 = ab.scrollTop;
+    gb.textContent = ''; gb.appendChild(tab === '運行' ? drawUnkou() : drawShu()); gb.scrollLeft = keepL; gb.scrollTop = keepT;
+    drawList(); ab.scrollLeft = keepL2; ab.scrollTop = keepT2;
+    drawTotals(); drawPhone();
+    if (flash.cell) { Array.prototype.forEach.call(document.querySelectorAll('[data-bind="' + flash.cell + '"]'), function (o) { o.classList.add('flash'); }); }
+    if (key) { var all = document.querySelectorAll('[data-bind="' + key + '"]'); var inList = a && a.closest && a.closest('.app-list'); var pick = null; Array.prototype.forEach.call(all, function (o) { if ((!!o.closest('.app-list')) === (!!inList)) pick = o; }); if (pick) { pick.focus(); try { pick.setSelectionRange(pos, pos); } catch (e) {} } }
+    flash = { cell: '', row: -1 };
+  }
+  // 押した所が見えるように、シートを動かす
+  function showSheet(colKey) {
+    var gb = $('gsBody');
+    if (tab !== '運行') return;
+    var th = gb.querySelector('[data-col="' + colKey + '"]'); if (th) gb.scrollLeft = Math.max(0, th.offsetLeft - 160);
+    var tr = gb.querySelector('tr.cur'); if (tr) gb.scrollTop = Math.max(0, tr.offsetTop - 80);
+    var al = $('alBody'), tr2 = al.querySelector('tr.cur'); if (tr2) al.scrollTop = Math.max(0, tr2.offsetTop - 60);
+  }
+
+  // ── スマホの行程入力 ──
+  function fillCar() {
+    var c = CARS[$('aCar').selectedIndex];
+    $('aTon').value = c.ton; $('aType').value = c.type; $('aSign').value = c.sign; $('aNo').value = c.no; $('aName').value = c.name; $('aTel').value = c.tel;
+  }
+  function init() {
+    CARS.forEach(function (c) { $('aCar').appendChild(el('option', '', c.no + '（' + c.name + '）')); });
+    CITIES.forEach(function (c) { var o = el('option'); o.value = c; $('cities').appendChild(o); });
+    $('aDate').value = isoOf(new Date()); fillCar();
+    ['データ読み込み（CSV）', '請求書の作成・一括送信', '配車ダッシュボード', '監査用表の生成', 'ETC明細の取り込み', '損益（PL）表', '発注書・指示書', '車番連絡', '受領書の耳', '月次処理'].forEach(function (nm) {
+      var b = el('button', '', nm); b.type = 'button'; b.addEventListener('click', function () { only(nm); }); $('onlyList').appendChild(b);
+    });
+    var menu = ['📖 説明書を開く', '↩ 戻る', '↪ 進む', '🏠 毎日の配車業務', '📥 データ読み込み（CSV）', '📨 帳票・送信メニュー', '📒 経理・出力', '📊 PL管理', '🗓 月次処理', '⚙️ システム設定・保守', '🔄 バックアップ・復旧'];
+    $('menuBtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var old = document.getElementById('dd'); if (old) { old.remove(); return; }
+      var dd = el('div', 'dd'); dd.id = 'dd';
+      menu.forEach(function (nm) { var d = el('div', '', nm); d.appendChild(el('i', '', '本番版のみ')); d.addEventListener('click', function () { dd.remove(); only(nm.replace(/^[^ ]+ /, '')); }); dd.appendChild(d); });
+      $('menuBtn').parentNode.appendChild(dd);
+    });
+    document.addEventListener('click', function () { var dd = document.getElementById('dd'); if (dd) dd.remove(); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-only]'), function (b) { b.addEventListener('click', function () { only(b.getAttribute('data-only')); }); });
+    $('carHead').addEventListener('click', function () { var h = $('carBody').classList.toggle('hidden'); $('carArrow').textContent = h ? '▶' : '▼'; });
+    $('stBtn').addEventListener('click', function () { var s = $('stBtn').getAttribute('data-step'); if (s) stamp(s); });
+    $('backBtn').addEventListener('click', function () { screen = 'in'; $('aFrom').value = ''; $('aTo').value = ''; drawPhone(); });
+    $('aCar').addEventListener('change', fillCar);
+    $('goBtn').addEventListener('click', go);
+    $('resetAll').addEventListener('click', function () { sample(); tab = '運行'; $('aFrom').value = ''; $('aTo').value = ''; flash = { cell: '', row: -1 }; drawTabs(); renderAll(); toast('最初の状態に戻しました'); });
+    sample(); drawTabs(); renderAll();
+  }
+  function clean(s) { return String(s || '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 20); }
+  function go() {
+    var from = clean($('aFrom').value), to = clean($('aTo').value);
+    if (!from || !to) { toast('積地と降地を入れてください'); (from ? $('aTo') : $('aFrom')).focus(); return; }
+    if (CITIES.indexOf(from) < 0 || CITIES.indexOf(to) < 0) { toast('デモでは、出てくる候補（' + CITIES.join('・') + '）から選んでください'); (CITIES.indexOf(from) < 0 ? $('aFrom') : $('aTo')).focus(); return; }
+    if (rows.length >= 3 + 20) { toast('お試しでは、あと入れられません（20件まで）'); return; }
+    var d = $('aDate').value ? $('aDate').value.replace(/-/g, '/') : ymd(new Date());
+    seq += 1;
+    // 新しい行には、売上・高速代・経費・時刻を最初から入れない（時刻はボタンで入る。距離は自動）
+    rows.push({ id: 'V-' + seq, car: $('aCar').selectedIndex, date: d, shipper: 'テスト商事', from: from, to: to, t: { g: '', l: '', bs: '', be: '', d: '' }, sales: '', tollB: '', tollA: '', dist: dist(from, to), exp: '' });
+    cur = rows.length - 1; tab = '運行'; screen = 'go'; flash = { cell: '', row: cur };
+    drawTabs(); renderAll(); showSheet('5');
+    toast('シートと一覧に、1行が自動で入りました。大きなボタンを押してみてください');
+  }
+  function startRow(i) {
+    cur = i; screen = 'go'; flash = { cell: '', row: -1 }; renderAll(); showSheet('7');
+    try { document.querySelector('.phone').scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+    toast(rows[i].id + ' の誘導画面を開きました');
+  }
+  function stamp(s) {
+    if (cur < 0) return;
+    var r = rows[cur], i = STEPS.indexOf(s);
+    if (r.t[s] !== '' || (i > 0 && r.t[STEPS[i - 1]] === '')) return;
+    var now = new Date(); r.t[s] = p2(now.getHours()) + ':' + p2(now.getMinutes());
+    flash = { cell: cur + '|t' + s, row: -1 };
+    renderAll(); showSheet(String(7 + i));
+    toast(STEP_NAME[s] + ' ' + r.t[s] + ' が、シートと一覧に自動で入りました');
+  }
+  init();
+})();
+</script>
+</body>
+</html>

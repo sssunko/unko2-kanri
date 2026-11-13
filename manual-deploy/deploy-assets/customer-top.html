@@ -239,7 +239,7 @@
                 <tr>
                     <td class="td-item">監査書類</td>
                     <td class="td-excel">月末に事務員が徹夜で帳尻合わせ。ミスが怖くて毎回ヒヤヒヤ</td>
-                    <td class="td-sys">点呼ボタンを押すだけで点呼記録簿・乗務記録が自動完成</td>
+                    <td class="td-sys">点呼ボタンを押すだけで、点呼・乗務の記録（集計表）が自動で完成。さらにメニューの「監査用表生成」で、拘束時間・休憩の確認表も月ごとに作成</td>
                 </tr>
                 <tr>
                     <td class="td-item">損益管理</td>
@@ -254,17 +254,17 @@
                 <tr>
                     <td class="td-item">距離計算</td>
                     <td class="td-excel">毎回Googleマップで調べてメモ。1行程につき2〜3分のロス</td>
-                    <td class="td-sys">目的地を入力するだけでAIが実走距離を自動算出・自動記載</td>
+                    <td class="td-sys">地名を入力するだけで、Googleの地図で走行距離を自動計算して記載。夜間にも未計算分を自動で計算</td>
                 </tr>
                 <tr>
                     <td class="td-item">ETC照合</td>
                     <td class="td-excel">明細書と日報を目で見比べる苦行。月末に数時間かかる</td>
-                    <td class="td-sys">ETC明細CSVを読み込ませるだけ。カード番号×運行日で全自動紐付け</td>
+                    <td class="td-sys">ETC明細CSVを読み込ませるだけ。車番と利用日時を運行の時刻に突き合わせて、実費高速に自動反映</td>
                 </tr>
                 <tr>
                     <td class="td-item">月末処理</td>
                     <td class="td-excel">翌月ファイルのコピー、旧データの整理、数式の引き直し……</td>
-                    <td class="td-sys">「月またぎ処理」ボタン1つ。アーカイブ＆翌月ファイル生成まで全自動</td>
+                    <td class="td-sys">メニューの「翌月分生成」1つで、前月のアーカイブと翌月分の生成まで自動</td>
                 </tr>
                 <tr>
                     <td class="td-item">ドライバー報告</td>
@@ -275,6 +275,26 @@
                     <td class="td-item">複数人での同時操作</td>
                     <td class="td-excel">Excelは共有が難しく、同時編集でファイルが壊れるリスクあり</td>
                     <td class="td-sys">本社・支店・外出先から同時にアクセス可能。ドライバーの打刻が重なっても順番に処理され重複しない</td>
+                </tr>
+                <tr>
+                    <td class="td-item">給料・歩合の計算</td>
+                    <td class="td-excel">乗務員ごとの日割り・歩合を電卓と手作業で計算。月末に数字が合わない</td>
+                    <td class="td-sys">乗務員ごとに「給料」か「歩合（%）」を決めておくだけ。支払いと利益が1行程ごとに自動で出る</td>
+                </tr>
+                <tr>
+                    <td class="td-item">高速代の請求と実費</td>
+                    <td class="td-excel">請求した高速代と実際にかかった高速代の差を、月末にまとめて確認</td>
+                    <td class="td-sys">請求と実費の差額が運行シートに自動で出る。荷主に請求できなかった分が一目でわかる</td>
+                </tr>
+                <tr>
+                    <td class="td-item">免許・健康診断の期限</td>
+                    <td class="td-excel">一人ずつ台帳を見て確認。期限切れに気づくのが遅れる</td>
+                    <td class="td-sys">免許証・安全教育・健康診断・適性診断の期限が近づくと、開いた時に自動でお知らせ＆色で表示</td>
+                </tr>
+                <tr>
+                    <td class="td-item">今のデータの移行</td>
+                    <td class="td-excel">新しいシステムごとに、手入力でデータを打ち直し</td>
+                    <td class="td-sys">今お使いのExcel・CSVのデータを貼り付けて取り込み。列の対応も自動で設定</td>
                 </tr>
             </tbody>
         </table>
@@ -288,22 +308,31 @@
 <div class="container">
 
     <div class="index reveal">
-        <h2>▼ システムに搭載された「全14」の現場特化機能</h2>
+        <h2>▼ システムに搭載された「全23」の現場特化機能</h2>
         <div class="index-grid">
             <a href="#f1" class="premium-link">👑 ① 1行程ごとの損益管理</a>
-            <a href="#f2" class="premium-link">👑 ② 監査書類の自動生成</a>
+            <a href="#f2" class="premium-link">👑 ② 点呼記録・監査用の表の自動生成</a>
             <a href="#f3" class="premium-link">👑 ③ SS×アプリ完全連動</a>
             <a href="#f4" class="premium-link">👑 ④ 事後修正できるUI</a>
             <a href="#f5">⑤ 稼がない事務の自動化</a>
             <a href="#f6">⑥ 配車漏れ・ミス防止</a>
-            <a href="#f7">⑦ 月末処理の全自動化</a>
-            <a href="#f8">⑧ 距離計算のAI丸投げ</a>
+            <a href="#f7">⑦ 月またぎをボタンで</a>
+            <a href="#f8">⑧ 距離計算は地図におまかせ</a>
             <a href="#f9">⑨ 就業時間内だけの時刻管理</a>
             <a href="#f10">⑩ 運行報告の自動化</a>
             <a href="#f11">⑪ 車番連絡ワンクリック</a>
             <a href="#f12">⑫ 受領書の「耳」出力</a>
             <a href="#f13">⑬ ETC明細データの連携</a>
             <a href="#f14">⑭ 請求・会計ソフト連携</a>
+            <a href="#f15">⑮ 高速代の請求と実費の差額管理</a>
+            <a href="#f16">⑯ 給料・歩合の自動計算</a>
+            <a href="#f17">⑰ 資格期限のお知らせ</a>
+            <a href="#f18">⑱ Excel・CSVの取り込み</a>
+            <a href="#f19">⑲ 発注書・指示書の作成</a>
+            <a href="#f20">⑳ 「戻る」「進む」ボタン</a>
+            <a href="#f21">㉑ 支払確認書・損益（PL）表</a>
+            <a href="#f22">㉒ 写真・書類の取込</a>
+            <a href="#f23">㉓ 自動バックアップ・自動復元</a>
         </div>
     </div>
 
@@ -313,23 +342,24 @@
         <div class="badge">独占機能 1</div>
         <h3 class="text-gold">① 1行程ごとの「損益」がその場で即見える</h3>
         <p><span class="ib">「この荷物、</span><span class="ib">結局いくら儲かっているのか？」</span><span class="ib">という不安を根絶します。</span></p>
-        <p><span class="ib">1運行ごとに経費と利益を即座に自動算出。</span><span class="ib">利益の少ない運行をピンポイントで特定し、</span><span class="ib">荷主との運賃交渉の確固たる材料として活用できます。</span></p>
+        <p><span class="ib">運行を入れると、1運行ごとに売上・燃料代・支払い・経費・利益がすぐ自動で表示されます。</span><span class="ib">利益がマイナスの行は、薄い赤で色が付きます。</span></p>
+        <p><span class="ib">利益の少ない運行をピンポイントで特定し、</span><span class="ib">荷主との運賃交渉の材料として活用できます。</span></p>
         
         <p class="note-text"><span class="ib">※表示される利益はおおよその金額です。</span><br><span class="ib">正確な利益算出には、事前に車両ごとの経費や歩合などの設定が必要です。</span></p>
         
         <div class="ss-img-wrap"><img src="images/ss-profit-per-trip.png" alt="行程ごとの損益管理・利益一覧画面"></div>
         <div class="ss-img-wrap"><img src="images/ss-vehicle-fixed-costs.png" alt="車両固定費管理シート"></div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f2" class="premium-detail reveal">
         <div class="badge">独占機能 2</div>
-        <h3 class="text-gold">② アプリの点呼ボタンが「監査書類」に直結</h3>
-        <p><span class="ib">乗務員がスマホで「点呼」ボタンを押すだけ。</span><span class="ib">その操作が、国交省の監査で求められる点呼記録簿や乗務記録の自動完成に直結します。</span></p>
-        <p><span class="ib">月末に事務員が徹夜して帳尻を合わせる地獄の作業は、</span><span class="ib">今日で完全に終わります。</span></p>
+        <h3 class="text-gold">② アプリの点呼ボタンが「点呼・乗務の記録」と「監査用の表」に直結</h3>
+        <p><span class="ib">乗務員がスマホで「点呼」ボタンを押すだけ。</span><span class="ib">点呼前後の完了時刻が集計表に自動で入り、拘束時間まで計算されて、乗務の記録（運行表）が自動で完成します。</span></p>
+        <p><span class="ib">さらにメニューの「監査用表生成」で、拘束時間・休憩の取り方を確認する監査用の表を、</span><span class="ib">月ごとの小計つきで作成。基準を超えた所は色が付きます。</span></p>
         <span class="note-text">※出力される帳票の法定書類としての有効性は保証しておりません。実際の監査対応については所轄の運輸支局にご確認ください（利用規約第8条）。</span>
         <div class="img-slot"><img src="images/app-pre-check-done.png" alt="業務前点検・全項目確認済み画面"></div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f3" class="premium-detail reveal">
@@ -338,13 +368,13 @@
         <p><span class="ib">事務所は使い慣れたExcelに通ずる「Googleスプレッドシート（GAS制御）」を採用。</span><span class="ib">Googleの堅牢なインフラを基盤としているため、高いセキュリティ水準を実現しています。</span></p>
         <p><span class="ib">現場の入力データは裏側で秒単位で同期。</span><span class="ib">スプレッドシートはPCでもスマホのブラウザからでもアクセスできるため、</span><span class="ib">外出先からでも運行状況をリアルタイムで確認できます。</span></p>
         <div class="img-slot"><img src="images/app-home-2.png" alt="ドライバーアプリのホーム画面"></div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f4" class="premium-detail reveal">
         <div class="badge">独占機能 4</div>
         <h3 class="text-gold">④ 圏外も押し忘れも怖くない。「事後修正」対応UI</h3>
-        <p><span class="ib">電波が届かない場所でのエラーや、</span><span class="ib">ボタンの押し忘れにも柔軟に後から事後修正ができる仕様です。</span></p>
+        <p><span class="ib">電波が届かない場所でボタンを押せなかった時も、</span><span class="ib">ボタンの押し忘れにも、柔軟に後から事後修正ができる仕様です。</span></p>
         <p><span class="ib">一度押したら変更できず現場がパニックになる</span><span class="ib">ガチガチなシステムとは違う、</span><span class="ib">現場を回すための究極のUIです。</span></p>
         <div class="flow-imgs">
           <div class="flow-label">📱 アプリの一覧で空欄をタップ → そのまま後から時刻を入力</div>
@@ -353,7 +383,7 @@
           <div class="flow-label">🖥 スプレッドシートのセルをクリック → 日時ピッカーで入力・修正</div>
           <div class="img-full"><img src="images/ss-retroactive-datepicker.png" alt="SSで積完時刻セルをクリック・日時ピッカーで事後修正（赤枠）"></div>
         </div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div style="text-align: center;"><h2 class="section-title standard-title reveal">現場の「面倒」を全滅させる全機能</h2></div>
@@ -373,39 +403,42 @@
           <div class="ss-img-wrap"><img src="images/ss-trip-submitted-row.png" alt="スプレッドシート・行程データ1行自動反映"></div>
           <div class="ss-img-wrap"><img src="images/ss-operation-management-view.png" alt="スプレッドシート運行管理ビュー・自動反映"></div>
         </div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f6" class="detail reveal">
         <h3>⑥ 配車漏れ・うっかりミスの「視覚的」防止</h3>
         <p><span class="ib">休みの乗務員はグレーアウト、</span><span class="ib">配車が埋まっていない積地には色が付きます。</span></p>
         <p><span class="ib">PC画面を一瞥するだけでミスを発見でき、</span><span class="ib">「休みの日なのにトラックを当ててしまった」等のエラーを未然に防ぎます。</span></p>
+        <p><span class="ib">メニューの「配車ダッシュボード」では、</span><span class="ib">本日の運行のうち、積地が決まっていない行だけを一覧で表示。タップすると、その行へすぐ飛べます。</span></p>
         <div class="ss-img-wrap"><img src="images/ss-dispatch-sheet-warning.png" alt="配車管理シート・未入力セル着色警告画面"></div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <div class="img-slot"><img src="images/ss-dispatch-dashboard.png" alt="配車ダッシュボード・配車漏れチェック"></div>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f7" class="detail reveal">
-        <h3>⑦ 月末月初の「月またぎ処理」全自動化</h3>
-        <p><span class="ib">事務員が殺気立つ月末の面倒な移行作業が、ボタン一つで全自動処理されます。</span></p>
-        <p><span class="ib">自動で当月の運行データをアーカイブし、次月用ファイルを生成。</span><span class="ib">過去データを間違えて消してしまうリスクを排除します。</span></p>
-        <div class="img-slot-menu"><img src="images/ss-main-menu.png" alt="月またぎ処理・システムメニュー画面"></div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <h3>⑦ 月末月初の「月またぎ」を、メニューのボタンで</h3>
+        <p><span class="ib">事務員が殺気立つ月末の面倒な移行作業が、メニューの「月次処理」のボタンで済みます。</span></p>
+        <p><span class="ib">「翌月分生成」で、前月分のアーカイブと翌月分の生成まで自動。</span><span class="ib">「今月分生成」「前月分アーカイブ」も、それぞれ単独で使えます。過去データを間違えて消してしまうリスクを減らします。</span></p>
+        <div class="img-slot-menu"><img src="images/ss-main-menu.png" alt="月次処理（今月分・翌月分・前月アーカイブ）のメニュー"></div>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f8" class="detail reveal">
-        <h3>⑧ 面倒な距離計算の「AI丸投げ」</h3>
-        <p><span class="ib">目的地を入力するだけで、</span><span class="ib">AIが正確な実走距離を自動算出してシートに記載。</span></p>
-        <p><span class="ib">毎回ネットでルート検索して距離をメモする、</span><span class="ib">あの細かい手間が一切なくなります。</span></p>
-        <div class="img-slot"><img src="images/ss-menu-distance-calc.png" alt="メニューの住所確認（未計算分）・AI距離計算機能"></div>
+        <h3>⑧ 面倒な距離計算は、地図におまかせ</h3>
+        <p><span class="ib">積地・降地の地名を入力するだけで、</span><span class="ib">Googleの地図で走行距離を自動計算して、シートに記載します。</span></p>
+        <p><span class="ib">毎回ネットでルート検索して距離をメモする、</span><span class="ib">あの細かい手間がなくなります。夜間にも、未計算の行を自動で計算します。</span></p>
+        <p><span class="ib">同じ名前の地名が複数ある時は、</span><span class="ib">メニューの「住所確認」で選べます。</span></p>
+        <div class="img-slot"><img src="images/ss-menu-distance-calc.png" alt="メニューの距離計算（未計算分）・住所確認"></div>
         <div class="ss-img-wrap"><img src="images/ss-trip-distance-column.png" alt="行程ごとの距離が自動入力されたスプレッドシート"></div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f9" class="detail reveal">
         <h3>⑨ プライベートを守る「就業時間内だけ」の管理</h3>
         <p><span class="ib">点呼・積込・休憩・降完など、</span><span class="ib">ドライバーがボタンを押した瞬間の時刻だけをSSとアプリの一覧に記録します。</span></p>
         <p><span class="ib">就業時間外は一切追跡しないため、</span><span class="ib">「家まで監視されている」というドライバーの不満をゼロにし、離職防止につながります。</span></p>
-        <p><span class="ib">位置情報はデジタコ等で必要な範囲のみ管理。</span><span class="ib">信頼関係を守りながら運行を把握できる設計です。</span></p>
+        <p><span class="ib">24時間の位置情報の監視はしません。</span><span class="ib">このアプリは位置情報を取得せず、会社に伝わるのは、ボタンを押した時刻だけ。</span><span class="ib">必要な範囲のみ管理して、信頼関係を守りながら運行を把握できる設計です。</span></p>
         <div class="flow-label">📱 ドライバーのアプリ操作フロー</div>
         <div class="app-flow-grid">
           <div class="app-step"><p class="step-label">① 行程入力</p><img src="images/app-flow-trip-input.png" alt="行程入力"></div>
@@ -420,7 +453,7 @@
         <div class="flow-arrow">▼ ボタンを押した瞬間の時刻がSSへ自動記録</div>
         <div class="ss-img-wrap"><img src="images/ss-timestamps-basic.png" alt="SSに全時刻が自動反映された運行管理ビュー"></div>
         <div class="ss-img-wrap"><img src="images/ss-timestamps-full.png" alt="SSに全データが反映された行"></div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f10" class="detail reveal">
@@ -434,23 +467,24 @@
         <div class="ss-img-wrap"><img src="images/ss-trip-list-timestamps.png" alt="SSの運行一覧・打刻時刻が自動反映"></div>
         <div class="flow-label">📱 アプリの運行一覧でも時刻確認</div>
         <div class="ss-img-wrap"><img src="images/app-trip-list-timestamps.png" alt="アプリの運行一覧・打刻時刻が表示された状態"></div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f11" class="detail reveal">
-        <h3>⑪ 荷主への「車番連絡」ワンクリック送信</h3>
-        <p><span class="ib">配車確定後、車番情報を荷主のアドレス等へ即座に一括送信します。</span></p>
-        <p><span class="ib">毎日発生する電話やFAXでの「明日の車番まだ？」という催促をシャットアウトし、</span><span class="ib">精神的負担を下げます。</span></p>
+        <h3>⑪ 荷主への「車番連絡」を、運行の行から作成・送信</h3>
+        <p><span class="ib">運行シートの行を選んで、メニューの「車番連絡を作成（荷主用）」を押すと、</span><span class="ib">車番・乗務員・携帯番号などをまとめた車番連絡書ができます。</span></p>
+        <p><span class="ib">毎日発生する「明日の車番まだ？」という連絡の手間を減らします。</span><span class="ib">送った日時は、運行シートに自動で記録されます。</span></p>
         <div class="img-slot"><img src="images/ss-menu-vehicle-notice.png" alt="メニュー：帳票・送信メニューから車番連絡を選択（赤枠）"></div>
         <div class="flow-arrow">▼ 車番連絡書を自動生成・そのまま送信</div>
         <div class="img-slot"><img src="images/ss-vehicle-notice-dialog.png" alt="車番連絡ダイアログ・印刷/PDF/メール/FAX送信ボタン（赤枠）"></div>
-        <p class="step-note">↑ 右上から印刷・PDF保存・メール送信・FAX送信とお好きな方法で荷主へ即送信できます。</p>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <p class="step-note">↑ 右上から、印刷・PDF保存・メール送信・FAX送信のお好きな方法で荷主へ送れます。</p>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f12" class="detail reveal">
         <h3>⑫ 受領書の「耳（控え）」自動生成</h3>
-        <p><span class="ib">納品時に現場で必ず必要になる受領書の「耳」。</span><span class="ib">こんな細かい紙切れの処理までシステムから一括出力可能です。</span></p>
+        <p><span class="ib">納品時に現場で必要になる受領書の「耳」。</span><span class="ib">荷主・会社名・日付・車番・乗務員名・積地・降地で絞り込んで、まとめて作れます。</span></p>
+        <p><span class="ib">A4縦に1ページ21件で並び、そのまま印刷できます。</span><span class="ib">作った日時は、運行シートに自動で記録されます。</span></p>
         <p><span class="ib">現役の管理者が実務ベースで作ったからこそ、</span><span class="ib">現場の細かい処理まで完璧にカバーしています。</span></p>
         <div class="flow-pair">
           <div class="img-slot"><img src="images/ss-menu-receipt-ear.png" alt="メニュー：受領書の耳生成"></div>
@@ -458,32 +492,107 @@
           <div class="img-slot"><img src="images/ss-receipt-ear-pdf-btn.png" alt="受領書の耳生成・PDF出力ボタン"></div>
         </div>
         <div class="img-full"><img src="images/ss-receipt-ear-preview.png" alt="受領書の耳・一覧プレビュー"></div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f13" class="detail reveal">
         <h3>⑬ ETC利用明細データの自動連携</h3>
-        <p><span class="ib">高速代のETC明細（CSV）を読み込ませるだけで、</span><span class="ib">カード番号と運行日時を突き合わせて各行程に自動反映します。</span></p>
-        <p><span class="ib">膨大な明細書と日報を見比べる苦痛な照合作業を完全にゼロにします。</span></p>
+        <p><span class="ib">高速代のETC明細（CSV）を読み込ませるだけで、</span><span class="ib">車番と利用日時を、各行程の時刻（前の行程の降完〜この行程の降完）に突き合わせて、実費高速に自動で入れます。</span></p>
+        <p><span class="ib">膨大な明細書と日報を見比べる苦痛な照合作業をなくします。</span><span class="ib">手で入れた実費高速は、上書きするかどうかを確認してから反映します。</span></p>
         <div class="flow-pair">
           <div class="img-slot"><img src="images/ss-menu-etc-import.png" alt="メニュー：ETC利用明細の読み込み操作"></div>
           <div class="img-slot"><img src="images/ss-etc-file-select.png" alt="ETC利用明細CSVファイル選択画面"></div>
         </div>
         <p class="step-note">↑ ここにETC利用明細（CSV）をドロップするだけ。車番・日時を自動で読み取り、該当行程に高速代を自動反映します。</p>
         <div class="img-slot-sm"><img src="images/ss-etc-highway-cols.png" alt="行程ごとにETC高速代が自動反映されたスプレッドシート"></div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="f14" class="detail reveal">
         <h3>⑭ 請求書一発生成 ＆ 会計ソフト連携</h3>
-        <p><span class="ib">月末に締めボタンを押すだけで、</span><span class="ib">運賃データを荷主ごとに集計した請求書用データが一発で生成されます。</span></p>
+        <p><span class="ib">荷主（取引先）と期間を選んで「生成」を押すだけで、</span><span class="ib">売上・高速代・消費税・合計金額を自動で計算した請求書を、荷主ごとに作ります。複数社を選んだ時は、1社1ページで並べて、まとめて印刷・一括送信（メール・FAX）できます。</span></p>
         <p><span class="ib">全データをCSVで出力し、</span><span class="ib">お使いの会計ソフトへ読み込ませるだけで経理の転記ミスも防げます。</span></p>
         <div class="flow-pair">
           <div class="img-slot"><img src="images/ss-invoice-generate-dialog.png" alt="請求書生成ダイアログ・宛先と期間を選択"></div>
           <div class="img-slot"><img src="images/ss-csv-export-list.png" alt="データ出力・CSV一覧画面"></div>
         </div>
         <div class="img-slot-doc"><img src="images/ss-invoice-preview-formatted.png" alt="生成された請求書プレビュー（整形済み）"></div>
-        <a href="#cta-section" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+    </div>
+
+    <div id="f15" class="detail reveal">
+        <h3>⑮ 高速代の「請求」と「実費」の差額が、自動でわかる</h3>
+        <p><span class="ib">運行シートに請求高速代を入れると、</span><span class="ib">実費高速代にも同じ金額が自動で入ります。</span></p>
+        <p><span class="ib">請求と実費に差があると、「合計（高速代）」の列に差額が自動で表示されます。</span><span class="ib">金額を直しても、差額は自動で更新されます。</span></p>
+        <p><span class="ib">荷主に請求できなかった高速代の負担が、</span><span class="ib">その場で見えます。</span></p>
+        <p><span class="ib">乗務員への支払い（歩合）の計算に、この差額を入れるかどうかは、</span><span class="ib">車ごとに選べます。</span></p>
+        <div class="ss-img-wrap"><img src="images/ss-highway-diff.png" alt="高速代の請求・実費・差額の自動計算"></div>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+    </div>
+
+    <div id="f16" class="detail reveal">
+        <h3>⑯ 乗務員ごとに「給料」か「歩合（%）」を決めるだけ。支払いと利益が自動</h3>
+        <p><span class="ib">自車専属マスタに、乗務員（車）ごとの「給料」か「％」を入れておくだけ。</span><span class="ib">運行を入れると、支払い・燃料代・経費・利益が1行程ごとに自動で計算されます。</span></p>
+        <p><span class="ib">給料は、出勤日に「給料÷日数」を1日分ずつ。</span><span class="ib">休みの日は0円、有休の日は有休手当（設定した日額）が入ります。</span></p>
+        <p><span class="ib">歩合は、売上に「％」を掛けて計算します。</span></p>
+        <p style="font-size:0.9rem;color:#64748b;">※表示される利益はおおよその金額です。正確な計算には、車両ごとの設定が必要です。</p>
+        <div class="ss-img-wrap"><img src="images/ss-salary-profit.png" alt="集計表・売上から支払い・経費・利益までの自動計算"></div>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+    </div>
+
+    <div id="f17" class="detail reveal">
+        <h3>⑰ 免許証・健康診断の期限切れを、開いた時に自動でお知らせ</h3>
+        <p><span class="ib">免許証・安全教育・健康診断・適性診断の期限を、</span><span class="ib">スプレッドシートを開くたびに、全乗務員分チェックします。</span></p>
+        <p><span class="ib">免許証は期限の60日前から、安全教育・健康診断・適性診断は30日前から、</span><span class="ib">一覧でお知らせ。運行シートの色でも、期限が近い乗務員がひと目でわかります。</span></p>
+        <div class="ss-img-wrap"><img src="images/ss-expiry-popup.png" alt="資格期限のアラート画面"></div>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+    </div>
+
+    <div id="f18" class="detail reveal">
+        <h3>⑱ 今お使いのExcel・CSVのデータを、貼り付けて取り込み</h3>
+        <p><span class="ib">運行・自車専属マスタ・取引先マスタのデータを、</span><span class="ib">取込用のシートに貼り付けるだけ。</span></p>
+        <p><span class="ib">列の対応は自動で設定され、確認してから反映します。</span><span class="ib">運行シートは、同じデータが重なっても自動で飛ばします。</span></p>
+        <p><span class="ib">導入時のデータ移行で、手入力を打ち直す必要はありません。</span></p>
+        <div class="ss-img-wrap"><img src="images/ss-paste-import-map.png" alt="貼付データの列の対応を自動設定"></div>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+    </div>
+
+    <div id="f19" class="detail reveal">
+        <h3>⑲ 発注書・指示書を、運行の行からその場で作成</h3>
+        <p><span class="ib">運行シートの行を選んで、協力会社や乗務員向けの発注書・指示書を作成。</span><span class="ib">印刷・PDF保存・メール・FAXで送れます。</span></p>
+        <p><span class="ib">送った日時は運行シートに自動で記録され、</span><span class="ib">送り先の会社名・電話番号・担当者・住所は履歴に残るので、次からは選ぶだけです。</span></p>
+        <div class="ss-img-wrap"><img src="images/ss-shijisho-filled.png" alt="指示書の送り先の入力"></div>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+    </div>
+
+    <div id="f20" class="detail reveal">
+        <h3>⑳ 間違えても安心。メニューの「戻る」「進む」</h3>
+        <p><span class="ib">シートに手で入力した分は、メニューの「↩ 戻る」「↪ 進む」で、</span><span class="ib">入力した順に1個ずつ戻せます（20回まで）。</span></p>
+        <p><span class="ib">その入力で自動で入った値も、一緒に戻ります。</span></p>
+        <p style="font-size:0.9rem;color:#64748b;">※シートの画面で手入力した分が対象です。メニューからの一括処理・乗務員アプリからの入力は対象外です。</p>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+    </div>
+
+    <div id="f21" class="detail reveal">
+        <h3>㉑ 支払確認書と、期間ごとの損益（PL）表</h3>
+        <p><span class="ib">集計表をもとに、会社名・車番・乗務員名と期間を選んで「支払確認書」を作成できます。</span></p>
+        <p><span class="ib">「PL作成」では、期間と荷主・会社・車番・乗務員で絞り込み、PL設定の固定費を按分して、損益の表を作ります。</span><span class="ib">利益の少ない荷主や車の洗い出しに使えます。</span></p>
+        <p style="font-size:0.9rem;color:#64748b;">※表示される利益はおおよその金額です。正確な計算には、設定が必要です。</p>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+    </div>
+
+    <div id="f22" class="detail reveal">
+        <h3>㉒ 運行の写真・書類を、行ごとに保管</h3>
+        <p><span class="ib">運行シートの行を選んで「写真・ファイル取込」を押すと、PDFや画像（複数可）を取り込めます。</span><span class="ib">取り込んだファイルのリンクが、その行に自動で残ります。</span></p>
+        <div class="ss-img-wrap"><img src="images/ss-photo-upload-sidebar.png" alt="写真・ファイル取込のサイドバー"></div>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
+    </div>
+
+    <div id="f23" class="detail reveal">
+        <h3>㉓ 消してしまっても安心。自動バックアップと自動復元</h3>
+        <p><span class="ib">見出しの行を消したり書き換えたりしても、自動で元の見出しに戻ります。</span><span class="ib">客が見るシートを消してしまった時は、消す直前と同じ状態に自動で戻します。</span></p>
+        <p><span class="ib">全シートは、1日1回自動でバックアップ。メニューの「バックアップから復旧」で戻せます。</span></p>
+        <a href="demo.html" target="_blank" rel="noopener" class="inline-cta">▶︎ 詳しくはお試しで体感する（無料）</a>
     </div>
 
     <div id="cta-section" class="cta reveal">
@@ -496,9 +605,9 @@
             <span class="ib">LINEの「無料お試し」をご登録いただくと、</span><span class="ib">実際のアプリをお手元のスマホで今すぐ触っていただけます。</span><br>
             <span class="ib">現場が変わる瞬間を、まずは無料で体感してください。</span>
         </p>
-        <a style="padding:12px 30px;font-size:1.1rem;" href="https://lin.ee/qtknMP0" target="_blank" rel="noopener" class="btn">スマホの方：LINEで無料お試しを始める</a>
+        <a style="padding:12px 30px;font-size:1.1rem;" href="#" data-hold-href="https://lin.ee/qtknMP0" onclick="alert('ただいま準備中です。');return false;" class="btn">スマホの方：LINEで無料お試しを始める <span style="font-size:.85em;opacity:.9;">（準備中）</span></a>
         <br>
-        <a href="https://script.google.com/macros/s/AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU/exec?page=signup" target="_blank" rel="noopener" class="btn" style="padding:12px 30px;font-size:1.1rem;margin-top:12px;background:#60a5fa;color:#0f172a;">パソコンの方：申し込みフォームから始める</a>
+        <a href="#" data-hold-href="https://script.google.com/macros/s/AKfycbw7rzkd_SuE1I6BNzEjED4Mxl6cnM4wbswIiRiNoPf5zcSS2JcP6YLkfRV21fLc0opU/exec?page=signup" onclick="alert('ただいま準備中です。');return false;" class="btn" style="padding:12px 30px;font-size:1.1rem;margin-top:12px;background:#60a5fa;color:#0f172a;">パソコンの方：申し込みフォームから始める <span style="font-size:.85em;opacity:.9;">（準備中）</span></a>
     </div>
 </div>
 
